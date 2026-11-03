@@ -43,6 +43,12 @@ describe('OpenAPI document', () => {
     }
   });
 
+  it('documents 401 for a failed login', () => {
+    const op = opFor(routes.login as RouteDef)!;
+    expect(Object.keys(op.responses)).toContain('401');
+    expect(JSON.stringify(op.responses['401'])).toContain('email or password is incorrect');
+  });
+
   it('describes the SSE endpoint', () => {
     const op = doc.paths[EVENTS_PATH]!.get!;
     expect(Object.keys(op.responses['200'] as object)).toContain('content');

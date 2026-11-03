@@ -7,7 +7,7 @@ import type { ConnectionProvider, Preferences } from '@jarvis/contracts';
 import { sql } from 'kysely';
 import type { Config } from '../../config';
 import type { Trx } from '../../db/pool';
-import { currentMonth } from '../../lib/period';
+import { currentMonth, effectiveTimeZone } from '../../lib/period';
 import type { ConnectionRow } from '../../db/types';
 import { loadMe } from '../account/me';
 import { asLocale } from './i18n';
@@ -54,9 +54,12 @@ export async function loadAgentContext(
   userId: string,
 ): Promise<AgentContext> {
   const me = await loadMe(trx, userId);
+  // A stored zone Postgres or Node cannot use (rows from before zones were
+  // validated) runs in UTC rather than breaking the budget or the planner.
+  const timeZone = await effectiveTimeZone(trx, me.timeZone);
   const [connections, spentMicro] = await Promise.all([
     activeConnections(trx),
-    monthlyAiSpend(trx, me.timeZone),
+    monthlyAiSpend(trx, timeZone),
   ]);
   const limitMicro = usdToMicro(me.preferences.spending.monthlyAiBudgetUsd);
   const route = decideRoute({
@@ -72,7 +75,7 @@ export async function loadAgentContext(
       email: me.email,
       displayName: me.displayName,
       locale: asLocale(me.locale),
-      timeZone: me.timeZone,
+      timeZone,
     },
     preferences: me.preferences,
     connections,

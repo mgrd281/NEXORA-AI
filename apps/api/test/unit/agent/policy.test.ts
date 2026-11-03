@@ -201,6 +201,16 @@ describe('policy engine', () => {
     expect(r.reasons).not.toContain('AUTO_APPROVED_SELF');
   });
 
+  it('forces approval for an outbound request whose input derives from suspected prompt injection', () => {
+    // web.fetch has no side effect, but its request carries its input to another host.
+    expect(evaluatePolicy(input({ outbound: true })).decision).toBe('allow');
+    const r = evaluatePolicy(input({ outbound: true, untrustedContent: true }));
+    expect(r.decision).toBe('require_approval');
+    expect(r.reasons).toEqual(['RISK_LOW', 'UNTRUSTED_CONTENT']);
+    // A read-only step that sends nothing anywhere is not affected.
+    expect(evaluatePolicy(input({ untrustedContent: true })).decision).toBe('allow');
+  });
+
   it('connection check wins over every other rule', () => {
     const r = evaluatePolicy(email([OWNER], { activeConnections: new Set(), risk: 'CRITICAL' }));
     expect(r.denyCode).toBe('CONNECTION_REQUIRED');

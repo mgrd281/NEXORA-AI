@@ -29,6 +29,14 @@ export async function handleExpireJob(deps: RuntimeDeps, job: JobRow): Promise<J
   if (!approvalId) return 'done';
   const ctx = ctxOf(job);
   await withContext(deps.db, ctx, async (trx) => {
+    const ref = await trx
+      .selectFrom('approvals')
+      .select(['task_id', 'status'])
+      .where('id', '=', approvalId)
+      .executeTakeFirst();
+    if (!ref || ref.status !== 'PENDING') return;
+    // Lock order: the task row, then the approval row (as cancel and decide do).
+    if (!(await tryLockTask(trx, ref.task_id))) return;
     const approval = await trx
       .selectFrom('approvals')
       .selectAll()

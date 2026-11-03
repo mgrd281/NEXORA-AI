@@ -3,7 +3,8 @@
  * the shared route table (@jarvis/contracts/routes), so path, method, auth
  * level, validation and response shape come from one place.
  */
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { randomUUID } from 'node:crypto';
+import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { sql } from 'kysely';
 import { routes, type RouteName, type RouteDef } from '@jarvis/contracts';
 import type { z } from 'zod';
@@ -109,7 +110,15 @@ export function defineRoute<N extends RouteName>(
 
       let result: unknown;
       if (idempotencyKey && ctx) {
-        result = await withIdempotency(deps, ctx, name, idempotencyKey, { params, body }, run);
+        result = await withIdempotency(
+          deps,
+          ctx,
+          req.log,
+          name,
+          idempotencyKey,
+          { params, body },
+          run,
+        );
       } else {
         result = await run();
       }
@@ -121,27 +130,75 @@ export function defineRoute<N extends RouteName>(
 }
 
 /**
+ * A claim without a stored response older than this is treated as abandoned
+ * (its request crashed, or failed and could not release it) and may be taken
+ * over. Far longer than any idempotent handler runs.
+ */
+export const IDEMPOTENCY_CLAIM_LEASE = '2 minutes';
+/** Claim attempts before a key that keeps being released and re-claimed is reported as CONFLICT. */
+const CLAIM_ATTEMPTS = 3;
+
+type Claim = { owned: true } | { owned: false; replay: unknown };
+
+/**
  * Replays the stored response for a repeated Idempotency-Key, rejects reuse of
  * a key with a different request, and reports a concurrent duplicate as CONFLICT.
+ *
+ * Only the request whose INSERT created the claim (or that took over an
+ * abandoned one) runs the handler. Each claim carries a random token, so a
+ * request stores its response into, or releases, only the claim it holds.
  */
 async function withIdempotency(
   deps: AppDeps,
   ctx: RequestContext,
+  log: FastifyBaseLogger,
   route: string,
   key: string,
   request: unknown,
   run: () => Promise<unknown>,
 ): Promise<unknown> {
   const requestHash = hashObject(request);
-  const claimed = await withContext(deps.db, ctx, async (trx) => {
-    const existing = await trx
-      .selectFrom('idempotency_keys')
-      .selectAll()
-      .where('user_id', '=', ctx.userId)
-      .where('route', '=', route)
-      .where('key', '=', key)
-      .executeTakeFirst();
-    if (existing) {
+  const token = randomUUID();
+  const claim = await withContext(deps.db, ctx, async (trx): Promise<Claim> => {
+    for (let attempt = 0; attempt < CLAIM_ATTEMPTS; attempt++) {
+      // Waits for a concurrent claim of the same key to commit or roll back.
+      const inserted = await trx
+        .insertInto('idempotency_keys')
+        .values({
+          user_id: ctx.userId,
+          tenant_id: ctx.tenantId,
+          route,
+          key,
+          request_hash: requestHash,
+          claim_token: token,
+        })
+        .onConflict((oc) => oc.columns(['user_id', 'route', 'key']).doNothing())
+        .returning('key')
+        .executeTakeFirst();
+      if (inserted) return { owned: true };
+
+      const takenOver = await trx
+        .updateTable('idempotency_keys')
+        .set({ claim_token: token, created_at: sql<Date>`now()` })
+        .where('user_id', '=', ctx.userId)
+        .where('route', '=', route)
+        .where('key', '=', key)
+        .where('request_hash', '=', requestHash)
+        .where('response_status', 'is', null)
+        .where('created_at', '<', sql<Date>`now() - ${IDEMPOTENCY_CLAIM_LEASE}::interval`)
+        .returning('key')
+        .executeTakeFirst();
+      if (takenOver) return { owned: true };
+
+      const existing = await trx
+        .selectFrom('idempotency_keys')
+        .select(['request_hash', 'response_status', 'response_body'])
+        .where('user_id', '=', ctx.userId)
+        .where('route', '=', route)
+        .where('key', '=', key)
+        .executeTakeFirst();
+      // Released between the INSERT and this read: claim it again.
+      if (!existing) continue;
       if (existing.request_hash !== requestHash) {
         throw new AppError(
           'IDEMPOTENCY_MISMATCH',
@@ -150,44 +207,43 @@ async function withIdempotency(
       }
       if (existing.response_status === null)
         throw new AppError('CONFLICT', 'An identical request is still in progress');
-      return { replay: existing.response_body };
+      return { owned: false, replay: existing.response_body };
     }
-    await trx
-      .insertInto('idempotency_keys')
-      .values({
-        user_id: ctx.userId,
-        tenant_id: ctx.tenantId,
-        route,
-        key,
-        request_hash: requestHash,
-      })
-      .onConflict((oc) => oc.doNothing())
-      .execute();
-    return null;
+    throw new AppError('CONFLICT', 'An identical request is still in progress');
   });
-  if (claimed) return claimed.replay;
+  if (!claim.owned) return claim.replay;
+
   try {
     const result = await run();
-    await withContext(deps.db, ctx, (trx) =>
+    const stored = await withContext(deps.db, ctx, (trx) =>
       trx
         .updateTable('idempotency_keys')
         .set({ response_status: 200, response_body: JSON.stringify(result ?? null) })
         .where('user_id', '=', ctx.userId)
         .where('route', '=', route)
         .where('key', '=', key)
-        .execute(),
+        .where('claim_token', '=', token)
+        .where('response_status', 'is', null)
+        .executeTakeFirst(),
     );
+    if (Number(stored.numUpdatedRows) === 0)
+      log.warn({ route }, 'idempotency claim was taken over before its response was stored');
     return result;
   } catch (err) {
-    // Release the key so the client can retry after a failure.
+    // Release this request's own claim, still unanswered, so the client can retry.
+    // A claim left behind (e.g. the database is down) is taken over after the lease.
     await withContext(deps.db, ctx, (trx) =>
       trx
         .deleteFrom('idempotency_keys')
         .where('user_id', '=', ctx.userId)
         .where('route', '=', route)
         .where('key', '=', key)
+        .where('claim_token', '=', token)
+        .where('response_status', 'is', null)
         .execute(),
-    ).catch(() => undefined);
+    ).catch((releaseErr: unknown) =>
+      log.warn({ err: releaseErr, route }, 'idempotency claim release failed'),
+    );
     throw err;
   }
 }

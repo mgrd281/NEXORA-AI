@@ -139,6 +139,13 @@ export interface ToolDefinition<I> {
   ): { details: ApprovalDetails; summary: string; summaryMessage: ServerMessage | null };
   /** Recipients of an outbound message, for policy (email.send only). */
   recipients?(input: I): string[];
+  /**
+   * URLs the tool sends requests to (web.fetch only). Even a read-only request
+   * carries its URL to another host, so plan validation requires each to be on
+   * a site written in the request, and the policy treats the step as outbound
+   * (input derived from suspected prompt injection needs approval).
+   */
+  urls?(input: I): string[];
   execute(input: I, rt: ToolRuntime, signal: AbortSignal): Promise<ToolResult>;
   verify(input: I, output: Record<string, unknown>): Verification;
   /** Security-relevant audit entry written when the execution succeeds (metadata only, never content). */

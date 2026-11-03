@@ -13,10 +13,19 @@ import { z } from 'zod';
 import { AppError } from '../../lib/errors';
 
 const MICROS_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
+/**
+ * Every stored row is newer than this. It also keeps tampered cursors inside
+ * the range Postgres accepts: JavaScript round-trips year 0000, timestamptz rejects it.
+ */
+const MIN_YEAR = 1970;
 
-/** True for a real UTC instant in the exact `YYYY-MM-DDTHH:MM:SS.ffffffZ` form. */
+/**
+ * True for a real UTC instant in the exact `YYYY-MM-DDTHH:MM:SS.ffffffZ` form,
+ * in the years 1970–9999.
+ */
 export function isMicrosecondIso(value: string): boolean {
   if (!MICROS_ISO.test(value)) return false;
+  if (Number(value.slice(0, 4)) < MIN_YEAR) return false;
   // Round-trip the millisecond prefix so impossible dates (Feb 30) are rejected.
   const ms = `${value.slice(0, 23)}Z`;
   const d = new Date(ms);

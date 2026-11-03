@@ -1,8 +1,12 @@
 /**
- * Approval decisions. The approval row is locked, must be visible (RLS → else
- * NOT_FOUND), PENDING (else INVALID_STATE), unexpired (else it is marked
- * EXPIRED and APPROVAL_EXPIRED is returned) and the submitted actionHash must
- * equal the stored hash of exactly what was shown (else APPROVAL_MISMATCH).
+ * Approval decisions. The approval must be visible (RLS → else NOT_FOUND),
+ * PENDING (else INVALID_STATE), unexpired (else it is marked EXPIRED and
+ * APPROVAL_EXPIRED is returned) and the submitted actionHash must equal the
+ * stored hash of exactly what was shown (else APPROVAL_MISMATCH).
+ *
+ * Lock order: the task row, then the approval row — the order cancel, the
+ * executor and the approval.expire job use too. The opposite order deadlocks
+ * with a concurrent cancel (Postgres aborts one transaction with 40P01).
  */
 import type { Approval, ApprovalDecisionRequest, Platform } from '@jarvis/contracts';
 import { withContext, type DbContext } from '../../db/pool';
@@ -28,6 +32,14 @@ export function createApprovalService(deps: AgentDeps): ApprovalService {
     channel: Platform,
   ): Promise<Approval> {
     const outcome = await withContext(db, ctx, async (trx) => {
+      const ref = await trx
+        .selectFrom('approvals')
+        .select('task_id')
+        .where('id', '=', approvalId)
+        .executeTakeFirst();
+      if (!ref) throw notFound('Approval');
+      const task = await lockTask(trx, ref.task_id);
+      // Locked after the task, then re-read: a concurrent cancel or expiry may have closed it.
       const approval = await trx
         .selectFrom('approvals')
         .selectAll()
@@ -47,7 +59,6 @@ export function createApprovalService(deps: AgentDeps): ApprovalService {
           'This action is not the one you reviewed. Open it again to see exactly what will happen.',
         );
       }
-      const task = await lockTask(trx, approval.task_id);
       if (task.status !== 'AWAITING_APPROVAL')
         throw invalidState('This task is not waiting for an approval.');
       const decidedAt = new Date();

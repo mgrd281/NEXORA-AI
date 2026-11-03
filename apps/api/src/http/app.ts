@@ -1,8 +1,9 @@
 import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
+import pg from 'pg';
 import { pingDb, withContext } from '../db/pool';
 import { AppError } from '../lib/errors';
 import { resolveSession, SESSION_COOKIE, touchSession } from '../modules/auth/sessions';
@@ -10,6 +11,48 @@ import type { AppDeps } from '../services';
 import './context';
 
 const UNSAFE = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+/**
+ * Postgres errors that only client data can cause once input has passed the
+ * contracts: invalid byte sequence (22021, e.g. U+0000 in text), untranslatable
+ * character (22P05, e.g. \u0000 in jsonb) and date/time field overflow (22008).
+ */
+const CLIENT_DATA_ERRORS = new Set(['22021', '22P05', '22008']);
+
+/** The session token a request carries: bearer header (native clients) or httpOnly cookie (web). */
+export function sessionToken(
+  req: Pick<FastifyRequest, 'headers' | 'cookies'>,
+): { token: string; via: 'bearer' | 'cookie' } | null {
+  const header = req.headers.authorization;
+  const bearer = header?.startsWith('Bearer ') ? header.slice(7).trim() : undefined;
+  if (bearer) return { token: bearer, via: 'bearer' };
+  const cookieToken = req.cookies[SESSION_COOKIE];
+  return cookieToken ? { token: cookieToken, via: 'cookie' } : null;
+}
+
+/**
+ * Path of the first string (value or object key) containing U+0000, or null.
+ * Postgres text and jsonb cannot store it. Iterative, so deeply nested JSON
+ * cannot exhaust the stack.
+ */
+export function findNul(value: unknown): string | null {
+  const stack: [unknown, string][] = [[value, '']];
+  const at = (path: string, key: string) => (path ? `${path}.${key}` : key);
+  while (stack.length > 0) {
+    const [v, path] = stack.pop()!;
+    if (typeof v === 'string') {
+      if (v.includes('\u0000')) return path;
+    } else if (Array.isArray(v)) {
+      v.forEach((item, i) => stack.push([item, at(path, String(i))]));
+    } else if (v !== null && typeof v === 'object') {
+      for (const [key, item] of Object.entries(v)) {
+        if (key.includes('\u0000')) return at(path, key.replaceAll('\u0000', '\\u0000'));
+        stack.push([item, at(path, key)]);
+      }
+    }
+  }
+  return null;
+}
 
 export async function buildApp(
   deps: AppDeps,
@@ -75,14 +118,11 @@ export async function buildApp(
   // Authentication: bearer token (native clients) or httpOnly cookie (web).
   app.addHook('onRequest', async (req) => {
     req.ctx = null;
-    const header = req.headers.authorization;
-    const bearer = header?.startsWith('Bearer ') ? header.slice(7).trim() : undefined;
-    const cookieToken = req.cookies[SESSION_COOKIE];
-    const token = bearer ?? cookieToken;
-    if (!token) return;
-    const s = await resolveSession(deps.db, token);
+    const presented = sessionToken(req);
+    if (!presented) return;
+    const s = await resolveSession(deps.db, presented.token);
     if (!s) return;
-    const via = bearer ? 'bearer' : 'cookie';
+    const { via } = presented;
     // CSRF: cookie-authenticated state changes must originate from the web app.
     if (via === 'cookie' && UNSAFE.has(req.method)) {
       const origin = req.headers.origin;
@@ -105,7 +145,30 @@ export async function buildApp(
     );
   });
 
+  // Text Postgres cannot store is a client error, checked once for every route
+  // before its contract validation: path parameters, query string and body.
+  app.addHook('preValidation', async (req) => {
+    const parts = [
+      ['path parameters', req.params],
+      ['query', req.query],
+      ['body', req.body],
+    ] as const;
+    for (const [where, value] of parts) {
+      const path = findNul(value);
+      if (path !== null)
+        throw new AppError('VALIDATION_FAILED', `Invalid ${where}`, {
+          issues: [{ path, message: 'Text must not contain NUL (U+0000) characters' }],
+        });
+    }
+  });
+
   app.setErrorHandler((err, req, reply) => {
+    if (err instanceof pg.DatabaseError && err.code && CLIENT_DATA_ERRORS.has(err.code)) {
+      req.log.warn({ err }, 'database rejected request data');
+      return reply.code(400).send({
+        error: { code: 'VALIDATION_FAILED', message: 'Invalid request', requestId: req.id },
+      });
+    }
     if (err instanceof AppError) {
       if (err.status >= 500) req.log.error({ err }, err.message);
       return reply.code(err.status).send({

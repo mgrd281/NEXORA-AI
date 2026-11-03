@@ -39,6 +39,12 @@ describe('cursor encoding', () => {
       ),
     ],
     [
+      'year 0000 timestamp (Postgres rejects it)',
+      Buffer.from(JSON.stringify({ t: '0000-01-01T00:00:00.000000Z', i: ID })).toString(
+        'base64url',
+      ),
+    ],
+    [
       'sql in timestamp',
       Buffer.from(JSON.stringify({ t: "2026'); drop table tasks; --", i: ID })).toString(
         'base64url',
@@ -65,6 +71,14 @@ describe('isMicrosecondIso', () => {
     expect(isMicrosecondIso('2026-11-03T15:04:05.123456+01:00')).toBe(false);
     expect(isMicrosecondIso('2026-11-03 15:04:05.123456Z')).toBe(false);
     expect(isMicrosecondIso('2026-13-03T15:04:05.123456Z')).toBe(false);
+  });
+
+  it('accepts only years a stored row can have (1970–9999)', () => {
+    expect(isMicrosecondIso('0000-01-01T00:00:00.000000Z')).toBe(false);
+    expect(isMicrosecondIso('0001-01-01T00:00:00.000000Z')).toBe(false);
+    expect(isMicrosecondIso('1969-12-31T23:59:59.999999Z')).toBe(false);
+    expect(isMicrosecondIso('1970-01-01T00:00:00.000000Z')).toBe(true);
+    expect(isMicrosecondIso('9999-12-31T23:59:59.999999Z')).toBe(true);
   });
 });
 

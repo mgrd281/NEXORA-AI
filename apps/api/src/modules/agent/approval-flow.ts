@@ -91,13 +91,18 @@ export async function requestApproval(
   return approval.id;
 }
 
-/** Marks a PENDING approval EXPIRED and expires its task (if it is still waiting on it). */
+/**
+ * Marks a PENDING approval EXPIRED and expires its task (if it is still
+ * waiting on it). Locks the task before touching the approval: the one lock
+ * order for a task and its approvals (callers should already hold it).
+ */
 export async function expireApproval(
   trx: Trx,
   ctx: DbContext,
   approval: ApprovalRow,
   actor: 'system' | 'user',
 ): Promise<void> {
+  const task = await lockTask(trx, approval.task_id);
   await trx
     .updateTable('approvals')
     .set({ status: 'EXPIRED', decided_at: new Date() })
@@ -109,7 +114,6 @@ export async function expireApproval(
     type: 'approval.decided',
     data: { approvalId: approval.id, decision: 'expired' },
   });
-  const task = await lockTask(trx, approval.task_id);
   if (task.status === 'AWAITING_APPROVAL') {
     const language = (task.language ?? 'en') as Locale;
     await cancelOpenSteps(trx, task.id);

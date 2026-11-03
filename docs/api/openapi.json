@@ -95,6 +95,16 @@
               }
             }
           },
+          "401": {
+            "description": "UNAUTHENTICATED — the email or password is incorrect, or the account is disabled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
           "429": {
             "description": "RATE_LIMITED — too many requests.",
             "content": {
@@ -2819,7 +2829,7 @@
         "operationId": "streamEvents",
         "summary": "Real-time event stream (Server-Sent Events)",
         "tags": ["events"],
-        "description": "Streams the signed-in user’s task, notification and connection events as text/event-stream. The stream starts with `retry: 3000`. Each event is framed as `id: <id>\\nevent: message\\ndata: <StreamEvent JSON>\\n\\n`; ephemeral events (e.g. `task.answer.delta`) omit `id:` and are never replayed. A `: heartbeat` comment is sent every 25 s. To resume, reconnect with `Last-Event-ID` (or `?lastEventId=`): up to the 200 newest persisted events after that id are replayed before live delivery. The `data:` payload of every frame is a StreamEvent (`x-sse-data`).",
+        "description": "Streams the signed-in user’s task, notification and connection events as text/event-stream. The stream starts with `retry: 3000`. Each event is framed as `id: <id>\\nevent: message\\ndata: <StreamEvent JSON>\\n\\n`; ephemeral events (e.g. `task.answer.delta`) omit `id:` and are never replayed. A `: heartbeat` comment is sent every 25 s. To resume, reconnect with `Last-Event-ID` (or `?lastEventId=`): up to the 200 newest persisted events after that id are replayed before live delivery. The `data:` payload of every frame is a StreamEvent (`x-sse-data`). The stream ends as soon as its session is signed out, revoked or expires, or the account is disabled or deleted; reconnecting then gets 401.",
         "parameters": [
           {
             "name": "Last-Event-ID",

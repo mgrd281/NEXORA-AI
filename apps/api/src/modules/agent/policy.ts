@@ -15,7 +15,8 @@
  *      address with autoApproveEmailToSelf → allow, AUTO_APPROVED_SELF);
  *      HIGH → approval, always
  *   6. projected cost above the remaining monthly budget → approval BUDGET_NEAR_LIMIT
- *   7. external side effect consuming content flagged as a suspected prompt
+ *   7. external side effect, or outbound request (web.fetch: its URL reaches
+ *      another host), consuming content flagged as a suspected prompt
  *      injection → approval UNTRUSTED_CONTENT (overrides auto-approval)
  */
 import type {
@@ -39,6 +40,11 @@ export interface PolicyInput {
   /** For email.send: the exact recipients. */
   recipients?: readonly string[];
   sideEffect: 'none' | 'internal' | 'external';
+  /**
+   * The tool sends requests to URLs taken from its input (web.fetch): even
+   * without a side effect, the input leaves JARVIS.
+   */
+  outbound?: boolean;
   /** Whether the tool needs a paid model ('optional' = uses one when available). */
   modelUse: 'none' | 'optional' | 'required';
   model: { available: boolean; offlineReason: OfflineReason | null };
@@ -130,8 +136,8 @@ export function evaluatePolicy(p: PolicyInput): PolicyResult {
     }
   }
 
-  // 7. Untrusted content feeding an external action
-  if (p.untrustedContent && p.sideEffect === 'external') {
+  // 7. Untrusted content feeding an external action or an outbound request
+  if (p.untrustedContent && (p.sideEffect === 'external' || p.outbound)) {
     reasons.push('UNTRUSTED_CONTENT');
     needsApproval = true;
   }

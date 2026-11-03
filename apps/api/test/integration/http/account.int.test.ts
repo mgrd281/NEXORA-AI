@@ -151,7 +151,7 @@ describe('POST /v1/account/export', () => {
     const doc = res.json<Record<string, unknown>>();
     expect(doc).toMatchObject({
       format: 'jarvis.account-export',
-      version: 1,
+      version: 2,
       profile: { id: c.user.userId, email: c.user.email },
       preferences: DEFAULT_PREFERENCES,
     });
@@ -185,6 +185,125 @@ describe('POST /v1/account/export', () => {
     expect(doc.events).toEqual([expect.objectContaining({ type: 'connection.changed' })]);
 
     // No secrets: SMTP password, its ciphertext, the session token, or any credential hash.
+    const row = await withContext(h.db, c.user, (trx) =>
+      trx.selectFrom('connections').select('secret_ciphertext').executeTakeFirstOrThrow(),
+    );
+    const ct = row.secret_ciphertext!;
+    for (const needle of [
+      SMTP_PASSWORD,
+      ct.toString('base64'),
+      ct.toString('hex'),
+      ct.toString('base64url'),
+      c.token,
+      TEST_PASSWORD,
+    ])
+      expect(res.body).not.toContain(needle);
+    expect(res.body).not.toMatch(/password|token_hash|ciphertext|secret_key|argon2/i);
+  });
+
+  it('exports stored step inputs and outputs and tool executions in full', async () => {
+    const c = await newClient(h);
+    const conn = await c.request('POST', '/v1/connections/smtp', {
+      host: '127.0.0.1',
+      port: smtpPort,
+      security: 'none',
+      username: 'me',
+      password: SMTP_PASSWORD,
+      fromAddress: 'me@example.com',
+    });
+    expect(conn.statusCode).toBe(201);
+    const taskId = await seedTask(h.db, c.user, { status: 'COMPLETED' });
+    // A body far longer than any preview, as an auto-approved email to oneself.
+    const body = `${'Personal page text. '.repeat(500)}TAIL-MARKER-PERSONAL-DATA`;
+    const input = { to: ['me@example.com'], subject: 'Notes', body: '{{s1.text}}' };
+    const resolved = { ...input, body };
+    const output = {
+      messageId: '<m1@example.com>',
+      accepted: ['me@example.com'],
+      rejected: [],
+      response: '250 2.0.0 OK queued as FULL-SMTP-RESPONSE',
+      from: 'me@example.com',
+      to: ['me@example.com'],
+      subject: 'Notes',
+    };
+    const evidence = [
+      { kind: 'smtp_receipt', label: 'SMTP 250', value: 'EVIDENCE-VALUE', at: new Date().toISOString() },
+    ];
+    const stepId = await withContext(h.db, c.user, async (trx) => {
+      const step = await trx
+        .insertInto('task_steps')
+        .values({
+          tenant_id: c.user.tenantId,
+          user_id: c.user.userId,
+          task_id: taskId,
+          position: 0,
+          step_key: 's2',
+          title: 'Email me the notes',
+          tool_id: 'email.send',
+          input: JSON.stringify(input),
+          resolved_input: JSON.stringify(resolved),
+          input_preview: JSON.stringify({ ...resolved, body: body.slice(0, 2000) }),
+          output: JSON.stringify(output),
+          output_preview: JSON.stringify({ messageId: output.messageId }),
+          evidence: JSON.stringify(evidence),
+          risk_level: 'MEDIUM',
+          status: 'SUCCEEDED',
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow();
+      await trx
+        .insertInto('tool_executions')
+        .values({
+          tenant_id: c.user.tenantId,
+          user_id: c.user.userId,
+          task_id: taskId,
+          step_id: step.id,
+          tool_id: 'email.send',
+          tool_version: '1',
+          idempotency_key: `exec-${step.id}`,
+          status: 'succeeded',
+          input_hash: 'input-hash',
+          output: JSON.stringify(output),
+          evidence: JSON.stringify(evidence),
+          cost_micro: 12,
+          finished_at: new Date(),
+          duration_ms: 345,
+        })
+        .execute();
+      return step.id;
+    });
+
+    const res = await c.request('POST', '/v1/account/export');
+    expect(res.statusCode).toBe(200);
+    const doc = res.json<{
+      version: number;
+      tasks: { id: string; steps: Record<string, unknown>[] }[];
+    }>();
+    expect(doc.version).toBe(2);
+    const step = doc.tasks.find((t) => t.id === taskId)!.steps[0]!;
+    expect(step).toMatchObject({
+      id: stepId,
+      input,
+      resolvedInput: resolved,
+      output,
+      outputPreview: { messageId: output.messageId },
+    });
+    expect(step.toolExecutions).toEqual([
+      expect.objectContaining({
+        toolId: 'email.send',
+        toolVersion: '1',
+        status: 'succeeded',
+        output,
+        evidence,
+        error: null,
+        costMicroUsd: 12,
+        durationMs: 345,
+        startedAt: expect.any(String),
+        finishedAt: expect.any(String),
+      }),
+    ]);
+    expect(res.body).toContain(body);
+
     const row = await withContext(h.db, c.user, (trx) =>
       trx.selectFrom('connections').select('secret_ciphertext').executeTakeFirstOrThrow(),
     );

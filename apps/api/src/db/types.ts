@@ -398,7 +398,10 @@ export interface IdempotencyKeysTable {
   request_hash: string;
   response_status: number | null;
   response_body: Json<unknown> | null;
+  /** When the current claim was taken (a takeover renews it). */
   created_at: Generated<Date>;
+  /** Random per claim (0003); null only on rows written before it. */
+  claim_token: string | null;
 }
 
 export interface SubscriptionsTable {

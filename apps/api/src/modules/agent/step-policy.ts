@@ -40,6 +40,7 @@ export function assessStep(
     accountEmail: agent.account.email,
     recipients,
     sideEffect: tool.sideEffect,
+    outbound: tool.urls !== undefined,
     modelUse: tool.modelUse,
     model: { available: modelAvailable, offlineReason: agent.route.reason },
     projectedCostMicro: estimateMicro,

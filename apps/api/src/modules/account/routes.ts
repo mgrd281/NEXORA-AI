@@ -3,6 +3,7 @@ import { Preferences, type UpdateMeRequest } from '@jarvis/contracts';
 import { withContext } from '../../db/pool';
 import { defineRoute } from '../../http/route';
 import { AppError, notFound } from '../../lib/errors';
+import { canonicalTimeZone } from '../../lib/period';
 import type { AppDeps } from '../../services';
 import { audit } from '../audit/audit';
 import { verifyPassword } from '../auth/password';
@@ -10,23 +11,13 @@ import { SESSION_COOKIE } from '../auth/sessions';
 import { buildAccountExport } from './export';
 import { loadMe, resolvePreferences } from './me';
 
-const KNOWN_ZONES = new Set(Intl.supportedValuesOf('timeZone'));
+// Kept for importers of the old location; the rule lives with the zone helpers now.
+export { isValidTimeZone } from '../../lib/period';
 
-/**
- * IANA zones known to the runtime. Intl.supportedValuesOf lists canonical
- * names only (it omits "UTC" and aliases such as Asia/Kolkata on some ICU
- * builds), so well-formed names Intl can actually format with are accepted too.
- */
-export function isValidTimeZone(tz: string): boolean {
-  if (tz === 'UTC' || KNOWN_ZONES.has(tz)) return true;
-  if (!/^[A-Za-z]+(?:[/_+-][A-Za-z0-9]+)*$/.test(tz)) return false;
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone: tz });
-    return true;
-  } catch {
-    return false;
-  }
-}
+const unknownTimeZone = () =>
+  new AppError('VALIDATION_FAILED', 'Unknown time zone', {
+    issues: [{ path: 'timeZone', message: 'Unknown time zone' }],
+  });
 
 /** Overlays a partial preferences patch (one level of groups) onto the resolved preferences. */
 export function mergePreferences(
@@ -50,12 +41,11 @@ export function registerAccountRoutes(app: FastifyInstance, deps: AppDeps) {
   );
 
   defineRoute(app, deps, 'updateMe', async ({ ctx, body }) => {
-    if (body.timeZone !== undefined && !isValidTimeZone(body.timeZone)) {
-      throw new AppError('VALIDATION_FAILED', 'Unknown time zone', {
-        issues: [{ path: 'timeZone', message: 'Unknown time zone' }],
-      });
-    }
     return withContext(db, ctx, async (trx) => {
+      // Only zones both Node and Postgres understand, stored as Postgres spells them.
+      const timeZone =
+        body.timeZone === undefined ? undefined : await canonicalTimeZone(trx, body.timeZone);
+      if (timeZone === null) throw unknownTimeZone();
       const user = await trx
         .selectFrom('users')
         .select('preferences')
@@ -80,8 +70,8 @@ export function registerAccountRoutes(app: FastifyInstance, deps: AppDeps) {
         set.locale = body.locale;
         changed.push('locale');
       }
-      if (body.timeZone !== undefined) {
-        set.time_zone = body.timeZone;
+      if (timeZone !== undefined) {
+        set.time_zone = timeZone;
         changed.push('timeZone');
       }
       if (body.theme !== undefined) {

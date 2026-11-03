@@ -3,6 +3,14 @@
  * stored about the user, read in a single RLS-scoped transaction. Credentials
  * are never included: no password hash, session token hashes, push tokens or
  * connection secrets/settings.
+ *
+ * Version 2: each task step carries its stored data in full — `input` (as
+ * planned), `resolvedInput` (what ran), `output` (the full result; v1 held the
+ * shortened preview there, now `outputPreview`) — and `toolExecutions`, every
+ * recorded attempt of the step with its output, error and evidence. Only
+ * internal de-duplication values are left out: execution idempotency keys and
+ * hashes of step inputs, both derived from data the export already contains.
+ * Step data never holds connection secrets; tools decrypt them in memory only.
  */
 import { sql } from 'kysely';
 import type { Trx } from '../../db/pool';
@@ -21,7 +29,7 @@ import { toNotification } from '../notifications/routes';
 import { loadMe } from './me';
 
 export const EXPORT_FORMAT = 'jarvis.account-export';
-export const EXPORT_VERSION = 1;
+export const EXPORT_VERSION = 2;
 
 const iso = (d: Date | string | null | undefined) => (d ? new Date(d).toISOString() : null);
 
@@ -65,7 +73,28 @@ export async function buildAccountExport(
     .where('user_id', '=', userId)
     .orderBy('id')
     .execute();
+  const executions = await trx
+    .selectFrom('tool_executions')
+    .select([
+      'id',
+      'step_id',
+      'tool_id',
+      'tool_version',
+      'status',
+      'output',
+      'error',
+      'evidence',
+      'cost_micro',
+      'started_at',
+      'finished_at',
+      'duration_ms',
+    ])
+    .where('user_id', '=', userId)
+    .orderBy('started_at')
+    .orderBy('id')
+    .execute();
   const stepsByTask = groupBy(steps, (s) => s.task_id);
+  const executionsByStep = groupBy(executions, (e) => e.step_id);
   const approvalsByTask = groupBy(approvals, (a) => a.task_id);
   const eventsByTask = groupBy(events, (e) => e.task_id);
 
@@ -201,7 +230,26 @@ export async function buildAccountExport(
       attempt: t.attempt,
       cost: { estimatedMicroUsd: t.estimated_cost_micro, actualMicroUsd: t.actual_cost_micro },
       startedAt: iso(t.started_at),
-      steps: (stepsByTask.get(t.id) ?? []).map(toTaskStep),
+      steps: (stepsByTask.get(t.id) ?? []).map((s) => ({
+        ...toTaskStep(s),
+        input: s.input,
+        resolvedInput: s.resolved_input ?? null,
+        output: s.output ?? null,
+        outputPreview: s.output_preview ?? null,
+        toolExecutions: (executionsByStep.get(s.id) ?? []).map((e) => ({
+          id: e.id,
+          toolId: e.tool_id,
+          toolVersion: e.tool_version,
+          status: e.status,
+          output: e.output ?? null,
+          error: e.error ?? null,
+          evidence: Array.isArray(e.evidence) ? e.evidence : [],
+          costMicroUsd: Number(e.cost_micro),
+          startedAt: e.started_at.toISOString(),
+          finishedAt: iso(e.finished_at),
+          durationMs: e.duration_ms,
+        })),
+      })),
       approvals: (approvalsByTask.get(t.id) ?? []).map(toApproval),
       events: (eventsByTask.get(t.id) ?? []).map(toTaskEvent),
     })),

@@ -35,7 +35,10 @@ export type Plan = z.infer<typeof Plan>;
 export interface PlanValidationContext {
   /** Tools the planner was allowed to use. */
   tools: ReadonlyMap<string, AnyTool>;
-  /** The user's request (recipients must appear in it literally, or be the owner). */
+  /**
+   * The user's request: recipients must appear in it literally (or be the
+   * owner), fetched URLs must be on a site linked in it.
+   */
   request: string;
   ownEmail: string;
 }
@@ -43,12 +46,47 @@ export interface PlanValidationContext {
 export type PlanValidation = { ok: true; plan: Plan } | { ok: false; issues: string[] };
 
 const EMAIL_IN_TEXT = /[A-Za-z0-9._%+'-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+// Links as the offline planner reads them: with a scheme, or starting "www.".
+const LINK_IN_TEXT = /\bhttps?:\/\/[^\s<>"'`]+|\bwww\.[^\s<>"'`]+/gi;
+const TRAILING_PUNCT = /[.,;:!?)\]}'"»”’،؛؟]+$/;
+
+/**
+ * Origins (scheme://host[:port], normalised by URL) of the links written in
+ * `text`. A link without a scheme ("www.example.com/…") stands for both
+ * http and https.
+ */
+export function linkOrigins(text: string): Set<string> {
+  const origins = new Set<string>();
+  for (const m of text.matchAll(LINK_IN_TEXT)) {
+    const raw = m[0].replace(TRAILING_PUNCT, '');
+    for (const scheme of /^www\./i.test(raw) ? ['https://', 'http://'] : ['']) {
+      try {
+        origins.add(new URL(scheme + raw).origin);
+      } catch {
+        // Not a URL after all.
+      }
+    }
+  }
+  return origins;
+}
+
+function httpOrigin(url: string): string | null {
+  try {
+    const u = new URL(url);
+    return u.protocol === 'http:' || u.protocol === 'https:' ? u.origin : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Checks: shape, step keys (unique, in order), tool availability, each input
  * against its tool schema, references only to earlier steps' declared output
- * fields, no references in recipients/memory content, and recipients limited
- * to the owner's address or addresses written in the request.
+ * fields, no references in recipients/memory content/fetched URLs,
+ * recipients limited to the owner's address or addresses written in the
+ * request, and fetched URLs limited to sites (scheme + host + port) linked in
+ * the request — so neither step outputs nor the owner's notes in the planner
+ * prompt can pick where data is sent.
  */
 export function validatePlan(candidate: unknown, ctx: PlanValidationContext): PlanValidation {
   // Titles longer than allowed are trimmed rather than rejected.
@@ -68,6 +106,7 @@ export function validatePlan(candidate: unknown, ctx: PlanValidationContext): Pl
   const requestEmails = new Set(
     [...ctx.request.matchAll(EMAIL_IN_TEXT)].map((m) => m[0].toLowerCase()),
   );
+  const requestOrigins = linkOrigins(ctx.request);
   const seen = new Map<string, AnyTool>();
 
   plan.steps.forEach((step, index) => {
@@ -111,6 +150,15 @@ export function validatePlan(candidate: unknown, ctx: PlanValidationContext): Pl
         if (!sameAddress(r, ctx.ownEmail) && !requestEmails.has(r.trim().toLowerCase()))
           issues.push(
             `${where}: recipient ${r} is neither the account owner nor an address written in the request`,
+          );
+      }
+    }
+    if (parsed.success && tool.urls && planned.length === 0) {
+      for (const url of tool.urls(parsed.data)) {
+        const origin = httpOrigin(url);
+        if (!origin || !requestOrigins.has(origin))
+          issues.push(
+            `${where}: input.url (${origin ?? 'not an http(s) link'}) does not point at a site written in the request; only links the user wrote can be fetched`,
           );
       }
     }

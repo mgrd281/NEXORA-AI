@@ -68,6 +68,14 @@ const EXTRA_ERRORS: Partial<Record<RouteName, string[]>> = {
   connectSmtp: ['422'],
   testConnection: ['422'],
   deleteAccount: ['403'],
+  login: ['401'],
+};
+
+/** Route-specific wording where the generic description would mislead. */
+const ERROR_DESCRIPTION_OVERRIDES: Partial<Record<RouteName, Record<string, string>>> = {
+  login: {
+    '401': 'UNAUTHENTICATED — the email or password is incorrect, or the account is disabled.',
+  },
 };
 
 /** Removes JSON-Schema noise that OpenAPI consumers do not need. */
@@ -187,7 +195,7 @@ export function buildOpenApi(): Json {
     for (const e of EXTRA_ERRORS[name] ?? []) errors.add(e);
     for (const code of [...errors].sort()) {
       responses[code] = {
-        description: ERROR_DESCRIPTIONS[code]!,
+        description: ERROR_DESCRIPTION_OVERRIDES[name]?.[code] ?? ERROR_DESCRIPTIONS[code]!,
         content: { 'application/json': { schema: { $ref: SCHEMA_REF('ApiErrorBody') } } },
       };
     }
@@ -237,6 +245,8 @@ export function buildOpenApi(): Json {
         'is sent every 25 s. To resume, reconnect with `Last-Event-ID` (or `?lastEventId=`):',
         'up to the 200 newest persisted events after that id are replayed before live delivery.',
         'The `data:` payload of every frame is a StreamEvent (`x-sse-data`).',
+        'The stream ends as soon as its session is signed out, revoked or expires, or the account',
+        'is disabled or deleted; reconnecting then gets 401.',
       ].join(' '),
       parameters: [
         {

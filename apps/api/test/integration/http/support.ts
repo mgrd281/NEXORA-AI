@@ -195,7 +195,12 @@ export interface Harness {
 }
 
 export async function createHarness(
-  opts: { env?: Record<string, string>; listen?: AppDeps['listen'] } = {},
+  opts: {
+    env?: Record<string, string>;
+    listen?: AppDeps['listen'];
+    /** Replaces the production route registrar (e.g. to add probe routes or stream options). */
+    routes?: (app: FastifyInstance, deps: AppDeps) => Promise<void> | void;
+  } = {},
 ): Promise<Harness> {
   const config = testConfig(opts.env);
   const db = testDb();
@@ -208,7 +213,7 @@ export async function createHarness(
       agent: fake.agent,
       listen: opts.listen ?? (async () => async () => {}),
     },
-    registerRoutes,
+    opts.routes ?? registerRoutes,
   );
   await app.ready();
   return {
