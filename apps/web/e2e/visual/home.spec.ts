@@ -249,8 +249,11 @@ test.describe('home states', () => {
         },
       });
       await expect(page.locator('main [role="alert"]').first()).toBeVisible({ timeout: 15_000 });
-      // The composer still works while the overview is unavailable.
+      // The composer still works while the overview is unavailable, and the status line does
+      // not claim a state it cannot know.
       await expect(page.getByRole('textbox')).toBeVisible();
+      if (locale === 'en')
+        await expect(page.locator('main header p').first()).not.toContainText('Ready');
       await capture(page, testInfo, `home--error--${variant}`);
       await expectNoSeriousA11yViolations(page);
       expect(failing.errors).toEqual([]);

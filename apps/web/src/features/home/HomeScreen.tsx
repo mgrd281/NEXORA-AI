@@ -183,6 +183,8 @@ function StatusLine({
   );
   if (now === 0 || !me.data) return <Skeleton width={240} height={18} />;
 
+  // Without the overview (still loading or failed) only real connectivity states are shown —
+  // never "Ready", which the screen could not know.
   const status = home
     ? homeStatus({
         presence: presence.state,
@@ -190,37 +192,48 @@ function StatusLine({
         activeTasks: home.activeTasks,
         plannerOffline: home.assistant.planner.mode === 'offline',
       })
-    : 'shell';
+    : presence.state === 'offline' ||
+        presence.state === 'reconnecting' ||
+        presence.state === 'listening'
+      ? 'shell'
+      : null;
 
   return (
     <span className={styles.statusLine} ref={focusRef} tabIndex={-1}>
       <time className={styles.date} dateTime={new Date(now).toISOString().slice(0, 10)}>
         {dateFmt.format(new Date(now))}
       </time>
-      <span className={styles.dot} aria-hidden="true">
-        ·
-      </span>
-      <span className={styles.status}>
-        {status === 'shell' ? (
-          <span
-            className={cx(styles.statusPart, presence.state === 'offline' && styles.statusWarning)}
-          >
-            {t(presence.labelKey, presence.labelParams)}
+      {status !== null && (
+        <>
+          <span className={styles.dot} aria-hidden="true">
+            ·
           </span>
-        ) : (
-          status.map((part) => (
-            <span
-              key={part.key}
-              className={cx(
-                styles.statusPart,
-                part.key === 'home.status.approvals' && styles.statusWarning,
-              )}
-            >
-              {t(part.key, part.params)}
-            </span>
-          ))
-        )}
-      </span>
+          <span className={styles.status}>
+            {status === 'shell' ? (
+              <span
+                className={cx(
+                  styles.statusPart,
+                  presence.state === 'offline' && styles.statusWarning,
+                )}
+              >
+                {t(presence.labelKey, presence.labelParams)}
+              </span>
+            ) : (
+              status.map((part) => (
+                <span
+                  key={part.key}
+                  className={cx(
+                    styles.statusPart,
+                    part.key === 'home.status.approvals' && styles.statusWarning,
+                  )}
+                >
+                  {t(part.key, part.params)}
+                </span>
+              ))
+            )}
+          </span>
+        </>
+      )}
     </span>
   );
 }
