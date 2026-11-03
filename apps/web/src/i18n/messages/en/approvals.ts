@@ -35,6 +35,8 @@ const approvals = {
     title: 'Text on {host} tried to give instructions to AI assistants.',
     titleNoHost: 'A source used for this tried to give instructions to AI assistants.',
     leftOut: 'JARVIS left that text out of the summary.',
+    leftOutCount:
+      '{count, plural, one {JARVIS left that sentence out of the summary.} other {JARVIS left those # sentences out of the summary.}}',
     mayInclude: 'Parts of it may appear in the message.',
     check: 'Check the message before you approve.',
   },

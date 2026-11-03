@@ -7,17 +7,21 @@ import type {
   Approval,
   ErrorCode,
   Evidence,
+  EvidenceCode,
+  MemoryKind,
   StepStatus,
   TaskDetail,
+  TaskErrorReason,
   TaskEvent,
   TaskListQuery,
   TaskStatus,
   TaskStep,
-  ToolId,
 } from '@jarvis/contracts';
 import {
   ErrorCode as ErrorCodeEnum,
   isTerminal,
+  MemoryKind as MemoryKindEnum,
+  TaskErrorReason as TaskErrorReasonEnum,
   TaskStatus as TaskStatusEnum,
 } from '@jarvis/contracts';
 import type { MessageKey } from '@/i18n/catalog';
@@ -71,13 +75,7 @@ export function filterHref(filter: TaskFilter): string {
 
 /* ------------------------------------------------------------------ tools */
 
-export const TOOL_LABEL: Record<ToolId, MessageKey> = {
-  'web.fetch': 'common.tools.webFetch',
-  'text.summarize': 'common.tools.textSummarize',
-  'email.send': 'common.tools.emailSend',
-  'memory.save': 'common.tools.memorySave',
-  'assistant.answer': 'common.tools.assistantAnswer',
-};
+export { TOOL_LABEL } from '@/i18n/server-message';
 
 /* ------------------------------------------------------------------ evidence */
 
@@ -102,7 +100,16 @@ export type EvidenceView =
   | { kind: 'content_hash'; algorithm: string; hex: string; value: string }
   | { kind: 'model_output'; model: string; inputTokens: number | null; outputTokens: number | null }
   /** The offline summarizer's note: how many sentences it quoted from how much text. */
-  | { kind: 'extractive'; sentences: number; chars: number }
+  | {
+      kind: 'extractive';
+      sentences: number;
+      chars: number;
+      /** Sentences left out because they addressed AI assistants (null: not recorded). */
+      excluded: number | null;
+    }
+  | { kind: 'memory_record'; memoryId: string; memoryKind: MemoryKind | null }
+  /** The model's answer hit the length limit. */
+  | { kind: 'truncated' }
   | { kind: 'record' | 'note'; label: string; value: string };
 
 /** Only http(s) URLs become links (never javascript:, data: …). */
@@ -118,12 +125,98 @@ export function safeExternalUrl(raw: string | null | undefined): string | null {
 
 const URL_RE = /https?:\/\/[^\s<>"')]+/i;
 
+type EvidenceParams = NonNullable<Evidence['params']>;
+const num = (v: unknown): number | null =>
+  typeof v === 'number' && Number.isFinite(v)
+    ? v
+    : typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))
+      ? Number(v)
+      : null;
+const text = (v: unknown): string | null =>
+  typeof v === 'string' && v.trim() ? v.trim() : typeof v === 'number' ? String(v) : null;
+
+/** "sha256" / "SHA-256" → "SHA-256". */
+function algorithmName(raw: string): string {
+  const sha = /^sha-?(\d+)$/i.exec(raw);
+  return sha ? `SHA-${sha[1]}` : raw.toUpperCase();
+}
+
 /**
- * Turns the API's evidence strings into structured views. The formats are produced by the tools
+ * Evidence recorded with a code: its facts come as params (contracts EvidenceCode), so nothing
+ * is parsed out of the English label / value. Null when a required fact is missing.
+ */
+function evidenceFromCode(code: EvidenceCode, p: EvidenceParams): EvidenceView | null {
+  switch (code) {
+    case 'HTTP_RESPONSE':
+      return {
+        kind: 'http_response',
+        status: num(p.status),
+        url: safeExternalUrl(text(p.url)),
+        contentType: text(p.contentType),
+        bytes: num(p.bytes),
+      };
+    case 'CONTENT_HASH': {
+      const hex = text(p.hash);
+      if (!hex) return null;
+      const algorithm = algorithmName(text(p.algorithm) ?? 'sha256');
+      return {
+        kind: 'content_hash',
+        algorithm,
+        hex,
+        value: `${algorithm.toLowerCase().replace('-', '')}:${hex}`,
+      };
+    }
+    case 'SMTP_RECEIPT': {
+      const replyCode = text(p.replyCode);
+      let response = text(p.response) ?? '';
+      if (replyCode && response.startsWith(replyCode))
+        response = response.slice(replyCode.length).trim();
+      return {
+        kind: 'smtp_receipt',
+        code: replyCode,
+        accepted: num(p.accepted),
+        messageId: text(p.messageId),
+        response,
+      };
+    }
+    case 'MODEL_OUTPUT': {
+      const model = text(p.model);
+      if (!model) return null;
+      return {
+        kind: 'model_output',
+        model,
+        inputTokens: num(p.inputTokens),
+        outputTokens: num(p.outputTokens),
+      };
+    }
+    case 'EXTRACTIVE_SUMMARY': {
+      const sentences = num(p.sentences);
+      const chars = num(p.chars);
+      if (sentences === null || chars === null) return null;
+      return { kind: 'extractive', sentences, chars, excluded: num(p.excludedSentences) };
+    }
+    case 'MEMORY_RECORD': {
+      const memoryId = text(p.memoryId);
+      if (!memoryId) return null;
+      const kind = MemoryKindEnum.safeParse(p.kind);
+      return { kind: 'memory_record', memoryId, memoryKind: kind.success ? kind.data : null };
+    }
+    case 'ANSWER_TRUNCATED':
+      return { kind: 'truncated' };
+  }
+}
+
+/**
+ * Evidence as a structured view: from its code and params when it has them (current API),
+ * otherwise parsed from the evidence strings (evidence recorded before codes existed). The formats are produced by the tools
  * (web.fetch: "GET <url> → 200 (text/html, 48213 bytes)"; email.send: "<reply> · Message-ID <id>";
  * content hashes "sha256:<hex>"); anything unexpected degrades to the raw label and value.
  */
 export function parseEvidence(e: Evidence): EvidenceView {
+  if (e.code) {
+    const view = evidenceFromCode(e.code, e.params ?? {});
+    if (view) return view;
+  }
   switch (e.kind) {
     case 'smtp_receipt': {
       const code = /\b([2-5]\d\d)\b/.exec(e.label)?.[1] ?? /^\s*([2-5]\d\d)\b/.exec(e.value)?.[1];
@@ -155,10 +248,9 @@ export function parseEvidence(e: Evidence): EvidenceView {
     case 'content_hash': {
       const m = /^([a-z0-9-]+):([0-9a-f]+)$/i.exec(e.value.trim());
       const algo = m?.[1] ?? '';
-      const sha = /^sha-?(\d+)$/i.exec(algo);
       return {
         kind: 'content_hash',
-        algorithm: sha ? `SHA-${sha[1]}` : algo.toUpperCase(),
+        algorithm: algorithmName(algo),
         hex: m?.[2] ?? e.value.trim(),
         value: e.value.trim(),
       };
@@ -181,6 +273,7 @@ export function parseEvidence(e: Evidence): EvidenceView {
           kind: 'extractive',
           sentences: Number(extractive[1]),
           chars: Number(extractive[2]),
+          excluded: null,
         };
       return { kind: e.kind, label: e.label, value: e.value };
     }
@@ -201,10 +294,12 @@ const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? 
 export interface EventDescription {
   key: MessageKey;
   params?: Record<string, string | number>;
-  /** Extra lines from the event that have no code (server-written messages). */
+  /** Extra lines from the event that have no code (server-written text without a message). */
   details?: string[];
-  /** A step failure's code: its localized title stands in for the server's message. */
-  errorCode?: ErrorCode;
+  /** A step failure: its code / reason / params are localized; the English message is not shown. */
+  error?: EventError;
+  /** verification.failed: the steps whose results didn't pass. */
+  failedStepIds?: string[];
   /** Verification results, localized where the check is known. */
   checks?: CheckLine[];
   tone: 'neutral' | 'success' | 'warning' | 'danger' | 'accent';
@@ -215,6 +310,8 @@ export interface EventDescription {
  * line to fall back on. `step` is the title of the step it belongs to, when the line names one.
  */
 export interface CheckLine {
+  /** The step the check belongs to (structured checks), to name it in the viewer's locale. */
+  stepId: string | null;
   step: string | null;
   key: string | null;
   params: MessageParams;
@@ -267,7 +364,9 @@ export function parseCheck(raw: unknown): CheckLine | null {
   if (raw && typeof raw === 'object') {
     const o = raw as { key?: unknown; params?: unknown; step?: unknown; text?: unknown };
     if (typeof o.key !== 'string') return null;
+    const stepId = (o as { stepId?: unknown }).stepId;
     return {
+      stepId: typeof stepId === 'string' ? stepId : null,
       step: str(o.step),
       key: `tasks.checks.${o.key}`,
       params: (o.params && typeof o.params === 'object' ? o.params : {}) as MessageParams,
@@ -281,18 +380,32 @@ export function parseCheck(raw: unknown): CheckLine | null {
     if (m) {
       // Group 1 is the step title; the pattern's own groups follow it.
       const own = [m[0], ...m.slice(2)] as unknown as RegExpExecArray;
-      return { step: m[1] ?? null, key, params: params(own), text };
+      return { stepId: null, step: m[1] ?? null, key, params: params(own), text };
     }
   }
-  return { step: null, key: null, params: {}, text };
+  return { stepId: null, step: null, key: null, params: {}, text };
 }
 
 const checkLines = (v: unknown): CheckLine[] =>
   Array.isArray(v) ? v.map(parseCheck).filter((c): c is CheckLine => c !== null) : [];
 
+export interface EventError {
+  code: ErrorCode;
+  reason?: TaskErrorReason;
+  params?: Record<string, string | number>;
+}
+
 function errorCodeParam(v: unknown): ErrorCode | null {
   const parsed = ErrorCodeEnum.safeParse(v);
   return parsed.success ? parsed.data : null;
+}
+
+function errorParams(v: unknown): Record<string, string | number> | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const out: Record<string, string | number> = {};
+  for (const [k, x] of Object.entries(v as Record<string, unknown>))
+    if (typeof x === 'string' || typeof x === 'number') out[k] = x;
+  return out;
 }
 
 function statusParam(v: unknown): TaskStatus | null {
@@ -302,15 +415,18 @@ function statusParam(v: unknown): TaskStatus | null {
 
 /**
  * The localized description of a timeline event (shapes documented in
- * apps/api/src/modules/events/events.ts). `statusLabel` localizes a task status.
+ * apps/api/src/modules/events/events.ts). `statusLabel` localizes a task status; `message`
+ * renders a server sentence (the step's titleMessage, the approval's summaryMessage) in the
+ * viewer's locale, or returns null to fall back to the stored text.
  */
 export function describeEvent(
   event: Pick<TaskEvent, 'type' | 'data'>,
   statusLabel: (status: TaskStatus) => string,
   unknownStep: string,
+  message: (m: unknown) => string | null = () => null,
 ): EventDescription {
   const d = event.data;
-  const title = str(d.title) ?? unknownStep;
+  const title = message(d.titleMessage) ?? str(d.title) ?? unknownStep;
   switch (event.type) {
     case 'task.created':
       return { key: 'tasks.events.created', tone: 'neutral' };
@@ -343,24 +459,34 @@ export function describeEvent(
     case 'step.succeeded':
       return { key: 'tasks.events.stepSucceeded', params: { title }, tone: 'success' };
     case 'step.failed': {
-      // A known code has a localized title; the server's message is then only a duplicate.
+      // A known code (and reason) is localized; the server's English message is not shown.
       const code = errorCodeParam(d.code);
-      const message = str(d.message);
+      const reason = TaskErrorReasonEnum.safeParse(d.reason);
       return {
         key: 'tasks.events.stepFailed',
         params: { title },
-        ...(code ? { errorCode: code } : message ? { details: [message] } : {}),
+        ...(code
+          ? {
+              error: {
+                code,
+                ...(reason.success ? { reason: reason.data } : {}),
+                ...(errorParams(d.params) ? { params: errorParams(d.params) } : {}),
+              },
+            }
+          : {}),
         tone: 'danger',
       };
     }
     case 'step.blocked':
       return { key: 'tasks.events.stepBlocked', params: { title }, tone: 'danger' };
-    case 'approval.requested':
+    case 'approval.requested': {
+      const summary = message(d.summaryMessage) ?? str(d.summary);
       return {
         key: 'tasks.events.approvalRequested',
-        details: str(d.summary) ? [str(d.summary)!] : undefined,
+        details: summary ? [summary] : undefined,
         tone: 'warning',
       };
+    }
     case 'approval.decided':
       switch (d.decision) {
         case 'approved':
@@ -379,10 +505,13 @@ export function describeEvent(
         tone: 'success',
       };
     case 'verification.failed': {
-      const message = str(d.message);
+      // `message` is an English developer line; the failed steps are named from stepIds.
+      const ids = Array.isArray(d.stepIds)
+        ? d.stepIds.filter((x): x is string => typeof x === 'string')
+        : [];
       return {
         key: 'tasks.events.verificationFailed',
-        details: message ? [message] : undefined,
+        ...(ids.length > 0 ? { failedStepIds: ids } : {}),
         checks: checkLines(d.checks),
         tone: 'danger',
       };
@@ -615,9 +744,12 @@ export function guidanceFor(error: { code: ErrorCode; retryable: boolean }): {
   return { key, link };
 }
 
-/** Steps finished (succeeded or skipped). */
+/**
+ * Steps done: succeeded only. A failed task ends with its remaining steps SKIPPED, which were
+ * never run (the API's progress.completed counts the same way).
+ */
 export function completedSteps(steps: readonly Pick<TaskStep, 'status'>[]): number {
-  return steps.filter((s) => s.status === 'SUCCEEDED' || s.status === 'SKIPPED').length;
+  return steps.filter((s) => s.status === 'SUCCEEDED').length;
 }
 
 /** Duration in ms between two timestamps, or null. */

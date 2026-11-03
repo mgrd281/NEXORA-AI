@@ -29,9 +29,12 @@ const admin = {
       BUDGET_EXHAUSTED: 'Budget used up',
       unknown: 'Status unavailable',
     },
-    queue: 'Queue depth',
-    queueCaption:
-      '{count, plural, =0 {Nothing waiting} one {# job waiting} other {# jobs waiting}}',
+    queue: 'Job queue',
+    /** Ready = due now (backlog); scheduled = due later (e.g. approval expiry timers). */
+    queueValue: '{ready} ready · {scheduled} scheduled',
+    queueIdle: 'Nothing is due now',
+    queueOldest: 'Oldest due job waiting {duration}',
+    queueSlow: 'Behind: oldest due job waiting {duration}',
   },
   usage: {
     title: 'Usage',

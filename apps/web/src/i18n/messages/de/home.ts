@@ -26,7 +26,7 @@ const home: Catalog<typeof source> = {
     active: 'In Arbeit',
     recent: 'Letzte Ergebnisse',
   },
-  sectionCount: '{count, plural, one {# Eintrag} other {# Einträge}}',
+  sectionHeading: '{title}, {count, plural, one {# Eintrag} other {# Einträge}}',
   viewAll: 'Alle anzeigen',
   approval: {
     review: 'Prüfen',

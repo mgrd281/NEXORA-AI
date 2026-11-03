@@ -229,6 +229,13 @@ const tasks: Catalog<typeof source> = {
     tokens: '{input} رمزًا مُدخلًا · {output} رمزًا مُخرجًا',
     opensInNewTab: '(يفتح في علامة تبويب جديدة)',
     copyHash: 'بصمة المحتوى',
+    memoryRecord: 'حُفظ في الذاكرة',
+    memoryId: 'معرّف الذاكرة',
+    copyMemoryId: 'معرّف الذاكرة',
+    truncated: 'اقتُطعت الإجابة',
+    truncatedDetail: 'بلغت الإجابة الحد الأقصى للطول.',
+    excluded:
+      '{count, plural, zero {لم تُستبعد أي جملة موجّهة إلى مساعدي الذكاء الاصطناعي} one {استُبعدت جملة واحدة موجّهة إلى مساعدي الذكاء الاصطناعي} two {استُبعدت جملتان موجّهتان إلى مساعدي الذكاء الاصطناعي} few {استُبعدت # جمل موجّهة إلى مساعدي الذكاء الاصطناعي} many {استُبعدت # جملة موجّهة إلى مساعدي الذكاء الاصطناعي} other {استُبعدت # جملة موجّهة إلى مساعدي الذكاء الاصطناعي}}',
   },
   history: {
     title: 'السجل',
@@ -319,6 +326,40 @@ const tasks: Catalog<typeof source> = {
     taskId: 'معرّف المهمة',
     copyTaskId: 'معرّف المهمة',
     notYet: '—',
+  },
+  server: {
+    plan: {
+      summarize: 'تلخيص {host}',
+      summarizeEmail: 'تلخيص {host} وإرساله إليك بالبريد',
+      remember: 'تذكّر: {text}',
+      emailSelf: 'رسالة إلى نفسك: {text}',
+    },
+    objective: {
+      summarize: 'قراءة {url} وتلخيصها.',
+      summarizeEmail: 'قراءة {url} وتلخيصها وإرسال الملخص إلى {email}.',
+      remember: 'حفظ ملاحظة في الذاكرة طويلة المدى.',
+      emailSelf: 'إرسال ملاحظة إلى {email}.',
+    },
+    step: {
+      fetch: 'قراءة {host}',
+      summarize: 'تلخيص الصفحة',
+      emailSummary: 'إرسال الملخص إليك',
+      remember: 'الحفظ في الذاكرة',
+      emailNote: 'إرسال الملاحظة إليك',
+    },
+    approval: {
+      email: 'إرسال البريد «{subject}» إلى {recipients}.',
+      generic: 'تنفيذ «{title}» ({tool}).',
+      recipientsMany:
+        '{count, plural, zero {لا مستلمين} one {مستلم واحد} two {مستلمان} few {# مستلمين} many {# مستلمًا} other {# مستلم}}',
+    },
+    result: {
+      emailSent: 'أُرسل «{subject}» إلى {recipients}.',
+      memorySaved: 'حُفظ في الذاكرة: «{text}».',
+      declined: 'رفضتَ هذا الإجراء، لذا لم يُرسَل أو يتغيّر أي شيء: {action}',
+      cancelled: 'أُلغيت بناءً على طلبك.',
+      expired: 'انتهت صلاحية طلب الموافقة قبل أن تقرّر، لذا لم يُنفَّذ أي شيء.',
+    },
   },
 };
 

@@ -225,6 +225,13 @@ const tasks = {
     tokens: '{input} input · {output} output tokens',
     opensInNewTab: '(opens in a new tab)',
     copyHash: 'content fingerprint',
+    memoryRecord: 'Saved to memory',
+    memoryId: 'Memory ID',
+    copyMemoryId: 'memory ID',
+    truncated: 'Answer cut off',
+    truncatedDetail: 'The answer reached the maximum length.',
+    excluded:
+      '{count, plural, one {# sentence aimed at AI assistants left out} other {# sentences aimed at AI assistants left out}}',
   },
   history: {
     title: 'History',
@@ -307,6 +314,44 @@ const tasks = {
     taskId: 'Task ID',
     copyTaskId: 'task ID',
     notYet: '—',
+  },
+  /**
+   * Sentences the server writes as { key, params } (contracts ServerMessageKey), rendered in the
+   * viewer's locale by renderServerMessage(). Parameters are user or page text (isolated) or
+   * nested server sentences.
+   */
+  server: {
+    plan: {
+      summarize: 'Summarize {host}',
+      summarizeEmail: 'Summarize {host} and email it to you',
+      remember: 'Remember: {text}',
+      emailSelf: 'Email yourself: {text}',
+    },
+    objective: {
+      summarize: 'Read {url} and summarize it.',
+      summarizeEmail: 'Read {url}, summarize it and email the summary to {email}.',
+      remember: 'Save a note to long-term memory.',
+      emailSelf: 'Send a note to {email}.',
+    },
+    step: {
+      fetch: 'Read {host}',
+      summarize: 'Summarize the page',
+      emailSummary: 'Email the summary to you',
+      remember: 'Save to memory',
+      emailNote: 'Email the note to you',
+    },
+    approval: {
+      email: 'Send the email “{subject}” to {recipients}.',
+      generic: 'Run “{title}” ({tool}).',
+      recipientsMany: '{count, plural, one {# recipient} other {# recipients}}',
+    },
+    result: {
+      emailSent: 'Sent “{subject}” to {recipients}.',
+      memorySaved: 'Saved to memory: “{text}”.',
+      declined: 'You declined this, so nothing was sent or changed: {action}',
+      cancelled: 'Cancelled at your request.',
+      expired: 'The approval request expired before you decided, so nothing was done.',
+    },
   },
 };
 

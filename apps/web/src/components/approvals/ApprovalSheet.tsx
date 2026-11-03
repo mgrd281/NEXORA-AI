@@ -14,6 +14,7 @@ import { Sheet } from '@/components/ui/Dialog';
 import { useToast } from '@/components/ui/Toast';
 import { UserText } from '@/components/ui/UserText';
 import { useI18n } from '@/i18n/I18nProvider';
+import { serverText } from '@/i18n/server-message';
 import { api, isApiError, newIdempotencyKey } from '@/lib/api/client';
 import { useApprovals } from '@/lib/api/hooks';
 import { qk } from '@/lib/api/query-keys';
@@ -21,7 +22,11 @@ import { cx } from '@/lib/cx';
 import { useNow } from '@/lib/hooks/useNow';
 import styles from './ApprovalSheet.module.css';
 import { ApprovalSentence } from './ApprovalSentence';
-import { untrustedSourceFacts } from './untrustedSource';
+import {
+  isUntrustedApproval,
+  untrustedSourceFacts,
+  untrustedSourceSentences,
+} from './untrustedSource';
 
 type Notice = 'mismatch' | 'expired' | 'alreadyDecided' | null;
 
@@ -150,7 +155,7 @@ function ApprovalReview({
   const isPending =
     approval.status === 'PENDING' && !expired && notice !== 'alreadyDecided' && !noLongerPending;
   const deciding = decide.isPending ? decide.variables : null;
-  const untrusted = approval.reasons.includes('UNTRUSTED_CONTENT');
+  const untrusted = isUntrustedApproval(approval);
   // The untrusted-source banner says this specifically; the list keeps the other reasons.
   const reasons = untrusted
     ? approval.reasons.filter((code) => code !== 'UNTRUSTED_CONTENT')
@@ -218,7 +223,7 @@ function ApprovalReview({
               <span className="visually-hidden">{t('approvals.task')}: </span>
               {/* Truncates at the end of the title's own direction, aligned with the row. */}
               <span className={styles.taskLinkText} dir="auto">
-                {approval.taskTitle}
+                {serverText(i18n, approval.taskTitleMessage, approval.taskTitle)}
               </span>
             </Link>
           )}
@@ -254,7 +259,7 @@ function ApprovalReview({
           </section>
         )}
 
-        {untrusted && <UntrustedSourceBanner taskId={approval.taskId} />}
+        {untrusted && <UntrustedSourceBanner approval={approval} />}
 
         {approval.details.kind === 'email' ? (
           <div className={styles.email}>
@@ -369,22 +374,14 @@ function Sender({ from }: { from: string }) {
  * to instruct AI assistants and whether that text stayed out of the summary. Until the task
  * has loaded (or if it cannot) it says only what the approval itself knows.
  */
-function UntrustedSourceBanner({ taskId }: { taskId: string }) {
+function UntrustedSourceBanner({ approval }: { approval: Approval }) {
   const { t } = useI18n();
+  const taskId = approval.taskId;
   const task = useQuery({
     queryKey: qk.tasks.detail(taskId),
     queryFn: ({ signal }) => api.call('getTask', { params: { id: taskId }, signal }),
   });
-  const facts = untrustedSourceFacts(task.data);
-  const title = facts.host
-    ? t('approvals.untrusted.title', { host: facts.host })
-    : t('approvals.untrusted.titleNoHost');
-  const outcome =
-    facts.leftOut === true
-      ? t('approvals.untrusted.leftOut')
-      : facts.leftOut === false
-        ? t('approvals.untrusted.mayInclude')
-        : null;
+  const { title, outcome } = untrustedSourceSentences(t, untrustedSourceFacts(task.data, approval));
   return (
     <Banner tone="warning" title={title}>
       <p>

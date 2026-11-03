@@ -1,14 +1,18 @@
-import type { TaskDetail } from '@jarvis/contracts';
+import type { Approval, TaskDetail } from '@jarvis/contracts';
+import type { TranslateFn } from '@/i18n/translate';
 
 export interface UntrustedSourceFacts {
   /** Host of the fetched page that was flagged, e.g. "example.com". */
   host: string | null;
   /**
    * Whether the flagged text stayed out of the summary that feeds the action: true = the text
-   * JARVIS summarized was not flagged (e.g. the instructions sat in hidden page elements), false =
-   * it was flagged, so parts may appear in the summary, null = unknown (no summary step yet).
+   * JARVIS summarized was not flagged (e.g. the instructions sat in hidden page elements, or
+   * the extractive summary left those sentences out), false = it was flagged, so parts may
+   * appear in the summary, null = unknown (no summary step yet).
    */
   leftOut: boolean | null;
+  /** How many sentences addressing AI assistants the summary left out, when the server says. */
+  excludedSentences: number | null;
 }
 
 function hostOf(value: unknown): string | null {
@@ -20,12 +24,13 @@ function hostOf(value: unknown): string | null {
   }
 }
 
-/**
- * What the task's own steps say about suspected instructions aimed at AI: which page they came
- * from (the web.fetch step whose output is flagged) and whether the summary JARVIS wrote from
- * it still carries them. Only real step output is used; anything missing stays null.
- */
-export function untrustedSourceFacts(task: TaskDetail | undefined): UntrustedSourceFacts {
+/** The approval acts on content flagged as a prompt injection (the policy said so). */
+export function isUntrustedApproval(approval: Pick<Approval, 'reasons' | 'details'>): boolean {
+  return approval.reasons.includes('UNTRUSTED_CONTENT') || approval.details.untrusted !== undefined;
+}
+
+/** What the task's own steps say (for approvals recorded before details.untrusted existed). */
+function factsFromSteps(task: TaskDetail | undefined): Omit<UntrustedSourceFacts, 'excludedSentences'> {
   if (!task) return { host: null, leftOut: null };
   const flaggedIndex = task.steps.findIndex(
     (step) => step.toolId === 'web.fetch' && step.output?.suspectedInjection === true,
@@ -42,4 +47,43 @@ export function untrustedSourceFacts(task: TaskDetail | undefined): UntrustedSou
   const flagged = summary?.output?.suspectedInjection;
   const leftOut = typeof flagged === 'boolean' ? !flagged : null;
   return { host, leftOut };
+}
+
+/**
+ * What is known about suspected instructions aimed at AI: the approval's own facts
+ * (details.untrusted: the page's host and how many sentences the summary left out) first, then
+ * the task's steps (the web.fetch step whose output is flagged and the summary written from
+ * it). Only real data is used; anything missing stays null.
+ */
+export function untrustedSourceFacts(
+  task: TaskDetail | undefined,
+  approval?: Pick<Approval, 'details'> | null,
+): UntrustedSourceFacts {
+  const own = approval?.details.untrusted;
+  const steps = factsFromSteps(task);
+  const excluded = own?.excludedSentences ?? null;
+  return {
+    host: own?.host ?? steps.host,
+    leftOut: excluded !== null && excluded > 0 ? true : steps.leftOut,
+    excludedSentences: excluded !== null && excluded > 0 ? excluded : null,
+  };
+}
+
+/** The warning in the interface language: which page, and what happened to its text. */
+export function untrustedSourceSentences(
+  t: TranslateFn,
+  facts: UntrustedSourceFacts,
+): { title: string; outcome: string | null } {
+  const title = facts.host
+    ? t('approvals.untrusted.title', { host: facts.host })
+    : t('approvals.untrusted.titleNoHost');
+  const outcome =
+    facts.excludedSentences !== null
+      ? t('approvals.untrusted.leftOutCount', { count: facts.excludedSentences })
+      : facts.leftOut === true
+        ? t('approvals.untrusted.leftOut')
+        : facts.leftOut === false
+          ? t('approvals.untrusted.mayInclude')
+          : null;
+  return { title, outcome };
 }

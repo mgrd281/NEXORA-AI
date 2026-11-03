@@ -33,8 +33,10 @@ const admin: Catalog<typeof source> = {
       unknown: 'Status nicht verfügbar',
     },
     queue: 'Warteschlange',
-    queueCaption:
-      '{count, plural, =0 {Nichts wartet} one {# Auftrag wartet} other {# Aufträge warten}}',
+    queueValue: '{ready} fällig · {scheduled} geplant',
+    queueIdle: 'Derzeit ist nichts fällig',
+    queueOldest: 'Ältester fälliger Auftrag wartet seit {duration}',
+    queueSlow: 'Im Rückstand: ältester fälliger Auftrag wartet seit {duration}',
   },
   usage: {
     title: 'Nutzung',

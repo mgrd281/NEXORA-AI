@@ -28,8 +28,8 @@ const home: Catalog<typeof source> = {
     active: 'قيد التنفيذ',
     recent: 'أحدث النتائج',
   },
-  sectionCount:
-    '{count, plural, zero {لا عناصر} one {عنصر واحد} two {عنصران} few {# عناصر} many {# عنصرًا} other {# عنصر}}',
+  sectionHeading:
+    '{title}، {count, plural, zero {لا عناصر} one {عنصر واحد} two {عنصران} few {# عناصر} many {# عنصرًا} other {# عنصر}}',
   viewAll: 'عرض الكل',
   approval: {
     review: 'مراجعة',

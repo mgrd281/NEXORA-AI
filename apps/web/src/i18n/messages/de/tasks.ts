@@ -237,6 +237,13 @@ const tasks: Catalog<typeof source> = {
     tokens: '{input} Eingabe- · {output} Ausgabe-Tokens',
     opensInNewTab: '(öffnet in neuem Tab)',
     copyHash: 'Inhalts-Fingerabdruck',
+    memoryRecord: 'Im Gedächtnis gespeichert',
+    memoryId: 'Gedächtnis-ID',
+    copyMemoryId: 'Gedächtnis-ID',
+    truncated: 'Antwort gekürzt',
+    truncatedDetail: 'Die Antwort hat die maximale Länge erreicht.',
+    excluded:
+      '{count, plural, one {# an KI-Assistenten gerichteter Satz ausgelassen} other {# an KI-Assistenten gerichtete Sätze ausgelassen}}',
   },
   history: {
     title: 'Verlauf',
@@ -318,6 +325,39 @@ const tasks: Catalog<typeof source> = {
     taskId: 'Aufgaben-ID',
     copyTaskId: 'Aufgaben-ID',
     notYet: '—',
+  },
+  server: {
+    plan: {
+      summarize: '{host} zusammenfassen',
+      summarizeEmail: '{host} zusammenfassen und dir mailen',
+      remember: 'Merken: {text}',
+      emailSelf: 'E-Mail an dich: {text}',
+    },
+    objective: {
+      summarize: '{url} lesen und zusammenfassen.',
+      summarizeEmail: '{url} lesen, zusammenfassen und die Zusammenfassung an {email} senden.',
+      remember: 'Eine Notiz im Langzeitgedächtnis speichern.',
+      emailSelf: 'Eine Notiz an {email} senden.',
+    },
+    step: {
+      fetch: '{host} lesen',
+      summarize: 'Seite zusammenfassen',
+      emailSummary: 'Zusammenfassung an dich senden',
+      remember: 'Im Gedächtnis speichern',
+      emailNote: 'Notiz an dich senden',
+    },
+    approval: {
+      email: 'Die E-Mail „{subject}“ an {recipients} senden.',
+      generic: '„{title}“ ausführen ({tool}).',
+      recipientsMany: '{count, plural, one {# Empfänger} other {# Empfänger}}',
+    },
+    result: {
+      emailSent: '„{subject}“ an {recipients} gesendet.',
+      memorySaved: 'Im Gedächtnis gespeichert: „{text}“.',
+      declined: 'Du hast abgelehnt, daher wurde nichts gesendet oder geändert: {action}',
+      cancelled: 'Auf deinen Wunsch abgebrochen.',
+      expired: 'Die Freigabeanfrage ist abgelaufen, bevor du entschieden hast. Es wurde nichts ausgeführt.',
+    },
   },
 };
 

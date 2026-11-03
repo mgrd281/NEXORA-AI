@@ -39,6 +39,8 @@ const approvals: Catalog<typeof source> = {
     title: 'Text auf {host} hat versucht, KI-Assistenten Anweisungen zu geben.',
     titleNoHost: 'Eine verwendete Quelle hat versucht, KI-Assistenten Anweisungen zu geben.',
     leftOut: 'JARVIS hat diesen Text nicht in die Zusammenfassung übernommen.',
+    leftOutCount:
+      '{count, plural, one {JARVIS hat diesen Satz nicht in die Zusammenfassung übernommen.} other {JARVIS hat diese # Sätze nicht in die Zusammenfassung übernommen.}}',
     mayInclude: 'Teile davon können in der Nachricht stehen.',
     check: 'Prüf die Nachricht, bevor du sie freigibst.',
   },

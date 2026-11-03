@@ -22,7 +22,8 @@ const home = {
     active: 'In progress',
     recent: 'Recent results',
   },
-  sectionCount: '{count, plural, one {# item} other {# items}}',
+  /** A section heading's accessible name: its title and how many items it lists. */
+  sectionHeading: '{title}, {count, plural, one {# item} other {# items}}',
   viewAll: 'View all',
   approval: {
     review: 'Review',

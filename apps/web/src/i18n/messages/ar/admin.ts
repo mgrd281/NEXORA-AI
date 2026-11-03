@@ -33,8 +33,10 @@ const admin: Catalog<typeof source> = {
       unknown: 'الحالة غير متاحة',
     },
     queue: 'قائمة الانتظار',
-    queueCaption:
-      '{count, plural, =0 {لا شيء في الانتظار} one {عملية واحدة في الانتظار} two {عمليتان في الانتظار} few {# عمليات في الانتظار} many {# عملية في الانتظار} other {# عملية في الانتظار}}',
+    queueValue: '{ready} جاهزة · {scheduled} مجدولة',
+    queueIdle: 'لا توجد مهام مستحقة الآن',
+    queueOldest: 'أقدم مهمة مستحقة تنتظر منذ {duration}',
+    queueSlow: 'تأخّر: أقدم مهمة مستحقة تنتظر منذ {duration}',
   },
   usage: {
     title: 'الاستخدام',
