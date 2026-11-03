@@ -211,8 +211,8 @@ jobs:
           node apps/api/dist/migrate.js
       - name: Create the owner account
         env:
-          # CLI reads the account password from here (scripts/db-setup.sh uses the same
-          # name for the database role password, so it is set on this step only).
+          # The CLI reads the account password from here (database role passwords use
+          # JARVIS_DB_OWNER_PASSWORD / JARVIS_DB_APP_PASSWORD).
           JARVIS_OWNER_PASSWORD: ${{ env.E2E_PASSWORD }}
         run: >-
           node apps/api/dist/cli.js create-owner --email "$E2E_EMAIL" --name "E2E Owner"
