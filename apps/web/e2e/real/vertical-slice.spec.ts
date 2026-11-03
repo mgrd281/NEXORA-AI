@@ -73,7 +73,8 @@ async function ensureConnections(page: Page) {
     await page.getByLabel('Port').fill(mailboxPort);
     await page.getByLabel('From address').fill(email!);
     await connect.click();
-    await expect(page.getByText(`Email connected as ${email}.`)).toBeVisible({ timeout: 20_000 });
+    // Interpolated user text is wrapped in Unicode isolates (U+2068/U+2069) for bidi safety.
+    await expect(page.getByText(/^Email connected as/)).toBeVisible({ timeout: 20_000 });
   }
   await page.screenshot({
     path: `${shots}/real--connections--light--en--desktop.png`,
@@ -218,9 +219,10 @@ test('a prompt injection on the page is flagged and cannot change the recipient'
   await expect(
     page
       .getByRole('dialog')
-      .getByText(/instructions aimed at AI/)
+      .getByText(/tried to give instructions to AI assistants/)
       .first(),
   ).toBeVisible();
+  await expect(page.getByRole('dialog').getByText('Untrusted source').first()).toBeVisible();
   await page.screenshot({ path: `${shots}/real--approval-injection--light--en--desktop.png` });
   await page
     .getByRole('dialog')
