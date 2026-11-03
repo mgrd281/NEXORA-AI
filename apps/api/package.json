@@ -1,0 +1,50 @@
+{
+  "name": "@jarvis/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "JARVIS modular-monolith API and durable agent worker.",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env --clear-screen=false src/server.ts",
+    "dev:worker": "tsx watch --env-file=.env --clear-screen=false src/worker.ts",
+    "start": "node dist/server.js",
+    "start:worker": "node dist/worker.js",
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint src test",
+    "test": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "db:migrate": "tsx --env-file=.env src/db/migrate.ts",
+    "cli": "tsx --env-file=.env src/cli.ts",
+    "openapi": "tsx scripts/openapi.ts",
+    "dev:mailbox": "tsx scripts/dev-mailbox.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.4.0",
+    "@fastify/cookie": "11.1.5",
+    "@fastify/helmet": "13.2.0",
+    "@fastify/rate-limit": "11.2.2",
+    "@jarvis/contracts": "workspace:*",
+    "@node-rs/argon2": "2.2.2",
+    "fastify": "5.12.8",
+    "kysely": "0.29.8",
+    "node-html-parser": "9.0.6",
+    "nodemailer": "10.3.1",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@types/node": "22.20.5",
+    "@types/nodemailer": "8.0.2",
+    "@types/pg": "8.23.1",
+    "@types/smtp-server": "3.5.13",
+    "esbuild": "0.28.2",
+    "eslint": "9.39.5",
+    "smtp-server": "3.21.3",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vitest": "5.1.0"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@jarvis/tokens",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Meridian design tokens — single source of truth for Web, iOS, Android and macOS.",
+  "exports": {
+    ".": "./src/tokens.ts",
+    "./tokens.css": "./generated/tokens.css"
+  },
+  "scripts": {
+    "build": "tsx scripts/build.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "vitest": "5.1.0",
+    "@types/node": "22.20.5"
+  }
+}

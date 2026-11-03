@@ -1,0 +1,18 @@
+node_modules/
+dist/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.DS_Store
+playwright-report/
+test-results/
+/artifacts/
+apps/web/next-env.d.ts
+# Xcode
+apps/ios/*.xcodeproj/xcuserdata/
+apps/ios/build/
+DerivedData/

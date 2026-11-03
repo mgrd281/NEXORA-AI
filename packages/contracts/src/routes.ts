@@ -1,0 +1,426 @@
+import { z } from 'zod';
+import {
+  AdminOverview,
+  AdminUser,
+  Approval,
+  ApprovalDecisionRequest,
+  AssistantStatus,
+  AuditEvent,
+  Connection,
+  CreateMemoryRequest,
+  CreateSmtpConnectionRequest,
+  CreateTaskRequest,
+  DeleteAccountRequest,
+  HomeSnapshot,
+  LoginRequest,
+  LoginResponse,
+  Me,
+  Memory,
+  MemoryListQuery,
+  Notification,
+  Page,
+  PageQuery,
+  RetryTaskRequest,
+  SessionInfo,
+  TaskDetail,
+  TaskListQuery,
+  TaskSummary,
+  UpdateMeRequest,
+  UpdateMemoryRequest,
+  UsageSummary,
+  VoiceSession,
+  VoiceSessionEnd,
+  VoiceSessionStart,
+} from './schemas';
+
+export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+
+export interface RouteDef {
+  method: HttpMethod;
+  /** Fastify-style path, e.g. /v1/tasks/:id */
+  path: string;
+  summary: string;
+  tag: string;
+  auth: 'none' | 'user' | 'platform_admin';
+  params?: z.ZodObject;
+  query?: z.ZodObject;
+  body?: z.ZodType;
+  /** Response body for the success status. `null` = 204 No Content. */
+  response: z.ZodType | null;
+  successStatus?: 200 | 201 | 202 | 204;
+  /** Mutations that accept an Idempotency-Key header. */
+  idempotent?: boolean;
+}
+
+const IdParams = z.object({ id: z.uuid() });
+const Ok = z.object({ ok: z.literal(true) });
+
+/**
+ * Every HTTP endpoint of API v1. The server registers handlers against this
+ * table (and fails to boot if one is missing); OpenAPI is generated from it.
+ */
+export const routes = {
+  // Auth
+  login: {
+    method: 'POST',
+    path: '/v1/auth/login',
+    summary: 'Sign in with email and password',
+    tag: 'auth',
+    auth: 'none',
+    body: LoginRequest,
+    response: LoginResponse,
+  },
+  logout: {
+    method: 'POST',
+    path: '/v1/auth/logout',
+    summary: 'Sign out and revoke the current session',
+    tag: 'auth',
+    auth: 'user',
+    response: null,
+    successStatus: 204,
+  },
+  listSessions: {
+    method: 'GET',
+    path: '/v1/auth/sessions',
+    summary: 'List active sessions and devices',
+    tag: 'auth',
+    auth: 'user',
+    response: z.object({ items: z.array(SessionInfo) }),
+  },
+  revokeSession: {
+    method: 'DELETE',
+    path: '/v1/auth/sessions/:id',
+    summary: 'Revoke a session',
+    tag: 'auth',
+    auth: 'user',
+    params: IdParams,
+    response: null,
+    successStatus: 204,
+  },
+
+  // Me / account
+  getMe: {
+    method: 'GET',
+    path: '/v1/me',
+    summary: 'Current user profile and preferences',
+    tag: 'account',
+    auth: 'user',
+    response: Me,
+  },
+  updateMe: {
+    method: 'PATCH',
+    path: '/v1/me',
+    summary: 'Update profile and preferences',
+    tag: 'account',
+    auth: 'user',
+    body: UpdateMeRequest,
+    response: Me,
+  },
+  exportAccount: {
+    method: 'POST',
+    path: '/v1/account/export',
+    summary: 'Export all personal data as JSON (GDPR Art. 20)',
+    tag: 'account',
+    auth: 'user',
+    response: z.record(z.string(), z.unknown()),
+  },
+  deleteAccount: {
+    method: 'POST',
+    path: '/v1/account/delete',
+    summary: 'Permanently delete the account and its data',
+    tag: 'account',
+    auth: 'user',
+    body: DeleteAccountRequest,
+    response: null,
+    successStatus: 204,
+  },
+
+  // Home & system
+  getHome: {
+    method: 'GET',
+    path: '/v1/home',
+    summary: 'Home snapshot: approvals, active work, recent results, suggestions',
+    tag: 'home',
+    auth: 'user',
+    response: HomeSnapshot,
+  },
+  getAssistantStatus: {
+    method: 'GET',
+    path: '/v1/assistant/status',
+    summary: 'Real capability and health status of the assistant',
+    tag: 'home',
+    auth: 'user',
+    response: AssistantStatus,
+  },
+  getUsage: {
+    method: 'GET',
+    path: '/v1/usage',
+    summary: 'Usage and cost for the current month',
+    tag: 'home',
+    auth: 'user',
+    response: UsageSummary,
+  },
+
+  // Tasks
+  createTask: {
+    method: 'POST',
+    path: '/v1/tasks',
+    summary: 'Submit a request; JARVIS plans and executes it',
+    tag: 'tasks',
+    auth: 'user',
+    body: CreateTaskRequest,
+    response: TaskSummary,
+    successStatus: 202,
+    idempotent: true,
+  },
+  listTasks: {
+    method: 'GET',
+    path: '/v1/tasks',
+    summary: 'List tasks',
+    tag: 'tasks',
+    auth: 'user',
+    query: TaskListQuery,
+    response: Page(TaskSummary),
+  },
+  getTask: {
+    method: 'GET',
+    path: '/v1/tasks/:id',
+    summary: 'Task detail with steps, approvals, evidence and history',
+    tag: 'tasks',
+    auth: 'user',
+    params: IdParams,
+    response: TaskDetail,
+  },
+  cancelTask: {
+    method: 'POST',
+    path: '/v1/tasks/:id/cancel',
+    summary: 'Cancel a task',
+    tag: 'tasks',
+    auth: 'user',
+    params: IdParams,
+    response: TaskSummary,
+  },
+  retryTask: {
+    method: 'POST',
+    path: '/v1/tasks/:id/retry',
+    summary: 'Retry a failed or expired task from the failed step',
+    tag: 'tasks',
+    auth: 'user',
+    params: IdParams,
+    body: RetryTaskRequest,
+    response: TaskSummary,
+    successStatus: 202,
+    idempotent: true,
+  },
+
+  // Approvals
+  listApprovals: {
+    method: 'GET',
+    path: '/v1/approvals',
+    summary: 'Pending approvals',
+    tag: 'approvals',
+    auth: 'user',
+    response: z.object({ items: z.array(Approval) }),
+  },
+  decideApproval: {
+    method: 'POST',
+    path: '/v1/approvals/:id/decision',
+    summary: 'Approve or reject an action',
+    tag: 'approvals',
+    auth: 'user',
+    params: IdParams,
+    body: ApprovalDecisionRequest,
+    response: Approval,
+    idempotent: true,
+  },
+
+  // Connections
+  listConnections: {
+    method: 'GET',
+    path: '/v1/connections',
+    summary: 'Connected services',
+    tag: 'connections',
+    auth: 'user',
+    response: z.object({ items: z.array(Connection) }),
+  },
+  connectSmtp: {
+    method: 'POST',
+    path: '/v1/connections/smtp',
+    summary: 'Connect an SMTP mailbox (verified before saving)',
+    tag: 'connections',
+    auth: 'user',
+    body: CreateSmtpConnectionRequest,
+    response: Connection,
+    successStatus: 201,
+  },
+  enableWebAccess: {
+    method: 'POST',
+    path: '/v1/connections/web',
+    summary: 'Allow JARVIS to read public web pages',
+    tag: 'connections',
+    auth: 'user',
+    response: Connection,
+    successStatus: 201,
+  },
+  testConnection: {
+    method: 'POST',
+    path: '/v1/connections/:id/test',
+    summary: 'Re-verify a connection',
+    tag: 'connections',
+    auth: 'user',
+    params: IdParams,
+    response: Connection,
+  },
+  deleteConnection: {
+    method: 'DELETE',
+    path: '/v1/connections/:id',
+    summary: 'Disconnect and erase stored credentials',
+    tag: 'connections',
+    auth: 'user',
+    params: IdParams,
+    response: null,
+    successStatus: 204,
+  },
+
+  // Memory
+  listMemories: {
+    method: 'GET',
+    path: '/v1/memories',
+    summary: 'List or search memories',
+    tag: 'memory',
+    auth: 'user',
+    query: MemoryListQuery,
+    response: Page(Memory),
+  },
+  createMemory: {
+    method: 'POST',
+    path: '/v1/memories',
+    summary: 'Save a memory',
+    tag: 'memory',
+    auth: 'user',
+    body: CreateMemoryRequest,
+    response: Memory,
+    successStatus: 201,
+  },
+  updateMemory: {
+    method: 'PATCH',
+    path: '/v1/memories/:id',
+    summary: 'Correct a memory',
+    tag: 'memory',
+    auth: 'user',
+    params: IdParams,
+    body: UpdateMemoryRequest,
+    response: Memory,
+  },
+  deleteMemory: {
+    method: 'DELETE',
+    path: '/v1/memories/:id',
+    summary: 'Delete a memory',
+    tag: 'memory',
+    auth: 'user',
+    params: IdParams,
+    response: null,
+    successStatus: 204,
+  },
+  deleteAllMemories: {
+    method: 'DELETE',
+    path: '/v1/memories',
+    summary: 'Delete all memories',
+    tag: 'memory',
+    auth: 'user',
+    response: z.object({ deleted: z.number().int() }),
+  },
+
+  // Notifications
+  listNotifications: {
+    method: 'GET',
+    path: '/v1/notifications',
+    summary: 'Notifications',
+    tag: 'notifications',
+    auth: 'user',
+    query: PageQuery,
+    response: Page(Notification),
+  },
+  markNotificationsRead: {
+    method: 'POST',
+    path: '/v1/notifications/read',
+    summary: 'Mark notifications read',
+    tag: 'notifications',
+    auth: 'user',
+    body: z.object({ ids: z.array(z.uuid()).max(200).optional() }),
+    response: Ok,
+  },
+
+  // Voice (metadata only — audio never leaves the device in this build)
+  startVoiceSession: {
+    method: 'POST',
+    path: '/v1/voice-sessions',
+    summary: 'Record the start of a voice session',
+    tag: 'voice',
+    auth: 'user',
+    body: VoiceSessionStart,
+    response: VoiceSession,
+    successStatus: 201,
+  },
+  endVoiceSession: {
+    method: 'POST',
+    path: '/v1/voice-sessions/:id/end',
+    summary: 'Record the end of a voice session',
+    tag: 'voice',
+    auth: 'user',
+    params: IdParams,
+    body: VoiceSessionEnd,
+    response: VoiceSession,
+  },
+
+  // Admin (platform_admin only; aggregates, never content)
+  adminOverview: {
+    method: 'GET',
+    path: '/v1/admin/overview',
+    summary: 'System health, reliability and cost aggregates',
+    tag: 'admin',
+    auth: 'platform_admin',
+    response: AdminOverview,
+  },
+  adminUsers: {
+    method: 'GET',
+    path: '/v1/admin/users',
+    summary: 'Users (no conversation content)',
+    tag: 'admin',
+    auth: 'platform_admin',
+    query: PageQuery,
+    response: Page(AdminUser),
+  },
+  adminAudit: {
+    method: 'GET',
+    path: '/v1/admin/audit',
+    summary: 'Audit log',
+    tag: 'admin',
+    auth: 'platform_admin',
+    query: PageQuery,
+    response: Page(AuditEvent),
+  },
+} as const satisfies Record<string, RouteDef>;
+
+export type RouteName = keyof typeof routes;
+
+/** Server-Sent Events endpoint (not in the JSON route table). Supports Last-Event-ID. */
+export const EVENTS_PATH = '/v1/events';
+
+type Def<N extends RouteName> = (typeof routes)[N];
+export type RouteBody<N extends RouteName> =
+  Def<N> extends { body: infer B extends z.ZodType } ? z.input<B> : never;
+export type RouteQuery<N extends RouteName> =
+  Def<N> extends { query: infer Q extends z.ZodType } ? z.input<Q> : never;
+export type RouteResponse<N extends RouteName> = Def<N>['response'] extends z.ZodType
+  ? z.output<Def<N>['response']>
+  : void;
+
+/** Build a concrete URL path from a route and its params. */
+export function buildPath(path: string, params: Record<string, string> = {}): string {
+  return path.replace(/:([A-Za-z]+)/g, (_, k: string) => {
+    const v = params[k];
+    if (v === undefined) throw new Error(`Missing path param ${k} for ${path}`);
+    return encodeURIComponent(v);
+  });
+}
