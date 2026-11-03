@@ -12,10 +12,10 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { sha256Hex } from '../lib/crypto';
 
-const MIGRATIONS_DIR = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  '../../../../db/migrations',
-);
+// Overridable for bundled builds/containers, where the source-relative path does not exist.
+const MIGRATIONS_DIR =
+  process.env.MIGRATIONS_DIR ??
+  resolve(dirname(fileURLToPath(import.meta.url)), '../../../../db/migrations');
 const LOCK_ID = 7_314_159;
 
 export async function migrate(
