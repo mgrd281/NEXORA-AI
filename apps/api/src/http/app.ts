@@ -64,6 +64,14 @@ export async function buildApp(
 
   app.decorateRequest('ctx', null);
 
+  // Body-less actions (cancel, enable web access, logout, …) sent with a JSON content type
+  // would otherwise fail Fastify's empty-JSON-body check; treat them as having no body.
+  app.addHook('onRequest', async (req) => {
+    if (req.headers['content-length'] === '0' && req.headers['content-type']?.includes('json')) {
+      delete req.headers['content-type'];
+    }
+  });
+
   // Authentication: bearer token (native clients) or httpOnly cookie (web).
   app.addHook('onRequest', async (req) => {
     req.ctx = null;

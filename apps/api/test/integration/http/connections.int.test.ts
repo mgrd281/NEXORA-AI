@@ -183,6 +183,15 @@ describe('POST /v1/connections/smtp', () => {
 });
 
 describe('POST /v1/connections/web', () => {
+  it('accepts a body-less POST that still declares a JSON content type', async () => {
+    const c = await newClient(h);
+    const res = await c.request('POST', '/v1/connections/web', undefined, {
+      'content-type': 'application/json',
+      'content-length': '0',
+    });
+    expect(res.statusCode).toBe(201);
+  });
+
   it('creates the web connection, then reactivates it instead of duplicating', async () => {
     const c = await newClient(h);
     const res = await c.request('POST', '/v1/connections/web');
