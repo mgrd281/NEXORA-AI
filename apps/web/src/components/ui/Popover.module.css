@@ -1,0 +1,53 @@
+.anchor {
+  position: relative;
+  min-width: 0;
+}
+
+.popover {
+  position: absolute;
+  z-index: var(--z-popover);
+  display: flex;
+  flex-direction: column;
+  max-block-size: min(560px, calc(100dvh - 96px));
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-popover);
+  outline: none;
+  animation: popover-in var(--duration-fast) var(--ease-standard);
+}
+
+.top-start {
+  inset-block-end: calc(100% + var(--space-2));
+  inset-inline-start: 0;
+}
+
+.top-end {
+  inset-block-end: calc(100% + var(--space-2));
+  inset-inline-end: 0;
+}
+
+.bottom-start {
+  inset-block-start: calc(100% + var(--space-2));
+  inset-inline-start: 0;
+}
+
+.bottom-end {
+  inset-block-start: calc(100% + var(--space-2));
+  inset-inline-end: 0;
+}
+
+/* Beside the trigger, on the end side (used from the sidebar footer). */
+.end {
+  inset-block-end: 0;
+  inset-inline-start: calc(100% + var(--space-3));
+}
+
+@keyframes popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}

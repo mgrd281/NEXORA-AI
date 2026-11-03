@@ -1,0 +1,114 @@
+.row {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  min-block-size: 64px;
+  padding-block: var(--space-3);
+  padding-inline: var(--space-4);
+  list-style: none;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.row + .row {
+  border-block-start: 1px solid var(--color-border);
+}
+
+.row:hover {
+  background: var(--color-surface-hover);
+}
+
+@media (min-width: 640px) {
+  .row {
+    flex-wrap: nowrap;
+    padding-inline: var(--space-5);
+  }
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+@media (min-width: 640px) {
+  .main {
+    flex-basis: auto;
+  }
+}
+
+.link {
+  color: var(--color-text-primary);
+  text-decoration: none;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The whole row is the link's hit area. */
+.link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.link:hover {
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+.link:focus-visible {
+  outline: none;
+}
+
+.link:focus-visible::after {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: calc(var(--focus-width) * -1);
+}
+
+.title {
+  font: var(--text-body-strong);
+}
+
+.line {
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: none;
+}
+
+.progress {
+  font: var(--text-caption);
+  color: var(--color-text-secondary);
+}
+
+.time {
+  font: var(--text-caption);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+  .time {
+    min-inline-size: 88px;
+    text-align: end;
+  }
+}
+
+/* Above the stretched link so it stays clickable. */
+.review {
+  position: relative;
+  z-index: 1;
+}

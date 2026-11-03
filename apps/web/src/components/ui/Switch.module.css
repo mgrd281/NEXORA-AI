@@ -1,0 +1,96 @@
+.row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding-block-start: 1px;
+}
+
+.label {
+  font: var(--text-body);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.description {
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+}
+
+.switch {
+  --track-w: 40px;
+  --track-h: 24px;
+  --thumb: 18px;
+  --pad: 2px;
+  position: relative;
+  flex: none;
+  inline-size: var(--track-w);
+  block-size: var(--track-h);
+  margin-block-start: 0;
+  padding: 0;
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-sunken);
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+/* 44 px hit area around the 24 px track. */
+.switch::after {
+  content: '';
+  position: absolute;
+  inset: -10px -4px;
+}
+
+.thumb {
+  position: absolute;
+  inset-block-start: var(--pad);
+  inset-inline-start: var(--pad);
+  inline-size: var(--thumb);
+  block-size: var(--thumb);
+  border-radius: var(--radius-full);
+  background: var(--color-text-secondary);
+  transition:
+    inset-inline-start var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+}
+
+.switch[aria-checked='true'] {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+}
+
+.switch[aria-checked='true'] .thumb {
+  inset-inline-start: calc(var(--track-w) - var(--thumb) - var(--pad) * 2 - 2px + var(--pad));
+  background: var(--color-on-ink);
+}
+
+.switch:hover:not(:disabled) {
+  border-color: var(--color-text-secondary);
+}
+
+.switch[aria-checked='true']:hover:not(:disabled) {
+  border-color: var(--color-ink-hover);
+  background: var(--color-ink-hover);
+}
+
+.switch[aria-busy='true'] {
+  cursor: progress;
+}
+
+.disabled {
+  opacity: 0.5;
+}
+
+.disabled .label {
+  cursor: not-allowed;
+}

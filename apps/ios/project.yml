@@ -1,0 +1,61 @@
+# XcodeGen spec — generate the project with `xcodegen generate` (XcodeGen 2.42+).
+name: Jarvis
+options:
+  bundleIdPrefix: ai.jarvis
+  deploymentTarget:
+    iOS: "18.0"
+  developmentLanguage: en
+  createIntermediateGroups: true
+  groupSortPosition: top
+configs:
+  Debug: debug
+  Release: release
+configFiles:
+  Debug: Config/Debug.xcconfig
+  Release: Config/Release.xcconfig
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
+    DEAD_CODE_STRIPPING: YES
+    CLANG_ENABLE_MODULES: YES
+targets:
+  Jarvis:
+    type: application
+    platform: iOS
+    sources:
+      - path: Jarvis
+    settings:
+      base:
+        PRODUCT_NAME: Jarvis
+        PRODUCT_BUNDLE_IDENTIFIER: ai.jarvis.app
+        INFOPLIST_FILE: Jarvis/Resources/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_PREVIEWS: YES
+    scheme:
+      testTargets:
+        - JarvisTests
+      gatherCoverageData: true
+  JarvisTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: JarvisTests
+    dependencies:
+      - target: Jarvis
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.jarvis.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Jarvis.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Jarvis"
+        BUNDLE_LOADER: "$(TEST_HOST)"

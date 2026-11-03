@@ -1,0 +1,768 @@
+/**
+ * task.execute job: runs steps in order with durable checkpoints.
+ *
+ * Per step:
+ *   1. (tx) cancel checkpoint; resolve {{refs}} into resolved_input; re-run the
+ *      policy on the resolved input; deny → BLOCKED/FAILED; approval needed and
+ *      no APPROVED approval bound to hash({toolId, resolvedInput}) → PENDING
+ *      approval + AWAITING_APPROVAL, stop.
+ *   2. (tx) claim: insert the tool_executions row *before* the side effect.
+ *      once_per_step → key '<stepId>'; a 'succeeded' row is reused, a 'failed'
+ *      row (definitely not executed) is re-claimed, a 'started'/'unknown' row
+ *      of an external tool means the outcome is unknown → OUTCOME_UNKNOWN.
+ *      safe_to_retry → key '<stepId>:a<n>'.
+ *   3. execute with timeout (AbortController), lease kept alive, no tx held.
+ *   4. (tx) record outcome, usage and cost, events, audit.
+ * After the last step: VERIFYING → verify every step → COMPLETED (or FAILED).
+ */
+import type { Evidence, Locale } from '@jarvis/contracts';
+import { withContext, type DbContext } from '../../db/pool';
+import type { JobRow, StepRow, TaskRow, ToolExecutionRow } from '../../db/types';
+import { hashObject } from '../../lib/crypto';
+import { redact, truncate } from '../../lib/redact';
+import { audit } from '../audit/audit';
+import { appendEvent, publishEphemeral } from '../events/events';
+import { createNotification } from '../notifications/create';
+import { requestApproval } from './approval-flow';
+import { loadAgentContext, type AgentContext } from './context';
+import { AgentError, asAgentError } from './errors';
+import type { ModelUsage } from './models/adapter';
+import { asLocale } from './i18n';
+import { finishCancellation, type JobOutcome } from './plan-job';
+import { denyMessage } from './policy';
+import { deterministicSummary, modelSummary } from './result-summary';
+import type { RuntimeDeps } from './runtime';
+import { withKeepAlive } from './runtime';
+import { assessStep, isTainted } from './step-policy';
+import {
+  failTask,
+  lockTask,
+  tryLockTask,
+  recordToolCost,
+  recordUsage,
+  taskErrorJson,
+  transitionTask,
+} from './task-state';
+import { resolveTemplates } from './templates';
+import { getTool } from './tools/registry';
+import type { AnyTool, ToolResult, ToolRuntime } from './tools/types';
+
+const FINISHED = new Set(['SUCCEEDED', 'SKIPPED']);
+
+type Prepared =
+  | { kind: 'stop' }
+  | { kind: 'awaiting' }
+  | { kind: 'verify' }
+  | {
+      kind: 'run';
+      task: TaskRow;
+      step: StepRow;
+      tool: AnyTool;
+      input: Record<string, unknown>;
+      agent: AgentContext;
+      language: Locale;
+    };
+
+async function loadSteps(trx: Parameters<typeof lockTask>[0], taskId: string): Promise<StepRow[]> {
+  return trx
+    .selectFrom('task_steps')
+    .selectAll()
+    .where('task_id', '=', taskId)
+    .orderBy('position')
+    .execute();
+}
+
+async function failStep(
+  trx: Parameters<typeof lockTask>[0],
+  ctx: DbContext,
+  task: TaskRow,
+  step: StepRow,
+  err: AgentError,
+  status: 'FAILED' | 'BLOCKED' = 'FAILED',
+  reasons: string[] = [err.code],
+): Promise<void> {
+  const error = err.toTaskError();
+  await trx
+    .updateTable('task_steps')
+    .set({ status, error: taskErrorJson(error), completed_at: new Date() })
+    .where('id', '=', step.id)
+    .execute();
+  await appendEvent(trx, ctx, {
+    taskId: task.id,
+    type: status === 'BLOCKED' ? 'step.blocked' : 'step.failed',
+    data:
+      status === 'BLOCKED'
+        ? { stepId: step.id, toolId: step.tool_id, title: step.title, reasons }
+        : {
+            stepId: step.id,
+            toolId: step.tool_id,
+            title: step.title,
+            code: error.code,
+            message: error.message,
+          },
+  });
+  await failTask(trx, ctx, task, error);
+}
+
+/* ------------------------------------------------------------------ */
+/* 1. Prepare the next step                                            */
+/* ------------------------------------------------------------------ */
+
+async function prepareNext(deps: RuntimeDeps, ctx: DbContext, taskId: string): Promise<Prepared> {
+  return withContext(deps.db, ctx, async (trx) => {
+    const task = await tryLockTask(trx, taskId);
+    if (!task) return { kind: 'stop' };
+    if (task.status !== 'RUNNING') return { kind: 'stop' };
+    if (task.cancel_requested_at) {
+      await finishCancellation(trx, ctx, task);
+      return { kind: 'stop' };
+    }
+    const steps = await loadSteps(trx, taskId);
+    const step = steps.find((s) => !FINISHED.has(s.status));
+    if (!step) return { kind: 'verify' };
+    const tool = getTool(step.tool_id);
+    if (!tool) {
+      await failStep(
+        trx,
+        ctx,
+        task,
+        step,
+        new AgentError('INTERNAL', `Unknown tool ${step.tool_id}.`),
+      );
+      return { kind: 'stop' };
+    }
+    const agent = await loadAgentContext(trx, deps.config, ctx.userId);
+    const language = asLocale(task.language, agent.account.locale);
+
+    // Resolve references from earlier steps' stored outputs.
+    const outputs = Object.fromEntries(
+      steps.filter((s) => FINISHED.has(s.status)).map((s) => [s.step_key, s.output ?? {}]),
+    );
+    let resolved: Record<string, unknown>;
+    try {
+      resolved = resolveTemplates(step.input, outputs);
+    } catch (err) {
+      await failStep(trx, ctx, task, step, asAgentError(err));
+      return { kind: 'stop' };
+    }
+    const parsed = tool.inputSchema.safeParse(resolved);
+    if (!parsed.success) {
+      const detail = parsed.error.issues
+        .slice(0, 3)
+        .map((i) => `${i.path.join('.') || 'input'}: ${i.message}`)
+        .join('; ');
+      await failStep(
+        trx,
+        ctx,
+        task,
+        step,
+        new AgentError('TOOL_FAILED', `The input for “${step.title}” is not valid: ${detail}`),
+      );
+      return { kind: 'stop' };
+    }
+    const input = parsed.data as Record<string, unknown>;
+
+    // Policy on the exact input that would run.
+    const a = assessStep(tool, input, agent, deps.config, {
+      untrustedContent: isTainted(steps, step),
+    });
+    await trx
+      .updateTable('task_steps')
+      .set({
+        resolved_input: JSON.stringify(input),
+        input_preview: JSON.stringify(a.preview),
+        risk_level: a.risk,
+        policy: JSON.stringify({ decision: a.policy.decision, reasons: a.policy.reasons }),
+        requires_approval: a.policy.decision === 'require_approval',
+      })
+      .where('id', '=', step.id)
+      .execute();
+
+    if (a.policy.decision === 'deny') {
+      const code = a.policy.denyCode ?? 'POLICY_DENIED';
+      await failStep(
+        trx,
+        ctx,
+        task,
+        step,
+        new AgentError(code, denyMessage(code, a.policy.reasons, step.title), { retryable: true }),
+        'BLOCKED',
+        a.policy.reasons,
+      );
+      return { kind: 'stop' };
+    }
+
+    if (a.policy.decision === 'require_approval') {
+      const actionHash = hashObject({ toolId: tool.id, resolvedInput: input });
+      const approved = await trx
+        .selectFrom('approvals')
+        .select('id')
+        .where('step_id', '=', step.id)
+        .where('status', '=', 'APPROVED')
+        .where('action_hash', '=', actionHash)
+        .executeTakeFirst();
+      if (!approved) {
+        const pending = await trx
+          .selectFrom('approvals')
+          .selectAll()
+          .where('step_id', '=', step.id)
+          .where('status', '=', 'PENDING')
+          .executeTakeFirst();
+        if (pending && pending.action_hash === actionHash) {
+          // Already waiting on exactly this action (e.g. a duplicate job).
+          await trx
+            .updateTable('task_steps')
+            .set({ status: 'AWAITING_APPROVAL' })
+            .where('id', '=', step.id)
+            .execute();
+          await transitionTask(trx, ctx, task, 'AWAITING_APPROVAL');
+          return { kind: 'awaiting' };
+        }
+        if (pending) {
+          await trx
+            .updateTable('approvals')
+            .set({ status: 'SUPERSEDED', decided_at: new Date() })
+            .where('id', '=', pending.id)
+            .execute();
+        }
+        const smtp = agent.connections.get('smtp');
+        const smtpCfg = (smtp?.config ?? {}) as { fromAddress?: string; fromName?: string };
+        const fromAddress = smtpCfg.fromAddress
+          ? smtpCfg.fromName
+            ? `${smtpCfg.fromName} <${smtpCfg.fromAddress}>`
+            : smtpCfg.fromAddress
+          : null;
+        const { details, summary } = tool.approvalDetails(input, {
+          language,
+          stepTitle: step.title,
+          fromAddress,
+        });
+        await requestApproval(trx, ctx, deps.config, {
+          task,
+          step,
+          toolId: tool.id,
+          risk: a.risk,
+          summary,
+          details,
+          actionHash,
+          reasons: a.policy.reasons,
+        });
+        return { kind: 'awaiting' };
+      }
+    }
+    return {
+      kind: 'run',
+      task,
+      step: { ...step, resolved_input: input },
+      tool,
+      input,
+      agent,
+      language,
+    };
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* 2–4. Run one step                                                   */
+/* ------------------------------------------------------------------ */
+
+type Claim =
+  | { kind: 'stop' }
+  | { kind: 'reuse'; exec: ToolExecutionRow }
+  | { kind: 'run'; executionId: string; key: string };
+
+async function claimExecution(
+  deps: RuntimeDeps,
+  ctx: DbContext,
+  p: Extract<Prepared, { kind: 'run' }>,
+): Promise<Claim> {
+  const { tool, step, input } = p;
+  const inputHash = hashObject(input);
+  return withContext(deps.db, ctx, async (trx) => {
+    const task = await lockTask(trx, step.task_id);
+    if (task.status !== 'RUNNING') return { kind: 'stop' };
+    const current = await trx
+      .selectFrom('task_steps')
+      .selectAll()
+      .where('id', '=', step.id)
+      .forUpdate()
+      .executeTakeFirstOrThrow();
+
+    let key: string;
+    let executionId: string;
+    if (tool.idempotency === 'once_per_step') {
+      key = step.id;
+      const existing = await trx
+        .selectFrom('tool_executions')
+        .selectAll()
+        .where('idempotency_key', '=', key)
+        .forUpdate()
+        .executeTakeFirst();
+      if (existing?.status === 'succeeded') return { kind: 'reuse', exec: existing };
+      if (existing && (existing.status === 'started' || existing.status === 'unknown')) {
+        if (tool.sideEffect === 'external') {
+          // A previous attempt may have performed the side effect: never repeat it.
+          await trx
+            .updateTable('tool_executions')
+            .set({ status: 'unknown', finished_at: existing.finished_at ?? new Date() })
+            .where('id', '=', existing.id)
+            .execute();
+          const err = new AgentError(
+            'OUTCOME_UNKNOWN',
+            `JARVIS was interrupted while running “${step.title}” and cannot tell whether it completed. Check the result yourself (for email: your Sent folder) before retrying.`,
+            { retryable: false },
+          );
+          await failStep(trx, ctx, task, current, err);
+          await audit(trx, {
+            tenantId: ctx.tenantId,
+            actorType: 'agent',
+            actorId: ctx.userId,
+            action: 'tool.outcome_unknown',
+            targetType: 'task_step',
+            targetId: step.id,
+            metadata: { taskId: step.task_id, toolId: tool.id },
+          });
+          return { kind: 'stop' };
+        }
+      }
+      if (existing) {
+        // 'failed' (definitely not executed) or an interrupted internal tool: re-claim.
+        await trx
+          .updateTable('tool_executions')
+          .set({
+            status: 'started',
+            input_hash: inputHash,
+            tool_version: tool.version,
+            started_at: new Date(),
+            finished_at: null,
+            duration_ms: null,
+            error: null,
+          })
+          .where('id', '=', existing.id)
+          .execute();
+        executionId = existing.id;
+      } else {
+        const row = await trx
+          .insertInto('tool_executions')
+          .values({
+            tenant_id: ctx.tenantId,
+            user_id: ctx.userId,
+            task_id: step.task_id,
+            step_id: step.id,
+            tool_id: tool.id,
+            tool_version: tool.version,
+            idempotency_key: key,
+            status: 'started',
+            input_hash: inputHash,
+          })
+          .returning('id')
+          .executeTakeFirstOrThrow();
+        executionId = row.id;
+      }
+    } else {
+      // Attempts interrupted by a crash are safe to abandon for these tools.
+      await trx
+        .updateTable('tool_executions')
+        .set({
+          status: 'failed',
+          finished_at: new Date(),
+          error: taskErrorJson({ code: 'INTERNAL', message: 'Interrupted', retryable: true }),
+        })
+        .where('step_id', '=', step.id)
+        .where('status', '=', 'started')
+        .execute();
+      key = `${step.id}:a${current.attempts + 1}`;
+      const row = await trx
+        .insertInto('tool_executions')
+        .values({
+          tenant_id: ctx.tenantId,
+          user_id: ctx.userId,
+          task_id: step.task_id,
+          step_id: step.id,
+          tool_id: tool.id,
+          tool_version: tool.version,
+          idempotency_key: key,
+          status: 'started',
+          input_hash: inputHash,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow();
+      executionId = row.id;
+    }
+    await trx
+      .updateTable('task_steps')
+      .set({
+        status: 'RUNNING',
+        attempts: current.attempts + 1,
+        started_at: current.started_at ?? new Date(),
+        error: null,
+      })
+      .where('id', '=', step.id)
+      .execute();
+    await appendEvent(trx, ctx, {
+      taskId: step.task_id,
+      type: 'step.started',
+      data: { stepId: step.id, toolId: tool.id, title: step.title, attempt: current.attempts + 1 },
+    });
+    return { kind: 'run', executionId, key };
+  });
+}
+
+function abortRejection(signal: AbortSignal, tool: AnyTool, title: string): Promise<never> {
+  return new Promise((_, reject) => {
+    const onAbort = () =>
+      reject(
+        tool.sideEffect === 'external'
+          ? new AgentError(
+              'OUTCOME_UNKNOWN',
+              `“${title}” did not finish in time, so JARVIS cannot tell whether it completed.`,
+            )
+          : new AgentError('TOOL_TIMEOUT', `“${title}” did not finish in time.`, {
+              retryable: true,
+              transient: true,
+            }),
+      );
+    if (signal.aborted) onAbort();
+    else signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+function normalizeToolError(err: unknown, tool: AnyTool): AgentError {
+  if (err instanceof AgentError) return err;
+  // An unexpected exception inside an external tool leaves its outcome unknown.
+  if (tool.sideEffect === 'external') {
+    return new AgentError(
+      'OUTCOME_UNKNOWN',
+      'The action failed unexpectedly, so JARVIS cannot tell whether it completed.',
+    );
+  }
+  return asAgentError(err);
+}
+
+async function recordSuccess(
+  deps: RuntimeDeps,
+  ctx: DbContext,
+  p: Extract<Prepared, { kind: 'run' }>,
+  executionId: string,
+  result: ToolResult,
+  durationMs: number,
+): Promise<void> {
+  const { step, tool, input } = p;
+  await withContext(deps.db, ctx, async (trx) => {
+    await trx
+      .updateTable('tool_executions')
+      .set({
+        status: 'succeeded',
+        output: JSON.stringify(result.output),
+        evidence: JSON.stringify(result.evidence),
+        cost_micro: result.costMicro,
+        finished_at: new Date(),
+        duration_ms: durationMs,
+        error: null,
+      })
+      .where('id', '=', executionId)
+      .execute();
+    await markStepSucceeded(
+      trx,
+      ctx,
+      step,
+      tool,
+      result.output,
+      result.outputPreview,
+      result.evidence,
+    );
+    const modelCost = await recordUsage(trx, ctx, step.task_id, result.usage ?? []);
+    await recordToolCost(trx, ctx, step.task_id, result.costMicro - modelCost);
+    if (result.answer !== undefined) {
+      await trx
+        .updateTable('tasks')
+        .set({ answer: result.answer })
+        .where('id', '=', step.task_id)
+        .execute();
+    }
+    const entry = tool.audit?.(input, result.output);
+    if (entry) {
+      await audit(trx, {
+        tenantId: ctx.tenantId,
+        actorType: 'agent',
+        actorId: ctx.userId,
+        action: entry.action,
+        targetType: 'task_step',
+        targetId: step.id,
+        metadata: { ...entry.metadata, taskId: step.task_id, toolExecutionId: executionId },
+      });
+    }
+  });
+}
+
+async function markStepSucceeded(
+  trx: Parameters<typeof lockTask>[0],
+  ctx: DbContext,
+  step: StepRow,
+  tool: AnyTool,
+  output: Record<string, unknown>,
+  preview: Record<string, unknown>,
+  evidence: Evidence[],
+): Promise<void> {
+  await trx
+    .updateTable('task_steps')
+    .set({
+      status: 'SUCCEEDED',
+      output: JSON.stringify(output),
+      output_preview: JSON.stringify(preview),
+      evidence: JSON.stringify(evidence),
+      completed_at: new Date(),
+      error: null,
+    })
+    .where('id', '=', step.id)
+    .execute();
+  await appendEvent(trx, ctx, {
+    taskId: step.task_id,
+    type: 'step.succeeded',
+    data: { stepId: step.id, toolId: tool.id, title: step.title },
+  });
+}
+
+/** Display-safe copy of a stored output (long strings shortened, secrets redacted). */
+function safePreview(output: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(redact(output)))
+    out[k] = typeof v === 'string' ? truncate(v, 500) : v;
+  return out;
+}
+
+function backoffMs(attempt: number): number {
+  return Math.min(5_000, 250 * 2 ** (attempt - 1));
+}
+
+/** Runs one step to a recorded outcome. Returns false when the task stopped. */
+async function runStep(
+  deps: RuntimeDeps,
+  ctx: DbContext,
+  p: Extract<Prepared, { kind: 'run' }>,
+): Promise<boolean> {
+  const { tool, step, input } = p;
+  const maxAttempts =
+    tool.idempotency === 'safe_to_retry' ? Math.max(1, tool.retry.maxAttempts) : 1;
+  for (let attempt = 1; ; attempt++) {
+    const claim = await claimExecution(deps, ctx, p);
+    if (claim.kind === 'stop') return false;
+    if (claim.kind === 'reuse') {
+      // The side effect already happened and was recorded: reuse it, never repeat it.
+      await withContext(deps.db, ctx, (trx) =>
+        markStepSucceeded(
+          trx,
+          ctx,
+          step,
+          tool,
+          claim.exec.output ?? {},
+          safePreview(claim.exec.output ?? {}),
+          (claim.exec.evidence ?? []) as Evidence[],
+        ),
+      );
+      return true;
+    }
+
+    const rt: ToolRuntime = {
+      config: deps.config,
+      db: deps.db,
+      secrets: deps.secrets,
+      ctx,
+      taskId: step.task_id,
+      stepId: step.id,
+      idempotencyKey: claim.key,
+      account: p.agent.account,
+      preferences: p.agent.preferences,
+      connections: p.agent.connections,
+      language: p.language,
+      model: p.agent.route.mode === 'model' ? deps.adapter : null,
+      publishDelta: (text) =>
+        publishEphemeral(deps.db, ctx, {
+          taskId: step.task_id,
+          type: 'task.answer.delta',
+          data: { stepId: step.id, text },
+        }),
+    };
+
+    const started = Date.now();
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), tool.timeoutMs);
+    let result: ToolResult | null = null;
+    let error: AgentError | null = null;
+    try {
+      result = await withKeepAlive(deps, () =>
+        Promise.race([
+          tool.execute(input, rt, ac.signal),
+          abortRejection(ac.signal, tool, step.title),
+        ]),
+      );
+    } catch (err) {
+      error = normalizeToolError(err, tool);
+    } finally {
+      clearTimeout(timer);
+      if (!ac.signal.aborted) ac.abort(); // release the abort listener
+    }
+    if (result && deps.testHooks?.afterToolExecute) await deps.testHooks.afterToolExecute(tool.id);
+    const durationMs = Date.now() - started;
+
+    if (result) {
+      await recordSuccess(deps, ctx, p, claim.executionId, result, durationMs);
+      return true;
+    }
+    const e = error!;
+    const autoRetry =
+      tool.idempotency === 'safe_to_retry' &&
+      e.transient &&
+      tool.retry.retryableCodes.includes(e.code) &&
+      attempt < maxAttempts;
+    const stopped = await withContext(deps.db, ctx, async (trx) => {
+      await trx
+        .updateTable('tool_executions')
+        .set({
+          status: e.code === 'OUTCOME_UNKNOWN' ? 'unknown' : 'failed',
+          error: taskErrorJson(e.toTaskError()),
+          finished_at: new Date(),
+          duration_ms: durationMs,
+        })
+        .where('id', '=', claim.executionId)
+        .execute();
+      await recordUsage(trx, ctx, step.task_id, e.usage);
+      if (autoRetry) return false;
+      const task = await lockTask(trx, step.task_id);
+      if (task.status !== 'RUNNING') return true;
+      await failStep(trx, ctx, task, step, e);
+      return true;
+    });
+    if (stopped) return false;
+    deps.log.warn('retrying step', {
+      taskId: step.task_id,
+      stepId: step.id,
+      code: e.code,
+      attempt,
+    });
+    await new Promise((r) => setTimeout(r, backoffMs(attempt)));
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Verification & completion                                           */
+/* ------------------------------------------------------------------ */
+
+async function verifyAndComplete(deps: RuntimeDeps, ctx: DbContext, taskId: string): Promise<void> {
+  const verified = await withContext(deps.db, ctx, async (trx) => {
+    const task = await lockTask(trx, taskId);
+    // VERIFYING here means a previous attempt died while completing: resume.
+    if (task.status !== 'RUNNING' && task.status !== 'VERIFYING') return null;
+    const verifying =
+      task.status === 'RUNNING' ? await transitionTask(trx, ctx, task, 'VERIFYING') : task;
+    const steps = await loadSteps(trx, taskId);
+    const checks: string[] = [];
+    const failed: StepRow[] = [];
+    for (const s of steps) {
+      if (s.status !== 'SUCCEEDED') continue;
+      const tool = getTool(s.tool_id);
+      if (!tool) continue;
+      const v = tool.verify(s.resolved_input ?? s.input, s.output ?? {});
+      checks.push(...v.checks.map((c) => `${s.title}: ${c}`));
+      if (!v.ok) failed.push(s);
+    }
+    if (failed.length) {
+      const external = failed.some((s) => getTool(s.tool_id)?.sideEffect === 'external');
+      const message = `Verification failed for: ${failed.map((s) => `“${s.title}”`).join(', ')}.`;
+      await appendEvent(trx, ctx, {
+        taskId,
+        type: 'verification.failed',
+        data: { checks, message },
+      });
+      await failTask(trx, ctx, verifying, {
+        code: 'VERIFICATION_FAILED',
+        message,
+        retryable: !external,
+      });
+      return null;
+    }
+    await appendEvent(trx, ctx, { taskId, type: 'verification.passed', data: { checks } });
+    const agent = await loadAgentContext(trx, deps.config, ctx.userId);
+    return {
+      task: verifying,
+      steps,
+      agent,
+      language: asLocale(task.language, agent.account.locale),
+    };
+  });
+  if (!verified) return;
+
+  const fallback = deterministicSummary(verified.steps, verified.language);
+  let summary = fallback;
+  const usage: ModelUsage[] = [];
+  const answerOnly = verified.steps.some((s) => s.tool_id === 'assistant.answer');
+  if (deps.adapter && verified.agent.route.mode === 'model' && !answerOnly) {
+    try {
+      const res = await modelSummary(deps.adapter, deps.config, {
+        request: verified.task.request,
+        language: verified.language,
+        steps: verified.steps,
+        fallback,
+      });
+      usage.push(res.usage);
+      if (res.text) summary = res.text;
+    } catch (err) {
+      if (err instanceof AgentError) usage.push(...err.usage);
+      deps.log.warn('result summary model call failed; using deterministic summary', {
+        taskId,
+        error: String(err),
+      });
+    }
+  }
+
+  await withContext(deps.db, ctx, async (trx) => {
+    await recordUsage(trx, ctx, taskId, usage);
+    const task = await lockTask(trx, taskId);
+    if (task.status !== 'VERIFYING') return;
+    const evidence = verified.steps.flatMap((s) => (Array.isArray(s.evidence) ? s.evidence : []));
+    const done = await transitionTask(trx, ctx, task, 'COMPLETED', {
+      result_summary: summary || null,
+      evidence: JSON.stringify(evidence),
+      error: null,
+    });
+    await createNotification(trx, ctx, 'task_completed', taskId, { taskTitle: done.title });
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Job entry                                                           */
+/* ------------------------------------------------------------------ */
+
+export async function handleExecuteJob(deps: RuntimeDeps, job: JobRow): Promise<JobOutcome> {
+  const ctx: DbContext = { tenantId: job.tenant_id, userId: job.user_id };
+  const taskId = job.task_id;
+  if (!taskId) return 'done';
+  const status = await taskStatus(deps, ctx, taskId);
+  if (status === 'VERIFYING') {
+    await verifyAndComplete(deps, ctx, taskId);
+    return 'done';
+  }
+  for (;;) {
+    const next = await prepareNext(deps, ctx, taskId);
+    if (next.kind === 'stop') return 'done';
+    if (next.kind === 'awaiting') return 'awaiting_approval';
+    if (next.kind === 'verify') {
+      await verifyAndComplete(deps, ctx, taskId);
+      return 'done';
+    }
+    const ok = await runStep(deps, ctx, next);
+    if (!ok) return 'done';
+  }
+}
+
+/** Current status of a task (used by the worker's post-job reconciliation). */
+export async function taskStatus(deps: RuntimeDeps, ctx: DbContext, taskId: string) {
+  return withContext(deps.db, ctx, async (trx) => {
+    const row = await trx
+      .selectFrom('tasks')
+      .select(['status'])
+      .where('id', '=', taskId)
+      .executeTakeFirst();
+    return row?.status ?? null;
+  });
+}

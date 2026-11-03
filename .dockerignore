@@ -1,0 +1,37 @@
+# Build context for apps/api/Dockerfile and apps/web/Dockerfile (context = repository root).
+# Keep secrets, local installs and build output out of images.
+
+# Secrets and local configuration
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key
+
+# Dependencies and build output (rebuilt inside the image)
+**/node_modules
+**/dist
+**/.next
+**/out
+**/coverage
+**/*.tsbuildinfo
+apps/web/next-env.d.ts
+
+# Test and tool output
+**/playwright-report
+**/test-results
+e2e-logs
+artifacts
+
+# Not needed by any image
+.git
+.github
+apps/ios
+docs
+docker-compose.yml
+**/Dockerfile
+.dockerignore
+**/*.log
+**/.DS_Store
+.vscode
+.idea

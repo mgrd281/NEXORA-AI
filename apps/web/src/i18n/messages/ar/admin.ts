@@ -1,0 +1,108 @@
+import type { Catalog } from '../../types';
+import type source from '../en/admin';
+
+const admin: Catalog<typeof source> = {
+  title: 'الإدارة',
+  description: 'سلامة نظام JARVIS هذا وموثوقيته وتكلفته.',
+  auditedNote: 'تُسجَّل زيارات صفحات الإدارة في سجل التدقيق.',
+  forbidden: 'هذا القسم مخصّص لمسؤولي المنصّة فقط.',
+  forbiddenAction: 'الانتقال إلى الرئيسية',
+  notice:
+    'يرى المسؤولون سلامة النظام والأعداد وبيانات الحسابات فقط، ولا يرون أبدًا محتوى المحادثات أو المهام أو الذكريات.',
+  refresh: 'تحديث',
+  updated: 'حُدّث {time}',
+  loading: 'جارٍ تحميل النظرة العامة…',
+  health: {
+    title: 'السلامة',
+    database: 'قاعدة البيانات',
+    databaseOk: 'متاحة',
+    databaseDown: 'غير متاحة',
+    worker: 'العامل',
+    workerOk: 'يعمل',
+    workerDown: 'لا يستجيب',
+    heartbeat: 'آخر إشارة {time}',
+    noHeartbeat: 'لا إشارة بعد',
+    planner: 'التخطيط',
+    plannerModel: 'نموذج ذكاء اصطناعي',
+    plannerOffline: 'دون اتصال',
+    plannerProvider: 'المزوّد: {provider}',
+    reasons: {
+      NO_API_KEY: 'لا يوجد مفتاح لنموذج ذكاء اصطناعي',
+      USER_DISABLED_EXTERNAL_MODELS: 'النماذج الخارجية متوقفة',
+      BUDGET_EXHAUSTED: 'نفدت الميزانية',
+      unknown: 'الحالة غير متاحة',
+    },
+    queue: 'قائمة الانتظار',
+    queueCaption:
+      '{count, plural, =0 {لا شيء في الانتظار} one {عملية واحدة في الانتظار} two {عمليتان في الانتظار} few {# عمليات في الانتظار} many {# عملية في الانتظار} other {# عملية في الانتظار}}',
+  },
+  usage: {
+    title: 'الاستخدام',
+    users: 'المستخدمون',
+    usersCaption: '{count} نشطون خلال آخر 7 أيام',
+    tenants: 'المستأجرون',
+    tenantsCaption: 'حسابات منفصلة',
+    cost: 'تكلفة الذكاء الاصطناعي',
+    costCaption: 'آخر 30 يومًا',
+  },
+  tasks: {
+    title: 'المهام حسب الحالة',
+    total:
+      '{count, plural, =0 {لا مهام} one {مهمة واحدة إجمالًا} two {مهمتان إجمالًا} few {# مهام إجمالًا} many {# مهمة إجمالًا} other {# مهمة إجمالًا}}',
+    empty: 'لم تُنشأ أي مهام بعد.',
+  },
+  tools: {
+    title: 'موثوقية الأدوات',
+    caption: 'مرات التنفيذ ونسبة النجاح وزمن الاستجابة لكل أداة',
+    tool: 'الأداة',
+    executions: 'مرات التنفيذ',
+    successRate: 'نسبة النجاح',
+    failed: 'فاشلة',
+    p50: 'p50',
+    p95: 'p95',
+    ms: '{value} ملّي ث',
+    none: '—',
+    empty: 'لم تُشغَّل أي أداة بعد.',
+  },
+  users: {
+    title: 'المستخدمون',
+    caption: 'الحسابات في هذا النظام',
+    email: 'البريد الإلكتروني',
+    tenant: 'المستأجر',
+    roles: 'الأدوار',
+    status: 'الحالة',
+    created: 'تاريخ الإنشاء',
+    lastActive: 'آخر نشاط',
+    tasks: 'المهام',
+    never: 'أبدًا',
+    empty: 'لا يوجد مستخدمون بعد.',
+    statuses: {
+      active: 'نشط',
+      disabled: 'معطّل',
+      deleted: 'محذوف',
+    },
+  },
+  roles: {
+    owner: 'المالك',
+    member: 'عضو',
+    platform_admin: 'مسؤول المنصّة',
+  },
+  audit: {
+    title: 'سجل التدقيق',
+    caption: 'الإجراءات المتعلقة بالأمان، الأحدث أولًا',
+    time: 'الوقت',
+    actor: 'المنفّذ',
+    action: 'الإجراء',
+    target: 'الهدف',
+    empty: 'لم يُسجَّل أي شيء بعد.',
+    actors: {
+      user: 'مستخدم',
+      system: 'النظام',
+      agent: 'الوكيل',
+      admin: 'مسؤول',
+    },
+  },
+  scrollHint: 'مرّر أفقيًا لرؤية كل الأعمدة.',
+};
+
+export default admin;

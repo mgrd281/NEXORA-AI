@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <style>
+    .bg { fill: #F7F7F4; }
+    .ring { fill: none; stroke: #17181B; stroke-width: 4; }
+    .core { fill: #3959DA; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0E0F12; }
+      .ring { stroke: #ECEDEF; }
+      .core { fill: #8EADFF; }
+    }
+  </style>
+  <rect class="bg" width="48" height="48" rx="11"/>
+  <circle class="ring" cx="24" cy="24" r="13"/>
+  <circle class="core" cx="24" cy="24" r="4"/>
+</svg>

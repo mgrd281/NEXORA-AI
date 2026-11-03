@@ -1,0 +1,215 @@
+.button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font: var(--text-label);
+  white-space: nowrap;
+  text-decoration: none;
+  user-select: none;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-instant) var(--ease-standard);
+}
+
+.button:hover {
+  text-decoration: none;
+}
+
+.button:active:not(:disabled, [aria-disabled='true']) {
+  transform: scale(0.98);
+}
+
+.button:disabled {
+  opacity: 0.42;
+}
+
+/* Grow the hit area to 44 px on touch screens without changing the layout. */
+@media (pointer: coarse) {
+  .button::after {
+    content: '';
+    position: absolute;
+    inset-block: min(0px, calc((100% - var(--touch-min)) / 2));
+    inset-inline: min(0px, calc((100% - var(--touch-min)) / 2));
+  }
+}
+
+.text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.loading {
+  cursor: progress;
+}
+
+.fullWidth {
+  display: flex;
+  inline-size: 100%;
+}
+
+/* Sizes */
+.sm {
+  block-size: var(--control-sm);
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-sm);
+}
+
+.md {
+  block-size: var(--control-md);
+  padding-inline: var(--space-4);
+}
+
+.lg {
+  block-size: var(--control-lg);
+  padding-inline: var(--space-5);
+  font: var(--text-body-strong);
+}
+
+/* Variants */
+.primary {
+  background: var(--color-ink);
+  color: var(--color-on-ink);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--color-ink-hover);
+  color: var(--color-on-ink);
+}
+
+.secondary {
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--color-text-primary);
+}
+
+.ghost:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.danger {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-danger-soft), var(--color-danger) 10%);
+  color: var(--color-danger);
+}
+
+.destructive {
+  background: var(--color-danger-solid);
+  color: var(--color-on-danger-solid);
+}
+
+.destructive:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-danger-solid), var(--color-ink) 12%);
+  color: var(--color-on-danger-solid);
+}
+
+.link {
+  cursor: pointer;
+}
+
+/* Icon buttons */
+.iconButtonWrap {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+.iconButton {
+  padding: 0;
+  aspect-ratio: 1;
+}
+
+.iconButton.ghost {
+  color: var(--color-text-secondary);
+}
+
+.iconButton.ghost:hover:not(:disabled) {
+  color: var(--color-text-primary);
+}
+
+.iconButton.sm {
+  inline-size: var(--control-sm);
+}
+
+.iconButton.md {
+  inline-size: var(--control-md);
+}
+
+.iconButton.lg {
+  inline-size: var(--control-lg);
+}
+
+.round {
+  border-radius: var(--radius-full);
+}
+
+.badge {
+  position: absolute;
+  inset-block-start: 2px;
+  inset-inline-end: 2px;
+  min-inline-size: 16px;
+  block-size: 16px;
+  padding-inline: 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-ink);
+  color: var(--color-on-ink);
+  font: var(--text-caption);
+  font-size: 0.6875rem;
+  line-height: 16px;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--color-canvas);
+  pointer-events: none;
+}
+
+/* Tooltip: visual duplicate of the accessible name, only for icon buttons. */
+.tooltip {
+  position: absolute;
+  inset-block-end: calc(100% + var(--space-2));
+  inset-inline-start: 50%;
+  transform: translateX(calc(-50% * var(--dir, 1)));
+  z-index: var(--z-popover);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-ink);
+  color: var(--color-on-ink);
+  font: var(--text-caption);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--duration-fast) var(--ease-standard),
+    visibility var(--duration-fast);
+}
+
+.tooltipBottom {
+  inset-block-end: auto;
+  inset-block-start: calc(100% + var(--space-2));
+}
+
+.tooltip[data-open] {
+  opacity: 1;
+  visibility: visible;
+}

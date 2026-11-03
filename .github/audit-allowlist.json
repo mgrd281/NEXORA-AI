@@ -1,0 +1,4 @@
+{
+  "$comment": "Production advisories that CI's dependency audit may ignore. Each entry needs id (GHSA or CVE), package, a reason explaining why JARVIS is not exposed, and an expiry (YYYY-MM-DD, at most 90 days ahead). Expired entries fail CI. Prefer upgrading over adding entries. See .github/scripts/audit-gate.mjs.",
+  "ignore": []
+}

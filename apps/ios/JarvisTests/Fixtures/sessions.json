@@ -1,0 +1,24 @@
+{
+  "items": [
+    {
+      "id": "cade17b9-e460-462c-a974-8ccb0270515b",
+      "deviceName": "Ada's iPhone",
+      "platform": "ios",
+      "userAgent": "Jarvis/1 CFNetwork/1568 Darwin/24.0.0",
+      "createdAt": "2026-11-03T15:00:00.000Z",
+      "lastUsedAt": "2026-11-03T15:04:00.000Z",
+      "expiresAt": "2026-12-03T15:00:00.000Z",
+      "current": true
+    },
+    {
+      "id": "1ead4cfd-082e-45ff-9c4c-ccb041354680",
+      "deviceName": null,
+      "platform": "web",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0)",
+      "createdAt": "2026-10-28T10:00:00.000Z",
+      "lastUsedAt": "2026-11-02T21:00:00.000Z",
+      "expiresAt": "2026-11-27T10:00:00.000Z",
+      "current": false
+    }
+  ]
+}

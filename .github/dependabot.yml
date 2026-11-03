@@ -1,0 +1,55 @@
+# Dependency update PRs. Every npm dependency is pinned to an exact version
+# (ADR-0001), so each PR is a deliberate, reviewable bump that runs the full CI.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: / # pnpm workspace root; covers apps/* and packages/*
+    schedule:
+      interval: weekly
+      day: monday
+      time: '05:17'
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 10
+    labels: [dependencies]
+    commit-message:
+      prefix: deps
+      prefix-development: deps-dev
+    ignore:
+      # Pinned majors (ADR-0001): typescript-eslint does not support TypeScript 7 yet, and
+      # eslint-config-next 16 requires ESLint 9. Upgrade these deliberately.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      - dependency-name: eslint
+        update-types: [version-update:semver-major]
+      - dependency-name: '@eslint/js'
+        update-types: [version-update:semver-major]
+    groups:
+      # Packages that must move in lockstep get one PR each, including majors.
+      nextjs:
+        patterns: [next, eslint-config-next, '@next/*']
+      react:
+        patterns: [react, react-dom, '@types/react', '@types/react-dom']
+      playwright:
+        patterns: ['@playwright/test', playwright, '@axe-core/playwright']
+      # Everything else: one PR for minor/patch updates per dependency type.
+      # Major updates of other packages arrive as individual PRs.
+      production:
+        dependency-type: production
+        update-types: [minor, patch]
+      development:
+        dependency-type: development
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '05:17'
+      timezone: Europe/Berlin
+    labels: [dependencies, ci]
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns: ['*']

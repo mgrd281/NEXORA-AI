@@ -1,0 +1,32 @@
+{
+  "items": [
+    {
+      "id": "cb15a57c-8225-41a0-b6e8-d3d056de9173",
+      "provider": "smtp",
+      "label": "Email",
+      "accountIdentifier": "jarvis@example.com",
+      "status": "active",
+      "permissions": [
+        "email.send"
+      ],
+      "lastVerifiedAt": "2026-11-03T08:00:00.000Z",
+      "lastError": null,
+      "expiresAt": null,
+      "createdAt": "2026-10-01T08:10:00.000Z"
+    },
+    {
+      "id": "87d079cb-847f-46b8-a1aa-c7c8a0151760",
+      "provider": "web",
+      "label": "Web access",
+      "accountIdentifier": null,
+      "status": "error",
+      "permissions": [
+        "web.fetch"
+      ],
+      "lastVerifiedAt": null,
+      "lastError": "Verification timed out",
+      "expiresAt": null,
+      "createdAt": "2026-10-01T08:05:00.000Z"
+    }
+  ]
+}

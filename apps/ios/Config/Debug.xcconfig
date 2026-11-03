@@ -1,0 +1,6 @@
+// Debug: the iOS Simulator reaches the API running on the host Mac.
+// `//` starts a comment in xcconfig files, hence `$()` between the slashes.
+JARVIS_API_BASE_URL = http:/$()/localhost:4000
+
+// Optional per-developer overrides (not committed), e.g. a different port.
+#include? "Local.xcconfig"

@@ -1,0 +1,112 @@
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  color: var(--color-text-primary);
+  min-width: 0;
+}
+
+.icon {
+  flex: none;
+  display: flex;
+  padding-block-start: 2px;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  padding-block: 1px;
+}
+
+.title {
+  font: var(--text-body-strong);
+}
+
+.text {
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+}
+
+.action {
+  flex: none;
+  align-self: center;
+}
+
+.info {
+  background: var(--color-surface-sunken);
+  border-color: var(--color-border);
+}
+
+.info .icon {
+  color: var(--color-text-secondary);
+}
+
+.success {
+  background: var(--color-success-soft);
+}
+
+.success .icon {
+  color: var(--color-success);
+}
+
+.warning {
+  background: var(--color-warning-soft);
+}
+
+.warning .icon {
+  color: var(--color-warning);
+}
+
+.danger {
+  background: var(--color-danger-soft);
+}
+
+.danger .icon {
+  color: var(--color-danger);
+}
+
+/* Secondary text on tinted backgrounds uses the primary text color for contrast. */
+.success .text,
+.warning .text,
+.danger .text {
+  color: var(--color-text-primary);
+}
+
+.details {
+  margin-block-start: var(--space-1);
+}
+
+.detailsToggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-primary);
+  font: var(--text-caption);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.detailsBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-block-start: var(--space-2);
+  font: var(--text-caption);
+}
+
+.detailsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+}
+
+.detailsList dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

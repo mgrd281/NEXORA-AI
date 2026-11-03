@@ -1,0 +1,88 @@
+import Foundation
+
+/// Localized one-line descriptions of task history events, using the event data shapes
+/// documented in apps/api/src/modules/events/events.ts.
+enum TaskEventText {
+    static func describe(_ type: EventType, data: [String: JSONValue]) -> String {
+        let title = data["title"]?.stringValue ?? ""
+        switch type {
+        case .taskCreated:
+            return String(localized: "Task created")
+        case .taskStatusChanged:
+            let status = data["to"]?.stringValue.flatMap(TaskStatus.init(rawValue:)) ?? .unknown
+            return String(localized: "Status: \(status.label)")
+        case .planReady:
+            return String(localized: "Plan ready")
+        case .stepStarted:
+            return String(localized: "Started: \(title)")
+        case .stepSucceeded:
+            return String(localized: "Finished: \(title)")
+        case .stepFailed:
+            return String(localized: "Failed: \(title)")
+        case .stepBlocked:
+            return String(localized: "Blocked by policy: \(title)")
+        case .approvalRequested:
+            return String(localized: "Approval requested")
+        case .approvalDecided:
+            switch data["decision"]?.stringValue {
+            case "approved": return String(localized: "You approved the action")
+            case "rejected": return String(localized: "You declined the action")
+            case "expired": return String(localized: "The approval expired")
+            default: return String(localized: "Approval decided")
+            }
+        case .verificationPassed:
+            return String(localized: "Result verified")
+        case .verificationFailed:
+            return String(localized: "Verification failed")
+        case .taskAnswerDelta:
+            return String(localized: "Answer updated")
+        case .taskCancelRequested:
+            return String(localized: "Cancellation requested")
+        case .taskRetried:
+            return String(localized: "Retried")
+        case .notificationCreated, .connectionChanged, .heartbeat, .unknown:
+            return String(localized: "Update")
+        }
+    }
+
+    static func icon(_ type: EventType) -> String {
+        switch type {
+        case .taskCreated: "plus.circle"
+        case .taskStatusChanged: "arrow.right.circle"
+        case .planReady: MeridianIcon.status(.planning)
+        case .stepStarted: "play.circle"
+        case .stepSucceeded, .verificationPassed: "checkmark.circle"
+        case .stepFailed, .verificationFailed: "exclamationmark.circle"
+        case .stepBlocked: "nosign"
+        case .approvalRequested, .approvalDecided: "hand.raised"
+        case .taskCancelRequested: "slash.circle"
+        case .taskRetried: "arrow.clockwise.circle"
+        case .taskAnswerDelta, .notificationCreated, .connectionChanged, .heartbeat, .unknown: "circle"
+        }
+    }
+}
+
+/// Localized explanations for policy reason codes (apps/api/src/modules/agent/policy.ts).
+enum PolicyReasonText {
+    static func describe(_ code: String) -> String? {
+        switch code {
+        case "RISK_LOW": String(localized: "Low-risk action.")
+        case "RISK_MEDIUM": String(localized: "Medium-risk action: it has an effect outside JARVIS.")
+        case "RISK_HIGH": String(localized: "High-risk action: it always needs your approval.")
+        case "RISK_CRITICAL": String(localized: "Critical-risk actions are not allowed in this version.")
+        case "RECIPIENT_SELF": String(localized: "The email goes only to your own address.")
+        case "RECIPIENT_EXTERNAL": String(localized: "The email goes to someone other than you.")
+        case "MANY_RECIPIENTS": String(localized: "The email has many recipients.")
+        case "AUTO_APPROVED_SELF": String(localized: "Approved automatically by your setting for emails to yourself.")
+        case "CONNECTION_MISSING": String(localized: "A required service isn't connected.")
+        case "MEMORY_DISABLED": String(localized: "Memory is turned off in your settings.")
+        case "EXTERNAL_MODELS_DISABLED": String(localized: "External AI models are turned off in your settings.")
+        case "MODEL_UNAVAILABLE": String(localized: "No AI model is available for this step.")
+        case "BUDGET_ZERO": String(localized: "Your monthly AI budget is set to zero.")
+        case "BUDGET_EXHAUSTED": String(localized: "Your monthly AI budget is used up.")
+        case "BUDGET_NEAR_LIMIT": String(localized: "This could exceed what's left of your monthly AI budget.")
+        case "UNTRUSTED_CONTENT": String(localized: "It uses web content that looked like it was trying to instruct JARVIS.")
+        default: nil
+        }
+    }
+}

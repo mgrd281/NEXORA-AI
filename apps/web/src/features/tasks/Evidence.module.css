@@ -1,0 +1,141 @@
+.list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding-block: var(--space-3);
+  min-width: 0;
+}
+
+.item + .item {
+  border-block-start: 1px solid var(--color-border);
+}
+
+.compact .item {
+  padding-block: var(--space-2);
+}
+
+.icon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 var(--space-3);
+  min-block-size: 28px;
+  padding-block-start: 3px;
+}
+
+.title {
+  font: var(--text-label);
+  color: var(--color-text-primary);
+}
+
+.at {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+}
+
+.detail {
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.sep {
+  color: var(--color-text-tertiary);
+}
+
+.mono {
+  font: var(--text-mono);
+}
+
+.noteLabel {
+  color: var(--color-text-primary);
+}
+
+.valueRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.valueLabel {
+  flex: none;
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-tertiary);
+}
+
+.value {
+  font: var(--text-mono);
+  color: var(--color-text-primary);
+  min-width: 0;
+  /* Receipts stay complete (they are evidence); long ids wrap anywhere. */
+  overflow-wrap: anywhere;
+  padding-block: 2px;
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-sunken);
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  max-inline-size: 100%;
+  font: var(--text-callout);
+  /* Generous hit area without changing the layout. */
+  padding-block: var(--space-1);
+}
+
+.linkText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linkIcon {
+  flex: none;
+  inline-size: 14px;
+  block-size: 14px;
+}

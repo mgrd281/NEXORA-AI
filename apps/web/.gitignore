@@ -1,0 +1,5 @@
+# Alternate build output dirs (NEXT_DIST_DIR), e.g. .next-foundation
+.next-*/
+.tsbuildinfo
+test-results/
+playwright-report/

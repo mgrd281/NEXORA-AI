@@ -1,0 +1,126 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  max-block-size: inherit;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-block: var(--space-3);
+  padding-inline: var(--space-4) var(--space-3);
+  border-block-end: 1px solid var(--color-border);
+}
+
+.headerBare {
+  justify-content: flex-end;
+  padding-block: 0 var(--space-1);
+  border-block-end: 0;
+}
+
+/* Inside the mobile sheet: rows run to the sheet's edges like a native list. */
+.inSheet {
+  margin-inline: calc(var(--space-4) * -1);
+}
+
+.title {
+  font: var(--text-title3);
+  letter-spacing: var(--tracking-title3);
+}
+
+.body {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.error {
+  padding: var(--space-3);
+}
+
+.list {
+  list-style: none;
+  padding-block: var(--space-1);
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.item:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.item:focus-visible {
+  outline-offset: calc(var(--focus-width) * -1);
+}
+
+.kindIcon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: var(--radius-full);
+}
+
+.warning {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.success {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.danger {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.message {
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.unread .message {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.time {
+  font: var(--text-caption);
+  color: var(--color-text-tertiary);
+}
+
+.dot {
+  flex: none;
+  inline-size: 8px;
+  block-size: 8px;
+  margin-block-start: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-ink);
+}

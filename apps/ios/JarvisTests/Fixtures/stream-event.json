@@ -1,0 +1,10 @@
+{
+  "id": "108",
+  "type": "approval.decided",
+  "taskId": "7c415ea2-cacf-462b-8a9f-470f9ce34759",
+  "at": "2026-11-03T15:05:00.000Z",
+  "data": {
+    "approvalId": "621862a8-f378-46cd-a316-25740e6b3246",
+    "decision": "approved"
+  }
+}

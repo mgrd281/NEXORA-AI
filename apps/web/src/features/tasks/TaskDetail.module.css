@@ -1,0 +1,435 @@
+/* Back link + Page share one wide column. */
+.frame {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  inline-size: 100%;
+  max-inline-size: var(--content-wide-max);
+  margin-inline: auto;
+  /* Hidden icon-button tooltips at the end edge must not widen the page (no sideways scroll on
+     phones); they may still paint into the page gutter when shown. */
+  overflow-x: clip;
+  overflow-clip-margin: var(--page-gutter);
+}
+
+.back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-block-size: var(--control-sm);
+  margin-inline-start: calc(var(--space-2) * -1);
+  padding-inline: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font: var(--text-label);
+  color: var(--color-text-secondary);
+}
+
+@media (pointer: coarse) {
+  .back {
+    min-block-size: var(--touch-min);
+  }
+}
+
+.back:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+.headerMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  margin-block-start: var(--space-1);
+}
+
+.statusFocus {
+  display: inline-flex;
+  border-radius: var(--radius-full);
+}
+
+.metaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+}
+
+/* ------------------------------------------------------------- layout */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-8);
+  align-items: start;
+}
+
+@media (min-width: 1200px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 18.5rem;
+    gap: var(--space-8);
+  }
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.side {
+  min-width: 0;
+}
+
+@media (min-width: 1200px) {
+  .side {
+    position: sticky;
+    inset-block-start: var(--space-8);
+  }
+}
+
+.actionError {
+  margin-block-start: calc(var(--space-4) * -1);
+}
+
+/* ------------------------------------------------------------- request */
+
+.request {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-inline-start: var(--space-4);
+  border-inline-start: 2px solid var(--color-border-strong);
+}
+
+.requestLabel {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-tertiary);
+}
+
+.requestText {
+  font: var(--text-body);
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.guidance {
+  margin-block-start: var(--space-1);
+  color: var(--color-text-secondary);
+}
+
+/* ------------------------------------------------------------- approval panel */
+
+.approval {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--color-warning-soft);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 28%, transparent);
+}
+
+@media (min-width: 640px) {
+  .approval {
+    padding: var(--space-6);
+  }
+}
+
+.approvalHead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.approvalIcon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--control-md);
+  block-size: var(--control-md);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-warning);
+}
+
+.approvalText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.approvalTitle {
+  font: var(--text-title3);
+  letter-spacing: var(--tracking-title3);
+  color: var(--color-text-primary);
+}
+
+.approvalBody {
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+}
+
+.approvalSummary {
+  font: var(--text-body);
+  color: var(--color-text-primary);
+}
+
+.approvalFields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.approvalFields > div {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.approvalFields dt {
+  font: var(--text-callout);
+  color: var(--color-text-tertiary);
+}
+
+.approvalFields dd {
+  font: var(--text-callout);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.approvalFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.approvalMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.approvalExpires {
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+}
+
+/* ------------------------------------------------------------- answer + result */
+
+.answer {
+  font: var(--text-body);
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A quiet caret while text streams in (static with reduced motion). */
+.answerWriting::after {
+  content: '';
+  display: inline-block;
+  inline-size: 2px;
+  block-size: 1em;
+  margin-inline-start: 2px;
+  vertical-align: text-bottom;
+  background: var(--color-accent);
+  animation: caret 1s steps(2, start) infinite;
+}
+
+@keyframes caret {
+  to {
+    visibility: hidden;
+  }
+}
+
+.muted {
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+}
+
+.resultSummary {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  font: var(--text-body);
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.resultSummary > p {
+  min-width: 0;
+}
+
+@media (min-width: 640px) {
+  .resultSummary {
+    padding: var(--space-6);
+  }
+}
+
+.resultEvidence {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-block: var(--space-4) var(--space-2);
+  padding-inline: var(--space-5);
+  border-block-start: 1px solid var(--color-border);
+  background: var(--color-surface-sunken);
+}
+
+@media (min-width: 640px) {
+  .resultEvidence {
+    padding-inline: var(--space-6);
+  }
+}
+
+.resultEvidenceOnly {
+  border-block-start: 0;
+}
+
+.subTitle {
+  font: var(--text-label);
+  color: var(--color-text-secondary);
+}
+
+/* ------------------------------------------------------------- details column */
+
+.sideTitle {
+  margin-block-end: var(--space-3);
+  font: var(--text-title3);
+  letter-spacing: var(--tracking-title3);
+  color: var(--color-text-primary);
+}
+
+.facts {
+  display: flex;
+  flex-direction: column;
+}
+
+.fact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  padding-block: var(--space-2);
+  min-width: 0;
+}
+
+.fact + .fact {
+  border-block-start: 1px solid var(--color-border);
+}
+
+.fact dt {
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+}
+
+.fact dd {
+  margin-inline-start: auto;
+  font: var(--text-callout);
+  color: var(--color-text-primary);
+  text-align: end;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.iconValue {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.factId {
+  align-items: center;
+}
+
+.idValue {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.mono {
+  font: var(--text-mono);
+}
+
+.skeletonFacts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ------------------------------------------------------------- retry acknowledgement */
+
+.ackBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font: var(--text-body);
+  color: var(--color-text-primary);
+}
+
+.ackCheck {
+  color: var(--color-text-secondary);
+}
+
+.ack {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-soft);
+}
+
+.ackInput {
+  flex: none;
+  inline-size: 20px;
+  block-size: 20px;
+  margin: 2px 0 0;
+  accent-color: var(--color-ink);
+  cursor: pointer;
+}
+
+.ackLabel {
+  font: var(--text-body-strong);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.writing {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.resultIcon {
+  flex: none;
+  display: flex;
+  color: var(--color-success);
+}
+
+.plannerModel {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+}

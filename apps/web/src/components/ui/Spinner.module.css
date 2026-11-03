@@ -1,0 +1,24 @@
+.spinner {
+  flex: none;
+  animation: spinner-rotate 900ms linear infinite;
+}
+
+.track {
+  stroke: currentColor;
+  opacity: 0.2;
+}
+
+.arc {
+  stroke: currentColor;
+}
+
+.labelled {
+  display: inline-flex;
+  color: var(--color-text-secondary);
+}
+
+@keyframes spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}

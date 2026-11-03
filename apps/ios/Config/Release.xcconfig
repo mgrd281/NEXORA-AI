@@ -1,0 +1,7 @@
+// Release: set to the HTTPS origin of the deployed API before archiving, e.g. in
+// Config/Local.xcconfig or via `xcodebuild JARVIS_API_BASE_URL=https:/$()/api.your-domain`.
+// Left empty on purpose: the app refuses to start against an unset or non-HTTPS address
+// (plain HTTP is accepted only for localhost) instead of guessing one.
+JARVIS_API_BASE_URL =
+
+#include? "Local.xcconfig"

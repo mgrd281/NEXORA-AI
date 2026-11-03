@@ -1,0 +1,382 @@
+# JARVIS continuous integration.
+#
+# Jobs: quality (tokens, OpenAPI, typecheck, lint, unit tests, format), integration (API against
+# PostgreSQL 16 with RLS), build (API bundle + web), e2e (Playwright against the built app),
+# images (build and run the Docker images), security (gitleaks + blocking production audit).
+#
+# Third-party actions are pinned to major versions; pinning by full commit SHA is a tracked
+# follow-up (see README "Security"). The token is read-only everywhere.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same pull request or branch cancels the older run; runs on main
+# always complete so every main commit has a full result.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+env:
+  CI: 'true'
+  NEXT_TELEMETRY_DISABLED: '1'
+  # Same defaults as scripts/db-setup.sh (local development and CI only).
+  ADMIN_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+
+jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4 # version from package.json "packageManager" (pnpm@10.28.0)
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Design tokens are generated and committed
+        run: |
+          pnpm tokens:build
+          git diff --exit-code || { echo "::error::Generated token files are stale. Run 'pnpm tokens:build' and commit the result."; exit 1; }
+          untracked="$(git ls-files --others --exclude-standard -- packages/tokens/generated apps/ios/Jarvis/DesignSystem)"
+          if [ -n "$untracked" ]; then
+            echo "::error::Generated token files are not committed:"; echo "$untracked"; exit 1
+          fi
+      - name: OpenAPI document is up to date
+        run: pnpm --filter @jarvis/api openapi --check
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Lint
+        run: pnpm lint
+      - name: Unit tests
+        run: pnpm test
+      - name: CI tooling tests
+        run: node --test .github/scripts/*.test.mjs
+      - name: Format check
+        run: pnpm exec prettier --check apps/*/src packages/*/src
+
+  integration:
+    name: Integration (PostgreSQL 16)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: PostgreSQL client
+        run: command -v psql || { sudo apt-get update -q && sudo apt-get install -yq postgresql-client; }
+      - name: Create roles and databases
+        run: bash scripts/db-setup.sh
+      - name: Integration tests (jarvis_test)
+        run: pnpm --filter @jarvis/api test:integration
+
+  build:
+    name: Build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      # The web app proxies /api to this origin (same value the e2e job runs the API on).
+      API_ORIGIN: http://127.0.0.1:4000
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: apps/web/.next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+      - name: API bundle (esbuild)
+        run: pnpm --filter @jarvis/api build
+      - name: Web build (next build)
+        run: pnpm --filter @jarvis/web build
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          # Common ancestor is apps/, so the artifact holds api/dist and web/.next.
+          path: |
+            apps/api/dist
+            apps/web/.next
+            !apps/web/.next/cache
+            !apps/web/.next/standalone
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 3
+
+  e2e:
+    name: End-to-end (Playwright)
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # API + worker configuration (NODE_ENV is set per process; next start needs production).
+      DATABASE_URL: postgresql://jarvis_app:jarvis_app_dev@localhost:5432/jarvis
+      DATABASE_OWNER_URL: postgresql://jarvis_owner:jarvis_owner_dev@localhost:5432/jarvis
+      WEB_ORIGIN: http://localhost:3000
+      API_ORIGIN: http://127.0.0.1:4000
+      LOG_LEVEL: info
+      # Development/test-only allowances for the local fixture site and dev mailbox.
+      FETCH_ALLOW_PRIVATE_HOSTS: 127.0.0.1:4599
+      SMTP_ALLOW_INSECURE_LOCALHOST: 'true'
+      # Read by the Playwright suite (E2E_PASSWORD is generated per run below).
+      E2E_BASE_URL: http://localhost:3000
+      E2E_API_URL: http://127.0.0.1:4000
+      E2E_EMAIL: owner@e2e.jarvis.test
+      E2E_FIXTURE_URL: http://127.0.0.1:4599
+      E2E_MAILBOX_URL: http://127.0.0.1:2580
+      E2E_MAILBOX_SMTP_PORT: '2525'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Download build output
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output
+          path: apps
+      - name: Generate per-run secrets
+        run: |
+          key="$(openssl rand -base64 32)"
+          password="$(openssl rand -base64 24)"
+          echo "::add-mask::$key"
+          echo "::add-mask::$password"
+          {
+            echo "SECRET_ENCRYPTION_KEY=$key"
+            echo "E2E_PASSWORD=$password"
+          } >> "$GITHUB_ENV"
+      - name: PostgreSQL client
+        run: command -v psql || { sudo apt-get update -q && sudo apt-get install -yq postgresql-client; }
+      - name: Create roles and databases, migrate
+        run: |
+          bash scripts/db-setup.sh
+          node apps/api/dist/migrate.js
+      - name: Create the owner account
+        env:
+          # CLI reads the account password from here (scripts/db-setup.sh uses the same
+          # name for the database role password, so it is set on this step only).
+          JARVIS_OWNER_PASSWORD: ${{ env.E2E_PASSWORD }}
+        run: >-
+          node apps/api/dist/cli.js create-owner --email "$E2E_EMAIL" --name "E2E Owner"
+          --locale en --time-zone Europe/Berlin --admin
+      - name: Start API, worker, dev mailbox, fixture site and web
+        run: |
+          mkdir -p e2e-logs
+          start() { local name="$1"; shift; nohup "$@" > "e2e-logs/$name.log" 2>&1 & echo "$name $!" >> e2e-logs/pids; }
+          start api env NODE_ENV=test HOST=127.0.0.1 PORT=4000 node --enable-source-maps apps/api/dist/server.js
+          start worker env NODE_ENV=test node --enable-source-maps apps/api/dist/worker.js
+          start mailbox pnpm --filter @jarvis/api dev:mailbox
+          start fixture-site node scripts/fixture-site.mjs
+          start web pnpm --filter @jarvis/web start
+      - name: Install Playwright Chromium
+        run: pnpm --filter @jarvis/web exec playwright install --with-deps chromium
+      - name: Wait for services
+        run: |
+          wait_for() {
+            local name="$1" url="$2"
+            for _ in $(seq 1 90); do
+              if curl -fs -o /dev/null --max-time 2 "$url"; then echo "$name ready ($url)"; return 0; fi
+              sleep 1
+            done
+            echo "::error::$name did not become ready at $url"; tail -n 50 "e2e-logs/$name.log"; return 1
+          }
+          wait_for api http://127.0.0.1:4000/readyz
+          wait_for fixture-site http://127.0.0.1:4599/healthz
+          wait_for mailbox http://127.0.0.1:2580/messages
+          wait_for web http://localhost:3000/
+          while read -r name pid; do
+            kill -0 "$pid" 2>/dev/null || { echo "::error::$name exited"; tail -n 50 "e2e-logs/$name.log"; exit 1; }
+          done < e2e-logs/pids
+      - name: Playwright
+        run: pnpm --filter @jarvis/web e2e
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: apps/web/test-results
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload service logs
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-service-logs
+          path: e2e-logs
+          if-no-files-found: ignore
+          retention-days: 7
+
+  images:
+    name: Container images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://jarvis_app:jarvis_app_dev@localhost:5432/jarvis
+      DATABASE_OWNER_URL: postgresql://jarvis_owner:jarvis_owner_dev@localhost:5432/jarvis
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: docker-compose.yml is valid
+        env:
+          POSTGRES_PASSWORD: ci-only
+          JARVIS_DB_OWNER_PASSWORD: ci-only
+          JARVIS_DB_APP_PASSWORD: ci-only
+          SECRET_ENCRYPTION_KEY: ci-only
+        run: docker compose config --quiet
+      - name: A local .env must never reach an image
+        # Planted before building; .dockerignore must keep it out of the build context.
+        run: echo "CANARY=must-not-be-in-image" > apps/api/.env
+      - name: Build API image
+        run: docker build -f apps/api/Dockerfile --build-arg APP_VERSION=${{ github.sha }} -t jarvis-api:ci .
+      - name: Build devtools image
+        run: docker build -f apps/api/Dockerfile --target devtools -t jarvis-devtools:ci .
+      - name: Build web image
+        run: docker build -f apps/web/Dockerfile --build-arg API_ORIGIN=http://127.0.0.1:4000 -t jarvis-web:ci .
+      - name: Images run as non-root and contain no .env
+        run: |
+          for image in jarvis-api:ci jarvis-devtools:ci jarvis-web:ci; do
+            uid="$(docker run --rm --entrypoint id "$image" -u)"
+            [ "$uid" != 0 ] || { echo "::error::$image runs as root"; exit 1; }
+            if docker run --rm --entrypoint grep "$image" -rlsF must-not-be-in-image /app /repo; then
+              echo "::error::$image contains the planted .env"; exit 1
+            fi
+            echo "$image: uid $uid, no .env"
+          done
+      - name: PostgreSQL client
+        run: command -v psql || { sudo apt-get update -q && sudo apt-get install -yq postgresql-client; }
+      - name: Migrate and start API + web from the images
+        run: |
+          bash scripts/db-setup.sh
+          docker run --rm --network host -e DATABASE_OWNER_URL jarvis-api:ci node dist/migrate.js
+          SECRET_ENCRYPTION_KEY="$(openssl rand -base64 32)"
+          echo "::add-mask::$SECRET_ENCRYPTION_KEY"
+          export SECRET_ENCRYPTION_KEY
+          # Production mode, as deployed (requires an https WEB_ORIGIN).
+          docker run -d --name api --network host -e DATABASE_URL -e SECRET_ENCRYPTION_KEY \
+            -e HOST=127.0.0.1 -e WEB_ORIGIN=https://jarvis.example.test jarvis-api:ci
+          docker run -d --name worker --network host -e DATABASE_URL -e SECRET_ENCRYPTION_KEY \
+            -e WEB_ORIGIN=https://jarvis.example.test --no-healthcheck jarvis-api:ci node dist/worker.js
+          docker run -d --name web --network host -e API_ORIGIN=http://127.0.0.1:4000 jarvis-web:ci
+          for name in api web; do
+            for _ in $(seq 1 60); do
+              status="$(docker inspect -f '{{.State.Health.Status}}' "$name")"
+              [ "$status" = healthy ] && break
+              sleep 2
+            done
+            echo "$name: $status"
+            [ "$status" = healthy ] || { docker logs "$name"; exit 1; }
+          done
+          [ "$(docker inspect -f '{{.State.Running}}' worker)" = true ] || { docker logs worker; exit 1; }
+          curl -fsS http://127.0.0.1:4000/readyz
+          curl -fsS http://127.0.0.1:3000/api/readyz   # through the web image's /api proxy
+      - name: Container logs
+        if: ${{ !cancelled() }}
+        run: for name in api worker web; do echo "::group::$name"; docker logs "$name" 2>&1 | tail -n 100 || true; echo "::endgroup::"; done
+
+  security:
+    name: Security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read # gitleaks lists the commits of a pull request
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Secret scan (gitleaks)
+        # Pinned by version tag: the commit SHA could not be verified offline (README follow-up).
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Required only for repositories owned by an organization.
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+          # The token is read-only; findings go to the job log, summary and a SARIF artifact.
+          GITLEAKS_ENABLE_COMMENTS: 'false'
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Dependency audit (production, blocking at high)
+        if: ${{ !cancelled() }}
+        run: node .github/scripts/audit-gate.mjs --level high

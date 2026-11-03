@@ -1,0 +1,59 @@
+/* Five filters do not fit a phone in every language: the track scrolls inside its own row,
+   edge to edge, so the cut-off option reads as "more this way". */
+.filterBar {
+  display: flex;
+  min-width: 0;
+  margin-block-start: calc(var(--space-2) * -1);
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+  /* Room for the focus ring and the coarse-pointer hit area inside the scroller. */
+  padding-block: var(--space-2);
+  margin-inline: calc(var(--page-gutter) * -1);
+  padding-inline: var(--page-gutter);
+  scroll-padding-inline: var(--page-gutter);
+}
+
+.filterBar::-webkit-scrollbar {
+  display: none;
+}
+
+.filterBar > fieldset {
+  flex: none;
+}
+
+.listArea {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.list {
+  list-style: none;
+}
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+}
+
+.skeleton > * + * {
+  border-block-start: 1px solid var(--color-border);
+}
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.footer:not(:has(button)):has(.count:empty) {
+  display: none;
+}
+
+.count {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-tertiary);
+}

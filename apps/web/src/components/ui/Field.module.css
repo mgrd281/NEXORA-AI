@@ -1,0 +1,135 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.labelRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.label {
+  font: var(--text-label);
+  color: var(--color-text-primary);
+}
+
+.labelAside {
+  font: var(--text-caption);
+  color: var(--color-text-tertiary);
+}
+
+.hint {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+}
+
+.error {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-danger);
+}
+
+.control {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input {
+  inline-size: 100%;
+  min-block-size: var(--control-md);
+  padding-block: var(--space-2);
+  padding-inline: var(--space-3);
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: var(--text-body);
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.input::placeholder {
+  color: var(--color-text-tertiary);
+  opacity: 1;
+}
+
+.input:hover:not(:disabled, :focus) {
+  border-color: var(--color-text-secondary);
+}
+
+.input:focus-visible {
+  outline: none;
+  border-color: var(--color-focus-ring);
+  box-shadow: 0 0 0 1px var(--color-focus-ring);
+}
+
+.input:disabled {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-tertiary);
+  cursor: not-allowed;
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.input[aria-invalid='true']:focus-visible {
+  box-shadow: 0 0 0 1px var(--color-danger);
+}
+
+@media (pointer: coarse) {
+  .input {
+    min-block-size: var(--touch-min);
+    /* 16 px prevents iOS Safari from zooming into focused fields. */
+    font-size: 1rem;
+  }
+}
+
+.hasTrailing .input {
+  padding-inline-end: calc(var(--control-md) + var(--space-1));
+}
+
+.trailing {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block: 0;
+  display: flex;
+  align-items: center;
+  padding-inline-end: var(--space-1);
+}
+
+.textarea {
+  resize: none;
+  min-block-size: calc(var(--type-body-line) * var(--lh-scale) * 2 + var(--space-4) + 2px);
+  overflow-y: hidden;
+}
+
+.selectControl {
+  inline-size: 100%;
+}
+
+.select {
+  appearance: none;
+  padding-inline-end: calc(var(--space-3) + 16px + var(--space-2));
+  cursor: pointer;
+}
+
+.selectSm {
+  min-block-size: var(--control-sm);
+  padding-block: var(--space-1);
+  font: var(--text-callout);
+}
+
+.selectChevron {
+  position: absolute;
+  inset-inline-end: var(--space-3);
+  pointer-events: none;
+  color: var(--color-text-secondary);
+}

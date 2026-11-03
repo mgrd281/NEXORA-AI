@@ -1,0 +1,297 @@
+/*
+ * Global base for the Meridian web app. Design tokens come from @jarvis/tokens/tokens.css
+ * (imported once in the root layout); this file maps the self-hosted fonts into the token
+ * variables, defines type-style shorthands and utilities, and sets the document base.
+ * Component styles live in CSS Modules and use logical properties only.
+ */
+
+:root {
+  /* next/font exposes hashed family names through these variables (see app/fonts.ts). */
+  --font-sans:
+    var(--font-plex-sans), var(--font-plex-arabic), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans-arabic: var(--font-plex-arabic), var(--font-plex-sans), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --lh-scale: 1;
+  --tracking-scale: 1;
+  --font-text: var(--font-sans);
+
+  --topbar-height: 52px;
+  --tabbar-height: 56px;
+  --page-gutter: var(--space-4);
+
+  --z-sticky: 10;
+  --z-nav: 20;
+  --z-popover: 40;
+  --z-toast: 60;
+
+  /* 1 in LTR, -1 in RTL — for the rare transform that must follow the reading direction. */
+  --dir: 1;
+}
+
+[dir='rtl'] {
+  --dir: -1;
+}
+
+[dir='ltr'] {
+  --dir: 1;
+}
+
+@media (min-width: 900px) {
+  :root {
+    --page-gutter: var(--space-8);
+  }
+}
+
+/* Arabic: Plex Sans Arabic, ~12% more line height, no letter-spacing. Islands with their own
+   lang attribute recompute the shorthands below. */
+[lang]:lang(ar) {
+  --lh-scale: 1.12;
+  --tracking-scale: 0;
+  --font-text: var(--font-sans-arabic);
+}
+
+[lang]:not(:lang(ar)) {
+  --lh-scale: 1;
+  --tracking-scale: 1;
+  --font-text: var(--font-sans);
+}
+
+/* Type-style shorthands for `font:` — use these in CSS Modules (letter-spacing separately). */
+:root,
+[lang] {
+  --text-display: var(--type-display-weight) var(--type-display-size) /
+    calc(var(--type-display-line) * var(--lh-scale)) var(--font-text);
+  --text-title1: var(--type-title1-weight) var(--type-title1-size) /
+    calc(var(--type-title1-line) * var(--lh-scale)) var(--font-text);
+  --text-title2: var(--type-title2-weight) var(--type-title2-size) /
+    calc(var(--type-title2-line) * var(--lh-scale)) var(--font-text);
+  --text-title3: var(--type-title3-weight) var(--type-title3-size) /
+    calc(var(--type-title3-line) * var(--lh-scale)) var(--font-text);
+  --text-body: var(--type-body-weight) var(--type-body-size) /
+    calc(var(--type-body-line) * var(--lh-scale)) var(--font-text);
+  --text-body-strong: var(--type-body-strong-weight) var(--type-body-strong-size) /
+    calc(var(--type-body-strong-line) * var(--lh-scale)) var(--font-text);
+  --text-callout: var(--type-callout-weight) var(--type-callout-size) /
+    calc(var(--type-callout-line) * var(--lh-scale)) var(--font-text);
+  --text-label: var(--type-label-weight) var(--type-label-size) /
+    calc(var(--type-label-line) * var(--lh-scale)) var(--font-text);
+  --text-caption: var(--type-caption-weight) var(--type-caption-size) /
+    calc(var(--type-caption-line) * var(--lh-scale)) var(--font-text);
+  --text-mono: var(--type-mono-weight) var(--type-mono-size) / var(--type-mono-line)
+    var(--font-mono);
+  --tracking-display: calc(var(--type-display-tracking) * var(--tracking-scale));
+  --tracking-title1: calc(var(--type-title1-tracking) * var(--tracking-scale));
+  --tracking-title2: calc(var(--type-title2-tracking) * var(--tracking-scale));
+  --tracking-title3: calc(var(--type-title3-tracking) * var(--tracking-scale));
+  --tracking-caption: calc(var(--type-caption-tracking) * var(--tracking-scale));
+}
+
+/* ---------------------------------------------------------------- base */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--color-canvas);
+  color: var(--color-text-primary);
+  font: var(--text-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-synthesis: none;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+figure,
+blockquote,
+dl,
+dd {
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+img,
+svg {
+  display: block;
+}
+
+.icon {
+  flex: none;
+}
+
+[dir='rtl'] .icon-mirror {
+  transform: scaleX(-1);
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+}
+
+a:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+}
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+::selection {
+  background: var(--color-accent-soft);
+  color: var(--color-text-primary);
+}
+
+/* German compounds wrap instead of overflowing narrow columns. */
+[lang]:lang(de) :where(h1, h2, h3, p, li, dd, td, th, label, legend) {
+  hyphens: auto;
+}
+
+/* Arabic is never italicised. */
+[lang]:lang(ar) :where(em, i, cite) {
+  font-style: normal;
+}
+
+/* ---------------------------------------------------------------- utilities */
+
+.t-display {
+  font: var(--text-display);
+  letter-spacing: var(--tracking-display);
+}
+.t-title1 {
+  font: var(--text-title1);
+  letter-spacing: var(--tracking-title1);
+}
+.t-title2 {
+  font: var(--text-title2);
+  letter-spacing: var(--tracking-title2);
+}
+.t-title3 {
+  font: var(--text-title3);
+  letter-spacing: var(--tracking-title3);
+}
+.t-body {
+  font: var(--text-body);
+}
+.t-body-strong {
+  font: var(--text-body-strong);
+}
+.t-callout {
+  font: var(--text-callout);
+}
+.t-label {
+  font: var(--text-label);
+}
+.t-caption {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+}
+.t-mono {
+  font: var(--text-mono);
+}
+
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+.text-tertiary {
+  color: var(--color-text-tertiary);
+}
+
+/* Counts, costs and times line up. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* URLs, email addresses, hashes and ids stay left-to-right inside RTL text. */
+.ltr {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  inline-size: 1px !important;
+  block-size: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

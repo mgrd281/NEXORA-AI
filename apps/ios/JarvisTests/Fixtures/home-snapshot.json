@@ -1,0 +1,129 @@
+{
+  "assistant": {
+    "planner": {
+      "mode": "offline",
+      "provider": null,
+      "reason": "NO_API_KEY"
+    },
+    "worker": {
+      "healthy": true,
+      "lastHeartbeatAt": "2026-11-03T15:04:00.000Z"
+    },
+    "capabilities": {
+      "webFetch": true,
+      "email": true,
+      "memory": true,
+      "generalQuestions": false
+    },
+    "version": "0.1.0"
+  },
+  "pendingApprovals": [
+    {
+      "id": "621862a8-f378-46cd-a316-25740e6b3246",
+      "taskId": "7c415ea2-cacf-462b-8a9f-470f9ce34759",
+      "taskTitle": "Summarize example.org and email it to me",
+      "stepId": "40960639-a8c3-4e65-80b6-ce1bd40628e4",
+      "toolId": "email.send",
+      "status": "PENDING",
+      "riskLevel": "MEDIUM",
+      "summary": "Send an email to owner@example.com with the subject “Summary: Example Domain”.",
+      "details": {
+        "kind": "email",
+        "from": "JARVIS <jarvis@example.com>",
+        "to": [
+          "owner@example.com"
+        ],
+        "subject": "Summary: Example Domain",
+        "body": "Example Domain\n\nThe page explains that this domain is reserved for illustrative examples in documents.\n\n— Sent by JARVIS"
+      },
+      "actionHash": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+      "reasons": [
+        "RISK_MEDIUM",
+        "RECIPIENT_SELF"
+      ],
+      "expiresAt": "2026-11-04T15:04:09.000Z",
+      "decidedAt": null,
+      "decisionNote": null,
+      "createdAt": "2026-11-03T15:04:09+00:00"
+    }
+  ],
+  "activeTasks": [
+    {
+      "id": "7c415ea2-cacf-462b-8a9f-470f9ce34759",
+      "title": "Summarize example.org and email it to me",
+      "request": "Summarize https://example.org and email the summary to me",
+      "status": "AWAITING_APPROVAL",
+      "riskLevel": "MEDIUM",
+      "source": "voice",
+      "progress": {
+        "completed": 2,
+        "total": 3
+      },
+      "pendingApprovalId": "621862a8-f378-46cd-a316-25740e6b3246",
+      "resultSummary": null,
+      "error": null,
+      "createdAt": "2026-11-03T15:04:05.123Z",
+      "updatedAt": "2026-11-03T17:04:09.000+02:00",
+      "completedAt": null
+    }
+  ],
+  "recentTasks": [
+    {
+      "id": "0f8f980e-e28c-4ee9-a33c-606cef3d1ef9",
+      "title": "Remember that I prefer short answers",
+      "request": "Remember that I prefer short answers",
+      "status": "COMPLETED",
+      "riskLevel": "LOW",
+      "source": "text",
+      "progress": {
+        "completed": 1,
+        "total": 1
+      },
+      "pendingApprovalId": null,
+      "resultSummary": "Saved to memory: “I prefer short answers.”",
+      "error": null,
+      "createdAt": "2026-11-02T09:00:00.000Z",
+      "updatedAt": "2026-11-02T09:00:02.500Z",
+      "completedAt": "2026-11-02T09:00:02.500Z"
+    },
+    {
+      "id": "87d079cb-847f-46b8-a1aa-c7c8a0151760",
+      "title": "Email the weekly notes to team@example.net",
+      "request": "Email the weekly notes to team@example.net",
+      "status": "FAILED",
+      "riskLevel": "MEDIUM",
+      "source": "text",
+      "progress": {
+        "completed": 1,
+        "total": 2
+      },
+      "pendingApprovalId": null,
+      "resultSummary": null,
+      "error": {
+        "code": "OUTCOME_UNKNOWN",
+        "message": "The mail server closed the connection after the message was submitted.",
+        "retryable": false
+      },
+      "createdAt": "2026-11-01T18:30:00.000Z",
+      "updatedAt": "2026-11-01T18:31:10.000Z",
+      "completedAt": "2026-11-01T18:31:10.000Z"
+    }
+  ],
+  "unreadNotifications": 2,
+  "suggestions": [
+    {
+      "id": "configure-model",
+      "kind": "review",
+      "messageKey": "suggest.configureModel",
+      "command": null,
+      "href": "/settings#assistant"
+    },
+    {
+      "id": "summarize-and-email",
+      "kind": "command",
+      "messageKey": "suggest.summarizeAndEmail",
+      "command": null,
+      "href": null
+    }
+  ]
+}

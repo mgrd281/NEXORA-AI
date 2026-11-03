@@ -1,0 +1,39 @@
+.skeleton {
+  display: block;
+  max-inline-size: 100%;
+  background: var(--color-surface-hover);
+  animation: skeleton-pulse 1600ms var(--ease-standard) infinite;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-block-size: 56px;
+  padding-block: var(--space-3);
+  padding-inline: var(--space-4);
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}

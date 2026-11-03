@@ -1,0 +1,32 @@
+{
+  "id": "5f0a7c9e-2b4d-4e6f-8a1b-3c5d7e9f1a2b",
+  "taskId": "7c415ea2-cacf-462b-8a9f-470f9ce34759",
+  "taskTitle": "Summarize example.org and email it to me",
+  "stepId": "40960639-a8c3-4e65-80b6-ce1bd40628e4",
+  "toolId": "memory.save",
+  "status": "APPROVED",
+  "riskLevel": "LOW",
+  "summary": "Save “I prefer short answers” to memory.",
+  "details": {
+    "kind": "generic",
+    "toolId": "memory.save",
+    "fields": [
+      {
+        "label": "Memory",
+        "value": "I prefer short answers"
+      },
+      {
+        "label": "Kind",
+        "value": "preference"
+      }
+    ]
+  },
+  "actionHash": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+  "reasons": [
+    "RISK_LOW"
+  ],
+  "expiresAt": "2026-11-04T15:04:09.000Z",
+  "decidedAt": "2026-11-02T09:00:01.000Z",
+  "decisionNote": "Fine",
+  "createdAt": "2026-11-03T15:04:09+00:00"
+}

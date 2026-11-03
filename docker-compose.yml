@@ -1,0 +1,180 @@
+# JARVIS local full stack — development and demos only, not a production deployment.
+#
+#   cp docker/compose.env.example .env        # fill in the secrets; .env is never committed
+#   docker compose up --build -d
+#   read -rs JARVIS_OWNER_PASSWORD && export JARVIS_OWNER_PASSWORD
+#   docker compose exec -e JARVIS_OWNER_PASSWORD api node dist/cli.js create-owner \
+#     --email you@example.com --name "Your Name" --admin
+#   open http://localhost:3000
+#
+# Services: postgres (roles + database on first start), migrate (one-shot), api, worker, web,
+# dev-mailbox (SMTP sink) and fixture-site (pages for web.fetch).
+#
+# Networking: plain-text SMTP and private-address fetches are allowed only to localhost in
+# development (SMTP_ALLOW_INSECURE_LOCALHOST, FETCH_ALLOW_PRIVATE_HOSTS). The worker, dev mailbox
+# and fixture site therefore share the api container's network namespace, so 127.0.0.1 means the
+# same thing to all of them — exactly as with scripts/dev.sh. In the app, connect email as host
+# 127.0.0.1, port 2525, security "none", and fetch pages from http://127.0.0.1:4599/article.
+# If the api container is recreated, `docker compose up -d` re-attaches the others.
+#
+# All ports are published on 127.0.0.1 only.
+name: jarvis
+
+x-api-build: &api-build
+  context: .
+  dockerfile: apps/api/Dockerfile
+  target: runtime
+
+x-devtools-build: &devtools-build
+  context: .
+  dockerfile: apps/api/Dockerfile
+  target: devtools
+
+# API + worker configuration (see apps/api/src/config.ts and docs/runbooks/local-development.md).
+x-api-env: &api-env
+  # development: the dev-only allowances below are refused when NODE_ENV=production, and
+  # production also requires an https WEB_ORIGIN.
+  NODE_ENV: development
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  # Runtime role (RLS enforced).
+  DATABASE_URL: postgresql://jarvis_app:${JARVIS_DB_APP_PASSWORD:?set JARVIS_DB_APP_PASSWORD in .env}@postgres:5432/jarvis
+  # The browser origin of the web app; cookie-authenticated mutations must come from it.
+  WEB_ORIGIN: http://localhost:${WEB_PORT:-3000}
+  SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
+  # 32 random bytes, base64. Encrypts connection secrets at rest.
+  SECRET_ENCRYPTION_KEY: ${SECRET_ENCRYPTION_KEY:?set SECRET_ENCRYPTION_KEY in .env}
+  SECRET_ENCRYPTION_KEY_ID: ${SECRET_ENCRYPTION_KEY_ID:-k1}
+  # Optional. Empty = offline rules planner (the UI says so).
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  MODEL_FAST: ${MODEL_FAST:-claude-haiku-5-5}
+  MODEL_BALANCED: ${MODEL_BALANCED:-claude-sonnet-5-5}
+  MODEL_DEEP: ${MODEL_DEEP:-claude-opus-5-5}
+  # Development-only allowances for the fixture site and dev mailbox below.
+  FETCH_ALLOW_PRIVATE_HOSTS: 127.0.0.1:4599
+  SMTP_ALLOW_INSECURE_LOCALHOST: 'true'
+  APPROVAL_TTL_HOURS: ${APPROVAL_TTL_HOURS:-24}
+  WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
+
+services:
+  postgres:
+    image: postgres:16-bookworm
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      # Read by docker/postgres/init/10-jarvis-roles.sh on first start only.
+      JARVIS_DB_OWNER_PASSWORD: ${JARVIS_DB_OWNER_PASSWORD:?set JARVIS_DB_OWNER_PASSWORD in .env}
+      JARVIS_DB_APP_PASSWORD: ${JARVIS_DB_APP_PASSWORD:?set JARVIS_DB_APP_PASSWORD in .env}
+      JARVIS_DATABASES: jarvis
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - 127.0.0.1:${POSTGRES_PORT:-5433}:5432
+    healthcheck:
+      # TCP check: fails while the init scripts run (the temporary server listens on a socket only).
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U postgres -d jarvis']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  migrate:
+    build: *api-build
+    image: jarvis-api:local
+    command: ['node', 'dist/migrate.js']
+    environment:
+      # Owner role: migrations only.
+      DATABASE_OWNER_URL: postgresql://jarvis_owner:${JARVIS_DB_OWNER_PASSWORD:?set JARVIS_DB_OWNER_PASSWORD in .env}@postgres:5432/jarvis
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: 'no'
+
+  api:
+    build: *api-build
+    image: jarvis-api:local
+    environment:
+      <<: *api-env
+      HOST: 0.0.0.0
+      PORT: 4000
+    ports:
+      - 127.0.0.1:${API_PORT:-4000}:4000
+      # fixture-site runs in this network namespace (see the header).
+      - 127.0.0.1:${FIXTURE_PORT:-4599}:4599
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    # Same test as the image (GET /healthz); checked more often so dependants start sooner.
+    healthcheck:
+      interval: 5s
+      start_period: 30s
+    init: true
+    restart: unless-stopped
+
+  worker:
+    build: *api-build
+    image: jarvis-api:local
+    command: ['node', 'dist/worker.js']
+    environment: *api-env
+    network_mode: service:api
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      api:
+        condition: service_healthy
+        restart: true
+    # The image's HTTP healthcheck belongs to the API; worker health is its database heartbeat
+    # (GET /v1/assistant/status → worker.healthy).
+    healthcheck:
+      disable: true
+    init: true
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        API_ORIGIN: http://api:4000
+    image: jarvis-web:local
+    environment:
+      API_ORIGIN: http://api:4000
+    ports:
+      - 127.0.0.1:${WEB_PORT:-3000}:3000
+    depends_on:
+      api:
+        condition: service_healthy
+    init: true
+    restart: unless-stopped
+
+  # SMTP sink on 127.0.0.1:2525 (api network namespace). It binds loopback only, so its message
+  # list is read from inside: docker compose exec api node -e
+  #   "fetch('http://127.0.0.1:2580/messages').then(r=>r.text()).then(console.log)"
+  dev-mailbox:
+    build: *devtools-build
+    image: jarvis-devtools:local
+    command: ['./node_modules/.bin/tsx', 'scripts/dev-mailbox.ts']
+    network_mode: service:api
+    depends_on:
+      api:
+        condition: service_healthy
+        restart: true
+    init: true
+    restart: unless-stopped
+
+  # http://127.0.0.1:4599/article, /injection, /slow, /big (also published to the host).
+  fixture-site:
+    build: *devtools-build
+    image: jarvis-devtools:local
+    command: ['node', '/repo/scripts/fixture-site.mjs', '--host', '0.0.0.0', '--port', '4599']
+    network_mode: service:api
+    depends_on:
+      api:
+        condition: service_healthy
+        restart: true
+    init: true
+    restart: unless-stopped
+
+volumes:
+  pgdata:

@@ -1,0 +1,83 @@
+.root {
+  min-block-size: 100dvh;
+  padding: var(--space-6) var(--page-gutter) var(--space-16);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  max-inline-size: var(--content-wide-max);
+  margin-inline: auto;
+  margin-block-end: var(--space-8);
+}
+
+.heading {
+  font: var(--text-title1);
+  letter-spacing: var(--tracking-title1);
+}
+
+.toolbarControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr));
+  gap: var(--space-6);
+  max-inline-size: var(--content-wide-max);
+  margin-inline: auto;
+}
+
+.wideCard {
+  grid-column: 1 / -1;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.rowLabel {
+  font: var(--text-caption);
+  color: var(--color-text-tertiary);
+}
+
+.rowItems {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.note {
+  font: var(--text-caption);
+  color: var(--color-text-tertiary);
+}
+
+.presenceGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-6) var(--space-4);
+}
+
+.presenceCell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.presenceSizes {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.taskList {
+  list-style: none;
+}

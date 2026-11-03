@@ -1,0 +1,76 @@
+.menu {
+  display: flex;
+  flex-direction: column;
+  padding-block: var(--space-1);
+}
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  min-width: 0;
+}
+
+.name {
+  font: var(--text-body-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.email {
+  font: var(--text-caption);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1);
+  border-block-start: 1px solid var(--color-border);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  inline-size: 100%;
+  min-block-size: 36px;
+  padding-inline: var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: var(--text-callout);
+  text-align: start;
+  text-decoration: none;
+}
+
+.item :global(.icon) {
+  color: var(--color-text-secondary);
+}
+
+.item:hover,
+.item:focus-visible {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+.item:focus-visible {
+  outline-offset: -2px;
+}
+
+@media (pointer: coarse) {
+  .item {
+    min-block-size: var(--touch-min);
+  }
+
+  .desktopOnly {
+    display: none;
+  }
+}

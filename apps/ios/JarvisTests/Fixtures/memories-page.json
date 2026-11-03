@@ -1,0 +1,23 @@
+{
+  "items": [
+    {
+      "id": "6b215730-7c71-49a9-9d61-9dc6ad828b1e",
+      "kind": "preference",
+      "content": "I prefer short answers",
+      "source": "assistant",
+      "sourceTaskId": "0f8f980e-e28c-4ee9-a33c-606cef3d1ef9",
+      "createdAt": "2026-11-02T09:00:02.400Z",
+      "updatedAt": "2026-11-02T09:00:02.400Z"
+    },
+    {
+      "id": "87d079cb-847f-46b8-a1aa-c7c8a0151760",
+      "kind": "fact",
+      "content": "My sister's name is Grace",
+      "source": "user",
+      "sourceTaskId": null,
+      "createdAt": "2026-10-20T12:00:00.000Z",
+      "updatedAt": "2026-10-21T08:15:00.000Z"
+    }
+  ],
+  "nextCursor": null
+}

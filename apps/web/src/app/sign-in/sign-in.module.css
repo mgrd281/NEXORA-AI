@@ -1,0 +1,110 @@
+.page {
+  display: flex;
+  justify-content: center;
+  min-block-size: 100dvh;
+  padding-block: max(var(--space-12), env(safe-area-inset-top)) var(--space-10);
+  padding-inline: var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .page {
+    align-items: center;
+    padding-block: var(--space-16);
+  }
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-6);
+  inline-size: 100%;
+  max-inline-size: 400px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  margin-block-end: var(--space-2);
+  color: var(--color-text-primary);
+}
+
+.wordmark {
+  font: var(--text-title2);
+  font-family: var(--font-sans);
+  letter-spacing: 0.08em;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+@media (min-width: 640px) {
+  .card {
+    padding: var(--space-8);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+  }
+}
+
+.title {
+  font: var(--text-title2);
+  letter-spacing: var(--tracking-title2);
+  text-align: center;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.form > button[type='submit'] {
+  margin-block-start: var(--space-2);
+}
+
+.note {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-tertiary);
+  text-align: center;
+}
+
+.languages {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-1);
+}
+
+.language {
+  min-block-size: 32px;
+  padding-inline: var(--space-3);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: var(--text-caption);
+  font-family: var(--font-text);
+}
+
+.language:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+}
+
+.language[aria-pressed='true'] {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+  font-weight: 500;
+}
+
+@media (pointer: coarse) {
+  .language {
+    min-block-size: var(--touch-min);
+  }
+}

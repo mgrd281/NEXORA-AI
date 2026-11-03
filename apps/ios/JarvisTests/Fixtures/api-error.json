@@ -1,0 +1,15 @@
+{
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "Invalid body",
+    "requestId": "req-6f1c2a9e",
+    "details": {
+      "issues": [
+        {
+          "path": "request",
+          "message": "Too small: expected string to have >=1 characters"
+        }
+      ]
+    }
+  }
+}

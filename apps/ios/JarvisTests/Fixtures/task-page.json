@@ -1,0 +1,41 @@
+{
+  "items": [
+    {
+      "id": "7c415ea2-cacf-462b-8a9f-470f9ce34759",
+      "title": "Summarize example.org and email it to me",
+      "request": "Summarize https://example.org and email the summary to me",
+      "status": "AWAITING_APPROVAL",
+      "riskLevel": "MEDIUM",
+      "source": "voice",
+      "progress": {
+        "completed": 2,
+        "total": 3
+      },
+      "pendingApprovalId": "621862a8-f378-46cd-a316-25740e6b3246",
+      "resultSummary": null,
+      "error": null,
+      "createdAt": "2026-11-03T15:04:05.123Z",
+      "updatedAt": "2026-11-03T17:04:09.000+02:00",
+      "completedAt": null
+    },
+    {
+      "id": "0f8f980e-e28c-4ee9-a33c-606cef3d1ef9",
+      "title": "Remember that I prefer short answers",
+      "request": "Remember that I prefer short answers",
+      "status": "COMPLETED",
+      "riskLevel": "LOW",
+      "source": "text",
+      "progress": {
+        "completed": 1,
+        "total": 1
+      },
+      "pendingApprovalId": null,
+      "resultSummary": "Saved to memory: “I prefer short answers.”",
+      "error": null,
+      "createdAt": "2026-11-02T09:00:00.000Z",
+      "updatedAt": "2026-11-02T09:00:02.500Z",
+      "completedAt": "2026-11-02T09:00:02.500Z"
+    }
+  ],
+  "nextCursor": "MjAyNi0xMS0wMlQwOTowMDowMC4wMDBafDBmOGY5ODBl"
+}

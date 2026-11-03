@@ -1,0 +1,31 @@
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-block-size: 44px;
+  font: var(--text-callout);
+}
+
+.row + .row {
+  border-block-start: 1px solid var(--color-border);
+}
+
+.keys {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  flex: none;
+}
+
+.or {
+  padding-inline: var(--space-1);
+  font: var(--text-caption);
+  color: var(--color-text-tertiary);
+}

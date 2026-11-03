@@ -1,0 +1,135 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.svg {
+  flex: none;
+  display: block;
+  overflow: visible;
+}
+
+.label {
+  font: var(--text-label);
+  color: var(--color-text-secondary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track {
+  stroke: var(--color-border);
+}
+
+.arc {
+  stroke: var(--color-accent);
+  stroke-linecap: round;
+  transition: stroke-dasharray var(--duration-base) var(--ease-standard);
+}
+
+/* Planning / verifying: one revolution per --presence-rotation. */
+.spin {
+  transform-box: view-box;
+  transform-origin: center;
+  animation: presence-rotate var(--presence-rotation) linear infinite;
+}
+
+/* Progress fills clockwise in LTR and counter-clockwise in RTL. */
+.direction {
+  transform-box: view-box;
+  transform-origin: center;
+}
+
+:global([dir='rtl']) .direction {
+  transform: scaleX(-1);
+}
+
+.idleRing {
+  stroke: var(--color-text-tertiary);
+}
+
+.idleCore {
+  fill: var(--color-text-tertiary);
+}
+
+.listenRing {
+  stroke: var(--color-accent);
+  stroke-width: calc(var(--presence-sw) * (1 + var(--presence-level) * 1.1));
+  transform-box: view-box;
+  transform-origin: center;
+  transform: scale(calc(1 + var(--presence-level) * 0.1));
+  transition:
+    transform 90ms linear,
+    stroke-width 90ms linear;
+}
+
+.listenHalo {
+  transition:
+    transform 90ms linear,
+    opacity 90ms linear;
+  fill: var(--color-accent-soft);
+  opacity: calc(0.35 + var(--presence-level) * 0.65);
+  transform-box: view-box;
+  transform-origin: center;
+  transform: scale(calc(0.4 + var(--presence-level) * 0.5));
+}
+
+.warnRing {
+  stroke: var(--color-warning);
+  stroke-linecap: round;
+}
+
+.warnCore {
+  fill: var(--color-warning);
+}
+
+.successRing {
+  stroke: var(--color-success);
+}
+
+.successMark {
+  stroke: var(--color-success);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dangerRing {
+  stroke: var(--color-danger);
+}
+
+.dangerMark {
+  stroke: var(--color-danger);
+  stroke-linecap: round;
+}
+
+.dangerDot {
+  fill: var(--color-danger);
+}
+
+.dashedRing {
+  stroke: var(--color-text-tertiary);
+}
+
+@keyframes presence-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+
+  .listenRing,
+  .listenHalo {
+    transition: none;
+  }
+
+  .listenRing {
+    transform: none;
+  }
+}

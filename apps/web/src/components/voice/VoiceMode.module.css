@@ -1,0 +1,130 @@
+.voice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-block-size: 100%;
+}
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding-block-start: var(--space-4);
+  text-align: center;
+}
+
+.status {
+  margin-block-start: var(--space-2);
+  font: var(--text-title3);
+  letter-spacing: var(--tracking-title3);
+  color: var(--color-text-primary);
+}
+
+.help {
+  max-inline-size: 44ch;
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+}
+
+.transcript {
+  min-block-size: 104px;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+}
+
+.transcriptText {
+  font: var(--text-title2);
+  letter-spacing: var(--tracking-title2);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.interim {
+  color: var(--color-text-tertiary);
+}
+
+.placeholder {
+  font: var(--text-body);
+  color: var(--color-text-tertiary);
+}
+
+.tooLong {
+  margin-block-start: var(--space-2);
+  font: var(--text-caption);
+  color: var(--color-danger);
+}
+
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.language {
+  max-inline-size: 280px;
+}
+
+.privacy,
+.spaceHint {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+}
+
+.spaceHint {
+  display: none;
+}
+
+@media (pointer: fine) {
+  .spaceHint {
+    display: block;
+  }
+}
+
+.actions {
+  position: sticky;
+  inset-block-end: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-block-start: auto;
+  margin-inline: calc(var(--space-6) * -1);
+  margin-block-end: calc(var(--space-5) * -1);
+  padding: var(--space-4) var(--space-6);
+  padding-block-end: calc(var(--space-4) + env(safe-area-inset-bottom));
+  border-block-start: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.actionsEnd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+@media (max-width: 639.98px) {
+  .actions {
+    margin-inline: calc(var(--space-4) * -1);
+    padding-inline: var(--space-4);
+  }
+
+  .actionsEnd {
+    flex: 1 1 100%;
+    order: -1;
+  }
+
+  .actionsEnd > * {
+    flex: 1 1 0;
+  }
+
+  /* Cancel spans the row below the main actions. */
+  .actions > :first-child {
+    flex: 1 1 100%;
+  }
+}

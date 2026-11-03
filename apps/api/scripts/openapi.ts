@@ -1,0 +1,419 @@
+/**
+ * Generates docs/api/openapi.json (OpenAPI 3.1) from the shared contract route
+ * table, using Zod 4's native JSON Schema conversion. The output is
+ * deterministic (no timestamps) so it can be committed and checked in CI.
+ *
+ *   pnpm --filter @jarvis/api openapi           # write docs/api/openapi.json
+ *   pnpm --filter @jarvis/api openapi --check   # fail if the file is stale
+ */
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { z } from 'zod';
+import * as contracts from '@jarvis/contracts';
+import { EVENTS_PATH, routes, type RouteDef, type RouteName } from '@jarvis/contracts';
+
+type Json = Record<string, unknown>;
+
+const here = dirname(fileURLToPath(import.meta.url));
+export const OUTPUT_PATH = resolve(here, '../../../docs/api/openapi.json');
+const API_VERSION = (
+  JSON.parse(readFileSync(resolve(here, '../package.json'), 'utf8')) as { version: string }
+).version;
+
+const SCHEMA_REF = (id: string) => `#/components/schemas/${id}`;
+const pascal = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const toOpenApiPath = (p: string) => p.replace(/:([A-Za-z]+)/g, '{$1}');
+
+/** Exported contract schemas that are request-side (rendered with io: 'input', inline). */
+const REQUEST_SCHEMAS = new Set([
+  'LoginRequest',
+  'UpdateMeRequest',
+  'DeleteAccountRequest',
+  'CreateTaskRequest',
+  'RetryTaskRequest',
+  'ApprovalDecisionRequest',
+  'CreateSmtpConnectionRequest',
+  'CreateMemoryRequest',
+  'UpdateMemoryRequest',
+  'VoiceSessionStart',
+  'VoiceSessionEnd',
+  'PageQuery',
+  'TaskListQuery',
+  'MemoryListQuery',
+]);
+/** Primitive building blocks that read better inline than as $refs. */
+const INLINE_PRIMITIVES = new Set(['Id', 'Timestamp', 'MicroUsd']);
+
+const ERROR_DESCRIPTIONS: Record<string, string> = {
+  '400': 'VALIDATION_FAILED — the path, query or body is invalid.',
+  '401': 'UNAUTHENTICATED — missing, expired or revoked session.',
+  '402': 'BUDGET_EXCEEDED — the monthly AI budget is used up.',
+  '403': 'FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).',
+  '404': 'NOT_FOUND — does not exist or is not visible to this user.',
+  '409':
+    'CONFLICT / INVALID_STATE / APPROVAL_EXPIRED / APPROVAL_MISMATCH — state does not allow this.',
+  '422': 'IDEMPOTENCY_MISMATCH / CONNECTION_FAILED — semantically rejected.',
+  '429': 'RATE_LIMITED — too many requests.',
+  '500': 'INTERNAL — unexpected server error.',
+  '503': 'MODEL_NOT_CONFIGURED — the requested capability is unavailable.',
+};
+
+/** Route-specific error statuses beyond the generic rules. */
+const EXTRA_ERRORS: Partial<Record<RouteName, string[]>> = {
+  createTask: ['402', '409', '503'],
+  retryTask: ['402', '409', '503'],
+  cancelTask: ['409'],
+  decideApproval: ['409'],
+  connectSmtp: ['422'],
+  testConnection: ['422'],
+  deleteAccount: ['403'],
+};
+
+/** Removes JSON-Schema noise that OpenAPI consumers do not need. */
+function tidy(node: unknown, top = true): unknown {
+  if (Array.isArray(node)) return node.map((n) => tidy(n, false));
+  if (!node || typeof node !== 'object') return node;
+  const out: Json = {};
+  const obj = node as Json;
+  for (const [k, v] of Object.entries(obj)) {
+    if (top && (k === '$schema' || k === '$id')) continue;
+    // Zod adds exhaustive regexes next to standard formats; the format says it all.
+    if (k === 'pattern' && ['uuid', 'date-time', 'email'].includes(obj.format as string)) continue;
+    if ((k === 'minimum' || k === 'maximum') && Math.abs(v as number) === Number.MAX_SAFE_INTEGER)
+      continue;
+    out[k] = tidy(v, false);
+  }
+  return out;
+}
+
+function inputSchema(schema: z.ZodType): Json {
+  return tidy(z.toJSONSchema(schema, { io: 'input', unrepresentable: 'any' })) as Json;
+}
+
+export function buildOpenApi(): Json {
+  const exported = Object.entries(contracts as Record<string, unknown>).filter(
+    (e): e is [string, z.ZodType] => e[1] instanceof z.ZodType,
+  );
+  const nameOf = new Map<z.ZodType, string>(exported.map(([n, s]) => [s, n]));
+
+  // Response-side named components (with $refs between them).
+  const registry = z.registry<{ id: string }>();
+  for (const [name, schema] of exported) {
+    if (!REQUEST_SCHEMAS.has(name) && !INLINE_PRIMITIVES.has(name))
+      registry.add(schema, { id: name });
+  }
+  const requestComponents: Record<string, Json> = {};
+  const responseRef = (route: string, schema: z.ZodType): string => {
+    const existing = registry.get(schema)?.id;
+    if (existing) return existing;
+    const id = `${pascal(route)}Response`;
+    registry.add(schema, { id });
+    return id;
+  };
+  const requestRef = (route: string, schema: z.ZodType): string => {
+    const name = nameOf.get(schema) ?? `${pascal(route)}Request`;
+    requestComponents[name] ??= inputSchema(schema);
+    return name;
+  };
+
+  const paths: Record<string, Record<string, Json>> = {};
+  for (const [name, route] of Object.entries(routes) as [RouteName, RouteDef][]) {
+    const parameters: Json[] = [];
+    if (route.params) {
+      for (const [param, schema] of Object.entries(route.params.shape))
+        parameters.push({
+          name: param,
+          in: 'path',
+          required: true,
+          schema: inputSchema(schema as z.ZodType),
+        });
+    }
+    if (route.query) {
+      const q = inputSchema(route.query) as {
+        properties?: Record<string, Json>;
+        required?: string[];
+      };
+      for (const [param, schema] of Object.entries(q.properties ?? {}))
+        parameters.push({
+          name: param,
+          in: 'query',
+          required: q.required?.includes(param) ?? false,
+          schema,
+        });
+    }
+    if (route.idempotent) {
+      parameters.push({
+        name: 'Idempotency-Key',
+        in: 'header',
+        required: false,
+        description:
+          'Client-generated key (8–128 chars). A repeated request with the same key and body replays the first response; a different body is rejected with IDEMPOTENCY_MISMATCH.',
+        schema: { type: 'string', minLength: 8, maxLength: 128 },
+      });
+    }
+
+    const status = String(route.successStatus ?? (route.response === null ? 204 : 200));
+    const responses: Record<string, Json> = {};
+    if (route.response === null) {
+      responses[status] = { description: 'No Content' };
+    } else {
+      responses[status] = {
+        description: status === '202' ? 'Accepted' : status === '201' ? 'Created' : 'OK',
+        content: {
+          'application/json': { schema: { $ref: SCHEMA_REF(responseRef(name, route.response)) } },
+        },
+      };
+    }
+    if (name === 'exportAccount') {
+      responses[status]!.headers = {
+        'Content-Disposition': {
+          description: 'attachment; filename="jarvis-export-YYYY-MM-DD.json"',
+          schema: { type: 'string' },
+        },
+      };
+    }
+
+    const errors = new Set<string>(['429', '500']);
+    if (route.params || route.query || route.body) errors.add('400');
+    if (route.auth !== 'none') errors.add('401');
+    if (route.auth === 'platform_admin' || (route.auth === 'user' && route.method !== 'GET'))
+      errors.add('403');
+    if (route.params) errors.add('404');
+    if (route.idempotent) {
+      errors.add('409');
+      errors.add('422');
+    }
+    for (const e of EXTRA_ERRORS[name] ?? []) errors.add(e);
+    for (const code of [...errors].sort()) {
+      responses[code] = {
+        description: ERROR_DESCRIPTIONS[code]!,
+        content: { 'application/json': { schema: { $ref: SCHEMA_REF('ApiErrorBody') } } },
+      };
+    }
+
+    const op: Json = {
+      operationId: name,
+      summary: route.summary,
+      tags: [route.tag],
+      ...(route.auth === 'none' ? { security: [] } : {}),
+      ...(route.auth === 'platform_admin'
+        ? {
+            description:
+              'Requires the platform_admin role. Returns aggregates only — never user content.',
+          }
+        : {}),
+      ...(parameters.length ? { parameters } : {}),
+      ...(route.body
+        ? {
+            requestBody: {
+              required: true,
+              content: {
+                'application/json': {
+                  schema: { $ref: SCHEMA_REF(requestRef(name, route.body)) },
+                },
+              },
+            },
+          }
+        : {}),
+      responses,
+    };
+    const path = toOpenApiPath(route.path);
+    paths[path] ??= {};
+    paths[path][route.method.toLowerCase()] = op;
+  }
+
+  // Server-Sent Events: described by hand (not part of the JSON route table).
+  paths[EVENTS_PATH] = {
+    get: {
+      operationId: 'streamEvents',
+      summary: 'Real-time event stream (Server-Sent Events)',
+      tags: ['events'],
+      description: [
+        'Streams the signed-in user’s task, notification and connection events as text/event-stream.',
+        'The stream starts with `retry: 3000`. Each event is framed as',
+        '`id: <id>\\nevent: message\\ndata: <StreamEvent JSON>\\n\\n`; ephemeral events',
+        '(e.g. `task.answer.delta`) omit `id:` and are never replayed. A `: heartbeat` comment',
+        'is sent every 25 s. To resume, reconnect with `Last-Event-ID` (or `?lastEventId=`):',
+        'up to the 200 newest persisted events after that id are replayed before live delivery.',
+        'The `data:` payload of every frame is a StreamEvent (`x-sse-data`).',
+      ].join(' '),
+      parameters: [
+        {
+          name: 'Last-Event-ID',
+          in: 'header',
+          required: false,
+          description: 'Resume after this event id.',
+          schema: { type: 'string', pattern: '^\\d{1,15}$' },
+        },
+        {
+          name: 'lastEventId',
+          in: 'query',
+          required: false,
+          description: 'Alternative to the Last-Event-ID header for clients that cannot set it.',
+          schema: { type: 'string', pattern: '^\\d{1,15}$' },
+        },
+      ],
+      responses: {
+        '200': {
+          description: 'Event stream',
+          content: {
+            'text/event-stream': {
+              schema: { type: 'string' },
+              'x-sse-data': { $ref: SCHEMA_REF('StreamEvent') },
+            },
+          },
+        },
+        '401': {
+          description: ERROR_DESCRIPTIONS['401'],
+          content: { 'application/json': { schema: { $ref: SCHEMA_REF('ApiErrorBody') } } },
+        },
+        '429': {
+          description: ERROR_DESCRIPTIONS['429'],
+          content: { 'application/json': { schema: { $ref: SCHEMA_REF('ApiErrorBody') } } },
+        },
+      },
+    },
+  };
+
+  // Liveness / readiness probes (unauthenticated, no data).
+  paths['/healthz'] = {
+    get: {
+      operationId: 'healthz',
+      summary: 'Liveness probe',
+      tags: ['system'],
+      security: [],
+      responses: {
+        '200': {
+          description: 'Process is up',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: { ok: { const: true } },
+                required: ['ok'],
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+  paths['/readyz'] = {
+    get: {
+      operationId: 'readyz',
+      summary: 'Readiness probe (database reachable)',
+      tags: ['system'],
+      security: [],
+      responses: Object.fromEntries(
+        ['200', '503'].map((code) => [
+          code,
+          {
+            description: code === '200' ? 'Ready' : 'Database unreachable',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: { ok: { type: 'boolean' }, database: { type: 'boolean' } },
+                  required: ['ok', 'database'],
+                },
+              },
+            },
+          },
+        ]),
+      ),
+    },
+  };
+
+  const generated = z.toJSONSchema(registry, {
+    io: 'output',
+    uri: SCHEMA_REF,
+    unrepresentable: 'any',
+  }) as { schemas: Record<string, unknown> };
+  const schemas: Record<string, unknown> = {};
+  for (const [id, schema] of Object.entries({ ...generated.schemas, ...requestComponents }).sort(
+    ([a], [b]) => a.localeCompare(b),
+  ))
+    schemas[id] = tidy(schema);
+
+  const tags = [...new Set([...Object.values(routes).map((r) => r.tag), 'events', 'system'])];
+  return {
+    openapi: '3.1.0',
+    info: {
+      title: 'JARVIS API',
+      version: API_VERSION,
+      description:
+        'HTTP API v1 of JARVIS. Native clients authenticate with a bearer token from POST /v1/auth/login; the web app uses an httpOnly session cookie, and cookie-authenticated state changes must carry Origin = the web app origin. Errors use the ApiErrorBody shape. Money is integer micro-USD.',
+    },
+    servers: [{ url: 'http://localhost:4000', description: 'Local development' }],
+    security: [{ bearerAuth: [] }, { cookieAuth: [] }],
+    tags: tags.map((name) => ({ name })),
+    paths,
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          description: 'Opaque session token returned to native clients by POST /v1/auth/login.',
+        },
+        cookieAuth: {
+          type: 'apiKey',
+          in: 'cookie',
+          name: 'jarvis_session',
+          description:
+            'httpOnly session cookie set for the web client. Mutations must send the web app Origin.',
+        },
+      },
+      schemas,
+    },
+  };
+}
+
+export function renderOpenApi(): string {
+  return `${JSON.stringify(buildOpenApi(), null, 2)}\n`;
+}
+
+/** Formats like `prettier --write` would, so the committed file passes format checks. */
+async function formatLikeRepo(json: string): Promise<string> {
+  try {
+    const prettier = await import('prettier');
+    const options = (await prettier.resolveConfig(OUTPUT_PATH)) ?? {};
+    return await prettier.format(json, { ...options, parser: 'json', filepath: OUTPUT_PATH });
+  } catch {
+    return json; // prettier unavailable: plain JSON is still valid output
+  }
+}
+
+/** Semantic comparison: formatting differences never count as stale. */
+export function isUpToDate(fileContent: string): boolean {
+  try {
+    return JSON.stringify(JSON.parse(fileContent)) === JSON.stringify(buildOpenApi());
+  } catch {
+    return false;
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  if (process.argv.includes('--check')) {
+    let current = '';
+    try {
+      current = readFileSync(OUTPUT_PATH, 'utf8');
+    } catch {
+      current = '';
+    }
+    if (!isUpToDate(current)) {
+      console.error(`${OUTPUT_PATH} is out of date. Run: pnpm --filter @jarvis/api openapi`);
+      process.exit(1);
+    }
+    console.log('openapi.json is up to date');
+  } else {
+    const doc = buildOpenApi();
+    mkdirSync(dirname(OUTPUT_PATH), { recursive: true });
+    writeFileSync(OUTPUT_PATH, await formatLikeRepo(renderOpenApi()));
+    const ops = Object.values(doc.paths as Record<string, object>).reduce<number>(
+      (n, p) => n + Object.keys(p).length,
+      0,
+    );
+    console.log(`wrote ${OUTPUT_PATH} (${ops} operations)`);
+  }
+}

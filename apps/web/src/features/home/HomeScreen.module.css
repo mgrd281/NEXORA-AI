@@ -1,0 +1,395 @@
+/* ------------------------------------------------------------- header */
+
+.greetingSkeleton {
+  display: block;
+}
+
+.statusLine {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+  border-radius: var(--radius-xs);
+}
+
+.date {
+  color: var(--color-text-secondary);
+}
+
+.dot {
+  color: var(--color-text-tertiary);
+}
+
+.status {
+  font-weight: var(--type-label-weight);
+  color: var(--color-text-primary);
+}
+
+.statusPart + .statusPart::before {
+  content: '·';
+  margin-inline: var(--space-2);
+  color: var(--color-text-tertiary);
+  font-weight: var(--type-body-weight);
+}
+
+.statusWarning {
+  color: var(--color-warning);
+}
+
+/* Phones: the date and each status phrase on their own lines (no dangling separators). */
+@media (max-width: 639px) {
+  .statusLine {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .dot {
+    display: none;
+  }
+
+  .status {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .statusPart + .statusPart::before {
+    content: none;
+  }
+}
+
+/* ------------------------------------------------------------- ask */
+
+.ask {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  /* The composer's hidden send tooltip must not widen the page on phones (it may still paint
+     into the gutter when shown). */
+  overflow-x: clip;
+  overflow-clip-margin: var(--page-gutter);
+}
+
+.chips {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-inline-size: 100%;
+  min-block-size: var(--control-sm);
+  padding-block: var(--space-1);
+  padding-inline: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  font: var(--text-label);
+  color: var(--color-text-secondary);
+  text-align: start;
+  text-decoration: none;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+@media (pointer: coarse) {
+  .chip {
+    min-block-size: var(--touch-min);
+  }
+}
+
+.chip:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+.chipIcon {
+  color: var(--color-text-tertiary);
+}
+
+.chip:hover .chipIcon {
+  color: var(--color-text-secondary);
+}
+
+.chipArrow {
+  color: var(--color-text-tertiary);
+}
+
+/* ------------------------------------------------------------- sections */
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.sectionTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 20px;
+  block-size: 20px;
+  padding-inline: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-hover);
+  font: var(--text-caption);
+  font-weight: var(--type-label-weight);
+  color: var(--color-text-secondary);
+}
+
+.viewAll {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-block-size: var(--control-sm);
+  padding-inline: var(--space-2);
+  margin-inline-end: calc(var(--space-2) * -1);
+  border-radius: var(--radius-sm);
+  font: var(--text-label);
+  color: var(--color-text-secondary);
+}
+
+@media (pointer: coarse) {
+  .viewAll {
+    min-block-size: var(--touch-min);
+  }
+}
+
+.viewAll:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+.taskList,
+.approvals {
+  list-style: none;
+}
+
+/* ------------------------------------------------------------- needs you */
+
+.needsCard {
+  border-color: color-mix(in srgb, var(--color-warning) 32%, var(--color-border));
+}
+
+.approval {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    'icon main'
+    '. action';
+  align-items: start;
+  gap: var(--space-3) var(--space-4);
+  padding-block: var(--space-4);
+  padding-inline: var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .approval {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: 'icon main action';
+    align-items: center;
+    padding-inline: var(--space-5);
+  }
+}
+
+.approval + .approval {
+  border-block-start: 1px solid var(--color-border);
+}
+
+.approvalIcon {
+  grid-area: icon;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--control-md);
+  block-size: var(--control-md);
+  border-radius: var(--radius-full);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.approvalMain {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.approvalTitle {
+  font: var(--text-body-strong);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.approvalSummary {
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.approvalMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  margin-block-start: var(--space-2);
+}
+
+.expires {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-tertiary);
+}
+
+/* On phones the button sits under the text, aligned with it. */
+.review {
+  grid-area: action;
+  justify-self: start;
+}
+
+/* ------------------------------------------------------------- first run */
+
+.firstRun {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.firstRunHead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.firstRunIcon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--control-md);
+  block-size: var(--control-md);
+  border-radius: var(--radius-full);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-on-soft);
+}
+
+.firstRunText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.firstRunTitle {
+  font: var(--text-title3);
+  letter-spacing: var(--tracking-title3);
+  color: var(--color-text-primary);
+}
+
+.firstRunBody {
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+  max-inline-size: 60ch;
+}
+
+.points {
+  list-style: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  padding-block: var(--space-4);
+  border-block: 1px solid var(--color-border);
+}
+
+@media (min-width: 640px) {
+  .points {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-4);
+  }
+}
+
+.points li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font: var(--text-callout);
+  color: var(--color-text-primary);
+}
+
+.pointIcon {
+  margin-block-start: 2px;
+  color: var(--color-text-tertiary);
+}
+
+.examples {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.examplesLabel {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-tertiary);
+}
+
+.exampleList {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.example {
+  position: relative;
+  max-inline-size: 100%;
+  min-block-size: var(--control-sm);
+  padding-block: var(--space-1);
+  padding-inline: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  font: var(--text-callout);
+  color: var(--color-text-primary);
+  text-align: start;
+  overflow-wrap: anywhere;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+@media (pointer: coarse) {
+  .example {
+    min-block-size: var(--touch-min);
+  }
+}
+
+.example:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
+}
+
+/* ------------------------------------------------------------- loading */
+
+.skeletonSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
