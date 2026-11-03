@@ -11,9 +11,15 @@
  *      row (definitely not executed) is re-claimed, a 'started'/'unknown' row
  *      of an external tool means the outcome is unknown → OUTCOME_UNKNOWN.
  *      safe_to_retry → key '<stepId>:a<n>'.
- *   3. execute with timeout (AbortController), lease kept alive, no tx held.
+ *   3. execute with timeout (AbortController), no tx held.
  *   4. (tx) record outcome, usage and cost, events, audit.
  * After the last step: VERIFYING → verify every step → COMPLETED (or FAILED).
+ *
+ * The worker holds the job's lease for the whole run. If it is lost anyway
+ * (deps.signal), in-flight tool and model calls are aborted and the job stops
+ * at the next checkpoint (checkLease) without writing anything more: another
+ * worker may own it by then, and claimExecution there deals with the
+ * interrupted attempt.
  */
 import type { Evidence, Locale, VerificationCheck } from '@jarvis/contracts';
 import { withContext, type DbContext } from '../../db/pool';
@@ -31,8 +37,7 @@ import { asLocale, asMessage } from './i18n';
 import { finishCancellation, type JobOutcome } from './plan-job';
 import { denyMessage, denyReason } from './policy';
 import { deterministicSummary, modelSummary } from './result-summary';
-import type { RuntimeDeps } from './runtime';
-import { withKeepAlive } from './runtime';
+import { checkLease, withLeaseSignal, type RuntimeDeps } from './runtime';
 import { stepRef } from './events-data';
 import { assessStep, isTainted, untrustedSource } from './step-policy';
 import {
@@ -49,6 +54,9 @@ import { getTool } from './tools/registry';
 import type { AnyTool, ToolResult, ToolRuntime } from './tools/types';
 
 const FINISHED = new Set(['SUCCEEDED', 'SKIPPED']);
+
+/** The optional model-written result line gives up after this long (deterministic line instead). */
+export const RESULT_SUMMARY_TIMEOUT_MS = 30_000;
 
 type Prepared =
   | { kind: 'stop' }
@@ -566,6 +574,7 @@ async function runStep(
   const maxAttempts =
     tool.idempotency === 'safe_to_retry' ? Math.max(1, tool.retry.maxAttempts) : 1;
   for (let attempt = 1; ; attempt++) {
+    checkLease(deps);
     const claim = await claimExecution(deps, ctx, p);
     if (claim.kind === 'stop') return false;
     if (claim.kind === 'reuse') {
@@ -608,21 +617,24 @@ async function runStep(
     const started = Date.now();
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), tool.timeoutMs);
+    // Aborted on timeout, or when the lease is lost.
+    const signal = withLeaseSignal(deps, ac.signal);
     let result: ToolResult | null = null;
     let error: AgentError | null = null;
     try {
-      result = await withKeepAlive(deps, () =>
-        Promise.race([
-          tool.execute(input, rt, ac.signal),
-          abortRejection(ac.signal, tool, step.title),
-        ]),
-      );
+      result = await Promise.race([
+        tool.execute(input, rt, signal),
+        abortRejection(signal, tool, step.title),
+      ]);
     } catch (err) {
       error = normalizeToolError(err, tool, step.title);
     } finally {
       clearTimeout(timer);
       if (!ac.signal.aborted) ac.abort(); // release the abort listener
     }
+    // Lease lost: whatever happened is for the worker that owns the job now to find
+    // (a 'started' execution: re-run if safe, OUTCOME_UNKNOWN if external).
+    checkLease(deps);
     if (result && deps.testHooks?.afterToolExecute) await deps.testHooks.afterToolExecute(tool.id);
     const durationMs = Date.now() - started;
 
@@ -670,6 +682,7 @@ async function runStep(
 /* ------------------------------------------------------------------ */
 
 async function verifyAndComplete(deps: RuntimeDeps, ctx: DbContext, taskId: string): Promise<void> {
+  checkLease(deps);
   const verified = await withContext(deps.db, ctx, async (trx) => {
     const task = await lockTask(trx, taskId);
     // VERIFYING here means a previous attempt died while completing: resume.
@@ -740,6 +753,7 @@ async function verifyAndComplete(deps: RuntimeDeps, ctx: DbContext, taskId: stri
         language: verified.language,
         steps: verified.steps,
         fallback,
+        signal: withLeaseSignal(deps, AbortSignal.timeout(RESULT_SUMMARY_TIMEOUT_MS)),
       });
       usage.push(res.usage);
       if (res.text) {
@@ -755,6 +769,7 @@ async function verifyAndComplete(deps: RuntimeDeps, ctx: DbContext, taskId: stri
     }
   }
 
+  checkLease(deps); // lost while summarizing: the new owner summarizes (and bills) again
   await withContext(deps.db, ctx, async (trx) => {
     await recordUsage(trx, ctx, taskId, usage);
     const task = await lockTask(trx, taskId);
@@ -784,6 +799,7 @@ export async function handleExecuteJob(deps: RuntimeDeps, job: JobRow): Promise<
     return 'done';
   }
   for (;;) {
+    checkLease(deps);
     const next = await prepareNext(deps, ctx, taskId);
     if (next.kind === 'stop') return 'done';
     if (next.kind === 'awaiting') return 'awaiting_approval';

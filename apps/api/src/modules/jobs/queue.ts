@@ -94,14 +94,21 @@ export async function fail(
   return dead ? 'dead' : 'retry';
 }
 
-/** Return jobs whose worker died (lease expired) to the queue. */
-export async function reclaimExpired(db: Db): Promise<number> {
-  const res = await sql`
+/**
+ * Returns jobs whose worker died (lease expired) to the queue, or dead-letters
+ * them when no attempts are left. The dead-lettered rows are returned: such a
+ * job never reaches the worker's failure path, so the caller must run the
+ * dead-letter handling for it (the worker fails its task, see reclaimOnce).
+ */
+export async function reclaimExpired(db: Db): Promise<{ requeued: number; dead: JobRow[] }> {
+  const res = await sql<JobRow>`
     UPDATE jobs SET status = CASE WHEN attempts >= max_attempts THEN 'dead' ELSE 'queued' END,
            locked_by = NULL, locked_until = NULL,
            last_error = COALESCE(last_error, '') || ' [lease expired]'
-     WHERE status = 'running' AND locked_until < now()`.execute(db);
-  return Number(res.numAffectedRows ?? 0);
+     WHERE status = 'running' AND locked_until < now()
+    RETURNING *`.execute(db);
+  const dead = res.rows.filter((j) => j.status === 'dead');
+  return { requeued: res.rows.length - dead.length, dead };
 }
 
 export async function heartbeat(

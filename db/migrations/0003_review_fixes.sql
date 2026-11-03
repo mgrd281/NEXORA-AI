@@ -85,6 +85,8 @@ CREATE INDEX IF NOT EXISTS sessions_device_idx ON sessions (device_id);
 
 -- Per-user rows (cascade from users; jobs are deleted explicitly).
 CREATE INDEX IF NOT EXISTS jobs_user_idx ON jobs (user_id);
+-- The stuck-task sweeper checks each active task for a live job.
+CREATE INDEX IF NOT EXISTS jobs_task_idx ON jobs (task_id) WHERE task_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS approvals_user_idx ON approvals (user_id);
 CREATE INDEX IF NOT EXISTS browser_sessions_user_idx ON browser_sessions (user_id);
 CREATE INDEX IF NOT EXISTS call_sessions_user_idx ON call_sessions (user_id);

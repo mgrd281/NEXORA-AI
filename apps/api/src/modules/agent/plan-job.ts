@@ -18,8 +18,7 @@ import { costMicro } from './models/pricing';
 import { selectModel } from './models/router';
 import { planTask, type PlanOutcome } from './planner';
 import { denyMessage, denyReason } from './policy';
-import type { RuntimeDeps } from './runtime';
-import { withKeepAlive } from './runtime';
+import { checkLease, type RuntimeDeps } from './runtime';
 import { stepRef } from './events-data';
 import { assessStep, maxRisk } from './step-policy';
 import {
@@ -113,22 +112,20 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
       memoryEnabled: a.preferences.memory.enabled,
       modelAvailable: a.route.mode === 'model',
     });
-    outcome = await withKeepAlive(deps, () =>
-      planTask(
-        { config: deps.config, adapter: deps.adapter, route: a.route },
-        {
-          request: start.task.request,
-          language: start.language,
-          account: {
-            displayName: a.account.displayName,
-            email: a.account.email,
-            locale: a.account.locale,
-            timeZone: a.account.timeZone,
-          },
-          tools,
-          memories: start.memories,
+    outcome = await planTask(
+      { config: deps.config, adapter: deps.adapter, route: a.route, signal: deps.signal },
+      {
+        request: start.task.request,
+        language: start.language,
+        account: {
+          displayName: a.account.displayName,
+          email: a.account.email,
+          locale: a.account.locale,
+          timeZone: a.account.timeZone,
         },
-      ),
+        tools,
+        memories: start.memories,
+      },
     ).catch((err: unknown): PlanOutcome => ({
       ok: false,
       error:
@@ -143,7 +140,9 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
     }));
   }
 
-  // Phase 3 — persist the plan, check policies, start execution.
+  // Phase 3 — persist the plan, check policies, start execution. A planning
+  // call aborted because the lease was lost must not fail the task.
+  checkLease(deps);
   return withContext(deps.db, ctx, async (trx): Promise<JobOutcome> => {
     let task = await lockTask(trx, taskId);
     const planningCost = outcome ? await recordUsage(trx, ctx, taskId, outcome.usage) : 0;

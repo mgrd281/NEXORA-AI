@@ -227,7 +227,12 @@ describe('POST /v1/account/export', () => {
       subject: 'Notes',
     };
     const evidence = [
-      { kind: 'smtp_receipt', label: 'SMTP 250', value: 'EVIDENCE-VALUE', at: new Date().toISOString() },
+      {
+        kind: 'smtp_receipt',
+        label: 'SMTP 250',
+        value: 'EVIDENCE-VALUE',
+        at: new Date().toISOString(),
+      },
     ];
     const stepId = await withContext(h.db, c.user, async (trx) => {
       const step = await trx

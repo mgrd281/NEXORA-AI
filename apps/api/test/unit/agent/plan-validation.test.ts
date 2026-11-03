@@ -156,7 +156,8 @@ describe('plan validation', () => {
       ]) {
         const r = validatePlan(plan([fetchUrl(url)]), ctx());
         expect(r.ok, url).toBe(false);
-        if (!r.ok) expect(r.issues.join(' ')).toMatch(/does not point at a site written in the request/);
+        if (!r.ok)
+          expect(r.issues.join(' ')).toMatch(/does not point at a site written in the request/);
       }
     });
 

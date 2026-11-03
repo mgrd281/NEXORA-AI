@@ -56,7 +56,7 @@ async function waitForBlocked(n: number): Promise<void> {
       `SELECT DISTINCT pid, pg_blocking_pids(pid) AS by FROM pg_locks WHERE NOT granted`,
     );
     const blocked = new Set<number>([ownerPid]);
-    for (let grew = true; grew; ) {
+    for (let grew = true; grew;) {
       grew = false;
       for (const r of rows)
         if (!blocked.has(r.pid) && r.by.some((b) => blocked.has(b))) {

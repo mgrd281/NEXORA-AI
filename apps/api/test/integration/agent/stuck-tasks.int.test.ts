@@ -12,7 +12,15 @@ import type { TaskStatus } from '@jarvis/contracts';
 import { withContext, type DbContext } from '../../../src/db/pool';
 import { sweepStuckTasks } from '../../../src/modules/agent/jobs';
 import { reclaimOnce } from '../../../src/worker';
-import { connectSmtp, connectWeb, createHarness, detail, drain, newUser, type Harness } from './harness';
+import {
+  connectSmtp,
+  connectWeb,
+  createHarness,
+  detail,
+  drain,
+  newUser,
+  type Harness,
+} from './harness';
 
 let h: Harness;
 
@@ -23,7 +31,11 @@ afterAll(() => h.close());
 
 async function setStatus(user: DbContext, taskId: string, status: TaskStatus) {
   await withContext(h.db, user, (trx) =>
-    trx.updateTable('tasks').set({ status, started_at: new Date() }).where('id', '=', taskId).execute(),
+    trx
+      .updateTable('tasks')
+      .set({ status, started_at: new Date() })
+      .where('id', '=', taskId)
+      .execute(),
   );
 }
 
@@ -79,7 +91,12 @@ describe('reclaiming an expired lease on the last attempt', () => {
     await setStatus(user, s.id, 'PLANNING');
     await h.db
       .updateTable('jobs')
-      .set({ status: 'running', locked_by: 'gone', locked_until: new Date(Date.now() - 1_000), attempts: 1 })
+      .set({
+        status: 'running',
+        locked_by: 'gone',
+        locked_until: new Date(Date.now() - 1_000),
+        attempts: 1,
+      })
       .where('task_id', '=', s.id)
       .execute();
     await reclaimOnce(h.worker);
@@ -117,7 +134,9 @@ describe('the stuck-task sweeper', () => {
     for (const { user, taskId } of stuck)
       expect((await detail(h.db, user, taskId)).status).not.toBe('FAILED');
 
-    expect(await sweepStuckTasks(h.worker, { graceMs: 0, lookbackMs: 60_000 })).toBeGreaterThanOrEqual(4);
+    expect(
+      await sweepStuckTasks(h.worker, { graceMs: 0, lookbackMs: 60_000 }),
+    ).toBeGreaterThanOrEqual(4);
     for (const { user, taskId } of stuck) {
       const d = await detail(h.db, user, taskId);
       expect(d.status).toBe('FAILED');
@@ -141,7 +160,11 @@ describe('the stuck-task sweeper', () => {
       {},
     );
     await drain(h.worker);
-    await h.db.updateTable('jobs').set({ status: 'dead' }).where('task_id', '=', waiting.id).execute();
+    await h.db
+      .updateTable('jobs')
+      .set({ status: 'dead' })
+      .where('task_id', '=', waiting.id)
+      .execute();
 
     // Queued work that has not run yet.
     const queuedUser = await newUser(h.db);

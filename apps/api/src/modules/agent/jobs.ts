@@ -1,8 +1,10 @@
 /**
  * Job dispatch for the worker: task.plan, task.execute, approval.expire, plus
- * the dead-letter handler and the post-job reconciliation.
+ * the dead-letter handler, the post-job reconciliation and the sweeper for
+ * tasks no job will move on any more.
  */
-import { isTerminal } from '@jarvis/contracts';
+import { isTerminal, type TaskError, type TaskStatus } from '@jarvis/contracts';
+import { sql } from 'kysely';
 import { withContext, type DbContext } from '../../db/pool';
 import type { JobRow } from '../../db/types';
 import { enqueue } from '../jobs/queue';
@@ -79,6 +81,99 @@ export async function onJobDead(deps: RuntimeDeps, job: JobRow): Promise<void> {
       retryable: true,
     });
   });
+}
+
+/** Active statuses in which only a job moves the task on (AWAITING_APPROVAL waits for the user). */
+const NEEDS_A_JOB: readonly TaskStatus[] = ['QUEUED', 'PLANNING', 'RUNNING', 'VERIFYING'];
+
+const ORPHANED: TaskError = {
+  code: 'INTERNAL',
+  message: 'JARVIS stopped working on this task unexpectedly. You can retry it.',
+  retryable: true,
+};
+
+/**
+ * Fails tasks that are active but that nothing will move on any more: no
+ * queued or running job, and neither the task nor any of its jobs changed
+ * within `graceMs` (which covers the moment between one job finishing and
+ * the next being enqueued). This catches what dead-letter handling cannot —
+ * onJobDead failing, or a worker dying before it ran or between completing
+ * a job and enqueuing the next. A retry is safe, as for onJobDead.
+ *
+ * RLS hides tasks from a connection without a user context, so the users to
+ * check come from the job queue (no RLS): everyone with task jobs that
+ * changed within `lookbackMs` (null: any time). Each user is checked in their
+ * own context; a failure is logged and does not stop the sweep. Returns how
+ * many tasks were failed.
+ */
+export async function sweepStuckTasks(
+  deps: RuntimeDeps,
+  opts: { graceMs: number; lookbackMs: number | null },
+): Promise<number> {
+  let users = deps.db
+    .selectFrom('jobs')
+    .select(['tenant_id', 'user_id'])
+    .distinct()
+    .where('task_id', 'is not', null);
+  if (opts.lookbackMs !== null)
+    users = users.where(
+      'updated_at',
+      '>',
+      sql<Date>`now() - ${opts.lookbackMs} * interval '1 millisecond'`,
+    );
+  const cutoff = sql<Date>`now() - ${opts.graceMs} * interval '1 millisecond'`;
+  let failed = 0;
+  for (const u of await users.execute()) {
+    const ctx: DbContext = { tenantId: u.tenant_id, userId: u.user_id };
+    try {
+      failed += await withContext(deps.db, ctx, async (trx) => {
+        const candidates = await trx
+          .selectFrom('tasks')
+          .select('id')
+          .where('status', 'in', NEEDS_A_JOB)
+          .where('updated_at', '<', cutoff)
+          .execute();
+        const busy = async (taskId: string) =>
+          !!(await trx
+            .selectFrom('jobs')
+            .select('id')
+            .where('task_id', '=', taskId)
+            .where((eb) =>
+              eb.or([eb('status', 'in', ['queued', 'running']), eb('updated_at', '>', cutoff)]),
+            )
+            .limit(1)
+            .executeTakeFirst());
+        let n = 0;
+        for (const { id } of candidates) {
+          if (await busy(id)) continue; // the common case (a long step): no lock taken
+          // Lock, re-checking status and age on the current row, then the jobs again:
+          // every enqueue except the post-job reconciliation holds this lock.
+          const task = await trx
+            .selectFrom('tasks')
+            .selectAll()
+            .where('id', '=', id)
+            .where('status', 'in', NEEDS_A_JOB)
+            .where('updated_at', '<', cutoff)
+            .forUpdate()
+            .executeTakeFirst();
+          if (!task || (await busy(id))) continue;
+          deps.log.warn('failing a task that no job will move on', {
+            taskId: id,
+            status: task.status,
+          });
+          await failTask(trx, ctx, task, ORPHANED);
+          n++;
+        }
+        return n;
+      });
+    } catch (err) {
+      deps.log.error('stuck-task sweep failed for a user', {
+        userId: u.user_id,
+        error: String(err),
+      });
+    }
+  }
+  return failed;
 }
 
 /**

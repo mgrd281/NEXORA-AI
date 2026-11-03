@@ -22,8 +22,13 @@ export interface RuntimeDeps {
   /** Model adapter used in model mode; null when no API key is configured. */
   adapter: ModelAdapter | null;
   log: RuntimeLogger;
-  /** Extends the current job's lease; called periodically during long work. */
-  keepAlive?: () => Promise<void>;
+  /**
+   * Aborted when the worker lost this job's lease (it could not extend it in
+   * time, so the job may already be running elsewhere). Tool and model calls
+   * get it; handlers check it between steps (checkLease) and write nothing
+   * more once it is aborted. The worker keeps the lease alive meanwhile.
+   */
+  signal?: AbortSignal;
   /**
    * Fault injection for crash-recovery tests: runs after a tool's side effect
    * completed and before its outcome is recorded. Throwing here simulates the
@@ -38,20 +43,20 @@ export function createModelAdapter(config: Config): ModelAdapter | null {
     : null;
 }
 
-export const KEEPALIVE_INTERVAL_MS = 20_000;
-
-/** Runs `fn` while periodically extending the job lease. */
-export async function withKeepAlive<T>(deps: RuntimeDeps, fn: () => Promise<T>): Promise<T> {
-  if (!deps.keepAlive) return fn();
-  const keepAlive = deps.keepAlive;
-  const timer = setInterval(() => {
-    keepAlive().catch((err: unknown) =>
-      deps.log.warn('lease extension failed', { error: String(err) }),
-    );
-  }, KEEPALIVE_INTERVAL_MS);
-  try {
-    return await fn();
-  } finally {
-    clearInterval(timer);
+/** The worker lost the job's lease: stop without recording anything (see RuntimeDeps.signal). */
+export class LeaseLostError extends Error {
+  constructor(jobId?: number) {
+    super(jobId === undefined ? 'job lease lost' : `lease of job ${jobId} lost`);
+    this.name = 'LeaseLostError';
   }
+}
+
+/** Checkpoint: throws LeaseLostError once the job's lease is lost. Call before every write. */
+export function checkLease(deps: RuntimeDeps): void {
+  if (deps.signal?.aborted) throw new LeaseLostError();
+}
+
+/** `signal` combined with the lease signal, if there is one. */
+export function withLeaseSignal(deps: RuntimeDeps, signal: AbortSignal): AbortSignal {
+  return deps.signal ? AbortSignal.any([signal, deps.signal]) : signal;
 }

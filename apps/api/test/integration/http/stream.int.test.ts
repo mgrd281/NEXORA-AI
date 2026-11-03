@@ -5,9 +5,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { StreamEvent } from '@jarvis/contracts';
 import { createListener } from '../../../src/db/listener';
 import { withContext, type DbContext } from '../../../src/db/pool';
-import { appendEvent, publishEphemeral } from '../../../src/modules/events/events';
+import { appendEvent, EVENTS_CHANNEL, publishEphemeral } from '../../../src/modules/events/events';
 import { TEST_APP_URL } from '../env';
-import { MAX_STREAMS_PER_USER } from '../../../src/modules/stream/routes';
+import { MAX_STREAMS_PER_USER, SESSIONS_CHANNEL } from '../../../src/modules/stream/routes';
 import { createHarness, newClient, seedTask, type Client, type Harness } from './support';
 
 let h: Harness;
@@ -273,32 +273,40 @@ describe('GET /v1/events', () => {
 
   it('releases the subscription when the client disconnects', async () => {
     const alice = await newClient(h);
-    let active = 0;
+    const active: Record<string, number> = {};
     const counting = await createHarness({
       listen: async (channel, fn) => {
-        active++;
+        active[channel] = (active[channel] ?? 0) + 1;
         const stop = await listener.listen(channel, fn);
         return async () => {
-          active--;
+          active[channel]!--;
           await stop();
         };
       },
     });
     await counting.app.listen({ port: 0, host: '127.0.0.1' });
+    const waitFor = async (pred: () => boolean) => {
+      const until = Date.now() + 2000;
+      while (!pred() && Date.now() < until) await new Promise((r) => setTimeout(r, 20));
+    };
     try {
       const url = `http://127.0.0.1:${(counting.app.server.address() as AddressInfo).port}/v1/events`;
-      const { req, res } = await get(url, { authorization: `Bearer ${alice.token}` });
-      expect(res.statusCode).toBe(200);
-      const until = Date.now() + 2000;
-      while (active !== 1 && Date.now() < until) await new Promise((r) => setTimeout(r, 20));
-      expect(active).toBe(1);
-      req.destroy();
-      const until2 = Date.now() + 2000;
-      while (active !== 0 && Date.now() < until2) await new Promise((r) => setTimeout(r, 20));
-      expect(active).toBe(0);
+      const first = await get(url, { authorization: `Bearer ${alice.token}` });
+      const second = await get(url, { authorization: `Bearer ${alice.token}` });
+      expect(first.res.statusCode).toBe(200);
+      expect(second.res.statusCode).toBe(200);
+      // One events subscription per stream; one session-end watch per process.
+      await waitFor(() => active[EVENTS_CHANNEL] === 2);
+      expect(active).toEqual({ [EVENTS_CHANNEL]: 2, [SESSIONS_CHANNEL]: 1 });
+      first.req.destroy();
+      second.req.destroy();
+      await waitFor(() => active[EVENTS_CHANNEL] === 0);
+      expect(active[EVENTS_CHANNEL]).toBe(0);
     } finally {
       await counting.close();
     }
+    // Shutdown releases the session-end watch.
+    expect(active[SESSIONS_CHANNEL]).toBe(0);
   });
 
   it('ends open streams when the server shuts down', async () => {

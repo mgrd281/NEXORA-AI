@@ -42,7 +42,9 @@ describe('NUL characters in client text', () => {
     );
     // Nested values and object keys too.
     expectInvalid(
-      await c.request('PATCH', '/v1/me', { preferences: { memory: { enabled: true, ['x\u0000']: true } } }),
+      await c.request('PATCH', '/v1/me', {
+        preferences: { memory: { enabled: true, ['x\u0000']: true } },
+      }),
     );
   });
 
@@ -55,7 +57,12 @@ describe('NUL characters in client text', () => {
       method: 'POST',
       url: '/v1/auth/login',
       remoteAddress: '10.88.0.1',
-      payload: { email: c.user.email, password: c.user.password, platform: 'ios', deviceName: 'x\u0000' },
+      payload: {
+        email: c.user.email,
+        password: c.user.password,
+        platform: 'ios',
+        deviceName: 'x\u0000',
+      },
     });
     expectInvalid(res, 'deviceName');
   });
@@ -70,7 +77,10 @@ describe('Tampered pagination cursors', () => {
   it.each(['/v1/tasks', '/v1/memories', '/v1/notifications'])(
     'with a year Postgres rejects are invalid on %s',
     async (path) => {
-      const res = await c.request('GET', `${path}?cursor=${cursorAt('0000-01-01T00:00:00.000000Z')}`);
+      const res = await c.request(
+        'GET',
+        `${path}?cursor=${cursorAt('0000-01-01T00:00:00.000000Z')}`,
+      );
       expectInvalid(res);
       expect(res.json().error.message).toBe('Invalid cursor');
     },

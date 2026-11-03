@@ -44,7 +44,10 @@ const PG_ZONES_TTL_MS = 3_600_000;
 export async function resolveTimeZone(db: Kysely<Database>, tz: string): Promise<string | null> {
   if (!pgZones || Date.now() - pgZones.loadedAt > PG_ZONES_TTL_MS) {
     const { rows } = await sql<{ name: string }>`select name from pg_timezone_names`.execute(db);
-    pgZones = { names: new Map(rows.map((r) => [r.name.toLowerCase(), r.name])), loadedAt: Date.now() };
+    pgZones = {
+      names: new Map(rows.map((r) => [r.name.toLowerCase(), r.name])),
+      loadedAt: Date.now(),
+    };
   }
   return pgZones.names.get(tz.toLowerCase()) ?? null;
 }
@@ -53,10 +56,7 @@ export async function resolveTimeZone(db: Kysely<Database>, tz: string): Promise
  * The spelling to store for a zone the user chose: Postgres's name for it,
  * provided Node can use that name too. null when either rejects it.
  */
-export async function canonicalTimeZone(
-  db: Kysely<Database>,
-  tz: string,
-): Promise<string | null> {
+export async function canonicalTimeZone(db: Kysely<Database>, tz: string): Promise<string | null> {
   if (!isValidTimeZone(tz)) return null;
   const name = await resolveTimeZone(db, tz);
   return name && isValidTimeZone(name) ? name : null;

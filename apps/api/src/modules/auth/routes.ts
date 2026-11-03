@@ -81,6 +81,8 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AppDeps) {
     { rateLimit: { max: 10, timeWindow: '1 minute' } },
   );
 
+  // Revoking a session also ends its open event streams on every API instance:
+  // a sessions trigger announces it on jarvis_sessions (migration 0003).
   defineRoute(app, deps, 'logout', async ({ ctx, reply }) => {
     await withContext(db, ctx, async (trx) => {
       await trx

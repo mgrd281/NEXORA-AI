@@ -178,9 +178,10 @@ describe('GET /v1/events ends when the session stops being valid', () => {
     const stream = await openStream(c.token);
     try {
       await waitLive(stream, c.user);
-      await owner.query(`update sessions set expires_at = now() - interval '1 second' where user_id = $1`, [
-        c.user.userId,
-      ]);
+      await owner.query(
+        `update sessions set expires_at = now() - interval '1 second' where user_id = $1`,
+        [c.user.userId],
+      );
       await expectCutOff(stream, c.user, 'expired');
     } finally {
       stream.close();
@@ -256,7 +257,9 @@ describe('GET /v1/events heartbeat re-validation', () => {
         await waitLive(stream, user);
         await sleep(300); // several heartbeats pass while the session is valid
         expect(stream.ended()).toBe(false);
-        await owner.query(`update sessions set revoked_at = now() where user_id = $1`, [user.userId]);
+        await owner.query(`update sessions set revoked_at = now() where user_id = $1`, [
+          user.userId,
+        ]);
         await waitFor(() => stream.ended(), 3000, 'the heartbeat to end the stream');
         await emitSecrets(user, 'heartbeat');
         await sleep(200);
@@ -299,19 +302,20 @@ describe('GET /v1/events client disconnects before the stream is set up', () => 
     const heartbeats = new Set<unknown>();
     const realSetInterval = globalThis.setInterval;
     const realClearInterval = globalThis.clearInterval;
-    const setSpy = vi
-      .spyOn(globalThis, 'setInterval')
-      .mockImplementation(((fn: () => void, ms?: number) => {
-        const t = realSetInterval(fn, ms);
-        if (ms === HEARTBEAT_MS) heartbeats.add(t);
-        return t;
-      }) as typeof setInterval);
-    const clearSpy = vi
-      .spyOn(globalThis, 'clearInterval')
-      .mockImplementation(((t?: Parameters<typeof clearInterval>[0]) => {
-        heartbeats.delete(t);
-        realClearInterval(t);
-      }) as typeof clearInterval);
+    const setSpy = vi.spyOn(globalThis, 'setInterval').mockImplementation(((
+      fn: () => void,
+      ms?: number,
+    ) => {
+      const t = realSetInterval(fn, ms);
+      if (ms === HEARTBEAT_MS) heartbeats.add(t);
+      return t;
+    }) as typeof setInterval);
+    const clearSpy = vi.spyOn(globalThis, 'clearInterval').mockImplementation(((
+      t?: Parameters<typeof clearInterval>[0],
+    ) => {
+      heartbeats.delete(t);
+      realClearInterval(t);
+    }) as typeof clearInterval);
 
     const closers: (() => void)[] = [];
     try {
