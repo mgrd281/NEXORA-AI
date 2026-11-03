@@ -158,7 +158,102 @@ describe('evidence', () => {
         value: '5 key sentences from 3693 characters; no AI model was used.',
         at,
       }),
-    ).toEqual({ kind: 'extractive', sentences: 5, chars: 3693 });
+    ).toEqual({ kind: 'extractive', sentences: 5, chars: 3693, excluded: null });
+  });
+
+  it('uses the structured code and params when the evidence has them', () => {
+    expect(
+      parseEvidence({
+        kind: 'smtp_receipt',
+        label: 'SMTP 250 · 1 accepted',
+        value: 'ignored',
+        code: 'SMTP_RECEIPT',
+        params: {
+          replyCode: 250,
+          accepted: 1,
+          total: 1,
+          response: '250 2.0.0 Ok: queued',
+          messageId: '<a@b>',
+        },
+        at,
+      }),
+    ).toEqual({
+      kind: 'smtp_receipt',
+      code: '250',
+      accepted: 1,
+      messageId: '<a@b>',
+      response: '2.0.0 Ok: queued',
+    });
+    expect(
+      parseEvidence({
+        kind: 'http_response',
+        label: 'HTTP 200',
+        value: 'ignored',
+        code: 'HTTP_RESPONSE',
+        params: {
+          method: 'GET',
+          url: 'https://example.com/a',
+          status: 200,
+          contentType: 'text/html',
+          bytes: 512,
+        },
+        at,
+      }),
+    ).toEqual({
+      kind: 'http_response',
+      status: 200,
+      url: 'https://example.com/a',
+      contentType: 'text/html',
+      bytes: 512,
+    });
+    expect(
+      parseEvidence({
+        kind: 'content_hash',
+        label: 'x',
+        value: 'x',
+        code: 'CONTENT_HASH',
+        params: { algorithm: 'SHA-256', hash: 'abc123' },
+        at,
+      }),
+    ).toEqual({
+      kind: 'content_hash',
+      algorithm: 'SHA-256',
+      hex: 'abc123',
+      value: 'sha256:abc123',
+    });
+    expect(
+      parseEvidence({
+        kind: 'note',
+        label: 'Extractive summary',
+        value: 'x',
+        code: 'EXTRACTIVE_SUMMARY',
+        params: { sentences: 4, chars: 9120, excludedSentences: 2 },
+        at,
+      }),
+    ).toEqual({ kind: 'extractive', sentences: 4, chars: 9120, excluded: 2 });
+    expect(
+      parseEvidence({
+        kind: 'record',
+        label: 'Memory saved',
+        value: 'x',
+        code: 'MEMORY_RECORD',
+        params: { memoryId: 'm1', kind: 'preference' },
+        at,
+      }),
+    ).toEqual({ kind: 'memory_record', memoryId: 'm1', memoryKind: 'preference' });
+    expect(
+      parseEvidence({
+        kind: 'note',
+        label: 'Length limit',
+        value: 'x',
+        code: 'ANSWER_TRUNCATED',
+        at,
+      }),
+    ).toEqual({ kind: 'truncated' });
+    // A code without its facts degrades to the string parser.
+    expect(
+      parseEvidence({ kind: 'record', label: 'Saved', value: 'v', code: 'MEMORY_RECORD', at }),
+    ).toEqual({ kind: 'record', label: 'Saved', value: 'v' });
   });
 
   it('keeps notes and records as written', () => {
@@ -216,33 +311,58 @@ describe('events', () => {
   });
 
   it('carries step titles, messages and checks', () => {
+    // The server's English message is never shown (it is a developer fallback).
     expect(
       describe_(event('step.failed', { title: 'Send the email', message: 'No reply' })),
     ).toEqual({
       key: 'tasks.events.stepFailed',
       params: { title: 'Send the email' },
-      details: ['No reply'],
       tone: 'danger',
     });
-    // A known code is shown localized instead of the server's English message.
+    // A known code (and reason) is localized instead.
     expect(
       describe_(
-        event('step.failed', { title: 'Read x', code: 'FETCH_BLOCKED', message: 'English' }),
+        event('step.failed', {
+          title: 'Read x',
+          code: 'FETCH_BLOCKED',
+          reason: 'PRIVATE_ADDRESS',
+          params: { host: 'intranet.example', nested: { no: 1 } },
+          message: 'English',
+        }),
       ),
     ).toEqual({
       key: 'tasks.events.stepFailed',
       params: { title: 'Read x' },
-      errorCode: 'FETCH_BLOCKED',
+      error: {
+        code: 'FETCH_BLOCKED',
+        reason: 'PRIVATE_ADDRESS',
+        params: { host: 'intranet.example' },
+      },
       tone: 'danger',
     });
+    // A step title the server wrote is rendered from its message.
+    const titleMessage = { key: 'step.fetch', params: { host: 'example.com' } };
+    expect(
+      describeEvent(
+        event('step.succeeded', { title: 'Read example.com', titleMessage }),
+        label,
+        'a step',
+        (m) => (m === titleMessage ? 'example.com lesen' : null),
+      ).params,
+    ).toEqual({ title: 'example.com lesen' });
+    // verification.failed names its steps by id, not by the English message.
+    expect(
+      describe_(event('verification.failed', { message: 'Verification failed', stepIds: ['s1'] })),
+    ).toMatchObject({ key: 'tasks.events.verificationFailed', failedStepIds: ['s1'] });
     expect(describe_(event('step.started')).params).toEqual({ title: 'a step' });
     expect(
       describe_(event('verification.passed', { checks: ['1/1 accepted', 3, ''] })).checks,
-    ).toEqual([{ step: null, key: null, params: {}, text: '1/1 accepted' }]);
+    ).toEqual([{ stepId: null, step: null, key: null, params: {}, text: '1/1 accepted' }]);
   });
 
   it('localizes the verification lines the tools write', () => {
     expect(parseCheck('Read 127.0.0.1:4599: HTTP 200 from http://127.0.0.1:4599/article')).toEqual({
+      stepId: null,
       step: 'Read 127.0.0.1:4599',
       key: 'tasks.checks.http',
       params: { status: '200', url: 'http://127.0.0.1:4599/article' },
@@ -266,7 +386,13 @@ describe('events', () => {
       step: 'Read x',
       key: 'tasks.checks.hashRecorded',
     });
+    expect(
+      parseCheck({ key: 'http', stepId: 's1', step: 'Read x', params: {}, text: 'x' }),
+    ).toMatchObject({
+      stepId: 's1',
+    });
     expect(parseCheck('Something new')).toEqual({
+      stepId: null,
       step: null,
       key: null,
       params: {},
@@ -410,7 +536,8 @@ describe('task state', () => {
       { status: 'FAILED' },
       { status: 'PENDING' },
     ] as TaskDetail['steps'];
-    expect(completedSteps(steps)).toBe(2);
+    // SKIPPED steps (the rest of a failed task) never ran: only SUCCEEDED counts as done.
+    expect(completedSteps(steps)).toBe(1);
     expect(failedStep({ steps })).toBe(steps[2]);
     expect(durationMs('2026-11-03T14:00:00Z', '2026-11-03T14:00:02.5Z')).toBe(2500);
     expect(durationMs('2026-11-03T14:00:02Z', '2026-11-03T14:00:00Z')).toBeNull();

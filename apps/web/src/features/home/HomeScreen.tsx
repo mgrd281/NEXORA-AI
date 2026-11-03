@@ -19,6 +19,11 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { ApprovalSentence } from '@/components/approvals/ApprovalSentence';
 import { ApprovalSheet } from '@/components/approvals/ApprovalSheet';
+import {
+  isUntrustedApproval,
+  untrustedSourceFacts,
+  untrustedSourceSentences,
+} from '@/components/approvals/untrustedSource';
 import { CommandComposer } from '@/components/composer/CommandComposer';
 import { useComposerRegistry } from '@/components/composer/ComposerRegistry';
 import { Presence } from '@/components/presence/Presence';
@@ -34,10 +39,11 @@ import { RelativeTime } from '@/components/ui/RelativeTime';
 import { Skeleton, SkeletonRow } from '@/components/ui/Skeleton';
 import { useI18n } from '@/i18n/I18nProvider';
 import type { MessageKey } from '@/i18n/catalog';
+import { serverText } from '@/i18n/server-message';
+import { stripIsolates } from '@/i18n/translate';
 import { useHome, useMe } from '@/lib/api/hooks';
 import { cx } from '@/lib/cx';
 import { useNow } from '@/lib/hooks/useNow';
-import { isUntrusted } from '@/features/tasks/model';
 import styles from './HomeScreen.module.css';
 import {
   dayPeriod,
@@ -376,12 +382,17 @@ function FirstRun({ assistant }: { assistant: AssistantStatus }) {
 function SectionTitle({ title, count }: { title: string; count: number }) {
   const { t } = useI18n();
   return (
+    // One text run for the accessible name ("Needs you, 1 item"): a visible title next to a
+    // separate hidden suffix reads "Needs you , 1 item" in Chrome (it adds a space before an
+    // absolutely positioned element). The visible title and count are hidden from the tree.
     <span className={styles.sectionTitle}>
-      {title}
+      <span aria-hidden="true">{title}</span>
       <span className={cx(styles.count, 'tabular')} aria-hidden="true">
         {count}
       </span>
-      <span className="visually-hidden">, {t('home.sectionCount', { count })}</span>
+      <span className="visually-hidden">
+        {stripIsolates(t('home.sectionHeading', { title, count }))}
+      </span>
     </span>
   );
 }
@@ -428,9 +439,11 @@ function NeedsYou({
 }
 
 function ApprovalRow({ approval, onReview }: { approval: Approval; onReview: () => void }) {
-  const { t } = useI18n();
+  const i18n = useI18n();
+  const { t } = i18n;
   const icon = approval.toolId === 'email.send' ? Mail : Hand;
-  const untrusted = isUntrusted(approval);
+  const untrusted = isUntrustedApproval(approval);
+  const title = serverText(i18n, approval.taskTitleMessage, approval.taskTitle);
   return (
     <li className={styles.approval}>
       <span className={styles.approvalIcon} aria-hidden="true">
@@ -438,12 +451,14 @@ function ApprovalRow({ approval, onReview }: { approval: Approval; onReview: () 
       </span>
       <div className={styles.approvalMain}>
         <p className={styles.approvalTitle}>
-          <bdi>{approval.taskTitle}</bdi>
+          <bdi>{title}</bdi>
         </p>
         {/* In the interface language for email (the sheet says the same sentence). */}
         <ApprovalSentence approval={approval} className={styles.approvalSummary} />
         {untrusted && (
-          <p className={styles.untrustedNote}>{t('approvals.untrusted.titleNoHost')}</p>
+          <p className={styles.untrustedNote}>
+            {untrustedSourceSentences(t, untrustedSourceFacts(undefined, approval)).title}
+          </p>
         )}
         <p className={styles.approvalMeta}>
           <RiskBadge level={approval.riskLevel} label={t(`common.risk.${approval.riskLevel}`)} />
@@ -462,7 +477,7 @@ function ApprovalRow({ approval, onReview }: { approval: Approval; onReview: () 
         size="sm"
         className={styles.review}
         onClick={onReview}
-        aria-label={t('home.approval.reviewLabel', { title: approval.taskTitle })}
+        aria-label={t('home.approval.reviewLabel', { title })}
       >
         {t('home.approval.review')}
       </Button>

@@ -8,6 +8,7 @@
  */
 import { expect, test, type Page, type Route } from '@playwright/test';
 import {
+  canRetryTask,
   TaskSummary,
   type Approval,
   type StreamEvent,
@@ -16,7 +17,15 @@ import {
 } from '@jarvis/contracts';
 import { createServer, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { IDS, type FixtureLocale, type Fixtures } from '../support/fixtures';
+import {
+  evidence,
+  HOSTS,
+  IDS,
+  msg,
+  text,
+  type FixtureLocale,
+  type Fixtures,
+} from '../support/fixtures';
 import { mockApi, signInWithMock, type MockApiOptions } from '../support/mock-api';
 import { capture, expectNoSeriousA11yViolations } from '../support/visual';
 
@@ -56,29 +65,33 @@ const EMAIL = 'layla.haddad@example.com';
 const MESSAGE_ID = '<c4f1e2a9-7b3d-4e8a-9f60-2d5c8b1a0e37@jarvis.haddad.example>';
 const SHA = 'sha256:5d2f8c1a9e3b7d6f0a4c8e2b6d0f4a8c2e6b0d4f8a2c6e0b4d8f2a6c0e4b8d2f';
 
+/**
+ * What people and the model wrote (in the request's language). Server sentences (offline plan
+ * titles, result lines) are built from messages with the fixtures' msg() / text(), like the API.
+ */
 interface Copy {
-  steps: { fetch: string; summarize: string; email: string; answer: string };
-  sentResult: string;
-  unknownError: string;
+  /** The model-written step title of the answer task. */
+  answerStep: string;
   question: string;
   questionTitle: string;
   answer: string;
   answerResult: string;
-  older: [string, string, string];
-  olderResult: [string, string, string];
+  /** Older tasks: a note to remember, a newsletter summary (page text) and a note to email. */
+  olderNote: string;
+  olderSummary: string;
+  olderEmail: string;
 }
+
+/** English developer messages (the API's AgentError text; never shown to the user). */
+const DEV_MESSAGES = {
+  sendInterrupted:
+    'The mail server stopped responding while the email was being sent, so JARVIS cannot tell whether it was delivered. Check your Sent folder or inbox before retrying.',
+  fetchTimeout: 'Fetching www.w3.org timed out after 15 seconds.',
+};
 
 const COPY: Record<FixtureLocale, Copy> = {
   en: {
-    steps: {
-      fetch: 'Read the web page',
-      summarize: 'Summarize',
-      email: 'Send the email',
-      answer: 'Answer the question',
-    },
-    sentResult: `Emailed the summary of “AI Act | Shaping Europe’s digital future” to ${EMAIL}.`,
-    unknownError:
-      'The mail server stopped responding after the message was handed over, so JARVIS can’t confirm whether it was sent.',
+    answerStep: 'Answer the question',
     question: 'What changed between WCAG 2.1 and WCAG 2.2?',
     questionTitle: 'What changed between WCAG 2.1 and 2.2',
     answer: [
@@ -89,27 +102,13 @@ const COPY: Record<FixtureLocale, Copy> = {
       '4.1.1 Parsing was removed, because modern browsers and assistive technologies no longer depend on it.',
     ].join('\n'),
     answerResult: 'Answered your question about WCAG 2.2.',
-    older: [
-      'Remember: my passport expires in March 2027',
-      'Summarize the Q3 product newsletter',
-      'Email me: call the dentist on Friday',
-    ],
-    olderResult: [
-      'Saved to memory: your passport expires in March 2027.',
-      'Summary of “Q3 product newsletter” is ready.',
-      `Sent “Call the dentist on Friday” to ${EMAIL}.`,
-    ],
+    olderNote: 'My passport expires in March 2027',
+    olderSummary:
+      'The Q3 newsletter announces offline mode, a new approvals inbox and the end of the legacy API in January.',
+    olderEmail: 'Call the dentist on Friday',
   },
   de: {
-    steps: {
-      fetch: 'Webseite lesen',
-      summarize: 'Zusammenfassen',
-      email: 'E-Mail senden',
-      answer: 'Frage beantworten',
-    },
-    sentResult: `Zusammenfassung von „KI-Gesetz | Gestaltung der digitalen Zukunft Europas“ an ${EMAIL} gesendet.`,
-    unknownError:
-      'Der Mailserver hat nach der Übergabe der Nachricht nicht mehr geantwortet, daher kann JARVIS nicht bestätigen, ob sie gesendet wurde.',
+    answerStep: 'Frage beantworten',
     question: 'Was hat sich zwischen WCAG 2.1 und WCAG 2.2 geändert?',
     questionTitle: 'Änderungen zwischen WCAG 2.1 und 2.2',
     answer: [
@@ -120,27 +119,13 @@ const COPY: Record<FixtureLocale, Copy> = {
       '4.1.1 Syntaxanalyse entfällt, weil moderne Browser und assistive Technologien nicht mehr darauf angewiesen sind.',
     ].join('\n'),
     answerResult: 'Ihre Frage zu WCAG 2.2 wurde beantwortet.',
-    older: [
-      'Merken: Reisepass läuft im März 2027 ab',
-      'Produkt-Newsletter Q3 zusammenfassen',
-      'Mail an mich: Freitag Zahnarzt anrufen',
-    ],
-    olderResult: [
-      'Im Gedächtnis gespeichert: Ihr Reisepass läuft im März 2027 ab.',
-      'Die Zusammenfassung des „Produkt-Newsletters Q3“ ist fertig.',
-      `„Freitag Zahnarzt anrufen“ an ${EMAIL} gesendet.`,
-    ],
+    olderNote: 'Mein Reisepass läuft im März 2027 ab',
+    olderSummary:
+      'Der Newsletter für Q3 kündigt den Offlinemodus, einen neuen Freigabe-Eingang und das Ende der alten API im Januar an.',
+    olderEmail: 'Freitag Zahnarzt anrufen',
   },
   ar: {
-    steps: {
-      fetch: 'قراءة صفحة الويب',
-      summarize: 'التلخيص',
-      email: 'إرسال البريد',
-      answer: 'الإجابة عن السؤال',
-    },
-    sentResult: `أُرسل ملخص «قانون الذكاء الاصطناعي | تشكيل المستقبل الرقمي لأوروبا» إلى ${EMAIL}.`,
-    unknownError:
-      'توقف خادم البريد عن الاستجابة بعد تسليم الرسالة، لذا لا يستطيع JARVIS التأكد من إرسالها.',
+    answerStep: 'الإجابة عن السؤال',
     question: 'ما الذي تغيّر بين WCAG 2.1 وWCAG 2.2؟',
     questionTitle: 'التغييرات بين WCAG 2.1 و2.2',
     answer: [
@@ -151,16 +136,10 @@ const COPY: Record<FixtureLocale, Copy> = {
       'أُلغي المعيار 4.1.1 (التحليل) لأن المتصفحات والتقنيات المساعدة الحديثة لم تعد تعتمد عليه.',
     ].join('\n'),
     answerResult: 'تمت الإجابة عن سؤالك حول WCAG 2.2.',
-    older: [
-      'تذكّر: ينتهي جواز سفري في مارس 2027',
-      'تلخيص النشرة الإخبارية للربع الثالث',
-      'راسلني: الاتصال بطبيب الأسنان يوم الجمعة',
-    ],
-    olderResult: [
-      'حُفظ في الذاكرة: ينتهي جواز سفرك في مارس 2027.',
-      'ملخص «النشرة الإخبارية للربع الثالث» جاهز.',
-      `أُرسلت «الاتصال بطبيب الأسنان يوم الجمعة» إلى ${EMAIL}.`,
-    ],
+    olderNote: 'ينتهي جواز سفري في مارس 2027',
+    olderSummary:
+      'تعلن النشرة الإخبارية للربع الثالث عن الوضع دون اتصال وصندوق موافقات جديد وإيقاف الواجهة البرمجية القديمة في يناير.',
+    olderEmail: 'الاتصال بطبيب الأسنان يوم الجمعة',
   },
 };
 
@@ -180,34 +159,32 @@ export function withTaskDetails(f: Fixtures, locale: FixtureLocale, now: number)
   const at = (offset: number) => new Date(now + offset).toISOString();
   const email = f.taskDetails[IDS.taskEmail]!;
   const approval = f.approvals[0]!;
+  const [fetchStep, summarizeStep, emailStep] = email.steps as [
+    TaskDetail['steps'][number],
+    TaskDetail['steps'][number],
+    TaskDetail['steps'][number],
+  ];
+  // How step events name their step (apps/api …/events-data.ts stepRef).
+  const ref = (step: TaskDetail['steps'][number], id = step.id) => ({
+    stepId: id,
+    toolId: step.toolId,
+    title: step.title,
+    ...(step.titleMessage ? { titleMessage: step.titleMessage } : {}),
+  });
 
   // ---- Sent: the email task after approval, completed with evidence.
   const sentT0 = -3 * HOUR;
   const sentEvidence = {
-    http: {
-      kind: 'http_response' as const,
-      label: 'HTTP 200',
-      value: `GET ${URL_AI_ACT} → 200 (text/html; charset=utf-8, 48213 bytes)`,
-      at: at(sentT0 + 4 * SEC),
-    },
-    hash: {
-      kind: 'content_hash' as const,
-      label: 'SHA-256 of the response body',
-      value: SHA,
-      at: at(sentT0 + 4 * SEC),
-    },
-    note: {
-      kind: 'note' as const,
-      label: 'Extractive summary',
-      value: '4 key sentences from 9120 characters; no AI model was used.',
-      at: at(sentT0 + 5 * SEC),
-    },
-    smtp: {
-      kind: 'smtp_receipt' as const,
-      label: 'SMTP 250 · 1 accepted',
-      value: `250 2.0.0 Ok: queued as 4QzX7b1kT9z · Message-ID ${MESSAGE_ID}`,
-      at: at(sentT0 + 2 * MIN + 12 * SEC),
-    },
+    http: evidence.http(URL_AI_ACT, 200, 'text/html; charset=utf-8', 48213, at(sentT0 + 4 * SEC)),
+    hash: evidence.hash(SHA.slice('sha256:'.length), at(sentT0 + 4 * SEC)),
+    note: evidence.extractive(4, 9120, 0, at(sentT0 + 5 * SEC)),
+    smtp: evidence.smtp(
+      '250 2.0.0 Ok: queued as 4QzX7b1kT9z',
+      MESSAGE_ID,
+      1,
+      1,
+      at(sentT0 + 2 * MIN + 12 * SEC),
+    ),
   };
   const sentApproval: Approval = {
     ...approval,
@@ -219,16 +196,21 @@ export function withTaskDetails(f: Fixtures, locale: FixtureLocale, now: number)
     decidedAt: at(sentT0 + 2 * MIN + 9 * SEC),
     expiresAt: at(sentT0 + 24 * HOUR),
   };
+  const subject = approval.details.kind === 'email' ? approval.details.subject : '';
+  const sentResult = msg('result.emailSent', { subject, recipients: EMAIL });
   const sentSummary: TaskSummary = {
     id: TASK_IDS.sent,
     title: email.title,
+    titleMessage: email.titleMessage,
     request: email.request,
     status: 'COMPLETED',
     riskLevel: 'MEDIUM',
     source: 'text',
     progress: { completed: 3, total: 3 },
     pendingApprovalId: null,
-    resultSummary: c.sentResult,
+    pendingApproval: null,
+    resultSummary: text(locale, sentResult),
+    resultSummaryMessage: sentResult,
     error: null,
     createdAt: at(sentT0),
     updatedAt: at(sentT0 + 2 * MIN + 14 * SEC),
@@ -236,7 +218,7 @@ export function withTaskDetails(f: Fixtures, locale: FixtureLocale, now: number)
   };
   const sentSteps: TaskDetail['steps'] = [
     {
-      ...email.steps[0]!,
+      ...fetchStep,
       id: TASK_IDS.sentFetch,
       inputPreview: { url: URL_AI_ACT },
       output: {
@@ -253,16 +235,16 @@ export function withTaskDetails(f: Fixtures, locale: FixtureLocale, now: number)
       completedAt: at(sentT0 + 4 * SEC),
     },
     {
-      ...email.steps[1]!,
+      ...summarizeStep,
       id: TASK_IDS.sentSummarize,
       inputPreview: { text: '{{s1.text}}', language: locale, maxSentences: 5 },
-      output: { method: 'extractive', suspectedInjection: false },
+      output: { method: 'extractive', suspectedInjection: false, excludedSentences: 0 },
       evidence: [sentEvidence.note],
       startedAt: at(sentT0 + 4 * SEC),
       completedAt: at(sentT0 + 5 * SEC),
     },
     {
-      ...email.steps[2]!,
+      ...emailStep,
       id: TASK_IDS.sentEmail,
       status: 'SUCCEEDED',
       output: {
@@ -277,9 +259,17 @@ export function withTaskDetails(f: Fixtures, locale: FixtureLocale, now: number)
       completedAt: at(sentT0 + 2 * MIN + 12 * SEC),
     },
   ];
+  // Structured verification results (contracts VerificationCheck).
+  const check = (
+    step: TaskDetail['steps'][number],
+    key: string,
+    params: Record<string, string | number>,
+    english: string,
+  ) => ({ stepId: step.id, step: step.title, key, params, text: english });
   const sentDetail: TaskDetail = {
     ...sentSummary,
     objective: email.objective,
+    objectiveMessage: email.objectiveMessage,
     conversationId: email.conversationId,
     planner: { mode: 'offline', provider: null, model: null },
     answer: null,
@@ -296,39 +286,37 @@ export function withTaskDetails(f: Fixtures, locale: FixtureLocale, now: number)
         planner: { mode: 'offline', provider: null, model: null },
       }),
       ev(TASK_IDS.sent, 'step.started', at(sentT0 + 2 * SEC), {
-        stepId: TASK_IDS.sentFetch,
-        toolId: 'web.fetch',
-        title: c.steps.fetch,
+        ...ref(sentSteps[0]!),
+        attempt: 1,
       }),
-      ev(TASK_IDS.sent, 'step.succeeded', at(sentT0 + 4 * SEC), {
-        stepId: TASK_IDS.sentFetch,
-        toolId: 'web.fetch',
-        title: c.steps.fetch,
-      }),
-      ev(TASK_IDS.sent, 'step.succeeded', at(sentT0 + 5 * SEC), {
-        stepId: TASK_IDS.sentSummarize,
-        toolId: 'text.summarize',
-        title: c.steps.summarize,
-      }),
+      ev(TASK_IDS.sent, 'step.succeeded', at(sentT0 + 4 * SEC), ref(sentSteps[0]!)),
+      ev(TASK_IDS.sent, 'step.succeeded', at(sentT0 + 5 * SEC), ref(sentSteps[1]!)),
       ev(TASK_IDS.sent, 'approval.requested', at(sentT0 + 6 * SEC), {
         approvalId: TASK_IDS.sentApproval,
         stepId: TASK_IDS.sentEmail,
         summary: approval.summary,
+        summaryMessage: approval.summaryMessage,
       }),
       ev(TASK_IDS.sent, 'approval.decided', at(sentT0 + 2 * MIN + 9 * SEC), {
         approvalId: TASK_IDS.sentApproval,
         decision: 'approved',
       }),
-      ev(TASK_IDS.sent, 'step.succeeded', at(sentT0 + 2 * MIN + 12 * SEC), {
-        stepId: TASK_IDS.sentEmail,
-        toolId: 'email.send',
-        title: c.steps.email,
-      }),
+      ev(TASK_IDS.sent, 'step.succeeded', at(sentT0 + 2 * MIN + 12 * SEC), ref(sentSteps[2]!)),
       ev(TASK_IDS.sent, 'verification.passed', at(sentT0 + 2 * MIN + 14 * SEC), {
         checks: [
-          '1/1 recipients accepted',
-          'No recipients rejected',
-          'Server response: 250 2.0.0 Ok: queued as 4QzX7b1kT9z',
+          check(
+            sentSteps[2]!,
+            'recipientsAccepted',
+            { accepted: 1, count: 1 },
+            '1/1 recipients accepted',
+          ),
+          check(sentSteps[2]!, 'noneRejected', {}, 'No recipients rejected'),
+          check(
+            sentSteps[2]!,
+            'serverResponse',
+            { response: '250 2.0.0 Ok: queued as 4QzX7b1kT9z' },
+            'Server response: 250 2.0.0 Ok: queued as 4QzX7b1kT9z',
+          ),
         ],
       }),
       ev(TASK_IDS.sent, 'task.status_changed', at(sentT0 + 2 * MIN + 14 * SEC), {
@@ -347,8 +335,9 @@ export function withTaskDetails(f: Fixtures, locale: FixtureLocale, now: number)
   const uT0 = -50 * MIN;
   const unknownError = {
     code: 'OUTCOME_UNKNOWN' as const,
-    message: c.unknownError,
+    message: DEV_MESSAGES.sendInterrupted,
     retryable: false,
+    reason: 'SEND_INTERRUPTED' as const,
   };
   const unknownSummary: TaskSummary = {
     ...sentSummary,
@@ -356,9 +345,20 @@ export function withTaskDetails(f: Fixtures, locale: FixtureLocale, now: number)
     status: 'FAILED',
     progress: { completed: 2, total: 3 },
     resultSummary: null,
+    resultSummaryMessage: null,
     error: unknownError,
     createdAt: at(uT0),
     updatedAt: at(uT0 + 3 * MIN),
+    completedAt: at(uT0 + 3 * MIN),
+  };
+  const unknownEmailStep: TaskDetail['steps'][number] = {
+    ...sentSteps[2]!,
+    id: TASK_IDS.unknownEmail,
+    status: 'FAILED',
+    output: null,
+    evidence: [],
+    error: unknownError,
+    startedAt: at(uT0 + 2 * MIN),
     completedAt: at(uT0 + 3 * MIN),
   };
   const unknownDetail: TaskDetail = {
@@ -367,16 +367,7 @@ export function withTaskDetails(f: Fixtures, locale: FixtureLocale, now: number)
     steps: [
       { ...sentSteps[0]!, id: TASK_IDS.unknownFetch },
       { ...sentSteps[1]!, id: TASK_IDS.unknownSummarize },
-      {
-        ...sentSteps[2]!,
-        id: TASK_IDS.unknownEmail,
-        status: 'FAILED',
-        output: null,
-        evidence: [],
-        error: unknownError,
-        startedAt: at(uT0 + 2 * MIN),
-        completedAt: at(uT0 + 3 * MIN),
-      },
+      unknownEmailStep,
     ],
     approvals: [
       {
@@ -397,16 +388,14 @@ export function withTaskDetails(f: Fixtures, locale: FixtureLocale, now: number)
         decision: 'approved',
       }),
       ev(TASK_IDS.unknown, 'step.started', at(uT0 + 2 * MIN), {
-        stepId: TASK_IDS.unknownEmail,
-        toolId: 'email.send',
-        title: c.steps.email,
+        ...ref(unknownEmailStep),
+        attempt: 1,
       }),
       ev(TASK_IDS.unknown, 'step.failed', at(uT0 + 3 * MIN), {
-        stepId: TASK_IDS.unknownEmail,
-        toolId: 'email.send',
-        title: c.steps.email,
-        code: 'OUTCOME_UNKNOWN',
-        message: c.unknownError,
+        ...ref(unknownEmailStep),
+        code: unknownError.code,
+        message: unknownError.message,
+        reason: unknownError.reason,
       }),
       ev(TASK_IDS.unknown, 'task.status_changed', at(uT0 + 3 * MIN), {
         from: 'RUNNING',
@@ -415,46 +404,53 @@ export function withTaskDetails(f: Fixtures, locale: FixtureLocale, now: number)
     ],
     evidence: [],
     canCancel: false,
+    // OUTCOME_UNKNOWN: retry allowed after the user confirms they checked (canRetryTask).
     canRetry: true,
     startedAt: at(uT0 + SEC),
   };
 
-  // ---- Blocked: the existing FETCH_BLOCKED task.
+  // ---- Blocked: the existing FETCH_BLOCKED task (a private address). Its remaining step is
+  // SKIPPED, and asking differently is the way forward, so there is no retry.
   const failed = f.tasks.find((t) => t.id === IDS.taskFailed)!;
   const failedAt = failed.createdAt;
+  const blockedFetchTitle = msg('step.fetch', { host: HOSTS.intranet });
+  const blockedFetch: TaskDetail['steps'][number] = {
+    id: TASK_IDS.blockedFetch,
+    position: 0,
+    title: text(locale, blockedFetchTitle),
+    titleMessage: blockedFetchTitle,
+    toolId: 'web.fetch',
+    riskLevel: 'LOW',
+    status: 'FAILED',
+    requiresApproval: false,
+    policy: { decision: 'allow', reasons: ['RISK_LOW'] },
+    inputPreview: { url: 'http://intranet.haddad.internal/q3-board-report' },
+    output: null,
+    evidence: [],
+    attempts: 1,
+    startedAt: failedAt,
+    completedAt: failed.completedAt,
+    error: failed.error,
+  };
   const blockedDetail: TaskDetail = {
     ...failed,
-    objective: failed.title,
+    objective: text(
+      locale,
+      msg('objective.summarize', { url: 'http://intranet.haddad.internal/q3-board-report' }),
+    ),
+    objectiveMessage: msg('objective.summarize', {
+      url: 'http://intranet.haddad.internal/q3-board-report',
+    }),
     conversationId: IDS.conversation,
     planner: { mode: 'offline', provider: null, model: null },
     answer: null,
     steps: [
+      blockedFetch,
       {
-        id: TASK_IDS.blockedFetch,
-        position: 0,
-        title: c.steps.fetch,
-        toolId: 'web.fetch',
-        riskLevel: 'LOW',
-        status: 'FAILED',
-        requiresApproval: false,
-        policy: { decision: 'allow', reasons: ['RISK_LOW'] },
-        inputPreview: { url: 'http://intranet.haddad.internal/q3-board-report' },
-        output: null,
-        evidence: [],
-        attempts: 1,
-        startedAt: failedAt,
-        completedAt: failed.completedAt,
-        error: failed.error,
-      },
-      {
+        ...summarizeStep,
         id: TASK_IDS.blockedSummarize,
         position: 1,
-        title: c.steps.summarize,
-        toolId: 'text.summarize',
-        riskLevel: 'LOW',
-        status: 'CANCELLED',
-        requiresApproval: false,
-        policy: { decision: 'allow', reasons: ['RISK_LOW'] },
+        status: 'SKIPPED',
         inputPreview: { text: '{{s1.text}}', language: locale },
         output: null,
         evidence: [],
@@ -472,11 +468,11 @@ export function withTaskDetails(f: Fixtures, locale: FixtureLocale, now: number)
         planner: { mode: 'offline', provider: null, model: null },
       }),
       ev(IDS.taskFailed, 'step.failed', failed.completedAt!, {
-        stepId: TASK_IDS.blockedFetch,
-        toolId: 'web.fetch',
-        title: c.steps.fetch,
-        code: 'FETCH_BLOCKED',
+        ...ref(blockedFetch),
+        code: failed.error!.code,
         message: failed.error!.message,
+        reason: failed.error!.reason,
+        params: failed.error!.params,
       }),
       ev(IDS.taskFailed, 'task.status_changed', failed.completedAt!, {
         from: 'RUNNING',
@@ -486,66 +482,58 @@ export function withTaskDetails(f: Fixtures, locale: FixtureLocale, now: number)
     cost: { estimatedMicroUsd: 0, actualMicroUsd: 0 },
     evidence: [],
     canCancel: false,
-    canRetry: true,
+    canRetry: canRetryTask(failed),
     startedAt: failedAt,
   };
 
   // ---- Running (voice): reading WCAG 2.2, summarizing now.
   const running = f.tasks.find((t) => t.id === IDS.taskRunning)!;
+  const runningFetchTitle = msg('step.fetch', { host: HOSTS.wcag });
+  const runningFetch: TaskDetail['steps'][number] = {
+    id: TASK_IDS.runningFetch,
+    position: 0,
+    title: text(locale, runningFetchTitle),
+    titleMessage: runningFetchTitle,
+    toolId: 'web.fetch',
+    riskLevel: 'LOW',
+    status: 'SUCCEEDED',
+    requiresApproval: false,
+    policy: { decision: 'allow', reasons: ['RISK_LOW'] },
+    inputPreview: { url: URL_WCAG },
+    output: {
+      finalUrl: URL_WCAG,
+      status: 200,
+      title: 'Web Content Accessibility Guidelines (WCAG) 2.2',
+      bytes: 412_388,
+    },
+    evidence: [evidence.http(URL_WCAG, 200, 'text/html; charset=utf-8', 412_388, at(-20 * SEC))],
+    attempts: 1,
+    startedAt: at(-24 * SEC),
+    completedAt: at(-20 * SEC),
+    error: null,
+  };
+  const runningSummarize: TaskDetail['steps'][number] = {
+    ...summarizeStep,
+    id: TASK_IDS.runningSummarize,
+    position: 1,
+    status: 'RUNNING',
+    inputPreview: { text: '{{s1.text}}', language: locale, maxSentences: 5 },
+    output: null,
+    evidence: [],
+    attempts: 1,
+    startedAt: at(-12 * SEC),
+    completedAt: null,
+    error: null,
+  };
+  const runningObjective = msg('objective.summarize', { url: URL_WCAG });
   const runningDetail: TaskDetail = {
     ...running,
-    objective: running.title,
+    objective: text(locale, runningObjective),
+    objectiveMessage: runningObjective,
     conversationId: IDS.conversation,
     planner: { mode: 'offline', provider: null, model: null },
     answer: null,
-    steps: [
-      {
-        id: TASK_IDS.runningFetch,
-        position: 0,
-        title: c.steps.fetch,
-        toolId: 'web.fetch',
-        riskLevel: 'LOW',
-        status: 'SUCCEEDED',
-        requiresApproval: false,
-        policy: { decision: 'allow', reasons: ['RISK_LOW'] },
-        inputPreview: { url: URL_WCAG },
-        output: {
-          finalUrl: URL_WCAG,
-          status: 200,
-          title: 'Web Content Accessibility Guidelines (WCAG) 2.2',
-          bytes: 412_388,
-        },
-        evidence: [
-          {
-            kind: 'http_response',
-            label: 'HTTP 200',
-            value: `GET ${URL_WCAG} → 200 (text/html; charset=utf-8, 412388 bytes)`,
-            at: at(-20 * SEC),
-          },
-        ],
-        attempts: 1,
-        startedAt: at(-24 * SEC),
-        completedAt: at(-20 * SEC),
-        error: null,
-      },
-      {
-        id: TASK_IDS.runningSummarize,
-        position: 1,
-        title: c.steps.summarize,
-        toolId: 'text.summarize',
-        riskLevel: 'LOW',
-        status: 'RUNNING',
-        requiresApproval: false,
-        policy: { decision: 'allow', reasons: ['RISK_LOW'] },
-        inputPreview: { text: '{{s1.text}}', language: locale, maxSentences: 5 },
-        output: null,
-        evidence: [],
-        attempts: 1,
-        startedAt: at(-12 * SEC),
-        completedAt: null,
-        error: null,
-      },
-    ],
+    steps: [runningFetch, runningSummarize],
     approvals: [],
     events: [
       ev(IDS.taskRunning, 'task.created', running.createdAt, { status: 'QUEUED' }),
@@ -553,16 +541,8 @@ export function withTaskDetails(f: Fixtures, locale: FixtureLocale, now: number)
         stepCount: 2,
         planner: { mode: 'offline', provider: null, model: null },
       }),
-      ev(IDS.taskRunning, 'step.succeeded', at(-20 * SEC), {
-        stepId: TASK_IDS.runningFetch,
-        toolId: 'web.fetch',
-        title: c.steps.fetch,
-      }),
-      ev(IDS.taskRunning, 'step.started', at(-12 * SEC), {
-        stepId: TASK_IDS.runningSummarize,
-        toolId: 'text.summarize',
-        title: c.steps.summarize,
-      }),
+      ev(IDS.taskRunning, 'step.succeeded', at(-20 * SEC), ref(runningFetch)),
+      ev(IDS.taskRunning, 'step.started', at(-12 * SEC), { ...ref(runningSummarize), attempt: 1 }),
     ],
     cost: { estimatedMicroUsd: 0, actualMicroUsd: 0 },
     evidence: [],
@@ -571,54 +551,54 @@ export function withTaskDetails(f: Fixtures, locale: FixtureLocale, now: number)
     startedAt: at(-26 * SEC),
   };
 
-  // ---- Answer (model planner): completed, with the model's evidence and cost.
+  // ---- Answer (model planner): completed, with the model's evidence and cost. The model wrote
+  // the title, the step and the result line, so they exist only in the request's language.
   const aT0 = -5 * HOUR;
   const answerSummary: TaskSummary = {
     id: TASK_IDS.answer,
     title: c.questionTitle,
+    titleMessage: null,
     request: c.question,
     status: 'COMPLETED',
     riskLevel: 'LOW',
     source: 'voice',
     progress: { completed: 1, total: 1 },
     pendingApprovalId: null,
+    pendingApproval: null,
     resultSummary: c.answerResult,
+    resultSummaryMessage: null,
     error: null,
     createdAt: at(aT0),
     updatedAt: at(aT0 + 9 * SEC),
     completedAt: at(aT0 + 9 * SEC),
   };
-  const modelEvidence = {
-    kind: 'model_output' as const,
-    label: 'claude-sonnet-4-5',
-    value: '412 input / 268 output tokens',
-    at: at(aT0 + 8 * SEC),
+  const modelEvidence = evidence.model('claude-sonnet-4-5', 412, 268, at(aT0 + 8 * SEC));
+  const answerStep: TaskDetail['steps'][number] = {
+    id: TASK_IDS.answerStep,
+    position: 0,
+    title: c.answerStep,
+    titleMessage: null,
+    toolId: 'assistant.answer',
+    riskLevel: 'LOW',
+    status: 'SUCCEEDED',
+    requiresApproval: false,
+    policy: { decision: 'allow', reasons: ['RISK_LOW'] },
+    inputPreview: { question: c.question },
+    output: { answer: c.answer.split('\n')[0], model: 'claude-sonnet-4-5' },
+    evidence: [modelEvidence],
+    attempts: 1,
+    startedAt: at(aT0 + 2 * SEC),
+    completedAt: at(aT0 + 8 * SEC),
+    error: null,
   };
   const answerDetail: TaskDetail = {
     ...answerSummary,
     objective: c.question,
+    objectiveMessage: null,
     conversationId: IDS.conversation,
     planner: { mode: 'model', provider: 'anthropic', model: 'claude-sonnet-4-5' },
     answer: c.answer,
-    steps: [
-      {
-        id: TASK_IDS.answerStep,
-        position: 0,
-        title: c.steps.answer,
-        toolId: 'assistant.answer',
-        riskLevel: 'LOW',
-        status: 'SUCCEEDED',
-        requiresApproval: false,
-        policy: { decision: 'allow', reasons: ['RISK_LOW'] },
-        inputPreview: { question: c.question },
-        output: { answer: c.answer.split('\n')[0], model: 'claude-sonnet-4-5' },
-        evidence: [modelEvidence],
-        attempts: 1,
-        startedAt: at(aT0 + 2 * SEC),
-        completedAt: at(aT0 + 8 * SEC),
-        error: null,
-      },
-    ],
+    steps: [answerStep],
     approvals: [],
     events: [
       ev(TASK_IDS.answer, 'task.created', at(aT0), { status: 'QUEUED' }),
@@ -626,13 +606,16 @@ export function withTaskDetails(f: Fixtures, locale: FixtureLocale, now: number)
         stepCount: 1,
         planner: { mode: 'model', provider: 'anthropic', model: 'claude-sonnet-4-5' },
       }),
-      ev(TASK_IDS.answer, 'step.succeeded', at(aT0 + 8 * SEC), {
-        stepId: TASK_IDS.answerStep,
-        toolId: 'assistant.answer',
-        title: c.steps.answer,
-      }),
+      ev(TASK_IDS.answer, 'step.succeeded', at(aT0 + 8 * SEC), ref(answerStep)),
       ev(TASK_IDS.answer, 'verification.passed', at(aT0 + 9 * SEC), {
-        checks: [`Answer of ${c.answer.length} characters`],
+        checks: [
+          check(
+            answerStep,
+            'answerLength',
+            { count: c.answer.length },
+            `Answer of ${c.answer.length} characters`,
+          ),
+        ],
       }),
       ev(TASK_IDS.answer, 'task.status_changed', at(aT0 + 9 * SEC), {
         from: 'VERIFYING',
@@ -646,22 +629,39 @@ export function withTaskDetails(f: Fixtures, locale: FixtureLocale, now: number)
     startedAt: at(aT0 + 1 * SEC),
   };
 
-  // ---- Older tasks (second page of the Task Center).
-  const older: TaskSummary[] = c.older.map((title, i) => ({
-    id: [TASK_IDS.older1, TASK_IDS.older2, TASK_IDS.older3][i]!,
-    title,
-    request: title,
-    status: 'COMPLETED',
-    riskLevel: i === 2 ? 'MEDIUM' : 'LOW',
-    source: i === 1 ? 'voice' : 'text',
-    progress: { completed: i === 1 ? 2 : 1, total: i === 1 ? 2 : 1 },
-    pendingApprovalId: null,
-    resultSummary: c.olderResult[i]!,
-    error: null,
-    createdAt: at(-(3 + i) * 24 * HOUR),
-    updatedAt: at(-(3 + i) * 24 * HOUR + 30 * SEC),
-    completedAt: at(-(3 + i) * 24 * HOUR + 30 * SEC),
-  }));
+  // ---- Older tasks (second page of the Task Center), planned offline: server-written titles
+  // and result lines as messages; the newsletter's result is the page summary (no message).
+  const olderTitles = [
+    msg('plan.remember', { text: c.olderNote }),
+    msg('plan.summarize', { host: 'newsletter.haddad.example' }),
+    msg('plan.emailSelf', { text: c.olderEmail }),
+  ];
+  const olderResults = [
+    msg('result.memorySaved', { text: c.olderNote }),
+    null,
+    msg('result.emailSent', { subject: c.olderEmail, recipients: EMAIL }),
+  ];
+  const older: TaskSummary[] = olderTitles.map((title, i) => {
+    const result = olderResults[i] ?? null;
+    return {
+      id: [TASK_IDS.older1, TASK_IDS.older2, TASK_IDS.older3][i]!,
+      title: text(locale, title),
+      titleMessage: title,
+      request: text(locale, title),
+      status: 'COMPLETED',
+      riskLevel: i === 2 ? 'MEDIUM' : 'LOW',
+      source: i === 1 ? 'voice' : 'text',
+      progress: { completed: i === 1 ? 2 : 1, total: i === 1 ? 2 : 1 },
+      pendingApprovalId: null,
+      pendingApproval: null,
+      resultSummary: result ? text(locale, result) : c.olderSummary,
+      resultSummaryMessage: result,
+      error: null,
+      createdAt: at(-(3 + i) * 24 * HOUR),
+      updatedAt: at(-(3 + i) * 24 * HOUR + 30 * SEC),
+      completedAt: at(-(3 + i) * 24 * HOUR + 30 * SEC),
+    };
+  });
 
   // The awaiting-approval task with its history so far.
   const emailDetail: TaskDetail = {
@@ -672,20 +672,13 @@ export function withTaskDetails(f: Fixtures, locale: FixtureLocale, now: number)
         stepCount: 3,
         planner: { mode: 'offline', provider: null, model: null },
       }),
-      ev(IDS.taskEmail, 'step.succeeded', email.steps[0]!.completedAt!, {
-        stepId: IDS.stepFetch,
-        toolId: 'web.fetch',
-        title: email.steps[0]!.title,
-      }),
-      ev(IDS.taskEmail, 'step.succeeded', email.steps[1]!.completedAt!, {
-        stepId: IDS.stepSummarize,
-        toolId: 'text.summarize',
-        title: email.steps[1]!.title,
-      }),
+      ev(IDS.taskEmail, 'step.succeeded', fetchStep.completedAt!, ref(fetchStep)),
+      ev(IDS.taskEmail, 'step.succeeded', summarizeStep.completedAt!, ref(summarizeStep)),
       ev(IDS.taskEmail, 'approval.requested', approval.createdAt, {
         approvalId: approval.id,
         stepId: IDS.stepEmail,
         summary: approval.summary,
+        summaryMessage: approval.summaryMessage,
       }),
       ev(IDS.taskEmail, 'task.status_changed', approval.createdAt, {
         from: 'RUNNING',
@@ -892,8 +885,9 @@ for (const theme of THEMES) {
       await capture(page, testInfo, `tasks--all--${variant}`);
       await expectNoSeriousA11yViolations(page);
 
-      // Needs approval filter → URL, list, Review opens the approval sheet.
-      await page.locator('main fieldset label').first().click();
+      // Needs approval filter → URL, list, Review opens the approval sheet. (All comes first in
+      // the filter row since the round-1 redesign, so the option is picked by its value.)
+      await page.locator('main fieldset label:has(input[value="needs_approval"])').click();
       await expect(page).toHaveURL(/\?status=needs_approval$/);
       const rows = page.locator('main ul[aria-label] > li');
       await expect(rows).toHaveCount(1);
@@ -934,6 +928,13 @@ for (const theme of THEMES) {
         theme,
         path: `/tasks/${TASK_IDS.sent}`,
       });
+      // The result leads with what JARVIS wrote; the proof (with the SMTP Message-ID) is a
+      // disclosure, open on desktop and collapsed on phones. It must always be one click away.
+      const proof = page.locator('main button[aria-expanded]', {
+        hasText: /^(Proof|Nachweise|الأدلة)/,
+      });
+      if ((await proof.getAttribute('aria-expanded')) === 'false') await proof.click();
+      await expect(proof).toHaveAttribute('aria-expanded', 'true');
       await expect(page.locator('main code', { hasText: MESSAGE_ID })).toBeVisible();
       // The fetched page is an external link that does not leak the opener or referrer.
       const link = page.locator(`main a[href="${URL_AI_ACT}"]`).first();
@@ -1216,6 +1217,12 @@ test.describe('task behaviour', () => {
     await page.locator('main fieldset label').filter({ hasText: /^All$/ }).click();
     await expect(page.getByRole('radio', { name: 'All' })).toBeChecked();
     await expect(page).toHaveURL(/\/tasks$/);
+    // Each filter is a history entry: Back returns to the previous filter, Forward again.
+    await page.goBack();
+    await expect(page).toHaveURL(/\?status=failed$/);
+    await expect(page.getByRole('radio', { name: 'Failed' })).toBeChecked();
+    await page.goForward();
+    await expect(page.getByRole('radio', { name: 'All' })).toBeChecked();
     await expect(page.locator('main ul[aria-label] > li')).toHaveCount(PAGE);
     await page.getByRole('button', { name: 'Load more' }).click();
     await expect(page.locator('main ul[aria-label] > li')).toHaveCount(10);
@@ -1320,12 +1327,97 @@ test.describe('task behaviour', () => {
     expect(api.errors).toEqual([]);
   });
 
+  test('an approval on flagged page content names the page and what JARVIS left out', async ({
+    page,
+    context,
+    baseURL,
+  }, testInfo) => {
+    // The policy added UNTRUSTED_CONTENT; the server attaches the facts (details.untrusted) and
+    // flags the task's pending approval (pendingApproval.untrustedSource).
+    const flag = (f: Fixtures): Fixtures => {
+      const untrusted = { host: HOSTS.aiAct, excludedSentences: 2, signals: ['ignore_previous'] };
+      const mark = (a: Approval): Approval =>
+        a.id === IDS.approval && a.details.kind === 'email'
+          ? {
+              ...a,
+              reasons: [...a.reasons, 'UNTRUSTED_CONTENT'],
+              details: { ...a.details, untrusted },
+            }
+          : a;
+      const d = f.taskDetails[IDS.taskEmail]!;
+      f.approvals = f.approvals.map(mark);
+      f.home = { ...f.home, pendingApprovals: f.home.pendingApprovals.map(mark) };
+      f.tasks = f.tasks.map((t) =>
+        t.id === IDS.taskEmail
+          ? { ...t, pendingApproval: { id: IDS.approval, untrustedSource: true } }
+          : t,
+      );
+      f.taskDetails[IDS.taskEmail] = {
+        ...d,
+        pendingApproval: { id: IDS.approval, untrustedSource: true },
+        approvals: d.approvals.map(mark),
+      };
+      return f;
+    };
+    const api = await open(page, context, baseURL!, {
+      locale: 'en',
+      theme: 'light',
+      path: '/tasks?status=needs_approval',
+      options: { fixtures: flag },
+    });
+    // The list row carries the chip.
+    const row = page.locator('main ul[aria-label] > li');
+    await expect(row).toHaveCount(1);
+    await expect(row.getByText('Untrusted source')).toBeVisible();
+    // The task screen names the page and how many sentences the summary left out.
+    await page.goto(`/tasks/${IDS.taskEmail}`);
+    const panel = page.locator('main section').first();
+    await expect(panel.getByText(/Text on .digital-strategy\.ec\.europa\.eu. tried/)).toBeVisible();
+    await expect(
+      panel.getByText(/JARVIS left those 2 sentences out of the summary\./),
+    ).toBeVisible();
+    await expect(panel.getByText('Untrusted source')).toBeVisible();
+    // The sheet says the same.
+    await panel.getByRole('button', { name: 'Review and decide' }).click();
+    const sheet = page.getByRole('dialog');
+    await expect(
+      sheet.getByText(/JARVIS left those 2 sentences out of the summary\./),
+    ).toBeVisible();
+    await capture(page, testInfo, 'task--approval-untrusted--light--en', { fullPage: false });
+    await expectNoSeriousA11yViolations(page);
+    expect(api.errors).toEqual([]);
+  });
+
   test('retry of a retryable failure goes straight through', async ({ page, context, baseURL }) => {
+    // A transient failure (the page timed out). The blocked-address task no longer offers Retry
+    // (it would fail the same way: "Ask again" instead), so this uses a retryable error.
     const api = await open(page, context, baseURL!, {
       locale: 'en',
       theme: 'light',
       path: `/tasks/${IDS.taskFailed}`,
+      options: {
+        fixtures: (f) => {
+          const d = f.taskDetails[IDS.taskFailed]!;
+          const error = {
+            code: 'TOOL_TIMEOUT' as const,
+            message: DEV_MESSAGES.fetchTimeout,
+            retryable: true,
+            reason: 'FETCH_TIMEOUT' as const,
+            params: { host: HOSTS.wcag, seconds: 15 },
+          };
+          f.taskDetails[IDS.taskFailed] = {
+            ...d,
+            error,
+            steps: d.steps.map((st) => (st.status === 'FAILED' ? { ...st, error } : st)),
+            canRetry: canRetryTask({ status: d.status, error }),
+          };
+          return f;
+        },
+      },
     });
+    // The banner says what happened in the interface language, not the English message.
+    await expect(page.getByText(/didn’t respond within 15 seconds/).first()).toBeVisible();
+    await expect(page.getByText(DEV_MESSAGES.fetchTimeout)).toBeHidden();
     const request = page.waitForRequest((r) => r.url().endsWith(`/tasks/${IDS.taskFailed}/retry`));
     await page.getByRole('button', { name: 'Retry' }).click();
     expect((await request).postDataJSON()).toEqual({ acknowledgeUnknownOutcome: false });

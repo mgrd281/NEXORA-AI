@@ -60,7 +60,8 @@ for (const theme of THEMES) {
         await page.locator('aside button[aria-haspopup="dialog"]').click();
       }
       await expect(
-        page.getByRole('link', { name: /EU AI|الذكاء الاصطناعي/ }).first(),
+        // The notification names the task by its (offline-planned) title.
+        page.getByRole('link', { name: /digital-strategy\.ec\.europa\.eu/ }).first(),
       ).toBeVisible();
       await capture(page, testInfo, `notifications--open--${variant}`);
       await expectNoSeriousA11yViolations(page);

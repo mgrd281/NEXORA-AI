@@ -30,7 +30,9 @@ export function isUntrustedApproval(approval: Pick<Approval, 'reasons' | 'detail
 }
 
 /** What the task's own steps say (for approvals recorded before details.untrusted existed). */
-function factsFromSteps(task: TaskDetail | undefined): Omit<UntrustedSourceFacts, 'excludedSentences'> {
+function factsFromSteps(
+  task: TaskDetail | undefined,
+): Omit<UntrustedSourceFacts, 'excludedSentences'> {
   if (!task) return { host: null, leftOut: null };
   const flaggedIndex = task.steps.findIndex(
     (step) => step.toolId === 'web.fetch' && step.output?.suspectedInjection === true,

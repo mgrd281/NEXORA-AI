@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { useToast } from '@/components/ui/Toast';
 import { useI18n } from '@/i18n/I18nProvider';
+import { serverText } from '@/i18n/server-message';
 import { isApiError, type ApiError } from '@/lib/api/client';
 import { useCancelTask, useRetryTask } from './api';
 import { attemptOf, failedStep, nextAction, requiresAcknowledgement } from './model';
@@ -44,7 +45,8 @@ export function useTaskActions({
   onError: (error: ApiError | null) => void;
   cancelVariant?: 'secondary' | 'ghost';
 }): TaskActionsView {
-  const { t } = useI18n();
+  const i18n = useI18n();
+  const { t } = i18n;
   const { toast } = useToast();
   const registry = useComposerRegistry();
   const cancel = useCancelTask(task.id);
@@ -217,7 +219,9 @@ export function useTaskActions({
         <div className={styles.ackBody}>
           <p>
             {step
-              ? t('tasks.retryDialog.body', { step: step.title })
+              ? t('tasks.retryDialog.body', {
+                  step: serverText(i18n, step.titleMessage, step.title),
+                })
               : t('tasks.retryDialog.bodyGeneric')}
           </p>
           <p className={styles.ackCheck}>{t('tasks.retryDialog.check')}</p>

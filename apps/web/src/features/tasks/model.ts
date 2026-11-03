@@ -883,8 +883,3 @@ export function emailDelivery(
     approval?.details.kind === 'email' ? approval.details.to : listed(step.inputPreview.to);
   return { to: to.length > 0 ? to : [...fallback], at: step.completedAt };
 }
-
-/** The approval's input derives from content that contained text aimed at AI assistants. */
-export function isUntrusted(approval: Pick<Approval, 'reasons'>): boolean {
-  return approval.reasons.includes('UNTRUSTED_CONTENT');
-}

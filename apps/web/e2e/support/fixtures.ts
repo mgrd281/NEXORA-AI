@@ -1,25 +1,123 @@
 /**
  * Realistic fixture data for visual / component tests (never used by the app itself). User
- * generated content (requests, titles, email bodies) exists in en/de/ar; everything is
- * validated against the contract schemas when the mock API loads it (see mock-api.ts), so the
- * mocks cannot drift from the real API.
+ * generated content (requests, email bodies) exists in en/de/ar; everything is validated
+ * against the contract schemas when the mock API loads it (see mock-api.ts), so the mocks
+ * cannot drift from the real API.
+ *
+ * Like the real API with the offline planner, server-written text comes twice: as a localizable
+ * message ({ key, params }: titleMessage, objectiveMessage, summaryMessage,
+ * resultSummaryMessage) and as plain text in the request's language (`text()` below renders the
+ * same message for that). Errors carry code + reason + params with an English developer
+ * message; evidence carries its code + params next to the English label / value.
  */
 import type {
   AdminOverview,
   Approval,
   AssistantStatus,
   Connection,
+  Evidence,
   HomeSnapshot,
   Me,
   Memory,
   Notification,
+  ServerMessage,
+  ServerMessageParam,
   SessionInfo,
   TaskDetail,
   TaskSummary,
   UsageSummary,
 } from '@jarvis/contracts';
+import { catalogs } from '../../src/i18n/messages';
+import { renderServerMessage } from '../../src/i18n/server-message';
+import { createTranslator, stripIsolates } from '../../src/i18n/translate';
 
 export type FixtureLocale = 'en' | 'de' | 'ar';
+
+/** A server sentence as the API sends it. */
+export function msg(
+  key: ServerMessage['key'],
+  params: Record<string, ServerMessageParam> = {},
+): ServerMessage {
+  return { key, params };
+}
+
+/** The stored plain text of a server sentence: rendered in the request's language. */
+export function text(locale: FixtureLocale, message: ServerMessage): string {
+  const t = createTranslator(locale, catalogs[locale]);
+  const rendered = renderServerMessage({ t, messages: catalogs[locale] }, message);
+  if (rendered === null) throw new Error(`Fixture message ${message.key} does not render`);
+  return stripIsolates(rendered);
+}
+
+/** A server sentence with its stored text: `{ title, titleMessage }` and the like. */
+function said(locale: FixtureLocale, message: ServerMessage) {
+  return { text: text(locale, message), message };
+}
+
+/** The evidence the tools record (apps/api/src/modules/agent/tools/*): code + params first. */
+export const evidence = {
+  http(url: string, status: number, contentType: string, bytes: number, at: string): Evidence {
+    return {
+      kind: 'http_response',
+      label: `HTTP ${status}`,
+      value: `GET ${url} → ${status} (${contentType}, ${bytes} bytes)`,
+      at,
+      code: 'HTTP_RESPONSE',
+      params: { method: 'GET', url, status, contentType, bytes },
+    };
+  },
+  hash(hex: string, at: string): Evidence {
+    return {
+      kind: 'content_hash',
+      label: 'SHA-256 of the response body',
+      value: `sha256:${hex}`,
+      at,
+      code: 'CONTENT_HASH',
+      params: { algorithm: 'SHA-256', hash: hex },
+    };
+  },
+  extractive(sentences: number, chars: number, excludedSentences: number, at: string): Evidence {
+    return {
+      kind: 'note',
+      label: 'Extractive summary',
+      value: `${sentences} key sentences from ${chars} characters; no AI model was used.`,
+      at,
+      code: 'EXTRACTIVE_SUMMARY',
+      params: { sentences, chars, excludedSentences },
+    };
+  },
+  smtp(response: string, messageId: string, accepted: number, total: number, at: string) {
+    const replyCode = Number(response.slice(0, 3));
+    return {
+      kind: 'smtp_receipt',
+      label: `SMTP ${replyCode} · ${accepted} accepted`,
+      value: `${response} · Message-ID ${messageId}`,
+      at,
+      code: 'SMTP_RECEIPT',
+      params: { replyCode, accepted, total, response, messageId },
+    } satisfies Evidence;
+  },
+  model(model: string, inputTokens: number, outputTokens: number, at: string): Evidence {
+    return {
+      kind: 'model_output',
+      label: model,
+      value: `${inputTokens} input / ${outputTokens} output tokens`,
+      at,
+      code: 'MODEL_OUTPUT',
+      params: { model, inputTokens, outputTokens },
+    };
+  },
+  memory(memoryId: string, kind: 'fact' | 'preference', at: string): Evidence {
+    return {
+      kind: 'record',
+      label: 'Memory saved',
+      value: `memory ${memoryId} (${kind})`,
+      at,
+      code: 'MEMORY_RECORD',
+      params: { memoryId, kind },
+    };
+  },
+};
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -47,29 +145,34 @@ export const IDS = {
   memorySeat: '3e90bd87-5f84-4a0d-8b43-8c69f748041a',
 } as const;
 
+/** What the user wrote (requests, the note to remember) and what JARVIS wrote (the email). */
 interface LocalizedContent {
   emailRequest: string;
-  emailTitle: string;
-  emailSummary: string;
   emailSubject: string;
   emailBody: string;
   memoryRequest: string;
-  memoryTitle: string;
-  memoryResult: string;
+  /** The words the offline planner keeps from the request ("Remember that …"). */
+  memoryText: string;
   failedRequest: string;
-  failedTitle: string;
-  failedError: string;
   runningRequest: string;
-  runningTitle: string;
 }
+
+export const URL_AI_ACT =
+  'https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai';
+
+export const HOSTS = {
+  aiAct: 'digital-strategy.ec.europa.eu',
+  intranet: 'intranet.haddad.internal',
+  wcag: 'www.w3.org',
+} as const;
+
+/** The web.fetch SSRF guard's developer message (English in every locale, never shown). */
+const PRIVATE_ADDRESS_MESSAGE = `Refusing to fetch ${HOSTS.intranet}: it resolves to a private or local network address.`;
 
 const CONTENT: Record<FixtureLocale, LocalizedContent> = {
   en: {
     emailRequest:
       'Summarize the EU AI Act overview at https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai and email it to me',
-    emailTitle: 'Summarize the EU AI Act overview and email it to me',
-    emailSummary:
-      'Send an email to layla.haddad@example.com with the subject “Summary: EU AI Act overview”.',
     emailSubject: 'Summary: EU AI Act overview',
     emailBody: [
       'Summary of “AI Act | Shaping Europe’s digital future” (digital-strategy.ec.europa.eu):',
@@ -82,20 +185,13 @@ const CONTENT: Record<FixtureLocale, LocalizedContent> = {
       'Source: https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai',
     ].join('\n'),
     memoryRequest: 'Remember that I prefer aisle seats on flights',
-    memoryTitle: 'Remember: aisle seats on flights',
-    memoryResult: 'Saved to memory: you prefer aisle seats on flights.',
+    memoryText: 'I prefer aisle seats on flights',
     failedRequest: 'Summarize http://intranet.haddad.internal/q3-board-report',
-    failedTitle: 'Summarize the Q3 board report',
-    failedError: 'This address points to a private network, so JARVIS will not fetch it.',
     runningRequest: 'Read https://www.w3.org/TR/WCAG22/ and summarize what changed in WCAG 2.2',
-    runningTitle: 'Summarize what changed in WCAG 2.2',
   },
   de: {
     emailRequest:
       'Fasse die Übersicht zum EU AI Act unter https://digital-strategy.ec.europa.eu/de/policies/regulatory-framework-ai zusammen und schick sie mir per E-Mail',
-    emailTitle: 'Übersicht zum EU AI Act zusammenfassen und per E-Mail senden',
-    emailSummary:
-      'Eine E-Mail an layla.haddad@example.com mit dem Betreff „Zusammenfassung: Übersicht zum EU AI Act“ senden.',
     emailSubject: 'Zusammenfassung: Übersicht zum EU AI Act',
     emailBody: [
       'Zusammenfassung von „KI-Gesetz | Gestaltung der digitalen Zukunft Europas“ (digital-strategy.ec.europa.eu):',
@@ -107,23 +203,15 @@ const CONTENT: Record<FixtureLocale, LocalizedContent> = {
       '',
       'Quelle: https://digital-strategy.ec.europa.eu/de/policies/regulatory-framework-ai',
     ].join('\n'),
-    memoryRequest: 'Merk dir, dass ich auf Flügen Gangplätze bevorzuge',
-    memoryTitle: 'Merken: Gangplatz auf Flügen',
-    memoryResult: 'Im Gedächtnis gespeichert: Gangplätze auf Flügen werden bevorzugt.',
+    memoryRequest: 'Merk dir: Ich bevorzuge Gangplätze auf Flügen',
+    memoryText: 'Ich bevorzuge Gangplätze auf Flügen',
     failedRequest: 'Fasse http://intranet.haddad.internal/q3-vorstandsbericht zusammen',
-    failedTitle: 'Q3-Vorstandsbericht zusammenfassen',
-    failedError:
-      'Diese Adresse verweist auf ein privates Netzwerk, daher ruft JARVIS sie nicht ab.',
     runningRequest:
       'Lies https://www.w3.org/TR/WCAG22/ und fasse zusammen, was sich in WCAG 2.2 geändert hat',
-    runningTitle: 'Änderungen in WCAG 2.2 zusammenfassen',
   },
   ar: {
     emailRequest:
       'لخّص نظرة عامة على قانون الذكاء الاصطناعي الأوروبي في https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai وأرسله لي بالبريد',
-    emailTitle: 'تلخيص نظرة عامة على قانون الذكاء الاصطناعي الأوروبي وإرسالها بالبريد',
-    emailSummary:
-      'إرسال رسالة إلى layla.haddad@example.com بعنوان «ملخص: قانون الذكاء الاصطناعي الأوروبي».',
     emailSubject: 'ملخص: قانون الذكاء الاصطناعي الأوروبي',
     emailBody: [
       'ملخص صفحة «قانون الذكاء الاصطناعي | تشكيل المستقبل الرقمي لأوروبا» (digital-strategy.ec.europa.eu):',
@@ -135,14 +223,10 @@ const CONTENT: Record<FixtureLocale, LocalizedContent> = {
       '',
       'المصدر: https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai',
     ].join('\n'),
-    memoryRequest: 'تذكّر أنني أفضّل المقاعد بجانب الممر في الرحلات الجوية',
-    memoryTitle: 'تذكّر: مقعد بجانب الممر في الرحلات',
-    memoryResult: 'حُفظ في الذاكرة: تفضّل المقاعد بجانب الممر في الرحلات الجوية.',
+    memoryRequest: 'تذكّر: أفضّل المقاعد بجانب الممر في الرحلات الجوية',
+    memoryText: 'أفضّل المقاعد بجانب الممر في الرحلات الجوية',
     failedRequest: 'لخّص http://intranet.haddad.internal/q3-board-report',
-    failedTitle: 'تلخيص تقرير مجلس الإدارة للربع الثالث',
-    failedError: 'يشير هذا العنوان إلى شبكة خاصة، لذا لن يجلبه JARVIS.',
     runningRequest: 'اقرأ https://www.w3.org/TR/WCAG22/ ولخّص ما تغيّر في WCAG 2.2',
-    runningTitle: 'تلخيص التغييرات في WCAG 2.2',
   },
 };
 
@@ -210,15 +294,34 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
     version: '0.1.0',
   };
 
+  // What the offline planner writes for these requests (apps/api …/models/offline.ts).
+  const emailPlan = {
+    title: said(locale, msg('plan.summarizeEmail', { host: HOSTS.aiAct })),
+    objective: said(locale, msg('objective.summarizeEmail', { url: URL_AI_ACT, email })),
+    fetch: said(locale, msg('step.fetch', { host: HOSTS.aiAct })),
+    summarize: said(locale, msg('step.summarize')),
+    email: said(locale, msg('step.emailSummary')),
+  };
+  const approvalSummary = said(
+    locale,
+    msg('approval.email', { subject: c.emailSubject, recipients: email }),
+  );
+  const memoryTitle = said(locale, msg('plan.remember', { text: c.memoryText }));
+  const memoryResult = said(locale, msg('result.memorySaved', { text: c.memoryText }));
+  const failedTitle = said(locale, msg('plan.summarize', { host: HOSTS.intranet }));
+  const runningTitle = said(locale, msg('plan.summarize', { host: HOSTS.wcag }));
+
   const approval: Approval = {
     id: IDS.approval,
     taskId: IDS.taskEmail,
-    taskTitle: c.emailTitle,
+    taskTitle: emailPlan.title.text,
+    taskTitleMessage: emailPlan.title.message,
     stepId: IDS.stepEmail,
     toolId: 'email.send',
     status: 'PENDING',
     riskLevel: 'MEDIUM',
-    summary: c.emailSummary,
+    summary: approvalSummary.text,
+    summaryMessage: approvalSummary.message,
     details: {
       kind: 'email',
       from: email,
@@ -236,14 +339,17 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
 
   const emailTask: TaskSummary = {
     id: IDS.taskEmail,
-    title: c.emailTitle,
+    title: emailPlan.title.text,
+    titleMessage: emailPlan.title.message,
     request: c.emailRequest,
     status: 'AWAITING_APPROVAL',
     riskLevel: 'MEDIUM',
     source: 'text',
     progress: { completed: 2, total: 3 },
     pendingApprovalId: IDS.approval,
+    pendingApproval: { id: IDS.approval, untrustedSource: false },
     resultSummary: null,
+    resultSummaryMessage: null,
     error: null,
     createdAt: at(-9 * MIN),
     updatedAt: at(-8 * MIN),
@@ -251,14 +357,17 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
   };
   const runningTask: TaskSummary = {
     id: IDS.taskRunning,
-    title: c.runningTitle,
+    title: runningTitle.text,
+    titleMessage: runningTitle.message,
     request: c.runningRequest,
     status: 'RUNNING',
     riskLevel: 'LOW',
     source: 'voice',
     progress: { completed: 1, total: 2 },
     pendingApprovalId: null,
+    pendingApproval: null,
     resultSummary: null,
+    resultSummaryMessage: null,
     error: null,
     createdAt: at(-40_000),
     updatedAt: at(-12_000),
@@ -266,14 +375,17 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
   };
   const memoryTask: TaskSummary = {
     id: IDS.taskMemory,
-    title: c.memoryTitle,
+    title: memoryTitle.text,
+    titleMessage: memoryTitle.message,
     request: c.memoryRequest,
     status: 'COMPLETED',
     riskLevel: 'LOW',
     source: 'text',
     progress: { completed: 1, total: 1 },
     pendingApprovalId: null,
-    resultSummary: c.memoryResult,
+    pendingApproval: null,
+    resultSummary: memoryResult.text,
+    resultSummaryMessage: memoryResult.message,
     error: null,
     createdAt: at(-2 * HOUR - 3 * MIN),
     updatedAt: at(-2 * HOUR - 2 * MIN),
@@ -281,24 +393,36 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
   };
   const failedTask: TaskSummary = {
     id: IDS.taskFailed,
-    title: c.failedTitle,
+    title: failedTitle.text,
+    titleMessage: failedTitle.message,
     request: c.failedRequest,
     status: 'FAILED',
     riskLevel: 'LOW',
     source: 'text',
+    // Nothing succeeded; the summarize step was skipped.
     progress: { completed: 0, total: 2 },
     pendingApprovalId: null,
+    pendingApproval: null,
     resultSummary: null,
-    error: { code: 'FETCH_BLOCKED', message: c.failedError, retryable: false },
+    resultSummaryMessage: null,
+    error: {
+      code: 'FETCH_BLOCKED',
+      message: PRIVATE_ADDRESS_MESSAGE,
+      retryable: false,
+      reason: 'PRIVATE_ADDRESS',
+      params: { host: HOSTS.intranet },
+    },
     createdAt: at(-26 * HOUR),
     updatedAt: at(-26 * HOUR + 4_000),
     completedAt: at(-26 * HOUR + 4_000),
   };
   const tasks = [runningTask, emailTask, memoryTask, failedTask];
 
+  const fetchedAt = at(-8 * MIN - 40_000);
   const emailDetail: TaskDetail = {
     ...emailTask,
-    objective: c.emailTitle,
+    objective: emailPlan.objective.text,
+    objectiveMessage: emailPlan.objective.message,
     conversationId: IDS.conversation,
     planner: { mode: 'offline', provider: null, model: null },
     answer: null,
@@ -306,44 +430,32 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
       {
         id: IDS.stepFetch,
         position: 0,
-        title:
-          locale === 'de'
-            ? 'Webseite lesen'
-            : locale === 'ar'
-              ? 'قراءة صفحة الويب'
-              : 'Read the web page',
+        title: emailPlan.fetch.text,
+        titleMessage: emailPlan.fetch.message,
         toolId: 'web.fetch',
         riskLevel: 'LOW',
         status: 'SUCCEEDED',
         requiresApproval: false,
         policy: { decision: 'allow', reasons: ['RISK_LOW'] },
-        inputPreview: {
-          url: 'https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai',
-        },
+        inputPreview: { url: URL_AI_ACT },
         output: { title: 'AI Act | Shaping Europe’s digital future', bytes: 48213 },
         evidence: [
-          {
-            kind: 'http_response',
-            label: 'HTTP 200',
-            value: 'https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai',
-            at: at(-8 * MIN - 40_000),
-          },
-          {
-            kind: 'content_hash',
-            label: 'Content SHA-256',
-            value: 'sha256:5d2f8c1a9e3b7d6f0a4c8e2b6d0f4a8c2e6b0d4f8a2c6e0b4d8f2a6c0e4b8d2f',
-            at: at(-8 * MIN - 40_000),
-          },
+          evidence.http(URL_AI_ACT, 200, 'text/html; charset=utf-8', 48213, fetchedAt),
+          evidence.hash(
+            '5d2f8c1a9e3b7d6f0a4c8e2b6d0f4a8c2e6b0d4f8a2c6e0b4d8f2a6c0e4b8d2f',
+            fetchedAt,
+          ),
         ],
         attempts: 1,
         startedAt: at(-8 * MIN - 42_000),
-        completedAt: at(-8 * MIN - 40_000),
+        completedAt: fetchedAt,
         error: null,
       },
       {
         id: IDS.stepSummarize,
         position: 1,
-        title: locale === 'de' ? 'Zusammenfassen' : locale === 'ar' ? 'التلخيص' : 'Summarize',
+        title: emailPlan.summarize.text,
+        titleMessage: emailPlan.summarize.message,
         toolId: 'text.summarize',
         riskLevel: 'LOW',
         status: 'SUCCEEDED',
@@ -351,7 +463,7 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
         policy: { decision: 'allow', reasons: ['RISK_LOW'] },
         inputPreview: { source: '{{s1.text}}', maxSentences: 5 },
         output: { sentences: 4 },
-        evidence: [],
+        evidence: [evidence.extractive(4, 9120, 0, at(-8 * MIN - 38_000))],
         attempts: 1,
         startedAt: at(-8 * MIN - 39_000),
         completedAt: at(-8 * MIN - 38_000),
@@ -360,8 +472,8 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
       {
         id: IDS.stepEmail,
         position: 2,
-        title:
-          locale === 'de' ? 'E-Mail senden' : locale === 'ar' ? 'إرسال البريد' : 'Send the email',
+        title: emailPlan.email.text,
+        titleMessage: emailPlan.email.message,
         toolId: 'email.send',
         riskLevel: 'MEDIUM',
         status: 'AWAITING_APPROVAL',
@@ -390,7 +502,7 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
       id: IDS.notificationApproval,
       kind: 'approval_requested',
       taskId: IDS.taskEmail,
-      data: { taskTitle: c.emailTitle, approvalId: IDS.approval },
+      data: { taskTitle: emailPlan.title.text, approvalId: IDS.approval },
       readAt: null,
       createdAt: at(-8 * MIN),
     },
@@ -398,7 +510,7 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
       id: IDS.notificationCompleted,
       kind: 'task_completed',
       taskId: IDS.taskMemory,
-      data: { taskTitle: c.memoryTitle },
+      data: { taskTitle: memoryTitle.text },
       readAt: at(-HOUR),
       createdAt: at(-2 * HOUR - 2 * MIN),
     },
@@ -406,7 +518,7 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
       id: IDS.notificationFailed,
       kind: 'task_failed',
       taskId: IDS.taskFailed,
-      data: { taskTitle: c.failedTitle, errorCode: 'FETCH_BLOCKED' },
+      data: { taskTitle: failedTitle.text, errorCode: 'FETCH_BLOCKED' },
       readAt: null,
       createdAt: at(-26 * HOUR + 4_000),
     },
@@ -443,7 +555,7 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
     {
       id: IDS.memorySeat,
       kind: 'preference',
-      content: c.memoryResult.replace(/^[^:：]+[:：]\s*/, ''),
+      content: c.memoryText,
       source: 'assistant',
       sourceTaskId: IDS.taskMemory,
       createdAt: at(-2 * HOUR - 2 * MIN),
@@ -486,7 +598,12 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
       database: true,
       worker: assistantStatus.worker,
       planner: assistantStatus.planner,
-      queueDepth: 1,
+      // queueDepth is the deprecated alias of queueReady.
+      queueDepth: 0,
+      queueReady: 0,
+      // Approval expiry timers: scheduled, not backlog.
+      queueScheduled: 1,
+      oldestReadyAgeMs: null,
     },
     users: { total: 1, active7d: 1 },
     tenants: { total: 1 },

@@ -1,6 +1,12 @@
 'use client';
 
-import { canCancel, canRetry, type TaskDetail, type TaskSummary } from '@jarvis/contracts';
+import {
+  canCancel,
+  canRetryTask,
+  type AssistantStatus,
+  type TaskDetail,
+  type TaskSummary,
+} from '@jarvis/contracts';
 import {
   useInfiniteQuery,
   useMutation,
@@ -47,15 +53,20 @@ export function useTaskDetail(id: string, enabled = true) {
   });
 }
 
-/** Writes the server's new summary into the cached detail, then refetches the full detail. */
+/**
+ * Writes the server's new summary into the cached detail, then refetches the full detail. The
+ * optimistic canRetry uses the same rule as the server (canRetryTask: the status allows it AND
+ * the error is one a retry can fix), with the assistant status already cached, if any.
+ */
 function reconcile(queryClient: QueryClient, summary: TaskSummary) {
+  const assistant = queryClient.getQueryData<AssistantStatus>(qk.assistantStatus);
   queryClient.setQueryData<TaskDetail>(qk.tasks.detail(summary.id), (old) =>
     old
       ? {
           ...old,
           ...summary,
           canCancel: canCancel(summary.status),
-          canRetry: canRetry(summary.status),
+          canRetry: canRetryTask(summary, { modelAvailable: assistant?.planner.mode === 'model' }),
         }
       : old,
   );

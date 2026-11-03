@@ -263,11 +263,7 @@ function OverviewSections({ overview }: { overview: AdminOverview }) {
                 : reason
             }
           />
-          <Tile
-            label={t('admin.health.queue')}
-            value={<span className="tabular">{f.number(health.queueDepth)}</span>}
-            caption={t('admin.health.queueCaption', { count: health.queueDepth })}
-          />
+          <QueueTile health={health} />
         </dl>
       </AdminSection>
 
@@ -294,6 +290,44 @@ function OverviewSections({ overview }: { overview: AdminOverview }) {
       <TasksByStatus byStatus={overview.tasksByStatus} />
       <ToolReliability rows={overview.toolReliability} />
     </>
+  );
+}
+
+/** Jobs due longer than this mean the worker is falling behind. */
+const QUEUE_BEHIND_MS = 60_000;
+
+/**
+ * "0 ready · 15 scheduled": jobs due now are the backlog; scheduled ones (approval expiry
+ * timers) are not. It warns, in words, only when the oldest due job has waited over a minute.
+ */
+function QueueTile({ health }: { health: AdminOverview['health'] }) {
+  const { t, f } = useI18n();
+  // queueDepth is the older name of queueReady (still sent).
+  const ready = health.queueReady ?? health.queueDepth;
+  const scheduled = health.queueScheduled ?? 0;
+  const oldest = health.oldestReadyAgeMs ?? null;
+  const behind = oldest !== null && oldest > QUEUE_BEHIND_MS;
+  const duration = oldest !== null ? f.duration(oldest) : null;
+  return (
+    <Tile
+      label={t('admin.health.queue')}
+      value={
+        <span className="tabular">
+          {t('admin.health.queueValue', { ready: f.number(ready), scheduled: f.number(scheduled) })}
+        </span>
+      }
+      caption={
+        behind && duration ? (
+          <Badge tone="warning" icon={TriangleAlert}>
+            {t('admin.health.queueSlow', { duration })}
+          </Badge>
+        ) : ready === 0 ? (
+          t('admin.health.queueIdle')
+        ) : duration ? (
+          t('admin.health.queueOldest', { duration })
+        ) : undefined
+      }
+    />
   );
 }
 

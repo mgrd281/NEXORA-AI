@@ -37,8 +37,9 @@ export function TaskCenter() {
   const filter = parseFilter(searchParams.get('status'));
 
   const setFilter = useCallback((next: TaskFilter) => {
-    // Shallow URL update: the App Router syncs useSearchParams without a server round trip.
-    window.history.replaceState(null, '', filterHref(next));
+    // Shallow URL update (the App Router syncs useSearchParams without a server round trip).
+    // A new history entry: the filtered list is shareable and Back returns to the previous one.
+    window.history.pushState(null, '', filterHref(next));
   }, []);
 
   // Keep the selected filter in view inside the scrolling filter row (phones).

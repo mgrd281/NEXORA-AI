@@ -28,10 +28,11 @@ import { Icon } from '@/components/ui/Icon';
 import { RelativeTime } from '@/components/ui/RelativeTime';
 import { Spinner } from '@/components/ui/Spinner';
 import { useI18n } from '@/i18n/I18nProvider';
+import { errorReason, errorTitle, serverText } from '@/i18n/server-message';
 import { cx } from '@/lib/cx';
 import { OfflineCommands, TechnicalDetails } from './copy';
 import { EvidenceList } from './EvidenceList';
-import { useDurationFormat, useExactTimeFormat } from './format';
+import { useExactTimeFormat } from './format';
 import {
   completedSteps,
   durationMs,
@@ -102,8 +103,9 @@ function PlanEmpty({ task }: { task: TaskDetail }) {
 const DECIDED_ICON = { APPROVED: CircleCheck, REJECTED: CircleSlash, EXPIRED: TimerOff } as const;
 
 function PlanStep({ step, task }: { step: TaskStep; task: TaskDetail }) {
-  const { t, tDynamic, f } = useI18n();
-  const duration = useDurationFormat();
+  const i18n = useI18n();
+  const { t, tDynamic, f } = i18n;
+  const title = serverText(i18n, step.titleMessage, step.title);
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const position = step.position + 1;
@@ -146,7 +148,7 @@ function PlanStep({ step, task }: { step: TaskStep; task: TaskDetail }) {
         <div className={styles.head}>
           <h3 className={styles.title}>
             <span className="visually-hidden">{t('tasks.plan.stepLabel', { position })}: </span>
-            <bdi>{step.title}</bdi>
+            <bdi>{title}</bdi>
           </h3>
           {shown === 'NOT_RUN' ? (
             <StatusPill
@@ -176,7 +178,7 @@ function PlanStep({ step, task }: { step: TaskStep; task: TaskDetail }) {
           )}
           {ms !== null ? (
             <span className={cx(styles.metaItem, 'tabular')}>
-              {t('tasks.plan.duration', { duration: duration(ms) })}
+              {t('tasks.plan.duration', { duration: f.duration(ms) })}
             </span>
           ) : (
             step.status === 'RUNNING' &&
@@ -232,7 +234,11 @@ function PlanStep({ step, task }: { step: TaskStep; task: TaskDetail }) {
 
         {/* The task banner already explains the task's error: here only the step's own cause. */}
         {step.error && (
-          <StepError error={step.error} compact={step.error.code === task.error?.code} />
+          <StepError
+            error={step.error}
+            stepTitle={title}
+            compact={step.error.code === task.error?.code}
+          />
         )}
 
         {hasDetails && (
@@ -278,25 +284,31 @@ function PolicyBlock({
 
 function StepError({
   error,
+  stepTitle,
   compact,
 }: {
   error: NonNullable<TaskStep['error']>;
+  stepTitle: string;
   compact: boolean;
 }) {
-  const { t } = useI18n();
+  const i18n = useI18n();
+  const { t } = i18n;
   const guidance = guidanceFor(error);
+  const reason = errorReason(i18n, error, { step: stepTitle });
   // The localized title says what happened; the server's wording stays behind a disclosure.
+  // Compact: the task banner above already explains it, so only the step's own cause.
   if (compact) {
     return (
       <p className={styles.errorCompact}>
         <Icon icon={CircleAlert} size={16} className={styles.errorIcon} />
-        <span>{t(`errors.codes.${error.code}`)}</span>
+        <span>{reason ?? errorTitle(i18n, error)}</span>
       </p>
     );
   }
   return (
     <div className={styles.error}>
-      <p className={styles.errorTitle}>{t(`errors.codes.${error.code}`)}</p>
+      <p className={styles.errorTitle}>{errorTitle(i18n, error)}</p>
+      {reason && <p className={styles.guidance}>{reason}</p>}
       <p className={styles.guidance}>
         {t(guidance.key)}
         {guidance.link && !needsModel(error) && (

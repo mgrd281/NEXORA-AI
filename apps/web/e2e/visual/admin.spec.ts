@@ -226,7 +226,14 @@ async function openAdmin(
           ...f.adminOverview,
           users: { total: 5 + users, active7d: 3 },
           tenants: { total: 4 },
-          health: { ...f.adminOverview.health, queueDepth: 2 },
+          // Two tasks are due now (waited 4 s); five approval expiry timers are scheduled.
+          health: {
+            ...f.adminOverview.health,
+            queueDepth: 2,
+            queueReady: 2,
+            queueScheduled: 5,
+            oldestReadyAgeMs: 4_200,
+          },
           tasksByStatus: {
             QUEUED: 2,
             RUNNING: 1,
@@ -330,7 +337,11 @@ for (const { theme, locale } of [
               healthy: false,
               lastHeartbeatAt: new Date(Date.now() - 47 * MIN).toISOString(),
             },
+            // The worker is down: due jobs pile up, the oldest has waited 47 minutes.
             queueDepth: 14,
+            queueReady: 14,
+            queueScheduled: 15,
+            oldestReadyAgeMs: 47 * MIN,
           },
           toolReliability: [],
           tasksByStatus: {},
@@ -339,6 +350,8 @@ for (const { theme, locale } of [
       audit: 0,
     });
     await expect(page.locator('main table')).toHaveCount(1);
+    // Due jobs waiting over a minute: the queue tile warns in words (scheduled ones never do).
+    await expect(page.getByText(/^(Behind:|Im Rückstand:|تأخّر:)/)).toBeVisible();
     await capture(page, testInfo, `admin--degraded--${variant}`);
     await expectNoSeriousA11yViolations(page);
     expect(api.errors).toEqual([]);

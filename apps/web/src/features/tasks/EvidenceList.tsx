@@ -3,6 +3,7 @@
 import type { Evidence } from '@jarvis/contracts';
 import type { LucideIcon } from 'lucide-react';
 import {
+  BookmarkPlus,
   Bot,
   Database,
   ExternalLink,
@@ -10,10 +11,12 @@ import {
   Fingerprint,
   Globe,
   MailCheck,
+  Scissors,
   StickyNote,
 } from 'lucide-react';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { Icon } from '@/components/ui/Icon';
+import type { MessageKey } from '@/i18n/catalog';
 import { useI18n } from '@/i18n/I18nProvider';
 import { cx } from '@/lib/cx';
 import styles from './Evidence.module.css';
@@ -60,20 +63,37 @@ export function EvidenceList({
   );
 }
 
+/** The headline of a piece of evidence: what it proves, in the interface language. */
+function evidenceTitle(view: EvidenceView, kind: Evidence['kind']): MessageKey {
+  switch (view.kind) {
+    case 'extractive':
+      return 'tasks.evidence.extractive';
+    case 'memory_record':
+      return 'tasks.evidence.memoryRecord';
+    case 'truncated':
+      return 'tasks.evidence.truncated';
+    default:
+      return `tasks.evidence.${kind}`;
+  }
+}
+
+const VIEW_ICON: Partial<Record<EvidenceView['kind'], LucideIcon>> = {
+  extractive: FileText,
+  memory_record: BookmarkPlus,
+  truncated: Scissors,
+};
+
 function EvidenceItem({ evidence }: { evidence: Evidence }) {
   const { t } = useI18n();
   const view = parseEvidence(evidence);
-  const extractive = view.kind === 'extractive';
   return (
     <li className={styles.item}>
       <span className={styles.icon}>
-        <Icon icon={extractive ? FileText : ICON[evidence.kind]} size={16} />
+        <Icon icon={VIEW_ICON[view.kind] ?? ICON[evidence.kind]} size={16} />
       </span>
       <div className={styles.body}>
         <div className={styles.head}>
-          <p className={styles.title}>
-            {extractive ? t('tasks.evidence.extractive') : t(`tasks.evidence.${evidence.kind}`)}
-          </p>
+          <p className={styles.title}>{t(evidenceTitle(view, evidence.kind))}</p>
           <ExactTime value={evidence.at} timeOnly className={styles.at} />
         </div>
         <EvidenceBody view={view} />
@@ -171,10 +191,31 @@ function EvidenceBody({ view }: { view: EvidenceView }) {
       );
     case 'extractive':
       return (
-        <p className={styles.detail}>
-          {t('tasks.evidence.extractiveDetail', { sentences: view.sentences, chars: view.chars })}
-        </p>
+        <>
+          <p className={styles.detail}>
+            {t('tasks.evidence.extractiveDetail', { sentences: view.sentences, chars: view.chars })}
+          </p>
+          {view.excluded !== null && view.excluded > 0 && (
+            <p className={styles.detail}>
+              {t('tasks.evidence.excluded', { count: view.excluded })}
+            </p>
+          )}
+        </>
       );
+    case 'memory_record':
+      return (
+        <div className={styles.valueRow}>
+          <span className={styles.valueLabel}>
+            {view.memoryKind ? t(`memory.kinds.${view.memoryKind}`) : t('tasks.evidence.memoryId')}
+          </span>
+          <code className={cx(styles.value, 'ltr')} title={view.memoryId}>
+            {shortHash(view.memoryId, 8, 4)}
+          </code>
+          <CopyButton value={view.memoryId} label={t('tasks.evidence.copyMemoryId')} />
+        </div>
+      );
+    case 'truncated':
+      return <p className={styles.detail}>{t('tasks.evidence.truncatedDetail')}</p>;
     case 'record':
     case 'note':
       return (

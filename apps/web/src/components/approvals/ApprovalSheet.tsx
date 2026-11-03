@@ -80,7 +80,8 @@ function ApprovalReview({
   onDecided?: (approval: Approval) => void;
   hideTaskLink?: boolean;
 }) {
-  const { t, tDynamic } = useI18n();
+  const i18n = useI18n();
+  const { t, tDynamic } = i18n;
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const pending = useApprovals();

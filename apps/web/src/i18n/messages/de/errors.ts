@@ -35,7 +35,8 @@ const errors: Catalog<typeof source> = {
     EMBEDDED_CREDENTIALS:
       'Die Adresse enthält einen Benutzernamen oder ein Passwort, daher öffnet JARVIS sie nicht.',
     MISSING_HOST: 'In der Adresse fehlt der Hostname.',
-    PRIVATE_ADDRESS: '{host} liegt in einem privaten oder lokalen Netzwerk, daher öffnet JARVIS es nicht.',
+    PRIVATE_ADDRESS:
+      '{host} liegt in einem privaten oder lokalen Netzwerk, daher öffnet JARVIS es nicht.',
     FETCH_TIMEOUT:
       '{host} hat nicht innerhalb von {seconds, plural, one {# Sekunde} other {# Sekunden}} geantwortet.',
     HOST_NOT_FOUND: 'Für {host} wurde kein Server gefunden.',
@@ -60,7 +61,8 @@ const errors: Catalog<typeof source> = {
     STEP_INTERRUPTED: '„{step}“ wurde unterbrochen, bevor der Schritt fertig war.',
     STEP_TIMEOUT: '„{step}“ hat zu lange gedauert und wurde gestoppt.',
     STEP_CRASHED: '„{step}“ wurde wegen eines unerwarteten Fehlers beendet.',
-    INVALID_STEP_INPUT: '„{step}“ hat Eingaben erhalten, mit denen der Schritt nichts anfangen kann.',
+    INVALID_STEP_INPUT:
+      '„{step}“ hat Eingaben erhalten, mit denen der Schritt nichts anfangen kann.',
     UNKNOWN_TOOL: 'Der Plan nutzt ein Werkzeug, das diese JARVIS-Version nicht hat ({tool}).',
     VERIFICATION_FAILED: 'Diese Schritte haben die Prüfung nicht bestanden: {steps}.',
     OFFLINE_UNSUPPORTED: 'Ohne KI-Modell versteht JARVIS nur wenige Arten von Anfragen.',

@@ -1,5 +1,7 @@
 import type { Approval } from '@jarvis/contracts';
+import type { Messages } from '@/i18n/catalog';
 import type { Formatters } from '@/i18n/format';
+import { renderServerMessage } from '@/i18n/server-message';
 import type { TranslateFn } from '@/i18n/translate';
 
 /** Left-to-right isolate … pop isolate: an email address stays one LTR run in any sentence. */
@@ -11,15 +13,23 @@ const WJ = '\u2060';
 /**
  * The one sentence the user consents to ("Send “Subject” to owner@example.com"), in the
  * interface language. For email it is built from the approval's details, so it never shows in
- * the language the request happened to be typed in. Other tools fall back to the server's
- * summary (`localized: false`: render it as user text, e.g. with <UserText>).
+ * the language the request happened to be typed in. Other tools use the server's sentence as a
+ * message (summaryMessage) in the interface language, and only without one fall back to the
+ * stored summary (`localized: false`: render it as user text, e.g. with <UserText>).
  */
 export function approvalSentence(
-  approval: Pick<Approval, 'details' | 'summary'>,
-  { t, f }: { t: TranslateFn; f: Pick<Formatters, 'list'> },
+  approval: Pick<Approval, 'details' | 'summary' | 'summaryMessage'>,
+  { t, f, messages }: { t: TranslateFn; f: Pick<Formatters, 'list'>; messages?: Messages },
 ): { text: string; localized: boolean } {
   const details = approval.details;
-  if (details.kind !== 'email') return { text: approval.summary, localized: false };
+  if (details.kind !== 'email') {
+    const rendered = messages
+      ? renderServerMessage({ t, messages }, approval.summaryMessage)
+      : null;
+    return rendered !== null
+      ? { text: rendered, localized: true }
+      : { text: approval.summary, localized: false };
+  }
   const subject = details.subject.trim() || t('approvals.fields.noSubject');
   // Each address is one LTR run that never breaks at its hyphens (word joiner after each).
   const recipients = f.list(

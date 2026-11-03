@@ -19,7 +19,12 @@ import Link from 'next/link';
 import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { ApprovalSentence } from '@/components/approvals/ApprovalSentence';
 import { ApprovalSheet } from '@/components/approvals/ApprovalSheet';
-import { untrustedSourceFacts } from '@/components/approvals/untrustedSource';
+import {
+  isUntrustedApproval,
+  untrustedSourceFacts,
+  untrustedSourceSentences,
+} from '@/components/approvals/untrustedSource';
+import { taskTitle } from '@/components/tasks/TaskRow';
 import { Page } from '@/components/shell/Page';
 import { TaskStatusPill } from '@/components/tasks/TaskStatusPill';
 import { Banner, ErrorBanner } from '@/components/ui/Banner';
@@ -35,6 +40,8 @@ import { Skeleton, SkeletonRow } from '@/components/ui/Skeleton';
 import { Spinner } from '@/components/ui/Spinner';
 import { UserText } from '@/components/ui/UserText';
 import { useI18n } from '@/i18n/I18nProvider';
+import { errorReason, errorTitle, renderServerMessage, serverText } from '@/i18n/server-message';
+import { stripIsolates } from '@/i18n/translate';
 import { isApiError, type ApiError } from '@/lib/api/client';
 import { useAnswerStream } from '@/lib/events/EventStreamProvider';
 import { cx } from '@/lib/cx';
@@ -48,8 +55,8 @@ import {
   attemptOf,
   emailDelivery,
   guidanceFor,
+  failedStep,
   isCancelRequested,
-  isUntrusted,
   needsModel,
   pendingApproval,
   restatesTitle,
@@ -121,7 +128,9 @@ function TaskDetailView({
   refreshError: unknown;
   onRefresh: () => void;
 }) {
-  const { t } = useI18n();
+  const i18n = useI18n();
+  const { t } = i18n;
+  const title = taskTitle(i18n, task);
   const statusRef = useRef<HTMLSpanElement>(null);
   const reviewRef = useRef<HTMLButtonElement>(null);
   const [actionError, setActionError] = useState<ApiError | null>(null);
@@ -153,7 +162,7 @@ function TaskDetailView({
       <BackLink />
       <Page
         width="wide"
-        title={<bdi>{task.title}</bdi>}
+        title={<bdi>{title}</bdi>}
         description={<HeaderMeta task={task} statusRef={statusRef} />}
         actions={
           headerCancel || actions.next ? (
@@ -182,12 +191,19 @@ function TaskDetailView({
                 onReview={() => review(approval)}
               />
             )}
-            {!restatesTitle(task.request, task.title) && <RequestQuote request={task.request} />}
+            {!restatesTitle(task.request, stripIsolates(title)) && (
+              <RequestQuote request={task.request} />
+            )}
             <StatusBanner task={task} />
             <AnswerSection task={task} streamed={stream.text} />
             <ResultSection task={task} />
             <PlanSection task={task} />
-            <HistorySection events={task.events} status={task.status} approvals={task.approvals} />
+            <HistorySection
+              events={task.events}
+              status={task.status}
+              approvals={task.approvals}
+              steps={task.steps}
+            />
             {approval && actions.cancel && (
               <div className={styles.endActions}>{actions.cancel}</div>
             )}
@@ -273,7 +289,8 @@ function RequestQuote({ request }: { request: string }) {
 
 /** One banner for the state the task is in (cancel requested, failed, cancelled, expired). */
 function StatusBanner({ task }: { task: TaskDetail }) {
-  const { t } = useI18n();
+  const i18n = useI18n();
+  const { t } = i18n;
   if (isCancelRequested(task)) {
     return <Banner tone="info" live title={t('tasks.banners.cancelRequested')} />;
   }
@@ -283,8 +300,14 @@ function StatusBanner({ task }: { task: TaskDetail }) {
       const guidance = guidanceFor(task.error);
       // Without an AI model some requests can't be planned: a limit of this setup, not a crash.
       const modelLimit = needsModel(task.error);
+      // What exactly happened (the error's reason), naming the step in the viewer's language.
+      const step = failedStep(task);
+      const reason = errorReason(i18n, task.error, {
+        step: step ? serverText(i18n, step.titleMessage, step.title) : null,
+      });
       return (
-        <Banner tone={modelLimit ? 'info' : 'danger'} title={t(`errors.codes.${task.error.code}`)}>
+        <Banner tone={modelLimit ? 'info' : 'danger'} title={errorTitle(i18n, task.error)}>
+          {reason && <p className={styles.guidance}>{reason}</p>}
           <p className={styles.guidance}>
             {t(guidance.key)}
             {!modelLimit && guidance.link && (
@@ -309,7 +332,17 @@ function StatusBanner({ task }: { task: TaskDetail }) {
       );
     }
     case 'CANCELLED':
-      return <Banner tone="info" title={t('tasks.banners.cancelled')} />;
+      // Declining an approval also ends the task: then say that (and what was declined).
+      return (
+        <Banner
+          tone="info"
+          title={
+            (task.resultSummaryMessage?.key === 'result.declined' &&
+              renderServerMessage(i18n, task.resultSummaryMessage)) ||
+            t('tasks.banners.cancelled')
+          }
+        />
+      );
     case 'EXPIRED':
       return <Banner tone="warning" title={t('tasks.banners.expired')} />;
     default:
@@ -330,10 +363,10 @@ function ApprovalPanel({
 }) {
   const { t } = useI18n();
   const email = approval.details.kind === 'email' ? approval.details : null;
-  const untrusted = isUntrusted(approval);
-  // Which page was flagged and whether the summary still carries its text (same facts and
-  // words as the approval sheet).
-  const source = untrustedSourceFacts(task);
+  const untrusted = isUntrustedApproval(approval);
+  // Which page was flagged and what happened to its text (same facts and words as the
+  // approval sheet).
+  const source = untrustedSourceSentences(t, untrustedSourceFacts(task, approval));
   return (
     <section className={styles.approval} aria-labelledby={`approval-${approval.id}`}>
       <div className={styles.approvalHead}>
@@ -372,14 +405,7 @@ function ApprovalPanel({
       )}
       {untrusted && (
         <p className={styles.untrustedNote}>
-          {source.host
-            ? t('approvals.untrusted.title', { host: source.host })
-            : t('approvals.untrusted.titleNoHost')}{' '}
-          {source.leftOut === true
-            ? t('approvals.untrusted.leftOut')
-            : source.leftOut === false
-              ? t('approvals.untrusted.mayInclude')
-              : t('approvals.untrusted.check')}
+          {source.title} {source.outcome ?? t('approvals.untrusted.check')}
         </p>
       )}
       <div className={styles.approvalFoot}>
@@ -456,7 +482,8 @@ function AnswerSection({ task, streamed }: { task: TaskDetail; streamed: string 
  * server's acceptance.
  */
 function ResultSection({ task }: { task: TaskDetail }) {
-  const { t, f } = useI18n();
+  const i18n = useI18n();
+  const { t, f } = i18n;
   const wide = useMediaQuery(WIDE_QUERY);
   const [proofOpen, setProofOpen] = useState<boolean | null>(null);
   const proofId = useId();
@@ -473,6 +500,7 @@ function ResultSection({ task }: { task: TaskDetail }) {
   // Said in the interface language from the step's output (the server writes the request's).
   const remembered = delivery ? null : savedMemory(task.steps);
   const open = proofOpen ?? wide;
+  const resultLine = renderServerMessage(i18n, task.resultSummaryMessage);
   const recipients =
     delivery && delivery.to.length <= 2
       ? f.list(delivery.to)
@@ -520,7 +548,12 @@ function ResultSection({ task }: { task: TaskDetail }) {
               {task.status === 'COMPLETED' && (
                 <Icon icon={CircleCheck} size={20} className={styles.outcomeIcon} />
               )}
-              <UserText as="p">{task.resultSummary}</UserText>
+              {/* A server sentence in the interface language; page or model text as user text. */}
+              {resultLine !== null ? (
+                <p>{resultLine}</p>
+              ) : (
+                <UserText as="p">{task.resultSummary}</UserText>
+              )}
             </div>
           )
         )}

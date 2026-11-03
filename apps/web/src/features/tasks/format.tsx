@@ -80,28 +80,3 @@ export function useByteFormat() {
     };
   }, [f.intlLocale]);
 }
-
-/** A duration as "2 s", "1 min 5 s" (Intl unit formatting, interface language). */
-export function useDurationFormat() {
-  const { f } = useI18n();
-  return useMemo(() => {
-    const unit = (u: 'millisecond' | 'second' | 'minute' | 'hour') =>
-      new Intl.NumberFormat(f.intlLocale, { style: 'unit', unit: u, unitDisplay: 'short' });
-    const ms = unit('millisecond');
-    const s = unit('second');
-    const min = unit('minute');
-    const h = unit('hour');
-    return (value: number) => {
-      if (value < 1000) return ms.format(Math.round(value));
-      const totalSeconds = Math.round(value / 1000);
-      if (totalSeconds < 60) return s.format(totalSeconds);
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-      if (minutes < 60)
-        return seconds ? `${min.format(minutes)} ${s.format(seconds)}` : min.format(minutes);
-      const hours = Math.floor(minutes / 60);
-      const rest = minutes % 60;
-      return rest ? `${h.format(hours)} ${min.format(rest)}` : h.format(hours);
-    };
-  }, [f.intlLocale]);
-}

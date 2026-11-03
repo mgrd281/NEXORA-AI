@@ -30,10 +30,19 @@ for (const locale of ['en', 'ar'] as const) {
       const seen = new Set<string>();
       for (let i = 0; i < MAX_STOPS; i++) {
         await page.keyboard.press('Tab');
-        // Let focus-driven scrolling and the skip link's transition settle.
-        await page.evaluate(
-          () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))),
-        );
+        // Let focus-driven scrolling and transitions settle (the skip link slides in): two
+        // frames, then every running animation / transition (capped, so a looping spinner
+        // cannot stall the walk). Sampling mid-slide measured a link still moving into view.
+        await page.evaluate(async () => {
+          await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+          const running = document
+            .getAnimations()
+            .filter(
+              (a) => a.playState === 'running' && a.effect?.getTiming().iterations !== Infinity,
+            )
+            .map((a) => a.finished.catch(() => undefined));
+          await Promise.race([Promise.all(running), new Promise((r) => setTimeout(r, 1000))]);
+        });
         const stop = await page.evaluate(() => {
           const el = document.activeElement as HTMLElement | null;
           if (!el || el === document.body) return null;

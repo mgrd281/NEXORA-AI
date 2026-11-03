@@ -17,7 +17,7 @@ export function ApprovalSentence({
   className,
   as = 'p',
 }: {
-  approval: Pick<Approval, 'details' | 'summary'>;
+  approval: Pick<Approval, 'details' | 'summary' | 'summaryMessage'>;
   className?: string;
   as?: 'p' | 'span';
 }) {

@@ -356,7 +356,8 @@ const tasks: Catalog<typeof source> = {
       memorySaved: 'Im Gedächtnis gespeichert: „{text}“.',
       declined: 'Du hast abgelehnt, daher wurde nichts gesendet oder geändert: {action}',
       cancelled: 'Auf deinen Wunsch abgebrochen.',
-      expired: 'Die Freigabeanfrage ist abgelaufen, bevor du entschieden hast. Es wurde nichts ausgeführt.',
+      expired:
+        'Die Freigabeanfrage ist abgelaufen, bevor du entschieden hast. Es wurde nichts ausgeführt.',
     },
   },
 };
