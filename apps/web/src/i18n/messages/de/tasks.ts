@@ -27,7 +27,8 @@ const tasks: Catalog<typeof source> = {
     loadingMore: 'Weitere Aufgaben werden geladen …',
     loadError: 'Ihre Aufgaben konnten nicht geladen werden.',
     loadMoreError: 'Weitere Aufgaben konnten nicht geladen werden.',
-    refreshError: 'Ihre Aufgaben konnten nicht aktualisiert werden. Angezeigt wird der letzte bekannte Stand.',
+    refreshError:
+      'Ihre Aufgaben konnten nicht aktualisiert werden. Angezeigt wird der letzte bekannte Stand.',
     shown: '{count, plural, one {# Aufgabe angezeigt} other {# Aufgaben angezeigt}}',
     allShown: 'Das sind alle.',
   },
@@ -41,7 +42,8 @@ const tasks: Catalog<typeof source> = {
     back: 'Alle Aufgaben',
     loading: 'Aufgabe wird geladen …',
     loadError: 'Diese Aufgabe konnte nicht geladen werden.',
-    refreshError: 'Diese Aufgabe konnte nicht aktualisiert werden. Angezeigt wird der letzte bekannte Stand.',
+    refreshError:
+      'Diese Aufgabe konnte nicht aktualisiert werden. Angezeigt wird der letzte bekannte Stand.',
     notFoundTitle: 'Aufgabe nicht gefunden',
     notFound: 'Diese Aufgabe gibt es nicht oder sie wurde gelöscht.',
     created: 'Erstellt {time}',
