@@ -1,7 +1,7 @@
 'use client';
 
 import type { AssistantStatus, TaskSummary } from '@jarvis/contracts';
-import { ArrowUp, Info, Mic } from 'lucide-react';
+import { ArrowUp, ChevronRight, Mic } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -23,6 +23,7 @@ import { Kbd } from '@/components/ui/Kbd';
 import { useToast } from '@/components/ui/Toast';
 import { VoiceMode } from '@/components/voice/VoiceMode';
 import { useI18n } from '@/i18n/I18nProvider';
+import { stripIsolates, templateWithSlot } from '@/i18n/translate';
 import { newIdempotencyKey } from '@/lib/api/client';
 import { useAssistantStatus, useCreateTask } from '@/lib/api/hooks';
 import { cx } from '@/lib/cx';
@@ -47,8 +48,9 @@ export interface CommandComposerProps {
 /**
  * "Ask JARVIS to do something…": an auto-growing request field. Enter sends, Shift+Enter adds a
  * line, the mic opens voice mode. Each submission is POSTed once with its own Idempotency-Key
- * (reused if the same text is retried after an error). While the planner is offline, a quiet
- * hint lists what works without an AI model.
+ * (reused if the same text is retried after an error). The key hint shows only while the
+ * field is focused and empty. In basic mode (no AI model) one quiet line under the field offers
+ * the requests that work, each as a chip that fills in a template with its slot selected.
  */
 export function CommandComposer({
   onCreated,
@@ -65,6 +67,7 @@ export function CommandComposer({
   const createTask = useCreateTask();
   const [text, setText] = useState('');
   const [voiceOpen, setVoiceOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const keyFor = useRef<{ text: string; key: string } | null>(null);
   const inputId = useId();
@@ -83,13 +86,16 @@ export function CommandComposer({
   const handle = useCallback<() => ComposerHandle>(
     () => ({
       focus: () => textareaRef.current?.focus(),
-      setText: (value: string) => {
+      setText: (raw: string, selection?: { start: number; end: number }) => {
+        // Translated templates carry bidi isolation marks; request text never should.
+        const value = stripIsolates(raw);
         setText(value);
         requestAnimationFrame(() => {
           const el = textareaRef.current;
           if (!el) return;
           el.focus();
-          el.setSelectionRange(value.length, value.length);
+          if (selection) el.setSelectionRange(selection.start, selection.end);
+          else el.setSelectionRange(value.length, value.length);
         });
       },
     }),
@@ -135,6 +141,7 @@ export function CommandComposer({
   const describedBy = [hintId, text.length >= SHOW_COUNT_FROM ? countId : null]
     .filter(Boolean)
     .join(' ');
+  const showCount = text.length >= SHOW_COUNT_FROM;
 
   return (
     <div className={cx(styles.root, className)}>
@@ -159,6 +166,8 @@ export function CommandComposer({
               if (createTask.isError) createTask.reset();
             }}
             onKeyDown={onKeyDown}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             aria-describedby={describedBy || undefined}
             aria-invalid={over > 0 || undefined}
             // eslint-disable-next-line jsx-a11y/no-autofocus -- only when a screen opts in
@@ -168,6 +177,19 @@ export function CommandComposer({
             enterKeyHint="send"
             spellCheck
           />
+          {/* Shown while the field is focused and empty; always the field's description. */}
+          <p
+            id={hintId}
+            className={cx(styles.hint, !(focused && text === '') && 'visually-hidden')}
+          >
+            <Kbd>{t('composer.keyEnter')}</Kbd> {t('composer.hintSend')}
+            <span className={styles.dot} aria-hidden="true">
+              ·
+            </span>
+            <Kbd>{t('composer.keyShift')}</Kbd>
+            <span aria-hidden="true">+</span>
+            <Kbd>{t('composer.keyEnter')}</Kbd> {t('composer.hintNewLine')}
+          </p>
           <div className={styles.actions}>
             <IconButton
               label={t('composer.voice')}
@@ -188,28 +210,17 @@ export function CommandComposer({
             />
           </div>
         </div>
-        <div className={styles.below}>
-          <p id={hintId} className={styles.hint}>
-            <Kbd>{t('composer.keyEnter')}</Kbd> {t('composer.hintSend')}
-            <span className={styles.dot} aria-hidden="true">
-              ·
-            </span>
-            <Kbd>{t('composer.keyShift')}</Kbd>
-            <span aria-hidden="true">+</span>
-            <Kbd>{t('composer.keyEnter')}</Kbd> {t('composer.hintNewLine')}
+        {showCount && (
+          <p
+            id={countId}
+            className={cx(styles.count, over > 0 && styles.countOver, 'tabular')}
+            aria-live="polite"
+          >
+            {over > 0
+              ? t('composer.tooLong', { count: over })
+              : t('composer.characterCount', { count: text.length, max: MAX_REQUEST })}
           </p>
-          {text.length >= SHOW_COUNT_FROM && (
-            <p
-              id={countId}
-              className={cx(styles.count, over > 0 && styles.countOver, 'tabular')}
-              aria-live="polite"
-            >
-              {over > 0
-                ? t('composer.tooLong', { count: over })
-                : t('composer.characterCount', { count: text.length, max: MAX_REQUEST })}
-            </p>
-          )}
-        </div>
+        )}
         {createTask.isError && (
           <ErrorBanner
             error={createTask.error}
@@ -218,7 +229,15 @@ export function CommandComposer({
           />
         )}
       </form>
-      {status.data?.planner.mode === 'offline' && <OfflineHint status={status.data} />}
+      {status.data?.planner.mode === 'offline' && (
+        <BasicModeLine
+          status={status.data}
+          onTemplate={(raw) => {
+            const { text: value, start, end } = templateWithSlot(raw);
+            handle().setText(value, { start, end });
+          }}
+        />
+      )}
       <VoiceMode
         open={voiceOpen}
         onClose={() => setVoiceOpen(false)}
@@ -232,44 +251,76 @@ export function CommandComposer({
   );
 }
 
-/** What the deterministic offline planner understands, given the live capabilities. */
-function OfflineHint({ status }: { status: AssistantStatus }) {
+type BasicCapability = 'summarize' | 'remember' | 'emailMe';
+
+/**
+ * Basic mode (the deterministic planner, no AI model): one quiet line under the composer with
+ * the requests that work. Each is a chip that fills in a template with its slot selected, so
+ * typing or pasting replaces it. A capability that is off stays visible, disabled, with why.
+ */
+function BasicModeLine({
+  status,
+  onTemplate,
+}: {
+  status: AssistantStatus;
+  onTemplate: (template: string) => void;
+}) {
   const { t } = useI18n();
   const caps = status.capabilities;
-  const items = [
+  const items: Array<{ key: BasicCapability; template: string; missing: string | null }> = [
     {
-      text: t('composer.offline.summarize'),
+      key: 'summarize',
+      template: t('composer.offline.templates.summarize', {
+        slot: t('composer.offline.slots.link'),
+      }),
       missing: caps.webFetch ? null : t('composer.offline.needsWeb'),
     },
     {
-      text: t('composer.offline.remember'),
+      key: 'remember',
+      template: t('composer.offline.templates.remember', {
+        slot: t('composer.offline.slots.something'),
+      }),
       missing: caps.memory ? null : t('composer.offline.memoryOff'),
     },
     {
-      text: t('composer.offline.emailMe'),
+      key: 'emailMe',
+      template: t('composer.offline.templates.emailMe', {
+        slot: t('composer.offline.slots.text'),
+      }),
       missing: caps.email ? null : t('composer.offline.needsEmail'),
     },
   ];
   return (
-    <aside className={styles.offline} aria-label={t('composer.offline.title')}>
-      <Icon icon={Info} size={16} className={styles.offlineIcon} />
-      <div className={styles.offlineBody}>
-        <p className={styles.offlineLead}>
-          <strong className={styles.offlineTitle}>{t('composer.offline.title')}</strong>{' '}
-          {t('composer.offline.body')}
-        </p>
-        <ul className={styles.offlineList}>
-          {items.map((item) => (
-            <li key={item.text}>
-              <span className={styles.command}>{item.text}</span>
-              {item.missing && <span className={styles.missing}> — {item.missing}</span>}
-            </li>
-          ))}
-        </ul>
-        <Link href="/settings#assistant" className={styles.offlineLink}>
-          {t('composer.offline.settingsLink')}
-        </Link>
-      </div>
+    <aside className={styles.basic} aria-label={t('composer.offline.title')}>
+      <p className="visually-hidden">{t('composer.offline.body')}</p>
+      {/* The mode is also the way to learn about it: Settings › Assistant explains why. */}
+      <Link
+        href="/settings#assistant"
+        className={styles.basicMode}
+        aria-label={t('composer.offline.settingsLink')}
+      >
+        <span className={styles.basicDot} aria-hidden="true" />
+        {t('composer.offline.title')}
+        <Icon icon={ChevronRight} size={16} mirror className={styles.basicChevron} />
+      </Link>
+      {/* role="list": display: contents must not drop the list semantics. */}
+      {/* eslint-disable-next-line jsx-a11y/no-redundant-roles */}
+      <ul className={styles.basicList} role="list">
+        {items.map((item) => (
+          <li key={item.key} className={styles.basicItem}>
+            <button
+              type="button"
+              className={styles.chip}
+              disabled={item.missing !== null}
+              onClick={() => onTemplate(item.template)}
+              title={item.missing ? undefined : t('composer.offline.fills')}
+            >
+              {t(`composer.offline.${item.key}`)}
+            </button>
+            {item.missing && <span className={styles.missing}>{item.missing}</span>}
+          </li>
+        ))}
+      </ul>
     </aside>
   );
 }

@@ -75,9 +75,15 @@
 }
 
 .step[data-status='SKIPPED'] .marker,
-.step[data-status='CANCELLED'] .marker {
+.step[data-status='CANCELLED'] .marker,
+.step[data-status='NOT_RUN'] .marker {
   border-style: dashed;
   color: var(--color-text-tertiary);
+}
+
+/* A step that never ran reads as secondary to the ones that did. */
+.step[data-status='NOT_RUN'] .title {
+  color: var(--color-text-secondary);
 }
 
 .number {
@@ -151,11 +157,6 @@
   background: var(--color-surface-sunken);
 }
 
-.policy-require_approval {
-  background: var(--color-warning-soft);
-  border-color: transparent;
-}
-
 .policy-deny {
   background: var(--color-danger-soft);
   border-color: transparent;
@@ -167,10 +168,6 @@
   gap: var(--space-2);
   font: var(--text-label);
   color: var(--color-text-secondary);
-}
-
-.policy.policy-require_approval .policyTitle {
-  color: var(--color-warning);
 }
 
 .policy.policy-deny .policyTitle {
@@ -195,6 +192,30 @@
   padding-inline: var(--space-3);
   border-radius: var(--radius-md);
   background: var(--color-danger-soft);
+}
+
+/* After the decision: "Approved by you · 9:05 PM". */
+.decided {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+}
+
+.decidedIcon {
+  flex: none;
+  margin-block-start: 2px;
+  color: var(--color-text-tertiary);
+}
+
+.decided[data-decision='APPROVED'] .decidedIcon {
+  color: var(--color-success);
+}
+
+.errorLink {
+  align-self: flex-start;
+  font: var(--text-callout);
 }
 
 .errorCompact {

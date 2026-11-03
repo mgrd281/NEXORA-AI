@@ -10,9 +10,15 @@
   flex-direction: column;
   max-block-size: min(560px, calc(100dvh - 96px));
   overflow: hidden;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-overlay);
   border-radius: var(--radius-lg);
-  background: var(--color-surface);
+  background: var(--color-surface-raised);
+  /* Hover inside a raised layer must still read as a change. */
+  --color-surface-hover: color-mix(
+    in srgb,
+    var(--color-surface-raised),
+    var(--color-text-primary) 7%
+  );
   color: var(--color-text-primary);
   box-shadow: var(--shadow-popover);
   outline: none;

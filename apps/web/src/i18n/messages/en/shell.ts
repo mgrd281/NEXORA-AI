@@ -30,12 +30,15 @@ const shell = {
   },
   shortcuts: {
     title: 'Keyboard shortcuts',
-    focusComposer: 'Ask JARVIS',
+    focusComposer: 'Ask JARVIS from any page',
+    focusComposerHere: 'Go to the request field on this page',
     showShortcuts: 'Show keyboard shortcuts',
     send: 'Send a request',
     newLine: 'New line in a request',
     closeOverlay: 'Close a dialog or sheet',
-    or: 'or',
+    singleKey: 'Single-key shortcuts',
+    singleKeyHint:
+      'Use / and ? without a modifier key. Turn this off if you use speech input or other tools that type for you.',
   },
   placeholder: {
     building: 'This screen is being built.',

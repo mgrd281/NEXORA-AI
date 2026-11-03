@@ -48,11 +48,14 @@ export function TaskRow({
           className={styles.link}
           aria-label={t('tasks.row.accessibleName', { title: task.title, status, time: updated })}
         >
-          <bdi className={styles.title}>{task.title}</bdi>
+          {/* dir="auto" on the truncating element: the ellipsis falls at the end of the text's
+              own direction, while text-align: match-parent keeps it on the list's start edge. */}
+          <span className={styles.title} dir="auto">
+            {task.title}
+          </span>
         </Link>
-        {/* bdi: the text keeps its own direction but aligns with the list. */}
-        <span className={styles.line}>
-          <bdi>{taskLine(task)}</bdi>
+        <span className={styles.line} dir="auto">
+          {taskLine(task)}
         </span>
       </div>
       <div className={styles.meta}>

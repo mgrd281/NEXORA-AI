@@ -25,9 +25,9 @@ import {
   type SmtpSecret,
 } from '../../connections/smtp';
 import { AgentError } from '../errors';
-import { t } from '../i18n';
+import { msg, render } from '../i18n';
 import { hasTemplate } from '../templates';
-import { evidence, type ToolDefinition } from './types';
+import { check, evidence, type ToolDefinition } from './types';
 
 export const EmailSendInput = z.object({
   to: z
@@ -53,7 +53,10 @@ export function messageIdFor(idempotencyKey: string, fromAddress: string): strin
 export function classifySmtpError(err: unknown): AgentError {
   if (err instanceof AgentError) return err;
   if (err instanceof AppError) {
-    return new AgentError('CONNECTION_FAILED', err.message, { retryable: true });
+    return new AgentError('CONNECTION_FAILED', err.message, {
+      retryable: true,
+      reason: 'SMTP_UNUSABLE',
+    });
   }
   const e = err as { code?: string; command?: string; responseCode?: number; response?: string };
   const command = e.command ?? '';
@@ -61,13 +64,13 @@ export function classifySmtpError(err: unknown): AgentError {
     return new AgentError(
       'CONNECTION_FAILED',
       'The mail server rejected the username or password. Update the email connection, then retry.',
-      { retryable: true },
+      { retryable: true, reason: 'SMTP_AUTH' },
     );
   if (typeof e.responseCode === 'number' && e.responseCode >= 400) {
     return new AgentError(
       'TOOL_FAILED',
       `The mail server refused the message (${e.responseCode}). Nothing was sent.`,
-      { retryable: true },
+      { retryable: true, reason: 'SMTP_REFUSED', params: { responseCode: e.responseCode } },
     );
   }
   if (
@@ -79,14 +82,19 @@ export function classifySmtpError(err: unknown): AgentError {
     return new AgentError(
       'CONNECTION_FAILED',
       'Could not connect to the mail server. Nothing was sent; you can retry.',
-      { retryable: true },
+      { retryable: true, reason: 'SMTP_CONNECT' },
     );
   }
   return new AgentError(
     'OUTCOME_UNKNOWN',
     'The mail server stopped responding while the email was being sent, so JARVIS cannot tell whether it was delivered. Check your Sent folder or inbox before retrying.',
-    { retryable: false },
+    { retryable: false, reason: 'SEND_INTERRUPTED' },
   );
+}
+
+/** The recipients of a summary sentence: the addresses, or "N recipients" beyond two. */
+export function recipientsParam(to: readonly string[]) {
+  return to.length <= 2 ? to.join(', ') : msg('approval.recipientsMany', { count: to.length });
 }
 
 const lower = (xs: unknown): string[] =>
@@ -129,10 +137,10 @@ export const emailSendTool: ToolDefinition<EmailSendInput> = {
     body: truncate(input.body, 2_000),
   }),
   approvalDetails(input, ctx) {
-    const recipients =
-      input.to.length <= 2
-        ? input.to.join(', ')
-        : t(ctx.language, 'approval.recipientsMany', { count: input.to.length });
+    const summaryMessage = msg('approval.email', {
+      subject: input.subject,
+      recipients: recipientsParam(input.to),
+    });
     return {
       details: {
         kind: 'email',
@@ -141,7 +149,8 @@ export const emailSendTool: ToolDefinition<EmailSendInput> = {
         subject: input.subject,
         body: input.body,
       },
-      summary: t(ctx.language, 'approval.email', { subject: input.subject, recipients }),
+      summary: render(ctx.language, summaryMessage),
+      summaryMessage,
     };
   },
   async execute(input, rt, signal) {
@@ -149,6 +158,7 @@ export const emailSendTool: ToolDefinition<EmailSendInput> = {
     if (!conn) {
       throw new AgentError('CONNECTION_REQUIRED', 'Connect an email account to send email.', {
         retryable: true,
+        reason: 'EMAIL_NOT_CONNECTED',
       });
     }
     const cfg = conn.config as unknown as SmtpConfig;
@@ -167,7 +177,7 @@ export const emailSendTool: ToolDefinition<EmailSendInput> = {
         ? new AgentError(
             'CONNECTION_FAILED',
             'The saved email connection could not be used. Reconnect the email account, then retry. Nothing was sent.',
-            { retryable: true },
+            { retryable: true, reason: 'SMTP_UNUSABLE' },
           )
         : classified;
     }
@@ -185,6 +195,7 @@ export const emailSendTool: ToolDefinition<EmailSendInput> = {
             new AgentError(
               'OUTCOME_UNKNOWN',
               'Sending the email took too long, so JARVIS cannot tell whether it was delivered. Check your Sent folder or inbox before retrying.',
+              { reason: 'SEND_TIMEOUT' },
             ),
           );
         if (signal.aborted) return onAbort();
@@ -223,6 +234,14 @@ export const emailSendTool: ToolDefinition<EmailSendInput> = {
             'smtp_receipt',
             `SMTP ${code} · ${output.accepted.length} accepted`,
             `${truncate(output.response, 300)} · Message-ID ${output.messageId}`,
+            'SMTP_RECEIPT',
+            {
+              replyCode: code,
+              accepted: output.accepted.length,
+              total: input.to.length,
+              response: truncate(output.response, 300),
+              messageId: output.messageId,
+            },
           ),
         ],
         costMicro: 0,
@@ -238,13 +257,21 @@ export const emailSendTool: ToolDefinition<EmailSendInput> = {
     const rejected = lower(output.rejected);
     const response = String(output.response ?? '');
     const allAccepted = input.to.every((r) => accepted.has(r.toLowerCase()));
+    const acceptedCount = input.to.filter((r) => accepted.has(r.toLowerCase())).length;
+    const shortResponse = truncate(response, 120);
+    const messageId = String(output.messageId ?? '');
     return {
       ok: allAccepted && rejected.length === 0 && response.startsWith('250'),
       checks: [
-        `${input.to.filter((r) => accepted.has(r.toLowerCase())).length}/${input.to.length} recipients accepted`,
-        rejected.length ? `Rejected: ${rejected.join(', ')}` : 'No recipients rejected',
-        `Server response: ${truncate(response, 120)}`,
-        `Message-ID ${String(output.messageId ?? '')}`,
+        check('recipientsAccepted', `${acceptedCount}/${input.to.length} recipients accepted`, {
+          accepted: acceptedCount,
+          count: input.to.length,
+        }),
+        rejected.length
+          ? check('rejected', `Rejected: ${rejected.join(', ')}`, { list: rejected.join(', ') })
+          : check('noneRejected', 'No recipients rejected'),
+        check('serverResponse', `Server response: ${shortResponse}`, { response: shortResponse }),
+        check('messageId', `Message-ID ${messageId}`, { id: messageId }),
       ],
     };
   },

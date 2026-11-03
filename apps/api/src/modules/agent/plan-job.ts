@@ -13,13 +13,14 @@ import { appendEvent } from '../events/events';
 import { enqueue } from '../jobs/queue';
 import { loadAgentContext, relevantMemories, type AgentContext } from './context';
 import { AgentError } from './errors';
-import { asLocale, t } from './i18n';
+import { asLocale, msg, render } from './i18n';
 import { costMicro } from './models/pricing';
 import { selectModel } from './models/router';
 import { planTask, type PlanOutcome } from './planner';
-import { denyMessage } from './policy';
+import { denyMessage, denyReason } from './policy';
 import type { RuntimeDeps } from './runtime';
 import { withKeepAlive } from './runtime';
+import { stepRef } from './events-data';
 import { assessStep, maxRisk } from './step-policy';
 import {
   cancelOpenSteps,
@@ -38,6 +39,15 @@ export type JobOutcome = 'done' | 'awaiting_approval';
 
 const FINISHED_STEP = new Set(['SUCCEEDED', 'SKIPPED']);
 
+/** result_summary + result_summary_message of a cancelled task. */
+export function cancelledResult(language: string | null) {
+  const m = msg('result.cancelled');
+  return {
+    result_summary: render(asLocale(language), m),
+    result_summary_message: JSON.stringify(m),
+  };
+}
+
 /** RUNNING/PLANNING task with cancel_requested_at → CANCELLED (worker side of cancel). */
 export async function finishCancellation(
   trx: Parameters<typeof lockTask>[0],
@@ -46,9 +56,7 @@ export async function finishCancellation(
 ): Promise<void> {
   await closePendingApprovals(trx, task.id);
   await cancelOpenSteps(trx, task.id);
-  await transitionTask(trx, ctx, task, 'CANCELLED', {
-    result_summary: t(asLocale(task.language), 'result.cancelled'),
-  });
+  await transitionTask(trx, ctx, task, 'CANCELLED', cancelledResult(task.language));
   await audit(trx, {
     tenantId: ctx.tenantId,
     actorType: 'user',
@@ -75,9 +83,7 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
       if (task.status === 'PLANNING') await finishCancellation(trx, ctx, task);
       else {
         await cancelOpenSteps(trx, task.id);
-        await transitionTask(trx, ctx, task, 'CANCELLED', {
-          result_summary: t(asLocale(task.language), 'result.cancelled'),
-        });
+        await transitionTask(trx, ctx, task, 'CANCELLED', cancelledResult(task.language));
       }
       return null;
     }
@@ -128,7 +134,10 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
       error:
         err instanceof AgentError
           ? err
-          : new AgentError('INTERNAL', 'Planning failed unexpectedly.', { retryable: true }),
+          : new AgentError('INTERNAL', 'Planning failed unexpectedly.', {
+              retryable: true,
+              reason: 'PLANNING_FAILED',
+            }),
       planner: { mode: a.route.mode, provider: a.route.provider, model: null },
       usage: err instanceof AgentError ? err.usage : [],
     }));
@@ -162,6 +171,7 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
             position,
             step_key: s.key,
             title: s.title,
+            title_message: s.titleMessage ? JSON.stringify(s.titleMessage) : null,
             tool_id: s.toolId,
             input: JSON.stringify(s.input),
             risk_level: 'LOW' as const,
@@ -170,7 +180,9 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
         .execute();
       task = await patchTask(trx, task, {
         title: plan.title,
+        title_message: plan.titleMessage ? JSON.stringify(plan.titleMessage) : null,
         objective: plan.objective,
+        objective_message: plan.objectiveMessage ? JSON.stringify(plan.objectiveMessage) : null,
         planner: JSON.stringify(outcome.planner satisfies PlannerInfo),
       });
     }
@@ -198,6 +210,8 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
           code: 'INTERNAL',
           message: `This task uses a tool that no longer exists (${step.tool_id}).`,
           retryable: false,
+          reason: 'UNKNOWN_TOOL',
+          params: { tool: step.tool_id },
         });
         return 'done';
       }
@@ -215,11 +229,14 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
         .where('id', '=', step.id)
         .execute();
       if (a.policy.decision === 'deny') {
+        const code = a.policy.denyCode ?? 'POLICY_DENIED';
         const error = {
-          code: a.policy.denyCode ?? 'POLICY_DENIED',
-          message: denyMessage(a.policy.denyCode ?? 'POLICY_DENIED', a.policy.reasons, step.title),
+          code,
+          message: denyMessage(code, a.policy.reasons, step.title),
           retryable: true,
-        } as const;
+          reason: denyReason(code, a.policy.reasons),
+          params: { step: step.title },
+        };
         await trx
           .updateTable('task_steps')
           .set({ status: 'BLOCKED', error: taskErrorJson(error), completed_at: new Date() })
@@ -228,12 +245,7 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
         await appendEvent(trx, ctx, {
           taskId,
           type: 'step.blocked',
-          data: {
-            stepId: step.id,
-            toolId: step.tool_id,
-            title: step.title,
-            reasons: a.policy.reasons,
-          },
+          data: { ...stepRef(step), reasons: a.policy.reasons },
         });
         task = await patchTask(trx, task, { risk_level: maxRisk(risks) });
         await failTask(trx, ctx, task, error);

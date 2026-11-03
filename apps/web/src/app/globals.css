@@ -101,6 +101,19 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Phones: the fixed top bar and tab bar never cover the focused control (WCAG 2.4.11).
+   Focus and scrollIntoView keep the target clear of both bars. */
+@media (max-width: 899.98px) {
+  html {
+    scroll-padding-block-start: calc(
+      var(--topbar-height) + env(safe-area-inset-top) + var(--space-2)
+    );
+    scroll-padding-block-end: calc(
+      var(--tabbar-height) + env(safe-area-inset-bottom) + var(--space-2)
+    );
+  }
+}
+
 body {
   margin: 0;
   min-height: 100dvh;
@@ -200,9 +213,39 @@ a:hover {
   color: var(--color-text-primary);
 }
 
-/* German compounds wrap instead of overflowing narrow columns. */
-[lang]:lang(de) :where(h1, h2, h3, p, li, dd, td, th, label, legend) {
+/*
+ * German hyphenation, kept to where it helps: only long compounds (10+ letters, 4+ on each
+ * side of the break), only in table headers and in running text on phone-width columns, and
+ * never in headings, the brand or text in another language (user and server text is
+ * direction-isolated and keeps manual hyphenation, so English never gets German breaks).
+ */
+[lang]:lang(de) {
+  hyphenate-limit-chars: 10 4 4;
+}
+
+[lang]:lang(de) :where(th) {
   hyphens: auto;
+}
+
+@media (max-width: 639.98px) {
+  [lang]:lang(de) :where(p, li, dd, td, label, legend) {
+    hyphens: auto;
+  }
+}
+
+[lang] :is(h1, h2, h3, h4, [dir='auto'], [dir='auto'] *, bdi, bdi *, [translate='no']) {
+  hyphens: manual;
+}
+
+/*
+ * User and server text marked dir="auto" keeps its own direction for word order, but aligns
+ * with the interface (the start edge of its container), so a list or a field column stays on
+ * one edge in every locale. The email body, inputs and textareas still follow their text.
+ */
+:where([dir='auto']:not(pre, textarea, input)) {
+  text-align: match-parent;
+  /* Chromium and WebKit compute only the prefixed keyword relative to the parent. */
+  text-align: -webkit-match-parent;
 }
 
 /* Arabic is never italicised. */

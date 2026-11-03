@@ -149,7 +149,11 @@ export async function planTask(
     if (!offline.ok) {
       return {
         ok: false,
-        error: new AgentError(offline.code, offline.message, { retryable: false }),
+        error: new AgentError(offline.code, offline.message, {
+          retryable: false,
+          reason: offline.reason,
+          params: offline.params,
+        }),
         planner: OFFLINE_PLANNER,
         usage: [],
       };
@@ -162,6 +166,7 @@ export async function planTask(
         ok: false,
         error: new AgentError('PLANNER_UNSUPPORTED', checked.issues.join('; '), {
           retryable: false,
+          reason: 'INVALID_PLAN',
         }),
         planner: OFFLINE_PLANNER,
         usage: [],
@@ -179,7 +184,9 @@ export async function planTask(
   if (input.tools.length === 0) {
     return {
       ok: false,
-      error: new AgentError('PLANNER_UNSUPPORTED', 'No tools are available for this account.'),
+      error: new AgentError('PLANNER_UNSUPPORTED', 'No tools are available for this account.', {
+        reason: 'NO_TOOLS',
+      }),
       planner,
       usage: [],
     };
@@ -216,7 +223,10 @@ export async function planTask(
       const e =
         err instanceof AgentError
           ? err
-          : new AgentError('MODEL_ERROR', 'Planning failed.', { retryable: true });
+          : new AgentError('MODEL_ERROR', 'Planning failed.', {
+              retryable: true,
+              reason: 'PLANNING_FAILED',
+            });
       return { ok: false, error: e, planner, usage: [...usage, ...e.usage] };
     }
     usage.push(result.usage);
@@ -235,7 +245,7 @@ export async function planTask(
     error: new AgentError(
       'MODEL_ERROR',
       'The AI model could not produce a valid plan for this request. Try rephrasing it.',
-      { retryable: true },
+      { retryable: true, reason: 'INVALID_PLAN' },
     ),
     planner,
     usage,

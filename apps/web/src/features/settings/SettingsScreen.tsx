@@ -2,14 +2,29 @@
 
 import type { Me } from '@jarvis/contracts';
 import type { LucideIcon } from 'lucide-react';
-import { Bell, Bot, Languages, Lock, Mic, Palette, ShieldCheck, UserRound } from 'lucide-react';
-import { useEffect, useState, type MouseEvent } from 'react';
+import {
+  Bell,
+  Bot,
+  ChevronRight,
+  Languages,
+  Lock,
+  Mic,
+  Palette,
+  ShieldCheck,
+  UserRound,
+  Wallet,
+} from 'lucide-react';
+import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
+import { plannerLabel } from '@/components/shell/AssistantStatusLine';
 import { Page } from '@/components/shell/Page';
 import { ErrorBanner } from '@/components/ui/Banner';
 import { Icon } from '@/components/ui/Icon';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { UserText } from '@/components/ui/UserText';
+import { LANGUAGE_NAMES } from '@/i18n/config';
 import { useI18n } from '@/i18n/I18nProvider';
-import { useMe } from '@/lib/api/hooks';
+import { useAssistantStatus, useMe } from '@/lib/api/hooks';
+import { useSessions, useUsage } from './api';
 import { AppearanceSection } from './AppearanceSection';
 import { AssistantSection } from './AssistantSection';
 import { NotificationsSection } from './NotificationsSection';
@@ -18,6 +33,7 @@ import { ProfileSection } from './ProfileSection';
 import { RegionSection } from './RegionSection';
 import { SecuritySection } from './SecuritySection';
 import { SETTINGS_SECTIONS, type SettingsSectionId } from './SettingsSection';
+import { UsageSection } from './UsageSection';
 import { VoiceSection } from './VoiceSection';
 import styles from './settings.module.css';
 
@@ -27,6 +43,7 @@ const SECTION_ICONS: Record<SettingsSectionId, LucideIcon> = {
   appearance: Palette,
   voice: Mic,
   assistant: Bot,
+  usage: Wallet,
   notifications: Bell,
   security: ShieldCheck,
   privacy: Lock,
@@ -63,6 +80,7 @@ function SettingsBody({ me }: { me: Me }) {
 
   return (
     <div className={styles.layout}>
+      <SettingsIndex me={me} onGo={go} />
       <nav aria-label={t('settings.navLabel')} className={styles.subnav}>
         <ul className={styles.navList}>
           {SETTINGS_SECTIONS.map((id) => (
@@ -86,11 +104,78 @@ function SettingsBody({ me }: { me: Me }) {
         <AppearanceSection me={me} />
         <VoiceSection me={me} />
         <AssistantSection me={me} />
+        <UsageSection me={me} />
         <NotificationsSection me={me} />
         <SecuritySection />
         <PrivacySection />
       </div>
     </div>
+  );
+}
+
+/**
+ * Below 1024 px: every section as one row with its current value and a chevron, under the
+ * title (the iOS Settings pattern), so the first screen of a phone shows all of Settings.
+ * Each row jumps to its section like the side navigation does on wide screens.
+ */
+function SettingsIndex({
+  me,
+  onGo,
+}: {
+  me: Me;
+  onGo: (e: MouseEvent<HTMLAnchorElement>, id: SettingsSectionId) => void;
+}) {
+  const { t, f } = useI18n();
+  const status = useAssistantStatus();
+  const usage = useUsage();
+  const sessions = useSessions();
+  const prefs = me.preferences;
+  const notifications = Object.values(prefs.notifications);
+
+  const values: Record<SettingsSectionId, ReactNode> = {
+    profile: <UserText>{me.displayName}</UserText>,
+    language: LANGUAGE_NAMES[me.locale],
+    appearance: t(`common.theme.${me.theme}`),
+    voice: prefs.voice.speakResponses ? t('settings.index.voiceOn') : t('settings.index.voiceOff'),
+    assistant: plannerLabel(status.data, t),
+    usage: usage.data
+      ? usage.data.budgetMicroUsd > 0
+        ? t('settings.assistant.usageSpent', {
+            // Arabic currency output starts with a right-to-left mark; keep each amount LTR.
+            spent: `\u2066${f.currency(usage.data.aiMicroUsd)}\u2069`,
+            budget: `\u2066${f.currency(usage.data.budgetMicroUsd)}\u2069`,
+          })
+        : t('settings.index.paidOff')
+      : null,
+    notifications: t('settings.index.notificationsOn', {
+      on: notifications.filter(Boolean).length,
+      total: notifications.length,
+    }),
+    security: sessions.data
+      ? t('settings.index.devices', { count: sessions.data.items.length })
+      : null,
+    privacy: prefs.memory.enabled ? t('settings.index.memoryOn') : t('settings.index.memoryOff'),
+  };
+
+  return (
+    <nav aria-label={t('settings.navLabel')} className={styles.index}>
+      <ul className={styles.indexList}>
+        {SETTINGS_SECTIONS.map((id) => (
+          <li key={id}>
+            <a href={`#${id}`} className={styles.indexLink} onClick={(e) => onGo(e, id)}>
+              <span className={styles.indexIcon}>
+                <Icon icon={SECTION_ICONS[id]} size={20} />
+              </span>
+              <span className={styles.indexLabel}>{t(`settings.sections.${id}`)}</span>
+              {values[id] && <span className={styles.indexValue}>{values[id]}</span>}
+              <span className={styles.indexChevron}>
+                <Icon icon={ChevronRight} size={16} mirror />
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }
 

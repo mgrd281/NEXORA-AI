@@ -130,6 +130,42 @@
   overflow-wrap: anywhere;
 }
 
+.took {
+  color: var(--color-text-tertiary);
+}
+
+.checks {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.checksToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-block-size: var(--control-sm);
+  margin-block: calc(var(--space-1) * -1);
+  margin-inline-start: calc(var(--space-2) * -1);
+  padding-inline: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+}
+
+.checksToggle:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.checksToggle[aria-expanded='true'] .chevron {
+  transform: rotate(180deg);
+}
+
 .details {
   list-style: none;
   font: var(--text-caption);

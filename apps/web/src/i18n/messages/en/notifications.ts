@@ -2,6 +2,8 @@ const notifications = {
   title: 'Notifications',
   button:
     '{count, plural, =0 {Notifications} one {Notifications, # unread} other {Notifications, # unread}}',
+  /** After the visible "Notifications" label in the sidebar: only the count. */
+  unreadSuffix: '{count, plural, one {, # unread} other {, # unread}}',
   markAllRead: 'Mark all as read',
   empty: 'You’re all caught up.',
   loadError: 'Notifications could not be loaded.',

@@ -104,14 +104,23 @@
   color: var(--color-text-primary);
 }
 
+/* Quiet destructive entry point (Disconnect, Delete…): the same hairline weight as a
+   secondary button with danger text, tinted only on hover/press. The solid `destructive`
+   variant is for the confirm dialog itself. */
 .danger {
-  background: var(--color-danger-soft);
+  background: transparent;
+  border-color: var(--color-border-strong);
   color: var(--color-danger);
 }
 
 .danger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--color-danger-soft), var(--color-danger) 10%);
+  background: var(--color-danger-soft);
+  border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-border-strong));
   color: var(--color-danger);
+}
+
+.danger:active:not(:disabled) {
+  background: color-mix(in srgb, var(--color-danger-soft), var(--color-danger) 10%);
 }
 
 .destructive {
@@ -179,7 +188,8 @@
   line-height: 16px;
   font-weight: 600;
   text-align: center;
-  box-shadow: 0 0 0 2px var(--color-canvas);
+  /* Matches whatever the button sits on (set --badge-ring on raised bars). */
+  box-shadow: 0 0 0 2px var(--badge-ring, var(--color-canvas));
   pointer-events: none;
 }
 

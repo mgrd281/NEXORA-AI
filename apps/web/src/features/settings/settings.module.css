@@ -18,11 +18,15 @@
   min-width: 0;
 }
 
-@media (min-width: 1200px) {
+/* Narrow screens: an index of the sections under the title (current value + chevron), so the
+   first screen shows everything Settings holds. From 1024 px the index becomes a sticky side
+   navigation (narrow first, full width from 1200 px). Below 1024 px a side column would squeeze
+   the sections under 520 px next to the app sidebar. */
+@media (min-width: 1024px) {
   .layout {
     display: grid;
-    grid-template-columns: calc(var(--space-16) * 3) minmax(0, var(--content-max));
-    gap: var(--space-12);
+    grid-template-columns: calc(var(--space-16) * 2.5) minmax(0, var(--content-max));
+    gap: var(--space-8);
     align-items: start;
   }
 
@@ -32,9 +36,101 @@
     inset-block-start: var(--space-10);
   }
 
+  .index {
+    display: none;
+  }
+}
+
+@media (min-width: 1200px) {
+  .layout {
+    grid-template-columns: calc(var(--space-16) * 3) minmax(0, var(--content-max));
+    gap: var(--space-12);
+  }
+
   .sections {
     gap: var(--space-12);
   }
+}
+
+/* ------------------------------------------------------------- section index (narrow) */
+
+.index {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  min-width: 0;
+}
+
+.indexList {
+  list-style: none;
+}
+
+.indexList > li + li {
+  border-block-start: 1px solid var(--color-border);
+}
+
+.indexLink {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-block-size: var(--space-12);
+  padding-block: var(--space-2);
+  padding-inline: var(--space-4) var(--space-3);
+  color: var(--color-text-primary);
+  font: var(--text-callout);
+  text-decoration: none;
+  min-width: 0;
+}
+
+.indexLink:hover {
+  text-decoration: none;
+  background: var(--color-surface-hover);
+}
+
+.indexList > li:first-child .indexLink {
+  border-start-start-radius: var(--radius-lg);
+  border-start-end-radius: var(--radius-lg);
+}
+
+.indexList > li:last-child .indexLink {
+  border-end-start-radius: var(--radius-lg);
+  border-end-end-radius: var(--radius-lg);
+}
+
+.indexLink:focus-visible {
+  outline-offset: -2px;
+}
+
+.indexIcon {
+  flex: none;
+  display: flex;
+  color: var(--color-text-secondary);
+}
+
+/* A long label (German "Assistent und Selbstständigkeit") wraps; the current value stays
+   whole up to half the row, then truncates. */
+.indexLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.indexValue {
+  flex: 0 0 auto;
+  max-inline-size: 55%;
+  text-align: end;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.indexChevron {
+  flex: none;
+  display: flex;
+  color: var(--color-text-tertiary);
 }
 
 .navList {
@@ -159,35 +255,6 @@
   font: var(--text-caption);
   letter-spacing: var(--tracking-caption);
   color: var(--color-text-secondary);
-}
-
-/* A field and its action on one line from 640 px (name + Save, budget + Save). */
-.inlineForm {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-3);
-  min-width: 0;
-}
-
-.inlineForm > :first-child {
-  align-self: stretch;
-}
-
-@media (min-width: 640px) {
-  .inlineForm {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-
-  .inlineForm > :first-child {
-    flex: 1 1 auto;
-  }
-
-  /* Align the button with the input, below the field label. */
-  .inlineAction {
-    margin-block-start: calc(var(--type-label-line) * var(--lh-scale) + var(--space-2));
-  }
 }
 
 .narrowField {
@@ -428,11 +495,28 @@
   color: var(--color-text-secondary);
 }
 
+.usageMeterBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* No AI model on the server: the budget applies to nothing yet. */
+.usageInactive .usageAmount {
+  color: var(--color-text-secondary);
+}
+
+.usageInactive .meterFill {
+  background: var(--color-text-tertiary);
+}
+
+/* This month's task counts: one row of figures split by hairlines, no tiles. */
 .taskStats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-2);
   margin: 0;
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--color-border);
 }
 
 .taskStat {
@@ -440,10 +524,16 @@
   flex-direction: column-reverse;
   justify-content: flex-end;
   gap: 2px;
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-sunken);
+  padding-inline: var(--space-4);
   min-width: 0;
+}
+
+.taskStat:first-child {
+  padding-inline-start: 0;
+}
+
+.taskStat + .taskStat {
+  border-inline-start: 1px solid var(--color-border);
 }
 
 .taskStat dt {
@@ -454,7 +544,7 @@
 
 .taskStat dd {
   margin: 0;
-  font: var(--text-title3);
+  font: var(--text-body-strong);
   color: var(--color-text-primary);
 }
 
@@ -584,8 +674,22 @@
   }
 }
 
-.dangerCard {
-  border-color: color-mix(in srgb, var(--color-danger), var(--color-border) 70%);
+/* One danger-zone treatment (Memory and Settings): a plain card, the action quiet. */
+.dangerZone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  min-width: 0;
+}
+
+@media (min-width: 640px) {
+  .dangerZone {
+    padding: var(--space-5);
+  }
 }
 
 .dialogStack {
@@ -655,6 +759,21 @@
   font: var(--text-caption);
   letter-spacing: var(--tracking-caption);
   color: var(--color-text-secondary);
+}
+
+.inactiveNote {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-block-start: var(--space-2);
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+}
+
+.inactiveNote :global(.icon) {
+  flex: none;
+  margin-block-start: 0;
 }
 
 .warningText {

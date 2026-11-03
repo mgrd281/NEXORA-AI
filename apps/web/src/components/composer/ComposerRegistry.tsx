@@ -5,14 +5,19 @@ import { createContext, useCallback, useContext, useMemo, useRef, type ReactNode
 
 export interface ComposerHandle {
   focus: () => void;
-  /** Replaces the text (e.g. a suggestion) and focuses the composer; the user still submits. */
-  setText: (text: string) => void;
+  /**
+   * Replaces the text (e.g. a suggestion) and focuses the composer; the user still submits.
+   * `selection` selects a range (a template's slot); otherwise the caret goes to the end.
+   */
+  setText: (text: string, selection?: { start: number; end: number }) => void;
 }
 
 interface Registry {
   register: (handle: ComposerHandle) => () => void;
-  /** Focus the registered composer, or go Home and focus it there. */
+  /** Focus the registered composer, or go Home and focus it there (⌘/Ctrl+K). */
   focusComposer: () => void;
+  /** Focus the composer on this page, if it has one; never changes the route ('/'). */
+  focusComposerHere: () => boolean;
   /** Put text into the composer (going Home first when none is on screen). */
   fillComposer: (text: string) => void;
 }
@@ -47,6 +52,12 @@ export function ComposerRegistryProvider({ children }: { children: ReactNode }) 
     }
   }, [pathname, router]);
 
+  const focusComposerHere = useCallback(() => {
+    if (!current.current) return false;
+    current.current.focus();
+    return true;
+  }, []);
+
   const fillComposer = useCallback(
     (text: string) => {
       if (current.current) current.current.setText(text);
@@ -59,8 +70,8 @@ export function ComposerRegistryProvider({ children }: { children: ReactNode }) 
   );
 
   const value = useMemo(
-    () => ({ register, focusComposer, fillComposer }),
-    [register, focusComposer, fillComposer],
+    () => ({ register, focusComposer, focusComposerHere, fillComposer }),
+    [register, focusComposer, focusComposerHere, fillComposer],
   );
   return (
     <ComposerRegistryContext.Provider value={value}>{children}</ComposerRegistryContext.Provider>

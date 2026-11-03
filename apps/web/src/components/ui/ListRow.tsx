@@ -39,7 +39,10 @@ export interface ListRowProps {
   /** Overrides the accessible name of the link/button. */
   accessibleName?: string;
   className?: string;
-  /** Wrap user-generated text in dir="auto". */
+  /**
+   * Title and description are user-generated: each keeps its own direction (dir="auto"), so
+   * it truncates at its own end, while still aligning to the row's start edge.
+   */
   autoDir?: boolean;
 }
 

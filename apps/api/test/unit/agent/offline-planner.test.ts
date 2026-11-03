@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   detectLanguage,
+  memoryKind,
+  normalizeNote,
   OFFLINE_UNSUPPORTED_MESSAGE,
   planOffline,
 } from '../../../src/modules/agent/models/offline';
+import { render } from '../../../src/modules/agent/i18n';
 import { validatePlan } from '../../../src/modules/agent/plan';
 import { TOOLS } from '../../../src/modules/agent/tools/registry';
 
@@ -71,18 +74,55 @@ describe('offline planner — summarize a link', () => {
 
 describe('offline planner — memory', () => {
   it.each([
-    ['remember that I prefer aisle seats', 'I prefer aisle seats', 'preference'],
-    ['Please remember my passport expires in May 2027', 'my passport expires in May 2027', 'fact'],
-    ["Don't forget that my sister's birthday is June 3", "my sister's birthday is June 3", 'fact'],
-    ['Merk dir, dass ich Gangplätze bevorzuge', 'ich Gangplätze bevorzuge', 'preference'],
-    ['merke dir: Mein Zahnarzt heißt Dr. Weber', 'Mein Zahnarzt heißt Dr. Weber', 'fact'],
-    ['تذكر أن رقم غرفتي 214', 'رقم غرفتي 214', 'fact'],
-    ['تذكّر أنني أفضل المقاعد بجانب الممر', 'أنني أفضل المقاعد بجانب الممر', 'preference'],
+    ['remember that I prefer aisle seats', 'I prefer aisle seats.', 'preference'],
+    ['Please remember my passport expires in May 2027', 'My passport expires in May 2027.', 'fact'],
+    ["Don't forget that my sister's birthday is June 3", "My sister's birthday is June 3.", 'fact'],
+    ['remember that I don’t want calls after 8pm', 'I don’t want calls after 8pm.', 'preference'],
+    ['remember that I will be in Berlin next week', 'I will be in Berlin next week.', 'fact'],
+    ['remember that iPhone backups run at night', 'iPhone backups run at night.', 'fact'],
+    ['Merk dir, dass ich Gangplätze bevorzuge', 'Ich Gangplätze bevorzuge.', 'preference'],
+    [
+      'Merk dir, dass ich montags keine Termine vor 10 Uhr möchte',
+      'Ich montags keine Termine vor 10 Uhr möchte.',
+      'preference',
+    ],
+    ['Merk dir: keine Meetings am Freitag', 'Keine Meetings am Freitag.', 'preference'],
+    ['Merk dir, dass ich keine Kinder habe', 'Ich keine Kinder habe.', 'fact'],
+    ['merke dir: Mein Zahnarzt heißt Dr. Weber', 'Mein Zahnarzt heißt Dr. Weber.', 'fact'],
+    ['remember: the code is 4711!', 'The code is 4711!', 'fact'],
+    ['تذكر أن رقم غرفتي 214', 'رقم غرفتي 214.', 'fact'],
+    ['تذكّر أنني أفضل المقاعد بجانب الممر', 'أنني أفضل المقاعد بجانب الممر.', 'preference'],
+    ['تذكر أن لا أريد اجتماعات يوم الجمعة', 'لا أريد اجتماعات يوم الجمعة.', 'preference'],
   ] as const)('%s', (request, content, kind) => {
-    const p = ok(request);
+    const language = detectLanguage(request, 'en');
+    const p = ok(request, language);
     expect(p.steps).toHaveLength(1);
     expect(p.steps[0]!.toolId).toBe('memory.save');
     expect(p.steps[0]!.input).toEqual({ content, kind });
+  });
+
+  it('"will" marks a preference only in German', () => {
+    expect(memoryKind('ich will freitags frei haben', 'de')).toBe('preference');
+    expect(memoryKind('I will be in Berlin', 'en')).toBe('fact');
+  });
+
+  it('normalises a note without touching one that is already a sentence', () => {
+    expect(normalizeNote('  ich  mag Tee ')).toBe('Ich mag Tee.');
+    expect(normalizeNote('Is the office open on Sundays?')).toBe('Is the office open on Sundays?');
+    expect(normalizeNote('see “Notes”')).toBe('See “Notes”');
+    expect(normalizeNote('eBay account is mine')).toBe('eBay account is mine.');
+  });
+
+  it('titles and step titles carry message keys, the title without the note’s full stop', () => {
+    const p = ok('remember that I prefer aisle seats');
+    expect(p.title).toBe('Remember: I prefer aisle seats');
+    expect(p.titleMessage).toEqual({
+      key: 'plan.remember',
+      params: { text: 'I prefer aisle seats' },
+    });
+    expect(render('de', p.titleMessage!)).toBe('Merken: I prefer aisle seats');
+    expect(p.objectiveMessage).toEqual({ key: 'objective.remember', params: {} });
+    expect(p.steps[0]!.titleMessage).toEqual({ key: 'step.remember', params: {} });
   });
 
   it('a memory containing a link is still a memory', () => {
@@ -129,6 +169,7 @@ describe('offline planner — unsupported', () => {
     expect(r.ok).toBe(false);
     if (!r.ok) {
       expect(r.code).toBe('PLANNER_UNSUPPORTED');
+      expect(r.reason).toBe('OFFLINE_UNSUPPORTED');
       expect(r.message).toBe(OFFLINE_UNSUPPORTED_MESSAGE);
     }
   });

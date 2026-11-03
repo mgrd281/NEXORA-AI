@@ -14,6 +14,9 @@ const approvals: Catalog<typeof source> = {
     noSubject: '(kein Betreff)',
   },
   recipients: '{count, plural, one {# Empfänger} other {# Empfänger}}',
+  summary: {
+    email: '„{subject}“ an {recipients} senden',
+  },
   why: 'Warum JARVIS nachfragt',
   reasons: {
     RISK_LOW: 'Diese Aktion hat ein geringes Risiko.',
@@ -26,13 +29,19 @@ const approvals: Catalog<typeof source> = {
     BUDGET_NEAR_LIMIT:
       'Dieser Schritt kann mehr kosten, als vom monatlichen KI-Budget noch übrig ist.',
     UNTRUSTED_CONTENT:
-      'Sie verwendet Inhalte einer Webseite, die Text enthält, der wie Anweisungen an eine KI aussieht.',
+      'Die Aktion nutzt Inhalte einer Webseite, die Text enthält, der wie Anweisungen an eine KI aussieht.',
     AUTO_APPROVED_SELF:
       'Laut Einstellungen dürfen E-Mails an die eigene Adresse ohne Nachfrage gesendet werden.',
     unknown: 'Die Sicherheitsrichtlinie hat diese Aktion markiert ({code}).',
   },
-  untrustedWarning:
-    'In der Quelle wurden mutmaßliche Anweisungen an eine KI gefunden. Die Nachricht vor der Freigabe sorgfältig lesen.',
+  untrusted: {
+    chip: 'Unsichere Quelle',
+    title: 'Text auf {host} hat versucht, KI-Assistenten Anweisungen zu geben.',
+    titleNoHost: 'Eine verwendete Quelle hat versucht, KI-Assistenten Anweisungen zu geben.',
+    leftOut: 'JARVIS hat diesen Text nicht in die Zusammenfassung übernommen.',
+    mayInclude: 'Teile davon können in der Nachricht stehen.',
+    check: 'Prüf die Nachricht, bevor du sie freigibst.',
+  },
   expires: 'Läuft {time} ab',
   note: {
     add: 'Notiz hinzufügen',

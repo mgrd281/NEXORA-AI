@@ -11,6 +11,10 @@ const approvals = {
     noSubject: '(no subject)',
   },
   recipients: '{count, plural, one {# recipient} other {# recipients}}',
+  /** The sentence the user consents to; subject and recipients are isolated user text. */
+  summary: {
+    email: 'Send “{subject}” to {recipients}',
+  },
   why: 'Why JARVIS is asking',
   reasons: {
     RISK_LOW: 'This is a low-risk action.',
@@ -22,12 +26,18 @@ const approvals = {
     MANY_RECIPIENTS: 'The email has more than three recipients.',
     BUDGET_NEAR_LIMIT: 'This step may cost more than what is left of your monthly AI budget.',
     UNTRUSTED_CONTENT:
-      'It uses content from a web page that contains text that looks like instructions aimed at AI.',
+      'The action uses content from a web page that contains text that looks like instructions aimed at AI.',
     AUTO_APPROVED_SELF: 'Your settings allow emails to yourself without asking.',
     unknown: 'The safety policy flagged this action ({code}).',
   },
-  untrustedWarning:
-    'Suspected instructions aimed at AI were found in the source. Read the message carefully before approving.',
+  untrusted: {
+    chip: 'Untrusted source',
+    title: 'Text on {host} tried to give instructions to AI assistants.',
+    titleNoHost: 'A source used for this tried to give instructions to AI assistants.',
+    leftOut: 'JARVIS left that text out of the summary.',
+    mayInclude: 'Parts of it may appear in the message.',
+    check: 'Check the message before you approve.',
+  },
   expires: 'Expires {time}',
   note: {
     add: 'Add a note',

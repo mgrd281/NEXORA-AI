@@ -3,15 +3,22 @@
  * Each runs in one RLS-scoped transaction; state changes go through the
  * shared transition helper and enqueue jobs atomically with the change.
  */
-import type { CreateTaskRequest, TaskSummary } from '@jarvis/contracts';
+import {
+  canRetryTask,
+  type CreateTaskRequest,
+  type ErrorCode,
+  type TaskSummary,
+} from '@jarvis/contracts';
 import { sql } from 'kysely';
 import { withContext, type DbContext, type Trx } from '../../db/pool';
 import { AppError, invalidState, notFound } from '../../lib/errors';
 import { truncate } from '../../lib/redact';
 import type { TaskService } from '../../services';
+import { loadAgentContext } from '../agent/context';
 import type { AgentDeps } from '../agent/index';
 import { isUniqueViolation } from '../agent/errors';
-import { asLocale, t } from '../agent/i18n';
+import { asLocale } from '../agent/i18n';
+import { cancelledResult } from '../agent/plan-job';
 import { detectLanguage } from '../agent/models/offline';
 import {
   cancelOpenSteps,
@@ -141,7 +148,6 @@ export function createTaskService(deps: AgentDeps): TaskService {
   async function cancel(ctx: DbContext, taskId: string): Promise<TaskSummary> {
     return withContext(db, ctx, async (trx) => {
       const task = await lockTask(trx, taskId);
-      const language = asLocale(task.language);
       switch (task.status) {
         case 'QUEUED':
         case 'AWAITING_APPROVAL': {
@@ -149,7 +155,7 @@ export function createTaskService(deps: AgentDeps): TaskService {
           await cancelOpenSteps(trx, task.id);
           await transitionTask(trx, ctx, task, 'CANCELLED', {
             cancel_requested_at: new Date(),
-            result_summary: t(language, 'result.cancelled'),
+            ...cancelledResult(task.language),
           });
           await audit(trx, {
             tenantId: ctx.tenantId,
@@ -203,6 +209,23 @@ export function createTaskService(deps: AgentDeps): TaskService {
       const task = await lockTask(trx, taskId);
       if (task.status !== 'FAILED' && task.status !== 'EXPIRED')
         throw invalidState('Only failed or expired tasks can be retried.');
+      // Same rule as TaskDetail.canRetry: a retry that can only fail the same way is refused.
+      const agent = await loadAgentContext(trx, deps.config, ctx.userId);
+      const error = task.error
+        ? { code: task.error.code as ErrorCode, retryable: !!task.error.retryable }
+        : null;
+      if (
+        !canRetryTask(
+          { status: task.status, error },
+          { modelAvailable: agent.route.mode === 'model' },
+        )
+      ) {
+        throw new AppError(
+          'INVALID_STATE',
+          'Retrying would fail the same way. Change the request and ask again.',
+          { notRetryable: true, errorCode: error?.code ?? null },
+        );
+      }
       const unknownOutcome = task.error?.code === 'OUTCOME_UNKNOWN';
       if (unknownOutcome && !opts.acknowledgeUnknownOutcome) {
         throw new AppError(
@@ -223,17 +246,20 @@ export function createTaskService(deps: AgentDeps): TaskService {
           .where('status', '=', 'unknown')
           .execute();
       }
+      // Everything that did not succeed runs again, including steps SKIPPED because
+      // the task failed before reaching them (failTask).
       await trx
         .updateTable('task_steps')
         .set({ status: 'PENDING', error: null, started_at: null, completed_at: null })
         .where('task_id', '=', task.id)
-        .where('status', 'not in', ['SUCCEEDED', 'SKIPPED'])
+        .where('status', '<>', 'SUCCEEDED')
         .execute();
       const attempt = task.attempt + 1;
       await transitionTask(trx, ctx, task, 'QUEUED', {
         attempt,
         error: null,
         result_summary: null,
+        result_summary_message: null,
         cancel_requested_at: null,
         completed_at: null,
       });

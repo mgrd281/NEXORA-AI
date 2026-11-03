@@ -54,6 +54,24 @@ export function TaskCenter() {
     }
   }, [filter]);
 
+  // While options lie past the trailing edge, the row fades out there ("scroll for more").
+  useEffect(() => {
+    const bar = filterBar.current;
+    if (!bar || typeof ResizeObserver === 'undefined') return;
+    const update = () => {
+      // scrollLeft runs negative in right-to-left layouts.
+      const rest = bar.scrollWidth - bar.clientWidth - Math.abs(bar.scrollLeft);
+      bar.toggleAttribute('data-more-end', rest > 1);
+    };
+    const observer = new ResizeObserver(update);
+    observer.observe(bar);
+    bar.addEventListener('scroll', update, { passive: true });
+    return () => {
+      observer.disconnect();
+      bar.removeEventListener('scroll', update);
+    };
+  }, []);
+
   return (
     <Page title={t('tasks.title')} description={t('tasks.description')} width="wide">
       <div className={styles.filterBar} ref={filterBar}>

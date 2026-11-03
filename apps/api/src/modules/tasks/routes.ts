@@ -4,6 +4,7 @@ import { withContext } from '../../db/pool';
 import { defineRoute } from '../../http/route';
 import { notFound } from '../../lib/errors';
 import type { AppDeps } from '../../services';
+import { loadAgentContext } from '../agent/context';
 import { afterCursor, cursorTimestamp, decodeCursor, toPage } from '../home/cursor';
 import { loadTaskDetail, taskSummaryQuery, toTaskSummary, type TaskAggregate } from './mappers';
 
@@ -40,7 +41,10 @@ export function registerTaskRoutes(app: FastifyInstance, deps: AppDeps) {
   });
 
   defineRoute(app, deps, 'getTask', async ({ ctx, params }) => {
-    const detail = await withContext(db, ctx, (trx) => loadTaskDetail(trx, params.id));
+    const detail = await withContext(db, ctx, async (trx) => {
+      const agent = await loadAgentContext(trx, deps.config, ctx.userId);
+      return loadTaskDetail(trx, params.id, { modelAvailable: agent.route.mode === 'model' });
+    });
     if (!detail) throw notFound('Task');
     return detail;
   });

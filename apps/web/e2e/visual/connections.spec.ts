@@ -205,7 +205,9 @@ for (const { theme, locale } of STATE_VARIANTS) {
     await form.locator('button[type="submit"]').click();
     await expect(page.locator('main form')).toHaveCount(0);
     const emailCard = page.locator('main section').nth(1);
-    await emailCard.locator('footer button').first().click();
+    // Test connection, Update settings, then the quiet Disconnect last. Activated from the
+    // keyboard: on phones the "connected" toast sits over the bottom of the card for a moment.
+    await emailCard.locator('footer button').last().press('Enter');
     await expect(page.getByRole('dialog')).toBeVisible();
     await capture(page, testInfo, `connections--disconnect-dialog--${variant}`, {
       fullPage: false,
@@ -271,7 +273,10 @@ test('connections — enable web access, connect, test and disconnect email', as
     fromAddress: 'layla.haddad@example.com',
     fromName: 'Layla Haddad',
   });
-  await expect(page.getByText('Email connected as layla.haddad@example.com.')).toBeVisible();
+  // The interpolated address is direction-isolated (FSI…PDI).
+  await expect(
+    page.getByText(/^Email connected as \u2068?layla\.haddad@example\.com\u2069?\.$/),
+  ).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Email', level: 2 })).toBeFocused();
   await expect(page.getByText('Last verified', { exact: false })).toBeVisible();
 

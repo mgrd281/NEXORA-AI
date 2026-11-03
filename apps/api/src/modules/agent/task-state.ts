@@ -101,6 +101,19 @@ export async function cancelOpenSteps(trx: Trx, taskId: string): Promise<void> {
     .execute();
 }
 
+/**
+ * Steps that never ran become SKIPPED when the task fails: a final task has
+ * no "pending" work. A retry puts them back to PENDING (tasks/service.ts).
+ */
+export async function skipOpenSteps(trx: Trx, taskId: string): Promise<void> {
+  await trx
+    .updateTable('task_steps')
+    .set({ status: 'SKIPPED', completed_at: new Date() })
+    .where('task_id', '=', taskId)
+    .where('status', 'in', ['PENDING', 'AWAITING_APPROVAL'])
+    .execute();
+}
+
 /** Pending approvals of a task become CANCELLED (or another final status). */
 export async function closePendingApprovals(
   trx: Trx,
@@ -117,13 +130,19 @@ export async function closePendingApprovals(
   return rows.map((r) => r.id);
 }
 
-/** FAILED with a TaskError + task_failed notification. */
+/**
+ * FAILED with a TaskError + task_failed notification. Steps that never ran
+ * are SKIPPED and a pending approval is closed, so nothing reads as still
+ * to come on a final task.
+ */
 export async function failTask(
   trx: Trx,
   ctx: DbContext,
   task: TaskRow,
   error: TaskError,
 ): Promise<TaskRow> {
+  await closePendingApprovals(trx, task.id);
+  await skipOpenSteps(trx, task.id);
   const updated = await transitionTask(trx, ctx, task, 'FAILED', {
     error: taskErrorJson(error),
   });

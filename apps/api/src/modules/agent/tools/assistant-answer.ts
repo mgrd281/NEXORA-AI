@@ -10,10 +10,9 @@ import { withContext } from '../../../db/pool';
 import { truncate } from '../../../lib/redact';
 import { relevantMemories } from '../context';
 import { AgentError } from '../errors';
-import { t } from '../i18n';
 import { costMicro } from '../models/pricing';
 import { selectModel } from '../models/router';
-import { evidence, type ToolDefinition } from './types';
+import { check, evidence, genericApprovalSummary, type ToolDefinition } from './types';
 
 export const AnswerInput = z.object({
   question: z
@@ -70,16 +69,14 @@ export const assistantAnswerTool: ToolDefinition<AnswerInput> = {
       toolId: 'assistant.answer',
       fields: [{ label: 'Question', value: truncate(input.question, 500) }],
     },
-    summary: t(ctx.language, 'approval.generic', {
-      title: ctx.stepTitle,
-      tool: 'assistant.answer',
-    }),
+    ...genericApprovalSummary(ctx, 'assistant.answer'),
   }),
   async execute(input, rt, signal) {
     if (!rt.model) {
       throw new AgentError(
         'MODEL_NOT_CONFIGURED',
         'Answering questions needs an AI model, which is not available right now.',
+        { reason: 'MODEL_UNAVAILABLE' },
       );
     }
     const language = input.language ?? rt.language;
@@ -141,10 +138,23 @@ export const assistantAnswerTool: ToolDefinition<AnswerInput> = {
         'model_output',
         res.usage.model,
         `${res.usage.inputTokens} input / ${res.usage.outputTokens} output tokens`,
+        'MODEL_OUTPUT',
+        {
+          model: res.usage.model,
+          inputTokens: res.usage.inputTokens,
+          outputTokens: res.usage.outputTokens,
+        },
       ),
     ];
     if (res.truncated)
-      ev.push(evidence('note', 'Length limit', 'The answer reached the maximum length.'));
+      ev.push(
+        evidence(
+          'note',
+          'Length limit',
+          'The answer reached the maximum length.',
+          'ANSWER_TRUNCATED',
+        ),
+      );
     return {
       output: { answer, model: res.usage.model, truncated: res.truncated },
       outputPreview: { answer: truncate(answer, 1_200), model: res.usage.model },
@@ -156,6 +166,11 @@ export const assistantAnswerTool: ToolDefinition<AnswerInput> = {
   },
   verify(_input, output) {
     const answer = typeof output.answer === 'string' ? output.answer : '';
-    return { ok: answer.trim().length > 0, checks: [`Answer of ${answer.length} characters`] };
+    return {
+      ok: answer.trim().length > 0,
+      checks: [
+        check('answerLength', `Answer of ${answer.length} characters`, { count: answer.length }),
+      ],
+    };
   },
 };

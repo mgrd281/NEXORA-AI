@@ -4,52 +4,62 @@
  * tier into one or two sentences in the request language. A failure of the
  * optional model call never fails the task.
  */
-import type { Locale } from '@jarvis/contracts';
+import type { Locale, ServerMessage } from '@jarvis/contracts';
 import type { Config } from '../../config';
 import type { StepRow } from '../../db/types';
 import { truncate } from '../../lib/redact';
-import { t } from './i18n';
+import { msg, render } from './i18n';
 import type { ModelAdapter, ModelUsage } from './models/adapter';
 import { selectModel } from './models/router';
+import { recipientsParam } from './tools/email-send';
+import { quotable } from './tools/memory-save';
 
 const LANGUAGE_NAMES: Record<Locale, string> = { en: 'English', de: 'German', ar: 'Arabic' };
 
 type Out = Record<string, unknown>;
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
-export function deterministicSummary(steps: StepRow[], language: Locale): string {
+/**
+ * The result line. `message` is set when the line is one server sentence
+ * (email sent, memory saved), so clients can render it in the viewer's
+ * locale; answers, summaries and page text are content and stay as `text`.
+ */
+export function deterministicSummary(
+  steps: StepRow[],
+  language: Locale,
+): { text: string; message: ServerMessage | null } {
   const done = steps.filter((s) => s.status === 'SUCCEEDED');
   const answer = done.find((s) => s.tool_id === 'assistant.answer');
-  if (answer) return truncate(str((answer.output as Out | null)?.answer), 300);
-  const lines: string[] = [];
+  if (answer)
+    return { text: truncate(str((answer.output as Out | null)?.answer), 300), message: null };
+  const lines: ServerMessage[] = [];
   for (const s of done) {
     const out = (s.output ?? {}) as Out;
     const input = (s.resolved_input ?? s.input) as Out;
     if (s.tool_id === 'email.send') {
       const to = Array.isArray(input.to) ? (input.to as string[]) : [];
       lines.push(
-        t(language, 'result.emailSent', {
-          subject: str(input.subject),
-          recipients:
-            to.length <= 2
-              ? to.join(', ')
-              : t(language, 'approval.recipientsMany', { count: to.length }),
-        }),
+        msg('result.emailSent', { subject: str(input.subject), recipients: recipientsParam(to) }),
       );
     } else if (s.tool_id === 'memory.save') {
-      lines.push(t(language, 'result.memorySaved', { text: truncate(str(out.content), 120) }));
+      lines.push(msg('result.memorySaved', { text: quotable(str(out.content)) }));
     }
   }
   if (lines.length === 0) {
     const summary = [...done].reverse().find((s) => s.tool_id === 'text.summarize');
-    if (summary) return truncate(str((summary.output as Out | null)?.summary), 600);
+    if (summary)
+      return { text: truncate(str((summary.output as Out | null)?.summary), 600), message: null };
     const fetched = [...done].reverse().find((s) => s.tool_id === 'web.fetch');
     if (fetched) {
       const out = (fetched.output ?? {}) as Out;
-      return truncate(`${str(out.title)} — ${str(out.text)}`, 300);
+      return { text: truncate(`${str(out.title)} — ${str(out.text)}`, 300), message: null };
     }
   }
-  return lines.join(' ');
+  return {
+    text: lines.map((m) => render(language, m)).join(' '),
+    // Several sentences have no single key; their text (request language) is the result line.
+    message: lines.length === 1 ? lines[0]! : null,
+  };
 }
 
 const RESULT_SYSTEM = [

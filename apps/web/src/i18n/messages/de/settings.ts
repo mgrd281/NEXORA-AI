@@ -12,6 +12,7 @@ const settings: Catalog<typeof source> = {
     appearance: 'Darstellung',
     voice: 'Sprachsteuerung',
     assistant: 'Assistent und Selbstständigkeit',
+    usage: 'Nutzung und Budget',
     notifications: 'Mitteilungen',
     security: 'Sicherheit',
     privacy: 'Datenschutz und Daten',
@@ -22,13 +23,21 @@ const settings: Catalog<typeof source> = {
     failed: 'Nicht gespeichert. {reason}',
   },
   language: 'Sprache',
+  index: {
+    voiceOn: 'Vorlesen an',
+    voiceOff: 'Vorlesen aus',
+    notificationsOn: '{on} von {total} an',
+    devices: '{count, plural, one {# angemeldetes Gerät} other {# angemeldete Geräte}}',
+    paidOff: 'Bezahlte Modelle aus',
+    memoryOn: 'Gedächtnis an',
+    memoryOff: 'Gedächtnis aus',
+  },
   profile: {
     displayName: 'Anzeigename',
     displayNameHint: 'Wird in JARVIS angezeigt und in Begrüßungen verwendet.',
     displayNameRequired: 'Gib einen Namen ein.',
-    save: 'Namen speichern',
     email: 'E-Mail',
-    emailHint: 'Mit dieser Adresse meldest du dich an. Sie lässt sich hier nicht ändern.',
+    emailHint: 'Mit dieser Adresse meldest du dich an. Diese Adresse lässt sich hier nicht ändern.',
     memberSince: 'Dabei seit {date}',
   },
   region: {
@@ -57,19 +66,20 @@ const settings: Catalog<typeof source> = {
       'Anfragen werden von einem externen KI-Modell geplant. Die Kosten zählen zu deinem Monatsbudget.',
     reasons: {
       NO_API_KEY:
-        'Auf dem Server ist kein Schlüssel für ein KI-Modell hinterlegt, daher plant JARVIS offline. Das klappt für eine feste Auswahl an Befehlen, offene Fragen kann JARVIS so nicht beantworten.',
+        'Auf dem Server ist kein Schlüssel für ein KI-Modell hinterlegt, daher arbeitet JARVIS im Basismodus. Damit versteht JARVIS eine feste Auswahl an Befehlen, kann aber keine offenen Fragen beantworten.',
       USER_DISABLED_EXTERNAL_MODELS:
-        'Du hast externe KI-Modelle ausgeschaltet. JARVIS plant daher offline und sendet nichts an einen KI-Anbieter.',
+        'Du hast externe KI-Modelle ausgeschaltet. JARVIS arbeitet daher im Basismodus und sendet nichts an einen KI-Anbieter.',
       BUDGET_EXHAUSTED:
-        'Das KI-Budget für diesen Monat ist aufgebraucht. JARVIS plant offline, bis das Budget zurückgesetzt wird oder du es erhöhst.',
+        'Das KI-Budget für diesen Monat ist aufgebraucht. JARVIS arbeitet im Basismodus, bis das Budget zurückgesetzt wird oder du es erhöhst.',
       BUDGET_ZERO:
-        'Dein monatliches KI-Budget ist 0, daher plant JARVIS offline und nutzt nie ein kostenpflichtiges Modell.',
-      unknown: 'Gerade ist kein KI-Modell verfügbar, daher plant JARVIS offline.',
+        'Dein monatliches KI-Budget ist 0, daher arbeitet JARVIS im Basismodus und nutzt nie ein kostenpflichtiges Modell.',
+      unknown: 'Gerade ist kein KI-Modell verfügbar, daher arbeitet JARVIS im Basismodus.',
     },
-    worker: 'Worker',
+    worker: 'Hintergrunddienst',
     workerHealthy: 'Läuft',
     workerUnhealthy: 'Reagiert nicht',
-    workerUnhealthyNote: 'Neue Anfragen warten in der Warteschlange, bis der Worker wieder läuft.',
+    workerUnhealthyNote:
+      'Neue Anfragen warten in der Warteschlange, bis der Hintergrunddienst wieder läuft.',
     heartbeat: 'Letztes Lebenszeichen {time}',
     noHeartbeat: 'Noch kein Lebenszeichen empfangen',
     version: 'Version',
@@ -91,15 +101,18 @@ const settings: Catalog<typeof source> = {
     statusFailed: 'JARVIS konnte den Status des Assistenten nicht laden.',
     externalModels: 'Externe KI-Modelle erlauben',
     externalModelsDescription:
-      'Wenn aktiv, können deine Anfrage und passende Erinnerungen an den auf diesem Server eingerichteten KI-Anbieter gesendet werden, um sie zu planen und zu beantworten. Wenn aus, geht nichts an ein externes Modell und JARVIS plant offline.',
+      'Wenn aktiv, können deine Anfrage und passende Erinnerungen an den auf diesem Server eingerichteten KI-Anbieter gesendet werden, um sie zu planen und zu beantworten. Wenn aus, geht nichts an ein externes Modell und JARVIS arbeitet im Basismodus.',
+    externalModelsInactive:
+      'Auf diesem Server ist kein KI-Anbieter eingerichtet, daher wirkt sich das noch nicht aus.',
     autoApprove: 'E-Mails an mich ohne Rückfrage senden',
     autoApproveDescription:
       'Wenn aktiv, wird eine E-Mail, deren Empfänger alle deine eigene Adresse ({email}) sind, ohne Rückfrage gesendet. Jede E-Mail an andere braucht weiterhin deine Freigabe – ebenso eine E-Mail, die JARVIS als ungewöhnlich einstuft, etwa weil sie auf verdächtigen Webinhalten beruht.',
     budget: 'Monatliches KI-Budget',
     budgetHint:
-      'Die Kosten für KI-Modelle enden jeden Monat bei diesem Betrag; danach plant JARVIS offline. Gib 0 ein, um nie kostenpflichtige Modelle zu nutzen.',
+      'Die Kosten für KI-Modelle enden jeden Monat bei diesem Betrag; danach wechselt JARVIS in den Basismodus. Gib 0 ein, um nie kostenpflichtige Modelle zu nutzen.',
+    budgetHintInactive:
+      'Gilt, sobald auf diesem Server ein KI-Modell eingerichtet ist. Die Kosten für KI-Modelle enden dann jeden Monat bei diesem Betrag; gib 0 ein, um nie kostenpflichtige Modelle zu nutzen.',
     budgetUnit: 'USD',
-    budgetSave: 'Budget speichern',
     budgetInvalid: 'Gib einen Betrag von 0 bis 10.000 ein.',
     usageTitle: 'Dieser Monat',
     usageSpent: '{spent} von {budget}',
@@ -110,7 +123,7 @@ const settings: Catalog<typeof source> = {
     usageBreakdown: 'KI-Modelle {ai} · Werkzeuge {tools}',
     usageResets: 'Wird am {date} zurückgesetzt',
     usageExhausted:
-      'Das Budget für diesen Monat ist aufgebraucht. JARVIS plant offline, bis es zurückgesetzt wird.',
+      'Das Budget für diesen Monat ist aufgebraucht. JARVIS arbeitet im Basismodus, bis es zurückgesetzt wird.',
     usageFailed: 'JARVIS konnte den Verbrauch dieses Monats nicht laden.',
     tasksCompleted: 'Abgeschlossen',
     tasksFailed: 'Fehlgeschlagen oder abgebrochen',
@@ -118,7 +131,7 @@ const settings: Catalog<typeof source> = {
   },
   notifications: {
     description:
-      'Das sind Mitteilungen in der App: Sie erscheinen unter der Glocke in JARVIS. Es wird nichts per E-Mail oder an dein Telefon gesendet.',
+      'Diese Mitteilungen erscheinen nur in der App, unter der Glocke in JARVIS. Es wird nichts per E-Mail oder an dein Telefon gesendet.',
     approvalRequested: 'Freigabeanfragen',
     approvalRequestedDescription:
       'Wenn JARVIS deine Freigabe braucht, bevor es handelt. Freigaben warten auch dann unter „Aufgaben“ auf dich, wenn das aus ist.',

@@ -15,7 +15,7 @@ const home: Catalog<typeof source> = {
   },
   status: {
     ready: 'جاهز',
-    offlinePlanner: 'المخطِّط دون اتصال — أوامر محدودة',
+    offlinePlanner: 'جاهز في الوضع الأساسي',
     approvals:
       '{count, plural, zero {لا طلبات بانتظار موافقتك} one {بحاجة إلى موافقتك} two {طلبان بانتظار موافقتك} few {# طلبات بانتظار موافقتك} many {# طلبًا بانتظار موافقتك} other {# طلب بانتظار موافقتك}}',
     working:
@@ -36,8 +36,8 @@ const home: Catalog<typeof source> = {
     reviewLabel: 'مراجعة: {title}',
     expires: 'تنتهي صلاحيته {time}',
   },
-  loading: 'جارٍ تحميل نظرتك العامة…',
-  loadError: 'تعذّر تحميل نظرتك العامة.',
+  loading: 'جارٍ تحميل الصفحة الرئيسية…',
+  loadError: 'تعذّر تحميل الصفحة الرئيسية.',
   firstRun: {
     title: 'اطلب ما تريد بكلماتك',
     body: 'يخطط JARVIS للخطوات، ويفحصها وفق إعدادات الأمان لديك، ويعرض عليك كل ما يتصرف نيابةً عنك قبل أن يحدث.',
@@ -56,7 +56,7 @@ const home: Catalog<typeof source> = {
   suggest: {
     enableWeb: 'اسمح لـ JARVIS بقراءة صفحات الويب العامة',
     connectEmail: 'اربط بريدك الإلكتروني ليتمكن JARVIS من إرسال الرسائل',
-    configureModel: 'يعمل JARVIS دون نموذج ذكاء اصطناعي — اطّلع على ما يعمل دون اتصال',
+    configureModel: 'يعمل JARVIS دون نموذج ذكاء اصطناعي — اطّلع على ما يمكنه فعله',
     summarizeAndEmail: 'لخّص صفحة ويب وأرسلها إلى بريدك',
     remember: 'أخبر JARVIS بشيء ليتذكّره',
   },

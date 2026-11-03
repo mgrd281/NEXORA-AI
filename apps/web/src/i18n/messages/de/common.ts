@@ -101,7 +101,7 @@ const common: Catalog<typeof source> = {
     unavailable: 'JARVIS ist nicht erreichbar – Aufgaben warten',
   },
   assistant: {
-    offlinePlanner: 'Offline-Planer',
+    offlinePlanner: 'Basismodus',
     modelConnected: '{provider} verbunden',
     modelGeneric: 'KI-Modell verbunden',
     workerHealthy: 'Worker aktiv',

@@ -19,8 +19,8 @@ import { truncate } from '../../../lib/redact';
 import { AgentError } from '../errors';
 import { extractHtml, normalizeText, truncateText } from './html';
 import { detectInjection } from './injection';
-import { guardedLookup, isBlockedAddress } from './ssrf';
-import { evidence, type ToolDefinition } from './types';
+import { guardedLookup, isBlockedAddress, privateAddressError } from './ssrf';
+import { check, evidence, genericApprovalSummary, type ToolDefinition } from './types';
 
 export const MAX_FETCH_BYTES = 2 * 1024 * 1024;
 export const MAX_REDIRECTS = 5;
@@ -42,7 +42,16 @@ export const WebFetchInput = z.object({
 });
 export type WebFetchInput = z.infer<typeof WebFetchInput>;
 
-const blocked = (message: string) => new AgentError('FETCH_BLOCKED', message, { retryable: false });
+const blocked = (
+  message: string,
+  reason: 'UNSUPPORTED_SCHEME' | 'EMBEDDED_CREDENTIALS' | 'MISSING_HOST',
+) => new AgentError('FETCH_BLOCKED', message, { retryable: false, reason });
+
+const pageTooLarge = () =>
+  new AgentError('TOOL_FAILED', 'The page is larger than the 2 MB limit.', {
+    reason: 'PAGE_TOO_LARGE',
+    params: { limitMb: MAX_FETCH_BYTES / (1024 * 1024) },
+  });
 
 export function defaultPort(url: URL): number {
   return Number(url.port || (url.protocol === 'https:' ? 443 : 80));
@@ -56,17 +65,21 @@ export function checkTarget(raw: string, allowPrivate: ReadonlySet<string>): URL
   } catch {
     throw new AgentError('VALIDATION_FAILED', 'That is not a valid web address.', {
       retryable: false,
+      reason: 'INVALID_URL',
     });
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:')
-    throw blocked('Only http and https links can be fetched.');
+    throw blocked('Only http and https links can be fetched.', 'UNSUPPORTED_SCHEME');
   if (url.username || url.password)
-    throw blocked('Links with embedded usernames or passwords are not allowed.');
+    throw blocked(
+      'Links with embedded usernames or passwords are not allowed.',
+      'EMBEDDED_CREDENTIALS',
+    );
   const host = url.hostname.replace(/^\[|\]$/g, '');
-  if (!host) throw blocked('The link has no host name.');
+  if (!host) throw blocked('The link has no host name.', 'MISSING_HOST');
   // IP literals never go through DNS, so the lookup hook cannot see them: check here.
   if (isIP(host) && isBlockedAddress(host) && !allowPrivate.has(`${host}:${defaultPort(url)}`))
-    throw blocked('JARVIS does not fetch private, local or reserved network addresses.');
+    throw privateAddressError(host);
   return url;
 }
 
@@ -80,19 +93,28 @@ function mapNetworkError(err: unknown, host: string): AgentError {
   if (err instanceof AgentError) return err;
   if (err instanceof AppError) {
     return err.code === 'FETCH_BLOCKED'
-      ? blocked('JARVIS does not fetch private, local or reserved network addresses.')
+      ? privateAddressError(host)
       : new AgentError(err.code, err.message);
   }
   const e = err as { code?: string; name?: string };
+  const params = { host };
   if (e.name === 'AbortError' || e.code === 'ABORT_ERR')
     return new AgentError(
       'TOOL_TIMEOUT',
       `${host} did not respond within ${FETCH_TIMEOUT_MS / 1000} seconds.`,
-      { retryable: true, transient: true },
+      {
+        retryable: true,
+        transient: true,
+        reason: 'FETCH_TIMEOUT',
+        params: { host, seconds: FETCH_TIMEOUT_MS / 1000 },
+      },
     );
   switch (e.code) {
     case 'ENOTFOUND':
-      return new AgentError('TOOL_FAILED', `Could not find the website ${host}.`);
+      return new AgentError('TOOL_FAILED', `Could not find the website ${host}.`, {
+        reason: 'HOST_NOT_FOUND',
+        params,
+      });
     case 'EAI_AGAIN':
     case 'ECONNREFUSED':
     case 'ECONNRESET':
@@ -103,16 +125,21 @@ function mapNetworkError(err: unknown, host: string): AgentError {
       return new AgentError('TOOL_FAILED', `Could not connect to ${host}.`, {
         retryable: true,
         transient: true,
+        reason: 'CONNECT_FAILED',
+        params,
       });
     default:
       if (e.code?.startsWith('ERR_TLS') || e.code?.includes('CERT'))
         return new AgentError(
           'TOOL_FAILED',
           `The security certificate of ${host} could not be verified.`,
+          { reason: 'TLS_CERTIFICATE', params },
         );
       return new AgentError('TOOL_FAILED', `Fetching ${host} failed.`, {
         retryable: true,
         transient: true,
+        reason: 'FETCH_FAILED',
+        params,
       });
   }
 }
@@ -125,7 +152,10 @@ function decoded(res: http.IncomingMessage): Readable {
   if (enc === 'gzip' || enc === 'x-gzip') return res.pipe(zlib.createGunzip());
   if (enc === 'deflate') return res.pipe(zlib.createInflate());
   if (enc === 'br') return res.pipe(zlib.createBrotliDecompress());
-  throw new AgentError('TOOL_FAILED', `The website used an unsupported encoding (${enc}).`);
+  throw new AgentError('TOOL_FAILED', `The website used an unsupported encoding (${enc}).`, {
+    reason: 'UNSUPPORTED_ENCODING',
+    params: { encoding: enc },
+  });
 }
 
 function requestOnce(
@@ -167,9 +197,7 @@ function requestOnce(
         const declared = Number(res.headers['content-length'] ?? 0);
         if (declared > MAX_FETCH_BYTES) {
           req.destroy();
-          return done(() =>
-            reject(new AgentError('TOOL_FAILED', 'The page is larger than the 2 MB limit.')),
-          );
+          return done(() => reject(pageTooLarge()));
         }
         let stream: Readable;
         try {
@@ -185,9 +213,7 @@ function requestOnce(
           if (total > MAX_FETCH_BYTES) {
             stream.destroy();
             req.destroy();
-            done(() =>
-              reject(new AgentError('TOOL_FAILED', 'The page is larger than the 2 MB limit.')),
-            );
+            done(() => reject(pageTooLarge()));
             return;
           }
           chunks.push(c);
@@ -242,7 +268,10 @@ export async function fetchPage(rawUrl: string, opts: FetchOptions) {
     }
     if (res.status >= 300 && res.status < 400 && res.headers.location) {
       if (hop >= MAX_REDIRECTS)
-        throw new AgentError('TOOL_FAILED', 'The link redirected too many times.');
+        throw new AgentError('TOOL_FAILED', 'The link redirected too many times.', {
+          reason: 'TOO_MANY_REDIRECTS',
+          params: { max: MAX_REDIRECTS },
+        });
       current = checkTarget(new URL(res.headers.location, current).toString(), opts.allowPrivate);
       continue;
     }
@@ -254,17 +283,24 @@ export async function fetchPage(rawUrl: string, opts: FetchOptions) {
     throw new AgentError('TOOL_FAILED', `${current.hostname} answered with HTTP ${status}.`, {
       retryable: transient,
       transient,
+      reason: 'HTTP_ERROR',
+      params: { host: current.hostname, status },
     });
   }
   const contentTypeHeader = String(headers['content-type'] ?? '');
   const contentType = contentTypeHeader.split(';')[0]!.trim().toLowerCase();
   if (!ALLOWED_TYPES.has(contentType)) {
-    throw new AgentError(
-      'TOOL_FAILED',
-      contentType
-        ? `This link points to ${contentType} content, which JARVIS cannot read.`
-        : 'The website did not say what kind of content this is, so JARVIS did not read it.',
-    );
+    throw contentType
+      ? new AgentError(
+          'TOOL_FAILED',
+          `This link points to ${contentType} content, which JARVIS cannot read.`,
+          { reason: 'UNSUPPORTED_CONTENT_TYPE', params: { contentType } },
+        )
+      : new AgentError(
+          'TOOL_FAILED',
+          'The website did not say what kind of content this is, so JARVIS did not read it.',
+          { reason: 'MISSING_CONTENT_TYPE' },
+        );
   }
   const raw = decodeBody(body, contentTypeHeader);
   let title = '';
@@ -290,6 +326,7 @@ export async function fetchPage(rawUrl: string, opts: FetchOptions) {
     throw new AgentError(
       'TOOL_FAILED',
       'The page has no readable text (it may need JavaScript to display its content).',
+      { reason: 'NO_READABLE_TEXT' },
     );
   }
   const scan = detectInjection(`${title}\n${scanText}`);
@@ -344,7 +381,7 @@ export const webFetchTool: ToolDefinition<WebFetchInput> = {
       toolId: 'web.fetch',
       fields: [{ label: 'URL', value: input.url }],
     },
-    summary: `${ctx.stepTitle}: ${input.url}`,
+    ...genericApprovalSummary(ctx, 'web.fetch'),
   }),
   async execute(input, rt, signal) {
     const out = await fetchPage(input.url, {
@@ -373,8 +410,22 @@ export const webFetchTool: ToolDefinition<WebFetchInput> = {
           'http_response',
           `HTTP ${out.status}`,
           `GET ${out.finalUrl} → ${out.status} (${out.contentType}, ${out.bytes} bytes)`,
+          'HTTP_RESPONSE',
+          {
+            method: 'GET',
+            url: out.finalUrl,
+            status: out.status,
+            contentType: out.contentType,
+            bytes: out.bytes,
+          },
         ),
-        evidence('content_hash', 'SHA-256 of the response body', `sha256:${out.sha256}`),
+        evidence(
+          'content_hash',
+          'SHA-256 of the response body',
+          `sha256:${out.sha256}`,
+          'CONTENT_HASH',
+          { algorithm: 'SHA-256', hash: out.sha256 },
+        ),
       ],
       costMicro: 0,
     };
@@ -383,13 +434,23 @@ export const webFetchTool: ToolDefinition<WebFetchInput> = {
     const status = Number(output.status);
     const text = typeof output.text === 'string' ? output.text : '';
     const sha = typeof output.sha256 === 'string' ? output.sha256 : '';
+    const url = String(output.finalUrl ?? '');
     const checks = [
-      `HTTP ${status} from ${String(output.finalUrl ?? '')}`,
-      `${text.length} characters of readable text extracted`,
-      sha ? 'Content hash recorded' : 'Content hash missing',
+      check('http', `HTTP ${status} from ${url}`, { status, url }),
+      check('textExtracted', `${text.length} characters of readable text extracted`, {
+        count: text.length,
+      }),
+      sha
+        ? check('hashRecorded', 'Content hash recorded')
+        : check('hashMissing', 'Content hash missing'),
     ];
     if (output.suspectedInjection === true)
-      checks.push('Page flagged as containing instructions aimed at AI assistants (ignored)');
+      checks.push(
+        check(
+          'injectionFlagged',
+          'Page flagged as containing instructions aimed at AI assistants (ignored)',
+        ),
+      );
     return {
       ok: status >= 200 && status < 300 && text.length > 0 && /^[0-9a-f]{64}$/.test(sha),
       checks,

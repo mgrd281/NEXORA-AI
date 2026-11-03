@@ -12,14 +12,17 @@ export type StreamEventType = StreamEvent['type'];
  *   task.created          { status }
  *   task.status_changed   { from, to }
  *   plan.ready            { stepCount, planner: { mode, provider, model } }
- *   step.started          { stepId, toolId, title }
- *   step.succeeded        { stepId, toolId, title }
- *   step.failed           { stepId, toolId, title, code, message }
- *   step.blocked          { stepId, toolId, title, reasons }
- *   approval.requested    { approvalId, stepId, summary }
+ *   step.started          { stepId, toolId, title, titleMessage?, attempt }
+ *   step.succeeded        { stepId, toolId, title, titleMessage? }
+ *   step.failed           { stepId, toolId, title, titleMessage?, code, message, reason?, params? }
+ *   step.blocked          { stepId, toolId, title, titleMessage?, reasons }
+ *   approval.requested    { approvalId, stepId, summary, summaryMessage? }
  *   approval.decided      { approvalId, decision: 'approved'|'rejected'|'expired' }
- *   verification.passed   { checks: string[] }
- *   verification.failed   { checks: string[], message }
+ *   verification.passed   { checks: VerificationCheck[] }
+ *   verification.failed   { checks: VerificationCheck[], message, stepIds }
+ * `titleMessage` / `summaryMessage` are contracts ServerMessage values (render
+ * in the viewer's locale); `message` and check `text` are English fallbacks.
+ * Events stored before this change carry `checks` as plain strings.
  *   task.cancel_requested {}
  *   task.retried          { attempt }
  *   notification.created  { notificationId, kind }

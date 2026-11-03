@@ -34,12 +34,15 @@ const shell: Catalog<typeof source> = {
   },
   shortcuts: {
     title: 'اختصارات لوحة المفاتيح',
-    focusComposer: 'اسأل JARVIS',
+    focusComposer: 'اسأل JARVIS من أي صفحة',
+    focusComposerHere: 'الانتقال إلى حقل الطلب في هذه الصفحة',
     showShortcuts: 'عرض اختصارات لوحة المفاتيح',
     send: 'إرسال طلب',
     newLine: 'سطر جديد في الطلب',
     closeOverlay: 'إغلاق نافذة أو لوحة',
-    or: 'أو',
+    singleKey: 'اختصارات بمفتاح واحد',
+    singleKeyHint:
+      'استخدم / و? دون مفتاح إضافي. أوقفها إذا كنت تستخدم الإدخال الصوتي أو أدوات أخرى تكتب نيابةً عنك.',
   },
   placeholder: {
     building: 'هذه الشاشة قيد الإنشاء.',

@@ -2,7 +2,6 @@
 
 import type { Me } from '@jarvis/contracts';
 import { useId, useRef, useState, type FormEvent } from 'react';
-import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/Field';
 import { useI18n } from '@/i18n/I18nProvider';
 import { useSaveMe } from './api';
@@ -26,22 +25,39 @@ export function ProfileSection({ me }: { me: Me }) {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Saves when the field is left or Enter is pressed, like every other setting on the page.
+  function commit() {
+    if (draft === null) return;
+    setTouched(true);
+    if (invalid) return;
+    if (!dirty) {
+      setDraft(null);
+      return;
+    }
+    if (saver.pending) return;
+    const sent = value;
+    saver.save(
+      { displayName: trimmed },
+      // Keep anything typed while the save was running.
+      { onSuccess: () => setDraft((d) => (d === sent ? null : d)) },
+    );
+  }
+
   function submit(e: FormEvent) {
     e.preventDefault();
-    setTouched(true);
     if (invalid) {
+      setTouched(true);
       inputRef.current?.focus();
       return;
     }
-    if (!dirty || saver.pending) return;
-    saver.save({ displayName: trimmed }, { onSuccess: () => setDraft(null) });
+    commit();
   }
 
   return (
     <SettingsSection id="profile" title={t('settings.sections.profile')}>
       <SettingsCard>
         <SettingRow>
-          <form className={styles.inlineForm} onSubmit={submit} noValidate>
+          <form onSubmit={submit} noValidate>
             <TextField
               ref={inputRef}
               label={t('settings.profile.displayName')}
@@ -50,18 +66,19 @@ export function ProfileSection({ me }: { me: Me }) {
               value={value}
               maxLength={MAX_NAME}
               autoComplete="name"
-              dir="auto"
+              enterKeyHint="done"
+              // An empty field follows the interface; a typed name takes its own direction.
+              dir={value ? 'auto' : undefined}
               onChange={(e) => setDraft(e.target.value)}
-              onBlur={() => setTouched(true)}
+              onBlur={commit}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape' && draft !== null) {
+                  e.preventDefault();
+                  setDraft(null);
+                  setTouched(false);
+                }
+              }}
             />
-            <Button
-              type="submit"
-              className={styles.inlineAction}
-              disabled={!dirty}
-              loading={saver.pending}
-            >
-              {t('settings.profile.save')}
-            </Button>
           </form>
           <SaveStatus state={saver.state} error={saver.error} />
         </SettingRow>

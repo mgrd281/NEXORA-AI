@@ -1,8 +1,9 @@
 'use client';
 
 import type { TaskDetail } from '@jarvis/contracts';
-import { RotateCcw, X } from 'lucide-react';
-import { useEffect, useId, useRef, useState, type RefObject } from 'react';
+import { PenLine, RotateCcw, X } from 'lucide-react';
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useComposerRegistry } from '@/components/composer/ComposerRegistry';
 import { ErrorBanner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
@@ -10,26 +11,42 @@ import { useToast } from '@/components/ui/Toast';
 import { useI18n } from '@/i18n/I18nProvider';
 import { isApiError, type ApiError } from '@/lib/api/client';
 import { useCancelTask, useRetryTask } from './api';
-import { attemptOf, failedStep, requiresAcknowledgement } from './model';
+import { attemptOf, failedStep, nextAction, requiresAcknowledgement } from './model';
 import styles from './TaskDetail.module.css';
 
+export interface TaskActionsView {
+  /** "Cancel task" (with a confirmation), when the server allows it. */
+  cancel: ReactNode;
+  /**
+   * What helps after the task ended: Retry (with an explicit acknowledgement when the last attempt
+   * ended with OUTCOME_UNKNOWN, because the action may already have happened), or "Ask again"
+   * when retrying would fail the same way (blocked address, a request the offline planner can't
+   * plan): the request goes back into the composer on Home to be changed.
+   */
+  next: ReactNode;
+  /** The confirmation dialogs; render once, even when the buttons are gone. */
+  dialogs: ReactNode;
+}
+
 /**
- * Cancel (with a confirmation) and Retry (with an explicit acknowledgement when the last attempt
- * ended with OUTCOME_UNKNOWN, because the action may already have happened). Shown only when the
- * server says they are possible (canCancel / canRetry). Errors are reported to the screen;
- * focus moves to `focusAfter` once the button that was used disappears.
+ * The task's actions as separate pieces, so the screen can place them: the decision comes first
+ * while an approval is pending, and Cancel moves out of the header. Errors are reported to the
+ * screen; focus moves to `focusAfter` once the button that was used disappears.
  */
-export function TaskActions({
+export function useTaskActions({
   task,
   focusAfter,
   onError,
+  cancelVariant = 'secondary',
 }: {
   task: TaskDetail;
   focusAfter: RefObject<HTMLElement | null>;
   onError: (error: ApiError | null) => void;
-}) {
+  cancelVariant?: 'secondary' | 'ghost';
+}): TaskActionsView {
   const { t } = useI18n();
   const { toast } = useToast();
+  const registry = useComposerRegistry();
   const cancel = useCancelTask(task.id);
   const retry = useRetryTask(task.id, attemptOf(task));
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -113,34 +130,42 @@ export function TaskActions({
   };
 
   const step = failedStep(task);
+  const action = nextAction(task);
+
+  const cancelButton = task.canCancel ? (
+    <Button
+      variant={cancelVariant}
+      icon={X}
+      onClick={() => {
+        cancel.reset();
+        setCancelOpen(true);
+      }}
+    >
+      {t('tasks.actions.cancel')}
+    </Button>
+  ) : null;
+
+  const nextButton =
+    action === 'askAgain' ? (
+      // The original request goes into the composer on Home, ready to be changed and sent.
+      <Button variant="primary" icon={PenLine} onClick={() => registry?.fillComposer(task.request)}>
+        {t('tasks.actions.askAgain')}
+      </Button>
+    ) : action === 'retry' ? (
+      <Button
+        // Emphasised only when retrying is likely to help (otherwise the request needs a change).
+        variant={task.status === 'EXPIRED' || task.error?.retryable ? 'primary' : 'secondary'}
+        icon={RotateCcw}
+        onClick={onRetryClick}
+        loading={retry.isPending && !ackOpen}
+      >
+        {t('tasks.actions.retry')}
+      </Button>
+    ) : null;
 
   // The dialogs stay mounted when the buttons disappear (e.g. right after a cancel succeeded).
-  return (
+  const dialogs = (
     <>
-      {task.canCancel && (
-        <Button
-          variant="secondary"
-          icon={X}
-          onClick={() => {
-            cancel.reset();
-            setCancelOpen(true);
-          }}
-        >
-          {t('tasks.actions.cancel')}
-        </Button>
-      )}
-      {task.canRetry && (
-        <Button
-          // Emphasised only when retrying is likely to help (otherwise the request needs a change).
-          variant={task.status === 'EXPIRED' || task.error?.retryable ? 'primary' : 'secondary'}
-          icon={RotateCcw}
-          onClick={onRetryClick}
-          loading={retry.isPending && !ackOpen}
-        >
-          {t('tasks.actions.retry')}
-        </Button>
-      )}
-
       <Dialog
         open={cancelOpen}
         onClose={() => setCancelOpen(false)}
@@ -213,4 +238,6 @@ export function TaskActions({
       </Dialog>
     </>
   );
+
+  return { cancel: cancelButton, next: nextButton, dialogs };
 }

@@ -17,12 +17,17 @@ const pairs: [fg: keyof (typeof color)['light'], bg: keyof (typeof color)['light
   ['textPrimary', 'canvas'],
   ['textPrimary', 'surface'],
   ['textPrimary', 'surfaceHover'],
+  ['textPrimary', 'surfaceRaised'],
+  ['textPrimary', 'surfaceSunken'],
   ['textSecondary', 'canvas'],
   ['textSecondary', 'surface'],
   ['textSecondary', 'surfaceHover'],
+  ['textSecondary', 'surfaceRaised'],
+  ['textSecondary', 'surfaceSunken'],
   ['textTertiary', 'canvas'],
   ['textTertiary', 'surface'],
   ['textTertiary', 'surfaceSunken'],
+  ['textTertiary', 'surfaceRaised'],
   ['onInk', 'ink'],
   ['onInk', 'inkHover'],
   ['accent', 'canvas'],
@@ -49,5 +54,16 @@ describe.each<ThemeName>(['light', 'dark'])('%s theme contrast (WCAG 2.2 AA)', (
   it('control boundaries are ≥ 3:1 against canvas and surface (WCAG 1.4.11)', () => {
     expect(contrast(color[theme].borderControl, color[theme].canvas)).toBeGreaterThanOrEqual(3);
     expect(contrast(color[theme].borderControl, color[theme].surface)).toBeGreaterThanOrEqual(3);
+  });
+  it('the selected segment ring is ≥ 3:1 against its track and thumb (WCAG 1.4.11)', () => {
+    const c = color[theme];
+    expect(contrast(c.borderControl, c.surfaceSunken)).toBeGreaterThanOrEqual(3);
+    expect(contrast(c.borderControl, c.surfaceRaised)).toBeGreaterThanOrEqual(3);
+  });
+  it('a well inside a card is never darker than the dark page (no punched-through look)', () => {
+    if (theme !== 'dark') return;
+    const c = color[theme];
+    expect(lum(c.surfaceSunken)).toBeGreaterThanOrEqual(lum(c.canvas));
+    expect(lum(c.surfaceSunken)).toBeLessThanOrEqual(lum(c.surface));
   });
 });

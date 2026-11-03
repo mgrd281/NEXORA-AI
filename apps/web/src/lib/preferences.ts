@@ -2,7 +2,7 @@
 
 import type { Locale, ThemePreference } from '@jarvis/contracts';
 import { useRouter } from 'next/navigation';
-import { useCallback } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 import { LOCALE_COOKIE, parseTheme, THEME_COOKIE } from '@/i18n/config';
 import { useI18n } from '@/i18n/I18nProvider';
 
@@ -58,3 +58,56 @@ export function useApplyAppearance(): (next: { locale?: Locale; theme?: ThemePre
 }
 
 let refreshedFor: Locale | null = null;
+
+/* ------------------------------------------------------------------ per-viewer, this browser */
+
+const SINGLE_KEY_SHORTCUTS = 'jarvis.singleKeyShortcuts';
+const listeners = new Set<() => void>();
+/** Used only when storage is blocked: the choice then lasts until the page reloads. */
+let memoryFallback: boolean | null = null;
+
+/** Current value, for event handlers ('/' and '?' are on unless turned off). */
+export function singleKeyShortcutsEnabled(): boolean {
+  if (memoryFallback !== null) return memoryFallback;
+  try {
+    return window.localStorage.getItem(SINGLE_KEY_SHORTCUTS) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+function subscribeSingleKeyShortcuts(onChange: () => void): () => void {
+  listeners.add(onChange);
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === SINGLE_KEY_SHORTCUTS) onChange();
+  };
+  window.addEventListener('storage', onStorage);
+  return () => {
+    listeners.delete(onChange);
+    window.removeEventListener('storage', onStorage);
+  };
+}
+
+/**
+ * Whether the unmodified-key shortcuts ('/' and '?') are on in this browser (default on).
+ * The off switch is what WCAG 2.1.4 asks for: speech-input and switch users can type those
+ * characters by accident. Stored per viewer (localStorage); ⌘/Ctrl+K is not affected.
+ */
+export function useSingleKeyShortcuts(): [enabled: boolean, setEnabled: (on: boolean) => void] {
+  const enabled = useSyncExternalStore(
+    subscribeSingleKeyShortcuts,
+    singleKeyShortcutsEnabled,
+    () => true,
+  );
+  const setEnabled = useCallback((on: boolean) => {
+    try {
+      if (on) window.localStorage.removeItem(SINGLE_KEY_SHORTCUTS);
+      else window.localStorage.setItem(SINGLE_KEY_SHORTCUTS, 'off');
+      memoryFallback = null;
+    } catch {
+      memoryFallback = on;
+    }
+    for (const listener of listeners) listener();
+  }, []);
+  return [enabled, setEnabled];
+}

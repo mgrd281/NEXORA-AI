@@ -21,7 +21,7 @@ const admin = {
     noHeartbeat: 'No heartbeat yet',
     planner: 'Planner',
     plannerModel: 'AI model',
-    plannerOffline: 'Offline',
+    plannerOffline: 'Basic mode',
     plannerProvider: 'Provider: {provider}',
     reasons: {
       NO_API_KEY: 'No AI model key configured',
@@ -56,8 +56,9 @@ const admin = {
     failed: 'Failed',
     p50: 'p50',
     p95: 'p95',
-    ms: '{value} ms',
     none: '—',
+    /** A success rate under the reliability threshold, e.g. "75% · below 90%". */
+    rateLow: '{rate} · below {threshold}',
     empty: 'No tool has run yet.',
   },
   users: {
@@ -88,14 +89,79 @@ const admin = {
     caption: 'Security-relevant actions, newest first',
     time: 'Time',
     actor: 'Actor',
-    action: 'Action',
+    event: 'Event',
     target: 'Target',
     empty: 'Nothing has been audited yet.',
+    showAdminViews: 'Show admin page views',
+    adminViews: '{count, plural, one {Viewed an admin page} other {Viewed admin pages # times}}',
+    agentFor: 'JARVIS, working for {actor}',
     actors: {
       user: 'User',
       system: 'System',
-      agent: 'Agent',
+      agent: 'JARVIS',
       admin: 'Admin',
+    },
+    /** One line per audited action (the raw action key is shown beside it). */
+    events: {
+      account: {
+        created: 'Created an account',
+        delete_failed: 'Account deletion failed',
+        deleted: 'Deleted an account',
+        exported: 'Exported account data',
+        updated: 'Updated account settings',
+      },
+      admin: {
+        audit_viewed: 'Viewed the audit log',
+        users_viewed: 'Viewed the user list',
+      },
+      approval: {
+        approved: 'Approved an action',
+        expired: 'An approval expired',
+        rejected: 'Declined an action',
+        requested: 'Asked for approval',
+      },
+      auth: {
+        login: 'Signed in',
+        login_failed: 'Sign-in failed',
+        logout: 'Signed out',
+        session_revoked: 'Signed out a device',
+      },
+      connection: {
+        created: 'Connected a service',
+        deleted: 'Disconnected a service',
+        tested: 'Tested a connection',
+        verify_failed: 'A connection check failed',
+      },
+      email: {
+        sent: 'Sent an email',
+      },
+      memory: {
+        deleted: 'Deleted a memory',
+        deleted_all: 'Deleted all memories',
+        saved: 'Saved a memory',
+      },
+      task: {
+        cancel_requested: 'Asked to cancel a task',
+        cancelled: 'Cancelled a task',
+        created: 'Created a task',
+        retried: 'Retried a task',
+      },
+      tenant: {
+        deleted: 'Deleted a tenant',
+      },
+      tool: {
+        outcome_unknown: 'A tool’s result couldn’t be confirmed',
+      },
+    },
+    targets: {
+      approval: 'Approval',
+      connection: 'Connection',
+      memory: 'Memory',
+      session: 'Session',
+      task: 'Task',
+      task_step: 'Task step',
+      tenant: 'Tenant',
+      user: 'User',
     },
   },
   scrollHint: 'Scroll sideways to see every column.',

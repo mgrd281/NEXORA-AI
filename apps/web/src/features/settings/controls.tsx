@@ -2,7 +2,7 @@
 
 import type { Me, UpdateMeRequest } from '@jarvis/contracts';
 import { Check, CircleAlert } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { Spinner } from '@/components/ui/Spinner';
 import { Switch } from '@/components/ui/Switch';
@@ -59,6 +59,42 @@ export function SaveStatus({
 /** A card whose children are rows separated by hairlines. */
 export function SettingsCard({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cx(styles.card, className)}>{children}</div>;
+}
+
+/**
+ * The quiet end-of-page area for an irreversible action (delete all memories, delete the
+ * account): a plain surface card with a hairline, the consequence in words, and a quiet danger
+ * button. The confirmation dialog carries the solid destructive button.
+ */
+export function DangerZone({
+  title,
+  description,
+  action,
+  headingLevel = 3,
+  children,
+}: {
+  title: ReactNode;
+  description: ReactNode;
+  action: ReactNode;
+  headingLevel?: 2 | 3;
+  children?: ReactNode;
+}) {
+  const titleId = useId();
+  const Heading = headingLevel === 2 ? 'h2' : 'h3';
+  return (
+    <section className={styles.dangerZone} aria-labelledby={titleId}>
+      <div className={styles.actionRow}>
+        <div className={styles.actionText}>
+          <Heading id={titleId} className={styles.rowTitle}>
+            {title}
+          </Heading>
+          <p className={styles.rowText}>{description}</p>
+        </div>
+        <div className={styles.actionButton}>{action}</div>
+      </div>
+      {children}
+    </section>
+  );
 }
 
 export function SettingRow({ children, className }: { children: ReactNode; className?: string }) {

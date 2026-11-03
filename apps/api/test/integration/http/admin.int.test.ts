@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { AdminOverview, AdminUser, AuditEvent } from '@jarvis/contracts';
 import { withContext } from '../../../src/db/pool';
-import { heartbeat } from '../../../src/modules/jobs/queue';
+import { audit } from '../../../src/modules/audit/audit';
+import { enqueue, heartbeat } from '../../../src/modules/jobs/queue';
 import {
   createHarness,
   MODEL_STATUS,
@@ -115,6 +116,44 @@ describe('GET /v1/admin/overview', () => {
     expect(res.body).not.toContain(SECRET_REQUEST);
     expect(res.body).not.toContain(SECRET_TITLE);
   });
+
+  it('counts due jobs as the backlog and future timers separately', async () => {
+    const health = async () =>
+      (await admin.request('GET', '/v1/admin/overview')).json<AdminOverview>().health;
+    const before = await health();
+    const { tenantId, userId } = member.user;
+    await withContext(h.db, member.user, async (trx) => {
+      // An approval.expire timer due in an hour is not backlog…
+      await enqueue(trx, {
+        kind: 'approval.expire',
+        tenantId,
+        userId,
+        dedupeKey: 'admin-test:timer',
+        runAt: new Date(Date.now() + 3_600_000),
+      });
+      // …a job that has been due for two minutes is.
+      await enqueue(trx, {
+        kind: 'task.plan',
+        tenantId,
+        userId,
+        dedupeKey: 'admin-test:due',
+        runAt: new Date(Date.now() - 120_000),
+      });
+    });
+    try {
+      const after = await health();
+      expect(after.queueScheduled).toBe(before.queueScheduled! + 1);
+      expect(after.queueReady).toBe(before.queueReady! + 1);
+      expect(after.queueDepth).toBe(after.queueReady);
+      expect(after.oldestReadyAgeMs).toBeGreaterThanOrEqual(119_000);
+    } finally {
+      await h.db
+        .deleteFrom('jobs')
+        .where('dedupe_key', 'in', ['admin-test:timer', 'admin-test:due'])
+        .execute();
+    }
+    expect((await health()).queueReady).toBe(before.queueReady);
+  });
 });
 
 describe('GET /v1/admin/users', () => {
@@ -160,6 +199,15 @@ describe('GET /v1/admin/users', () => {
 
 describe('GET /v1/admin/audit', () => {
   it('pages through the audit log by id without metadata', async () => {
+    // Enough events for two pages, whatever ran before this file.
+    for (let i = 0; i < 6; i++)
+      await audit(h.db, {
+        tenantId: member.user.tenantId,
+        actorType: 'user',
+        actorId: member.user.userId,
+        action: 'test.event',
+        metadata: { i },
+      });
     const first = await admin.request('GET', '/v1/admin/audit?limit=3');
     expect(first.statusCode).toBe(200);
     const page = first.json<{ items: AuditEvent[]; nextCursor: string | null }>();
@@ -177,15 +225,31 @@ describe('GET /v1/admin/audit', () => {
   });
 
   it('records admin access in the audit log', async () => {
-    await admin.request('GET', '/v1/admin/users?limit=1');
-    const res = await admin.request('GET', '/v1/admin/audit?limit=5');
+    const viewer = await newClient(h, { admin: true });
+    await viewer.request('GET', '/v1/admin/users?limit=1');
+    const res = await viewer.request('GET', '/v1/admin/audit?limit=5');
     expect(res.json<{ items: AuditEvent[] }>().items).toContainEqual(
       expect.objectContaining({
         action: 'admin.users_viewed',
         actorType: 'admin',
-        actorId: admin.user.userId,
+        actorId: viewer.user.userId,
       }),
     );
+  });
+
+  it('audits each list view once per window and never for further pages', async () => {
+    const viewer = await newClient(h, { admin: true });
+    const users = await viewer.request('GET', '/v1/admin/users?limit=1');
+    await viewer.request('GET', '/v1/admin/users?limit=1'); // refresh
+    const next = users.json<{ nextCursor: string | null }>().nextCursor;
+    if (next) await viewer.request('GET', `/v1/admin/users?limit=1&cursor=${next}`); // load more
+    await viewer.request('GET', '/v1/admin/audit?limit=5');
+    const res = await viewer.request('GET', '/v1/admin/audit?limit=100');
+    const own = res
+      .json<{ items: AuditEvent[] }>()
+      .items.filter((a) => a.actorType === 'admin' && a.actorId === viewer.user.userId)
+      .map((a) => a.action);
+    expect(own.sort()).toEqual(['admin.audit_viewed', 'admin.users_viewed']);
   });
 
   it('rejects malformed cursors', async () => {

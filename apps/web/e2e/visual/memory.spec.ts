@@ -346,7 +346,8 @@ test('memory — add, search, edit, delete, delete all and turn off', async ({
   await page.waitForURL(/\/memory$/);
 
   // Edit (correct) a memory; focus returns to its Edit button.
-  const editButton = page.getByRole('button', { name: /^Edit memory: My manager is Sam/ });
+  // Interpolated previews are direction-isolated (FSI…PDI), hence the optional \u2068.
+  const editButton = page.getByRole('button', { name: /^Edit memory: \u2068?My manager is Sam/ });
   await editButton.click();
   const field = page.getByRole('textbox', { name: 'Memory', exact: true });
   await field.fill('My manager is Sam Okafor; our weekly sync moved to Wednesdays at 10:00.');
@@ -356,10 +357,12 @@ test('memory — add, search, edit, delete, delete all and turn off', async ({
     content: 'My manager is Sam Okafor; our weekly sync moved to Wednesdays at 10:00.',
   });
   await expect(page.locator('main li').filter({ hasText: 'Wednesdays' })).toContainText('Edited');
-  await expect(page.getByRole('button', { name: /^Edit memory: My manager is Sam/ })).toBeFocused();
+  await expect(
+    page.getByRole('button', { name: /^Edit memory: \u2068?My manager is Sam/ }),
+  ).toBeFocused();
 
   // Delete one, with confirmation.
-  await page.getByRole('button', { name: /^Delete memory: Summaries should/ }).click();
+  await page.getByRole('button', { name: /^Delete memory: \u2068?Summaries should/ }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Delete memory' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.locator('main').getByText('Summaries should have at most')).toHaveCount(0);

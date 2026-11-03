@@ -2,7 +2,7 @@
  * Approval lifecycle pieces shared by the executor (request), the
  * approval.expire job and the approval service (expire on decide).
  */
-import type { ApprovalDetails, Locale, RiskLevel, ToolId } from '@jarvis/contracts';
+import type { ApprovalDetails, Locale, RiskLevel, ServerMessage, ToolId } from '@jarvis/contracts';
 import type { Config } from '../../config';
 import type { DbContext, Trx } from '../../db/pool';
 import type { ApprovalRow, StepRow, TaskRow } from '../../db/types';
@@ -10,7 +10,7 @@ import { audit } from '../audit/audit';
 import { appendEvent } from '../events/events';
 import { enqueue } from '../jobs/queue';
 import { createNotification } from '../notifications/create';
-import { t } from './i18n';
+import { msg, render } from './i18n';
 import { cancelOpenSteps, lockTask, taskErrorJson, transitionTask } from './task-state';
 
 export async function requestApproval(
@@ -23,6 +23,8 @@ export async function requestApproval(
     toolId: ToolId;
     risk: RiskLevel;
     summary: string;
+    /** `summary` as a message key + params (null when the tool has no sentence for it). */
+    summaryMessage: ServerMessage | null;
     details: ApprovalDetails;
     actionHash: string;
     reasons: string[];
@@ -39,6 +41,7 @@ export async function requestApproval(
       tool_id: r.toolId,
       risk_level: r.risk,
       summary: r.summary,
+      summary_message: r.summaryMessage ? JSON.stringify(r.summaryMessage) : null,
       details: JSON.stringify(r.details),
       action_hash: r.actionHash,
       reasons: r.reasons,
@@ -55,7 +58,12 @@ export async function requestApproval(
   await appendEvent(trx, ctx, {
     taskId: r.task.id,
     type: 'approval.requested',
-    data: { approvalId: approval.id, stepId: r.step.id, summary: r.summary },
+    data: {
+      approvalId: approval.id,
+      stepId: r.step.id,
+      summary: r.summary,
+      ...(r.summaryMessage ? { summaryMessage: r.summaryMessage } : {}),
+    },
   });
   await createNotification(trx, ctx, 'approval_requested', r.task.id, {
     taskTitle: r.task.title,
@@ -105,13 +113,15 @@ export async function expireApproval(
   if (task.status === 'AWAITING_APPROVAL') {
     const language = (task.language ?? 'en') as Locale;
     await cancelOpenSteps(trx, task.id);
+    const result = msg('result.expired');
     const expired = await transitionTask(trx, ctx, task, 'EXPIRED', {
       error: taskErrorJson({
         code: 'APPROVAL_EXPIRED',
         message: 'The approval request expired before a decision was made.',
         retryable: true,
       }),
-      result_summary: t(language, 'result.expired'),
+      result_summary: render(language, result),
+      result_summary_message: JSON.stringify(result),
     });
     await createNotification(trx, ctx, 'task_failed', task.id, {
       taskTitle: expired.title,

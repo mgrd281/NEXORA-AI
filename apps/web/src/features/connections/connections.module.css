@@ -124,13 +124,12 @@
   margin-inline-start: auto;
 }
 
+/* Phones: one full-width button per row, in the same order, on every card. */
 @media (max-width: 639.98px) {
   .actions {
+    flex-direction: column;
+    align-items: stretch;
     inline-size: 100%;
-  }
-
-  .actions > * {
-    flex: 1 1 auto;
   }
 }
 

@@ -1,4 +1,4 @@
-import type { ErrorCode, TaskError } from '@jarvis/contracts';
+import type { ErrorCode, TaskError, TaskErrorReason } from '@jarvis/contracts';
 import { AppError } from '../../lib/errors';
 import type { ModelUsage } from './models/adapter';
 
@@ -11,26 +11,45 @@ import type { ModelUsage } from './models/adapter';
  * - `transient`: worth an automatic retry inside the same step (network blips,
  *   5xx, timeouts). Only honoured for tools declared `safe_to_retry`.
  * - `usage`: model usage already incurred before the failure, so it is billed.
+ * - `reason` + `params`: which failure of that code it is, as data. Clients
+ *   show copy for code / reason / params; `message` is an English developer
+ *   fallback and never needs to be translated.
  */
+export type ErrorParams = Record<string, string | number>;
+
+export interface AgentErrorOptions {
+  retryable?: boolean;
+  transient?: boolean;
+  usage?: ModelUsage[];
+  reason?: TaskErrorReason;
+  params?: ErrorParams;
+}
+
 export class AgentError extends AppError {
   readonly retryable: boolean;
   readonly transient: boolean;
   readonly usage: ModelUsage[];
+  readonly reason: TaskErrorReason | undefined;
+  readonly params: ErrorParams | undefined;
 
-  constructor(
-    code: ErrorCode,
-    message: string,
-    opts: { retryable?: boolean; transient?: boolean; usage?: ModelUsage[] } = {},
-  ) {
+  constructor(code: ErrorCode, message: string, opts: AgentErrorOptions = {}) {
     super(code, message);
     this.name = 'AgentError';
     this.retryable = opts.retryable ?? false;
     this.transient = opts.transient ?? false;
     this.usage = opts.usage ?? [];
+    this.reason = opts.reason;
+    this.params = opts.params;
   }
 
   toTaskError(): TaskError {
-    return { code: this.code, message: this.message, retryable: this.retryable };
+    return {
+      code: this.code,
+      message: this.message,
+      retryable: this.retryable,
+      ...(this.reason ? { reason: this.reason } : {}),
+      ...(this.params && Object.keys(this.params).length ? { params: this.params } : {}),
+    };
   }
 }
 
@@ -39,7 +58,9 @@ export function toTaskError(err: unknown): TaskError {
   if (err instanceof AgentError) return err.toTaskError();
   if (err instanceof AppError) {
     // AppErrors raised by shared libraries (e.g. FETCH_BLOCKED from the SSRF guard).
-    return { code: err.code, message: err.message, retryable: err.code !== 'FETCH_BLOCKED' };
+    return err.code === 'FETCH_BLOCKED'
+      ? { code: err.code, message: err.message, retryable: false, reason: 'PRIVATE_ADDRESS' }
+      : { code: err.code, message: err.message, retryable: true };
   }
   return {
     code: 'INTERNAL',
@@ -51,7 +72,11 @@ export function toTaskError(err: unknown): TaskError {
 export function asAgentError(err: unknown): AgentError {
   if (err instanceof AgentError) return err;
   const te = toTaskError(err);
-  return new AgentError(te.code, te.message, { retryable: te.retryable });
+  return new AgentError(te.code, te.message, {
+    retryable: te.retryable,
+    reason: te.reason,
+    params: te.params,
+  });
 }
 
 /** Postgres unique_violation. */

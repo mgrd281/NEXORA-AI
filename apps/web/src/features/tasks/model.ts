@@ -4,8 +4,10 @@
  * No React, no I/O — unit-tested in model.test.ts.
  */
 import type {
+  Approval,
   ErrorCode,
   Evidence,
+  StepStatus,
   TaskDetail,
   TaskEvent,
   TaskListQuery,
@@ -13,20 +15,28 @@ import type {
   TaskStep,
   ToolId,
 } from '@jarvis/contracts';
-import { isTerminal, TaskStatus as TaskStatusEnum } from '@jarvis/contracts';
+import {
+  ErrorCode as ErrorCodeEnum,
+  isTerminal,
+  TaskStatus as TaskStatusEnum,
+} from '@jarvis/contracts';
 import type { MessageKey } from '@/i18n/catalog';
+import type { MessageParams } from '@/i18n/types';
 
 /* ------------------------------------------------------------------ filters */
 
 export type TaskFilter = TaskListQuery['status'];
 
-/** Display order of the Task Center filter. */
+/**
+ * Display order of the Task Center filter. The default (All) comes first, so on a phone the
+ * selected option sits at the start of the scrolling row and any overflow is at the end.
+ */
 export const TASK_FILTERS: readonly TaskFilter[] = [
+  'all',
   'needs_approval',
   'active',
   'completed',
   'failed',
-  'all',
 ];
 
 export const DEFAULT_FILTER: TaskFilter = 'all';
@@ -91,6 +101,8 @@ export type EvidenceView =
     }
   | { kind: 'content_hash'; algorithm: string; hex: string; value: string }
   | { kind: 'model_output'; model: string; inputTokens: number | null; outputTokens: number | null }
+  /** The offline summarizer's note: how many sentences it quoted from how much text. */
+  | { kind: 'extractive'; sentences: number; chars: number }
   | { kind: 'record' | 'note'; label: string; value: string };
 
 /** Only http(s) URLs become links (never javascript:, data: …). */
@@ -117,7 +129,9 @@ export function parseEvidence(e: Evidence): EvidenceView {
       const code = /\b([2-5]\d\d)\b/.exec(e.label)?.[1] ?? /^\s*([2-5]\d\d)\b/.exec(e.value)?.[1];
       const accepted = /(\d+)\s+accepted/i.exec(e.label)?.[1];
       const id = /Message-ID\s*:?\s*(\S+)/i.exec(e.value)?.[1] ?? null;
-      const response = e.value.replace(/\s*·?\s*Message-ID\s*:?\s*\S+\s*$/i, '').trim();
+      let response = e.value.replace(/\s*·?\s*Message-ID\s*:?\s*\S+\s*$/i, '').trim();
+      // "250 Message queued" next to "SMTP 250": the code is shown once.
+      if (code && response.startsWith(code)) response = response.slice(code.length).trim();
       return {
         kind: 'smtp_receipt',
         code: code ?? null,
@@ -158,8 +172,19 @@ export function parseEvidence(e: Evidence): EvidenceView {
         outputTokens: tokens?.[2] ? Number(tokens[2]) : null,
       };
     }
+    case 'note': {
+      const extractive =
+        /extractive/i.test(e.label) &&
+        /^(\d+)\s+key sentences?\s+from\s+(\d+)\s+characters/i.exec(e.value.trim());
+      if (extractive)
+        return {
+          kind: 'extractive',
+          sentences: Number(extractive[1]),
+          chars: Number(extractive[2]),
+        };
+      return { kind: e.kind, label: e.label, value: e.value };
+    }
     case 'record':
-    case 'note':
       return { kind: e.kind, label: e.label, value: e.value };
   }
 }
@@ -171,17 +196,104 @@ export function shortHash(hex: string, head = 8, tail = 8): string {
 
 /* ------------------------------------------------------------------ events */
 
+const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v : null);
+
 export interface EventDescription {
   key: MessageKey;
   params?: Record<string, string | number>;
-  /** Extra lines from the event (server-written check results or messages). */
+  /** Extra lines from the event that have no code (server-written messages). */
   details?: string[];
+  /** A step failure's code: its localized title stands in for the server's message. */
+  errorCode?: ErrorCode;
+  /** Verification results, localized where the check is known. */
+  checks?: CheckLine[];
   tone: 'neutral' | 'success' | 'warning' | 'danger' | 'accent';
 }
 
-const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v : null);
-const strings = (v: unknown): string[] =>
-  Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim() !== '') : [];
+/**
+ * One verification result. `key` + `params` localize it (tasks.checks.*); `text` is the stored
+ * line to fall back on. `step` is the title of the step it belongs to, when the line names one.
+ */
+export interface CheckLine {
+  step: string | null;
+  key: string | null;
+  params: MessageParams;
+  text: string;
+}
+
+type CheckPattern = [RegExp, MessageKey, (m: RegExpExecArray) => MessageParams];
+
+/** The verification lines the tools write today (apps/api/src/modules/agent/tools/*). */
+const CHECK_PATTERNS: readonly CheckPattern[] = [
+  [/HTTP (\d{3}) from (\S+)/, 'tasks.checks.http', (m) => ({ status: m[1], url: m[2] })],
+  [
+    /(\d+) characters of readable text extracted/,
+    'tasks.checks.textExtracted',
+    (m) => ({ count: Number(m[1]) }),
+  ],
+  [/Content hash recorded/, 'tasks.checks.hashRecorded', () => ({})],
+  [/Content hash missing/, 'tasks.checks.hashMissing', () => ({})],
+  [
+    /Page flagged as containing instructions aimed at AI assistants \(ignored\)/,
+    'tasks.checks.injectionFlagged',
+    () => ({}),
+  ],
+  [/Summary of (\d+) characters/, 'tasks.checks.summaryLength', (m) => ({ count: Number(m[1]) })],
+  [/Extractive summary \(no AI model used\)/, 'tasks.checks.extractive', () => ({})],
+  [/Written by (.+)/, 'tasks.checks.writtenBy', (m) => ({ model: m[1] })],
+  [
+    /(\d+)\/(\d+) recipients accepted/,
+    'tasks.checks.recipientsAccepted',
+    (m) => ({ accepted: Number(m[1]), count: Number(m[2]) }),
+  ],
+  [/No recipients rejected/, 'tasks.checks.noneRejected', () => ({})],
+  [/Rejected: (.+)/, 'tasks.checks.rejected', (m) => ({ list: m[1] })],
+  [/Server response: (.+)/, 'tasks.checks.serverResponse', (m) => ({ response: m[1] })],
+  [/Message-ID (.+)/, 'tasks.checks.messageId', (m) => ({ id: m[1] })],
+  [/Answer of (\d+) characters/, 'tasks.checks.answerLength', (m) => ({ count: Number(m[1]) })],
+  [/Memory \S+ stored/, 'tasks.checks.memoryStored', () => ({})],
+  [/Memory record missing/, 'tasks.checks.memoryMissing', () => ({})],
+];
+
+const ANCHORED = CHECK_PATTERNS.map(
+  ([re, key, params]) => [new RegExp(`^(?:(.+?): )?${re.source}$`), key, params] as const,
+);
+
+/**
+ * A verification line as data: "<step title>: <check>" from the server, or a structured
+ * `{ key, params, step }` (once the API sends codes). Unknown lines keep their text.
+ */
+export function parseCheck(raw: unknown): CheckLine | null {
+  if (raw && typeof raw === 'object') {
+    const o = raw as { key?: unknown; params?: unknown; step?: unknown; text?: unknown };
+    if (typeof o.key !== 'string') return null;
+    return {
+      step: str(o.step),
+      key: `tasks.checks.${o.key}`,
+      params: (o.params && typeof o.params === 'object' ? o.params : {}) as MessageParams,
+      text: str(o.text) ?? '',
+    };
+  }
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  const text = raw.trim();
+  for (const [re, key, params] of ANCHORED) {
+    const m = re.exec(text);
+    if (m) {
+      // Group 1 is the step title; the pattern's own groups follow it.
+      const own = [m[0], ...m.slice(2)] as unknown as RegExpExecArray;
+      return { step: m[1] ?? null, key, params: params(own), text };
+    }
+  }
+  return { step: null, key: null, params: {}, text };
+}
+
+const checkLines = (v: unknown): CheckLine[] =>
+  Array.isArray(v) ? v.map(parseCheck).filter((c): c is CheckLine => c !== null) : [];
+
+function errorCodeParam(v: unknown): ErrorCode | null {
+  const parsed = ErrorCodeEnum.safeParse(v);
+  return parsed.success ? parsed.data : null;
+}
 
 function statusParam(v: unknown): TaskStatus | null {
   const parsed = TaskStatusEnum.safeParse(v);
@@ -231,11 +343,13 @@ export function describeEvent(
     case 'step.succeeded':
       return { key: 'tasks.events.stepSucceeded', params: { title }, tone: 'success' };
     case 'step.failed': {
+      // A known code has a localized title; the server's message is then only a duplicate.
+      const code = errorCodeParam(d.code);
       const message = str(d.message);
       return {
         key: 'tasks.events.stepFailed',
         params: { title },
-        details: message ? [message] : undefined,
+        ...(code ? { errorCode: code } : message ? { details: [message] } : {}),
         tone: 'danger',
       };
     }
@@ -261,14 +375,15 @@ export function describeEvent(
     case 'verification.passed':
       return {
         key: 'tasks.events.verificationPassed',
-        details: strings(d.checks),
+        checks: checkLines(d.checks),
         tone: 'success',
       };
     case 'verification.failed': {
       const message = str(d.message);
       return {
         key: 'tasks.events.verificationFailed',
-        details: [...(message ? [message] : []), ...strings(d.checks)],
+        details: message ? [message] : undefined,
+        checks: checkLines(d.checks),
         tone: 'danger',
       };
     }
@@ -283,6 +398,125 @@ export function describeEvent(
     case 'task.answer.delta':
       return { key: 'tasks.events.answerDelta', tone: 'neutral' };
   }
+}
+
+/* ------------------------------------------------------------------ timeline */
+
+export interface TimelineRow {
+  event: TaskEvent;
+  /** On a step's end row: how long the step ran (its start row is merged into it). */
+  durationMs: number | null;
+}
+
+const STEP_END: readonly TaskEvent['type'][] = ['step.succeeded', 'step.failed', 'step.blocked'];
+
+/** A status row that only restates the event next to it ("Status: Running" before a step). */
+function restatesNeighbour(
+  to: TaskStatus | null,
+  prev: TaskEvent | undefined,
+  next: TaskEvent | undefined,
+): boolean {
+  const after = (...types: TaskEvent['type'][]) => prev !== undefined && types.includes(prev.type);
+  const before = (...types: TaskEvent['type'][]) => next !== undefined && types.includes(next.type);
+  switch (to) {
+    case 'QUEUED':
+      return after('task.created', 'task.retried');
+    case 'PLANNING':
+      return after('task.created', 'task.retried') || before('plan.ready');
+    case 'RUNNING':
+      return after('plan.ready', 'approval.decided', 'task.retried') || before('step.started');
+    case 'AWAITING_APPROVAL':
+      return after('approval.requested') || before('approval.requested');
+    case 'VERIFYING':
+      return before('verification.passed', 'verification.failed');
+    default:
+      // Outcomes (completed, failed, cancelled, expired) always stay.
+      return false;
+  }
+}
+
+/**
+ * The rows the History shows: answer deltas dropped, each step's start merged into its end row
+ * (with the duration), and status rows that restate a neighbouring event left out.
+ */
+export function timelineRows(events: readonly TaskEvent[]): TimelineRow[] {
+  const visible = events.filter((e) => e.type !== 'task.answer.delta');
+  const merged = new Set<number>();
+  const duration = new Map<number, number>();
+  visible.forEach((e, i) => {
+    if (e.type !== 'step.started' || typeof e.data.stepId !== 'string') return;
+    const stepId = e.data.stepId;
+    for (let j = i + 1; j < visible.length; j++) {
+      const later = visible[j]!;
+      if (later.data.stepId !== stepId) continue;
+      if (later.type === 'step.started') return;
+      if (STEP_END.includes(later.type)) {
+        merged.add(i);
+        const ms = durationMs(e.at, later.at);
+        if (ms !== null) duration.set(j, ms);
+        return;
+      }
+    }
+  });
+  return visible.flatMap((event, i) => {
+    if (merged.has(i)) return [];
+    if (
+      event.type === 'task.status_changed' &&
+      restatesNeighbour(statusParam(event.data.to), visible[i - 1], visible[i + 1])
+    )
+      return [];
+    return [{ event, durationMs: duration.get(i) ?? null }];
+  });
+}
+
+/**
+ * The one-line History summary, e.g. "Asked · Approved · Sent": what the person did and the
+ * outcome, in order (keys under tasks.history.milestones).
+ */
+export function historyMilestones(
+  events: readonly Pick<TaskEvent, 'type' | 'data'>[],
+  status: TaskStatus,
+): MessageKey[] {
+  const out: MessageKey[] = [];
+  const push = (key: MessageKey) => {
+    if (!out.includes(key)) out.push(key);
+  };
+  for (const e of events) {
+    if (e.type === 'task.created') push('tasks.history.milestones.asked');
+    else if (e.type === 'approval.decided') {
+      if (e.data.decision === 'approved') push('tasks.history.milestones.approved');
+      else if (e.data.decision === 'rejected') push('tasks.history.milestones.declined');
+      else if (e.data.decision === 'expired') push('tasks.history.milestones.approvalExpired');
+    } else if (e.type === 'step.succeeded' && e.data.toolId === 'email.send')
+      push('tasks.history.milestones.sent');
+    else if (e.type === 'step.succeeded' && e.data.toolId === 'memory.save')
+      push('tasks.history.milestones.saved');
+    else if (e.type === 'task.retried') push('tasks.history.milestones.retried');
+  }
+  switch (status) {
+    case 'COMPLETED':
+      if (
+        !out.includes('tasks.history.milestones.sent') &&
+        !out.includes('tasks.history.milestones.saved')
+      )
+        push('tasks.history.milestones.done');
+      break;
+    case 'FAILED':
+      push('tasks.history.milestones.failed');
+      break;
+    case 'CANCELLED':
+      push('tasks.history.milestones.cancelled');
+      break;
+    case 'EXPIRED':
+      push('tasks.history.milestones.approvalExpired');
+      break;
+    case 'AWAITING_APPROVAL':
+      push('tasks.history.milestones.waiting');
+      break;
+    default:
+      push('tasks.history.milestones.inProgress');
+  }
+  return out;
 }
 
 /* ------------------------------------------------------------------ task state */
@@ -318,6 +552,30 @@ export function failedStep(detail: Pick<TaskDetail, 'steps'>): TaskStep | null {
 
 export function requiresAcknowledgement(detail: Pick<TaskDetail, 'error'>): boolean {
   return detail.error?.code === 'OUTCOME_UNKNOWN';
+}
+
+/** Errors a plain retry can't fix: the request (or the setup) has to change first. */
+const ASK_AGAIN: readonly ErrorCode[] = [
+  'FETCH_BLOCKED',
+  'PLANNER_UNSUPPORTED',
+  'MODEL_NOT_CONFIGURED',
+];
+
+export type NextAction = 'askAgain' | 'retry' | null;
+
+/**
+ * The header action of a finished task: "Ask again" (the request goes back into the composer)
+ * when retrying would fail the same way, otherwise Retry when the server allows it.
+ */
+export function nextAction(detail: Pick<TaskDetail, 'status' | 'error' | 'canRetry'>): NextAction {
+  if (detail.status === 'FAILED' && detail.error && ASK_AGAIN.includes(detail.error.code))
+    return 'askAgain';
+  return detail.canRetry ? 'retry' : null;
+}
+
+/** The offline planner can't do this: a capability limit, not a crash. */
+export function needsModel(error: { code: ErrorCode } | null | undefined): boolean {
+  return error?.code === 'PLANNER_UNSUPPORTED' || error?.code === 'MODEL_NOT_CONFIGURED';
 }
 
 /** Error codes with specific guidance copy in tasks.guidance. */
@@ -409,4 +667,92 @@ export function pendingApproval(detail: Pick<TaskDetail, 'approvals' | 'pendingA
     detail.approvals.find((a) => a.status === 'PENDING') ??
     null
   );
+}
+
+/* ------------------------------------------------------------------ detail view */
+
+const comparable = (s: string) =>
+  s
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/[\s\p{P}\p{S}]+/gu, ' ')
+    .trim();
+
+/** The quoted request adds nothing when it says exactly what the title says. */
+export function restatesTitle(request: string, title: string): boolean {
+  return comparable(request) === comparable(title);
+}
+
+/** A step as the plan shows it: steps that will never run (the task ended) read "Not run". */
+export type StepDisplayStatus = StepStatus | 'NOT_RUN';
+
+export function stepDisplayStatus(
+  step: Pick<TaskStep, 'status'>,
+  taskStatus: TaskStatus,
+): StepDisplayStatus {
+  if (step.status === 'SKIPPED' || step.status === 'CANCELLED') return 'NOT_RUN';
+  if ((step.status === 'PENDING' || step.status === 'AWAITING_APPROVAL') && isTerminal(taskStatus))
+    return 'NOT_RUN';
+  return step.status;
+}
+
+/** The step is still ahead of its policy decision (so "why JARVIS asks first" is current). */
+export function isStepAhead(step: Pick<TaskStep, 'status'>, taskStatus: TaskStatus): boolean {
+  return (
+    (step.status === 'PENDING' || step.status === 'AWAITING_APPROVAL') && !isTerminal(taskStatus)
+  );
+}
+
+/** The latest decision on a step's approval (approved, declined or expired), if any. */
+export function stepDecision(
+  approvals: readonly Approval[],
+  stepId: string,
+): (Approval & { status: 'APPROVED' | 'REJECTED' | 'EXPIRED'; decidedAt: string }) | null {
+  let latest: Approval | null = null;
+  for (const a of approvals) {
+    if (a.stepId !== stepId || !a.decidedAt) continue;
+    if (a.status !== 'APPROVED' && a.status !== 'REJECTED' && a.status !== 'EXPIRED') continue;
+    if (!latest || a.decidedAt > (latest.decidedAt ?? '')) latest = a;
+  }
+  return latest as ReturnType<typeof stepDecision>;
+}
+
+/** What JARVIS wrote: the last successful summarize step's summary. */
+export function writtenSummary(
+  steps: readonly Pick<TaskStep, 'toolId' | 'status' | 'output'>[],
+): string | null {
+  const step = [...steps]
+    .reverse()
+    .find((s) => s.toolId === 'text.summarize' && s.status === 'SUCCEEDED');
+  return str(step?.output?.summary)?.trim() ?? null;
+}
+
+/** What JARVIS saved to memory: the successful memory step's content. */
+export function savedMemory(steps: readonly Pick<TaskStep, 'toolId' | 'status' | 'output'>[]) {
+  const step = [...steps]
+    .reverse()
+    .find((s) => s.toolId === 'memory.save' && s.status === 'SUCCEEDED');
+  return str(step?.output?.content)?.trim() ?? null;
+}
+
+/** Where (and when) the result was emailed: the successful email step's accepted recipients. */
+export function emailDelivery(
+  detail: Pick<TaskDetail, 'steps' | 'approvals'>,
+): { to: string[]; at: string | null } | null {
+  const step = [...detail.steps]
+    .reverse()
+    .find((s) => s.toolId === 'email.send' && s.status === 'SUCCEEDED');
+  if (!step) return null;
+  const listed = (v: unknown) =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x !== '') : [];
+  const approval = detail.approvals.find((a) => a.stepId === step.id);
+  const to = listed(step.output?.accepted);
+  const fallback =
+    approval?.details.kind === 'email' ? approval.details.to : listed(step.inputPreview.to);
+  return { to: to.length > 0 ? to : [...fallback], at: step.completedAt };
+}
+
+/** The approval's input derives from content that contained text aimed at AI assistants. */
+export function isUntrusted(approval: Pick<Approval, 'reasons'>): boolean {
+  return approval.reasons.includes('UNTRUSTED_CONTENT');
 }

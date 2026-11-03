@@ -69,9 +69,11 @@
 }
 
 .option[data-checked] {
-  background: var(--color-surface);
+  background: var(--color-surface-raised);
   color: var(--color-text-primary);
-  box-shadow: 0 0 0 1px var(--color-border-strong);
+  font-weight: 600;
+  /* ≥ 3:1 against the track in both themes (WCAG 1.4.11), not just a lighter fill. */
+  box-shadow: 0 0 0 1px var(--color-border-control);
 }
 
 .option:has(.input:focus-visible) {
@@ -91,4 +93,12 @@
 .disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* Forced colours drop fills and shadows: mark the checked segment with a system outline. */
+@media (forced-colors: active) {
+  .option[data-checked] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
 }

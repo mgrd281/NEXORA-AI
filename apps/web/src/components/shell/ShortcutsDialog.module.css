@@ -24,8 +24,16 @@
   flex: none;
 }
 
-.or {
-  padding-inline: var(--space-1);
-  font: var(--text-caption);
+.row[data-off] {
   color: var(--color-text-tertiary);
+}
+
+.row[data-off] .keys {
+  opacity: 0.5;
+}
+
+.switch {
+  margin-block-start: var(--space-3);
+  padding-block-start: var(--space-4);
+  border-block-start: 1px solid var(--color-border);
 }

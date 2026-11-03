@@ -1,10 +1,17 @@
+/*
+ * Every screen starts at the same inline-start x: the wide frame (--content-wide-max) is
+ * centred once in the main area, and a reading-width page keeps its narrower column but starts
+ * at the frame's start edge instead of centring on its own. So the h1 does not jump between
+ * destinations. (Percentages in margins resolve against the main area's width.)
+ */
 .page {
+  --frame-start: max(0px, (100% - var(--content-wide-max)) / 2);
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  inline-size: 100%;
+  min-width: 0;
   max-inline-size: var(--content-max);
-  margin-inline: auto;
+  margin-inline: var(--frame-start) 0;
 }
 
 .wide {
@@ -20,7 +27,7 @@
 .header {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
 }
@@ -50,9 +57,11 @@
   color: var(--color-text-secondary);
 }
 
+/* In the title row: the box is exactly one title line tall and centres its controls on it,
+   whatever their size (they may overhang the line box symmetrically). */
 .actions {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+  block-size: calc(var(--type-title1-line) * var(--lh-scale));
 }

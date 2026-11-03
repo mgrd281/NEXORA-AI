@@ -3,11 +3,11 @@ import type source from '../en/connections';
 
 const connections: Catalog<typeof source> = {
   title: 'الاتصالات',
-  description: 'ما يمكن لـ JARVIS الوصول إليه نيابةً عنك. يمكنك سحب الإذن في أي وقت.',
+  description: 'ما يستطيع JARVIS الوصول إليه نيابةً عنك. يمكنك سحب الإذن في أي وقت.',
   loading: 'جارٍ تحميل الاتصالات…',
   web: {
     title: 'الوصول إلى الويب',
-    summary: 'يتيح لـ JARVIS قراءة صفحات الويب العامة عندما يحتاج إليها طلب ما.',
+    summary: 'يسمح بأن يقرأ JARVIS صفحات الويب العامة عندما يحتاج إليها طلب ما.',
     allowsTitle: 'ما يتيحه ذلك',
     allows: {
       read: 'يقرأ صفحات الويب العامة عبر http وhttps. القراءة فقط: لا يملأ نماذج ولا يسجّل الدخول ولا يشتري شيئًا.',
@@ -24,14 +24,14 @@ const connections: Catalog<typeof source> = {
   },
   email: {
     title: 'البريد الإلكتروني',
-    summary: 'يتيح لـ JARVIS إرسال الرسائل من صندوق بريدك عبر SMTP.',
+    summary: 'يسمح بأن يرسل JARVIS الرسائل من بريدك عبر SMTP.',
     setupHint:
       'أدخل إعدادات SMTP الخاصة بمزوّد بريدك. يسجّل JARVIS الدخول للتحقق منها قبل حفظ أي شيء.',
     sendsAs: 'يرسل باسم',
     lastVerified: 'آخر تحقق {time}',
     neverVerified: 'لم يُتحقق منه بعد',
     lastErrorTitle: 'فشل آخر تحقق',
-    permissionsTitle: 'ما يمكن لـ JARVIS فعله',
+    permissionsTitle: 'ما يستطيع JARVIS فعله',
     permissions: {
       send: 'إرسال الرسائل باسم {address}. تنتظر كل رسالة موافقتك، إلا إذا سمحت في الإعدادات بالرسائل المرسلة إليك.',
       noRead: 'لا يمكنه قراءة صندوق الوارد: بروتوكول SMTP للإرسال فقط.',

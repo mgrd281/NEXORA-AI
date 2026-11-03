@@ -9,18 +9,28 @@
  * Everything else fails with PLANNER_UNSUPPORTED. Emails produced here only
  * ever go to the account owner's own address.
  */
-import type { Locale } from '@jarvis/contracts';
+import type { Locale, ServerMessage, TaskErrorReason } from '@jarvis/contracts';
 import { truncate } from '../../../lib/redact';
-import { t } from '../i18n';
+import { msg, render, t, withoutFinalStop } from '../i18n';
 import type { Plan } from '../plan';
 
+/**
+ * English developer fallback. Clients explain PLANNER_UNSUPPORTED /
+ * OFFLINE_UNSUPPORTED in the viewer's locale and teach the offline commands
+ * in that language (the composer's examples), so no command list is sent.
+ */
 export const OFFLINE_UNSUPPORTED_MESSAGE =
-  'JARVIS is running without an AI model, so it understands only these commands: ' +
-  '“Summarize <link>” (add “and email it to me” to get the summary by email), ' +
-  '“Remember that <something>”, and “Email me: <text>”.';
+  'The offline planner (no AI model) cannot handle this request.';
 
 export type OfflinePlanResult =
-  { ok: true; plan: Plan } | { ok: false; code: 'PLANNER_UNSUPPORTED'; message: string };
+  | { ok: true; plan: Plan }
+  | {
+      ok: false;
+      code: 'PLANNER_UNSUPPORTED';
+      reason: TaskErrorReason;
+      params?: Record<string, number>;
+      message: string;
+    };
 
 /* ------------------------------------------------------------------ */
 /* Language detection                                                  */
@@ -71,8 +81,37 @@ const EMAIL_NOTE: RegExp[] = [
   /^\s*(?:من\s+فضلك\s+)?(?:أرسل|ارسل|ابعث)\s+(?:لي|إلي|إليّ|الي)([^:：\n]*)[:：]\s*([\s\S]+)$/,
 ];
 
+// Likes, dislikes, wishes and habits. JS \b is ASCII-only: umlaut words and Arabic need no \b.
 const PREFERENCE =
-  /\b(prefer|like|love|hate|dislike|favou?rite|always|never|allergic|vegetarian|vegan)\b|\b(bevorzuge|mag|liebe|hasse|lieblings\w*|immer|nie|allergisch)\b|أفضل|أحب|أكره|المفضل|دائما|دائمًا|أبدا/i;
+  /\b(prefer|like|love|hate|dislike|favou?rite|always|never|allergic|vegetarian|vegan|want|wants|would\s+rather|rather\s+not)\b|\b(bevorzug\w*|mag|liebe|hasse|lieblings\w*|immer|nie|niemals|allergisch|lieber|gerne?)\b|möchte|أفضل|أفضّل|أحب|أكره|المفضل|دائما|دائمًا|أبدا|أريد|أرغب/i;
+// German only: "will" is the future in English; a note that starts "keine …" is a rule
+// ("keine Termine vor 10 Uhr"), while "ich habe keine …" mid-sentence is usually a fact.
+const PREFERENCE_DE = /\b(will|willst|wollen)\b|^\s*keine?\b/i;
+
+export function memoryKind(content: string, lang: Locale): 'preference' | 'fact' {
+  if (PREFERENCE.test(content)) return 'preference';
+  if (lang === 'de' && PREFERENCE_DE.test(content)) return 'preference';
+  return 'fact';
+}
+
+/**
+ * A note as it is kept: one line, first letter capitalised (not "iPhone"-style
+ * words) and a final full stop, so "Merk dir, dass ich montags …" is stored as
+ * "Ich montags …." like a note the user wrote themselves.
+ */
+export function normalizeNote(raw: string): string {
+  let s = raw.trim().replace(/\s+/g, ' ');
+  if (!s) return s;
+  const [first, second] = [...s];
+  if (
+    first &&
+    first !== first.toLocaleUpperCase() &&
+    !(second && second !== second.toLocaleLowerCase())
+  )
+    s = first.toLocaleUpperCase() + s.slice(first.length);
+  if (!/[.!?…؟。:;)\]"'”’»]$/u.test(s)) s = `${s}.`;
+  return s;
+}
 
 const FILLER_SUBJECT =
   /^(?:(?:a|an|the|some)\s+)?(?:e-?mail|mail|note|message|reminder)?$|^(?:eine?n?\s+)?(?:e-?mail|mail|nachricht|notiz|erinnerung)?$|^(?:بريد(?:اً|ًا)?|رسالة|ملاحظة|تذكير)?$/i;
@@ -97,6 +136,20 @@ const capitalize = (s: string) => (s ? s[0]!.toLocaleUpperCase() + s.slice(1) : 
 /* Planner                                                             */
 /* ------------------------------------------------------------------ */
 
+// Server sentences are kept as messages too, so clients show them in the viewer's locale.
+const titled = (lang: Locale, m: ServerMessage) => ({
+  title: truncate(render(lang, m), 80),
+  titleMessage: m,
+});
+const stepTitled = (lang: Locale, m: ServerMessage) => ({
+  title: render(lang, m),
+  titleMessage: m,
+});
+const objective = (lang: Locale, m: ServerMessage) => ({
+  objective: render(lang, m),
+  objectiveMessage: m,
+});
+
 export interface OfflinePlanContext {
   language: Locale;
   ownEmail: string;
@@ -110,26 +163,31 @@ export function planOffline(request: string, ctx: OfflinePlanContext): OfflinePl
   for (const re of REMEMBER) {
     const m = re.exec(text);
     if (!m) continue;
-    const content = m[1]!.trim().replace(/\s+/g, ' ');
-    if (!content) break;
-    if (content.length > 1000) {
+    const raw = m[1]!.trim().replace(/\s+/g, ' ');
+    if (!raw) break;
+    if (raw.length > 1000) {
       return {
         ok: false,
         code: 'PLANNER_UNSUPPORTED',
+        reason: 'MEMORY_TOO_LONG',
+        params: { max: 1000 },
         message: 'A memory can be at most 1000 characters long.',
       };
     }
+    // The added full stop must not push a note over the limit.
+    const normalized = normalizeNote(raw);
+    const content = normalized.length <= 1000 ? normalized : raw;
     return {
       ok: true,
       plan: {
-        title: truncate(t(lang, 'plan.remember', { text: content }), 80),
-        objective: t(lang, 'objective.remember'),
+        ...titled(lang, msg('plan.remember', { text: withoutFinalStop(content) })),
+        ...objective(lang, msg('objective.remember')),
         steps: [
           {
             key: 's1',
             toolId: 'memory.save',
-            title: t(lang, 'step.remember'),
-            input: { content, kind: PREFERENCE.test(content) ? 'preference' : 'fact' },
+            ...stepTitled(lang, msg('step.remember')),
+            input: { content, kind: memoryKind(raw, lang) },
           },
         ],
       },
@@ -144,11 +202,16 @@ export function planOffline(request: string, ctx: OfflinePlanContext): OfflinePl
     const host = hostOf(url);
     const withEmail = EMAIL_TO_ME.test(text.replace(urlMatch[0], ' '));
     const steps: Plan['steps'] = [
-      { key: 's1', toolId: 'web.fetch', title: t(lang, 'step.fetch', { host }), input: { url } },
+      {
+        key: 's1',
+        toolId: 'web.fetch',
+        ...stepTitled(lang, msg('step.fetch', { host })),
+        input: { url },
+      },
       {
         key: 's2',
         toolId: 'text.summarize',
-        title: t(lang, 'step.summarize'),
+        ...stepTitled(lang, msg('step.summarize')),
         input: { text: '{{s1.text}}', title: '{{s1.title}}', language: lang },
       },
     ];
@@ -156,7 +219,7 @@ export function planOffline(request: string, ctx: OfflinePlanContext): OfflinePl
       steps.push({
         key: 's3',
         toolId: 'email.send',
-        title: t(lang, 'step.emailSummary'),
+        ...stepTitled(lang, msg('step.emailSummary')),
         input: {
           to: [ctx.ownEmail],
           subject: t(lang, 'email.summarySubject', { title: '{{s1.title}}' }),
@@ -167,14 +230,13 @@ export function planOffline(request: string, ctx: OfflinePlanContext): OfflinePl
     return {
       ok: true,
       plan: {
-        title: truncate(
-          t(lang, withEmail ? 'plan.summarizeEmail' : 'plan.summarize', { host }),
-          80,
+        ...titled(lang, msg(withEmail ? 'plan.summarizeEmail' : 'plan.summarize', { host })),
+        ...objective(
+          lang,
+          withEmail
+            ? msg('objective.summarizeEmail', { url, email: ctx.ownEmail })
+            : msg('objective.summarize', { url }),
         ),
-        objective: t(lang, withEmail ? 'objective.summarizeEmail' : 'objective.summarize', {
-          url,
-          email: ctx.ownEmail,
-        }),
         steps,
       },
     };
@@ -195,13 +257,13 @@ export function planOffline(request: string, ctx: OfflinePlanContext): OfflinePl
     return {
       ok: true,
       plan: {
-        title: truncate(t(lang, 'plan.emailSelf', { text: subject }), 80),
-        objective: t(lang, 'objective.emailSelf', { email: ctx.ownEmail }),
+        ...titled(lang, msg('plan.emailSelf', { text: subject })),
+        ...objective(lang, msg('objective.emailSelf', { email: ctx.ownEmail })),
         steps: [
           {
             key: 's1',
             toolId: 'email.send',
-            title: t(lang, 'step.emailNote'),
+            ...stepTitled(lang, msg('step.emailNote')),
             input: {
               to: [ctx.ownEmail],
               subject: subject || t(lang, 'email.noteSubject'),
@@ -213,5 +275,10 @@ export function planOffline(request: string, ctx: OfflinePlanContext): OfflinePl
     };
   }
 
-  return { ok: false, code: 'PLANNER_UNSUPPORTED', message: OFFLINE_UNSUPPORTED_MESSAGE };
+  return {
+    ok: false,
+    code: 'PLANNER_UNSUPPORTED',
+    reason: 'OFFLINE_UNSUPPORTED',
+    message: OFFLINE_UNSUPPORTED_MESSAGE,
+  };
 }

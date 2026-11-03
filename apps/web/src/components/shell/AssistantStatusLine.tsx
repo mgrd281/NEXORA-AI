@@ -9,7 +9,7 @@ import styles from './AssistantStatusLine.module.css';
 
 const PROVIDER_NAMES: Record<string, string> = { anthropic: 'Claude' };
 
-/** "Claude connected" / "Offline planner" — from the real planner route. */
+/** "Claude connected" / "Basic mode" — from the real planner route. */
 export function plannerLabel(status: AssistantStatus | undefined, t: TranslateFn): string | null {
   if (!status) return null;
   if (status.planner.mode === 'offline') return t('common.assistant.offlinePlanner');
@@ -19,27 +19,32 @@ export function plannerLabel(status: AssistantStatus | undefined, t: TranslateFn
     : t('common.assistant.modelGeneric');
 }
 
-/** Compact planner mode + worker health line; links to Settings › Assistant. */
+type Tone = 'ok' | 'neutral' | 'danger';
+
+/**
+ * Compact assistant status; links to Settings › Assistant. The text and the dot say the same
+ * thing (never colour alone): "Claude connected" (green) when a model plans with a running
+ * worker, "Basic mode" (neutral) without a model, "Worker not responding" (red) when nothing
+ * can run, whatever the planner.
+ */
 export function AssistantStatusLine({ status }: { status: AssistantStatus | undefined }) {
-  const { t } = useI18n();
+  const { t, f } = useI18n();
   const mode = plannerLabel(status, t);
   if (!status || !mode) return <div className={styles.placeholder} aria-hidden="true" />;
   const healthy = status.worker.healthy;
   const worker = healthy
     ? t('common.assistant.workerHealthy')
     : t('common.assistant.workerUnhealthy');
+  const tone: Tone = !healthy ? 'danger' : status.planner.mode === 'offline' ? 'neutral' : 'ok';
+  const text = healthy ? mode : worker;
   return (
     <Link
       href="/settings#assistant"
       className={styles.line}
-      aria-label={t('shell.assistantStatus.open', { status: `${mode}, ${worker}` })}
-      title={worker}
+      aria-label={t('shell.assistantStatus.open', { status: f.list([mode, worker], 'unit') })}
     >
-      <span
-        className={cx(styles.dot, healthy ? styles.healthy : styles.unhealthy)}
-        aria-hidden="true"
-      />
-      <span className={styles.text}>{mode}</span>
+      <span className={cx(styles.dot, styles[tone])} aria-hidden="true" />
+      <span className={styles.text}>{text}</span>
     </Link>
   );
 }

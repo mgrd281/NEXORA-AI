@@ -6,12 +6,12 @@ import {
   Bot,
   Database,
   ExternalLink,
+  FileText,
   Fingerprint,
   Globe,
   MailCheck,
   StickyNote,
 } from 'lucide-react';
-import { Badge, type Tone } from '@/components/ui/Badge';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { Icon } from '@/components/ui/Icon';
 import { useI18n } from '@/i18n/I18nProvider';
@@ -29,12 +29,8 @@ const ICON: Record<Evidence['kind'], LucideIcon> = {
   note: StickyNote,
 };
 
-function httpTone(status: number | null): Tone {
-  if (status === null) return 'neutral';
-  if (status < 300) return 'success';
-  if (status < 400) return 'accent';
-  return 'danger';
-}
+/** A failure code (HTTP 4xx/5xx, SMTP 4xx/5xx) is the one technical detail that needs colour. */
+const failed = (code: number | string | null) => code !== null && Number(String(code)[0]) >= 4;
 
 /** URL without the scheme, for display (the link keeps the full URL). */
 function displayUrl(href: string): string {
@@ -42,8 +38,9 @@ function displayUrl(href: string): string {
 }
 
 /**
- * Evidence rendered by what it proves: an SMTP receipt with its Message-ID, the fetched page as
- * an external link with its HTTP status, a content fingerprint, the model that answered.
+ * Evidence rendered by what it proves, in plain language first ("Page read", "Mail server
+ * accepted it"), with the protocol details as secondary mono text: the fetched page as an
+ * external link with its HTTP status, a content fingerprint, the SMTP reply and Message-ID.
  */
 export function EvidenceList({
   items,
@@ -66,14 +63,17 @@ export function EvidenceList({
 function EvidenceItem({ evidence }: { evidence: Evidence }) {
   const { t } = useI18n();
   const view = parseEvidence(evidence);
+  const extractive = view.kind === 'extractive';
   return (
     <li className={styles.item}>
       <span className={styles.icon}>
-        <Icon icon={ICON[evidence.kind]} size={16} />
+        <Icon icon={extractive ? FileText : ICON[evidence.kind]} size={16} />
       </span>
       <div className={styles.body}>
         <div className={styles.head}>
-          <p className={styles.title}>{t(`tasks.evidence.${evidence.kind}`)}</p>
+          <p className={styles.title}>
+            {extractive ? t('tasks.evidence.extractive') : t(`tasks.evidence.${evidence.kind}`)}
+          </p>
           <ExactTime value={evidence.at} timeOnly className={styles.at} />
         </div>
         <EvidenceBody view={view} />
@@ -89,16 +89,14 @@ function EvidenceBody({ view }: { view: EvidenceView }) {
     case 'smtp_receipt':
       return (
         <>
-          <div className={styles.facts}>
-            {view.code && (
-              <Badge tone={view.code.startsWith('2') ? 'success' : 'danger'}>
-                <span className="ltr">SMTP {view.code}</span>
-              </Badge>
-            )}
-            {view.response && (
-              <span className={cx(styles.detail, styles.mono, 'ltr')}>{view.response}</span>
-            )}
-          </div>
+          {(view.code || view.response) && (
+            // The line aligns with the interface; the protocol text inside stays left-to-right.
+            <p className={cx(styles.code, failed(view.code) && styles.codeFailed)}>
+              <span className="ltr">
+                {[view.code && `SMTP ${view.code}`, view.response].filter(Boolean).join(' · ')}
+              </span>
+            </p>
+          )}
           {view.messageId && (
             <div className={styles.valueRow}>
               <span className={styles.valueLabel}>{t('tasks.evidence.messageId')}</span>
@@ -111,27 +109,25 @@ function EvidenceBody({ view }: { view: EvidenceView }) {
     case 'http_response':
       return (
         <>
-          <div className={styles.facts}>
-            {view.status !== null && (
-              <Badge tone={httpTone(view.status)}>
-                <span className="ltr">HTTP {view.status}</span>
-              </Badge>
-            )}
-            {/* Separate isolated pieces so the order survives right-to-left layout. */}
-            {view.contentType && (
-              <span className={cx(styles.detail, 'ltr')}>{view.contentType}</span>
-            )}
-            {view.contentType && view.bytes !== null && (
-              <span className={styles.sep} aria-hidden="true">
-                ·
+          {/* "HTTP 200 · text/html · 5 kB": protocol parts left-to-right, the size in the
+              interface language (its own isolate, so "5 كيلوبايت" reads correctly). */}
+          {(view.status !== null || view.contentType || view.bytes !== null) && (
+            <p className={cx(styles.code, failed(view.status) && styles.codeFailed)}>
+              <span className="ltr">
+                {[view.status !== null && `HTTP ${view.status}`, view.contentType]
+                  .filter(Boolean)
+                  .join(' · ')}
               </span>
-            )}
-            {view.bytes !== null && (
-              <span className={cx(styles.detail, 'tabular')}>
-                <bdi>{bytes(view.bytes)}</bdi>
-              </span>
-            )}
-          </div>
+              {view.bytes !== null && (
+                <>
+                  {(view.status !== null || view.contentType) && (
+                    <span aria-hidden="true"> · </span>
+                  )}
+                  <bdi className="tabular">{bytes(view.bytes)}</bdi>
+                </>
+              )}
+            </p>
+          )}
           {view.url && (
             <div className={styles.valueRow}>
               <a
@@ -173,17 +169,21 @@ function EvidenceBody({ view }: { view: EvidenceView }) {
           )}
         </div>
       );
+    case 'extractive':
+      return (
+        <p className={styles.detail}>
+          {t('tasks.evidence.extractiveDetail', { sentences: view.sentences, chars: view.chars })}
+        </p>
+      );
     case 'record':
     case 'note':
       return (
         <p className={styles.detail}>
-          <span className={styles.noteLabel} dir="auto">
-            {view.label}
-          </span>
+          <bdi className={styles.noteLabel}>{view.label}</bdi>
           {view.value && (
             <>
               <span aria-hidden="true"> · </span>
-              <span dir="auto">{view.value}</span>
+              <bdi>{view.value}</bdi>
             </>
           )}
         </p>

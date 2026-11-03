@@ -21,13 +21,18 @@ export const color = {
   light: {
     canvas: '#F7F7F4',
     surface: '#FFFFFF',
+    /** Floating and fixed chrome: popovers, the mobile top bar and tab bar. */
+    surfaceRaised: '#FFFFFF',
+    /** Wells inside a card (evidence, message bodies, tracks). */
     surfaceSunken: '#F1F0ED',
     surfaceHover: '#ECEBE8',
     overlay: 'rgba(23, 24, 27, 0.32)',
     border: '#E0E0DD',
     borderStrong: '#CBCAC7',
+    /** Edge of a layer that floats over content (popovers, dialogs, fixed bars). */
+    borderOverlay: '#D6D5D2',
     /** Boundary of interactive controls (inputs, toggles) — ≥ 3:1 per WCAG 1.4.11. */
-    borderControl: '#8B8C90',
+    borderControl: '#85868A',
     textPrimary: '#17181B',
     textSecondary: '#595B5F',
     textTertiary: '#686A6F',
@@ -53,11 +58,14 @@ export const color = {
   dark: {
     canvas: '#0E0F12',
     surface: '#161719',
-    surfaceSunken: '#0A0B0D',
+    surfaceRaised: '#1C1D20',
+    /** Between canvas and surface, so a well never looks punched through its card. */
+    surfaceSunken: '#121316',
     surfaceHover: '#1F2023',
     overlay: 'rgba(0, 0, 0, 0.56)',
-    border: '#292A2D',
+    border: '#303135',
     borderStrong: '#3F4042',
+    borderOverlay: '#3F4042',
     borderControl: '#68696D',
     textPrimary: '#ECEDEF',
     textSecondary: '#A9ABB0',

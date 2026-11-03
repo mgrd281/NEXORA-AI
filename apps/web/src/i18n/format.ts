@@ -30,6 +30,12 @@ export interface Formatters {
   relative(value: DateInput, now?: number): string;
   /** Integer micro-dollars → localized USD. Sub-cent amounts keep two significant digits. */
   currency(microUsd: number): string;
+  /**
+   * A duration in milliseconds: "107 ms", "2 s", "1 min 5 s". `prose` (default) reads as
+   * words where a locale's abbreviations are unnatural (Arabic: "107 ملّي ثانية"); `compact`
+   * is for tables and chips: Arabic then uses the international symbols in an LTR-isolated run.
+   */
+  duration(ms: number, style?: 'prose' | 'compact'): string;
   list(items: readonly string[], type?: Intl.ListFormatType): string;
 }
 
@@ -58,6 +64,24 @@ export function createFormatters(locale: Locale, timeZone?: string): Formatters 
     maximumSignificantDigits: 2,
   });
   const listFmts = new Map<Intl.ListFormatType, Intl.ListFormat>();
+  const list = (items: readonly string[], type: Intl.ListFormatType = 'conjunction') => {
+    let fmt = listFmts.get(type);
+    if (!fmt) {
+      fmt = new Intl.ListFormat(tag, { type, style: 'long' });
+      listFmts.set(type, fmt);
+    }
+    return fmt.format(items);
+  };
+  const durationFmts = new Map<string, Intl.NumberFormat>();
+  const unitFmt = (unit: DurationUnit, display: 'short' | 'long', tagFor = tag) => {
+    const key = `${unit}:${display}:${tagFor}`;
+    let fmt = durationFmts.get(key);
+    if (!fmt) {
+      fmt = new Intl.NumberFormat(tagFor, { style: 'unit', unit, unitDisplay: display });
+      durationFmts.set(key, fmt);
+    }
+    return fmt;
+  };
 
   return {
     locale,
@@ -84,15 +108,38 @@ export function createFormatters(locale: Locale, timeZone?: string): Formatters 
       if (usd > 0 && usd < 0.01) return smallMoney.format(usd);
       return money.format(usd);
     },
-    list(items, type = 'conjunction') {
-      let fmt = listFmts.get(type);
-      if (!fmt) {
-        fmt = new Intl.ListFormat(tag, { type, style: 'long' });
-        listFmts.set(type, fmt);
+    duration(ms, style = 'prose') {
+      // Arabic short units ("ملي ث", "ث") read as abbreviations nobody writes: words joined
+      // with "و" in prose, the international symbols (LTR-isolated) in compact places.
+      if (locale === 'ar') {
+        if (style === 'compact') {
+          const parts = durationParts(ms, (u, n) => unitFmt(u, 'short', 'en-US').format(n));
+          return `\u2066${parts.join(' ')}\u2069`;
+        }
+        const parts = durationParts(ms, (u, n) => unitFmt(u, 'long').format(n));
+        return list(parts).replace(/ملي(?=\s*ثانية)/g, 'ملّي');
       }
-      return fmt.format(items);
+      return durationParts(ms, (u, n) => unitFmt(u, 'short').format(n)).join(' ');
     },
+    list,
   };
+}
+
+type DurationUnit = 'millisecond' | 'second' | 'minute' | 'hour';
+
+/** 950 → ["950 ms"], 2_400 → ["2 s"], 65_000 → ["1 min", "5 s"], 3_900_000 → ["1 h", "5 min"]. */
+function durationParts(ms: number, unit: (u: DurationUnit, n: number) => string): string[] {
+  const value = Math.max(0, ms);
+  if (value < 1000) return [unit('millisecond', Math.round(value))];
+  const totalSeconds = Math.round(value / 1000);
+  if (totalSeconds < 60) return [unit('second', totalSeconds)];
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes < 60)
+    return seconds ? [unit('minute', minutes), unit('second', seconds)] : [unit('minute', minutes)];
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? [unit('hour', hours), unit('minute', rest)] : [unit('hour', hours)];
 }
 
 function isValidTimeZone(timeZone: string): boolean {

@@ -37,6 +37,23 @@
   color: var(--color-text-secondary);
 }
 
+.sectionActions {
+  display: flex;
+  align-items: center;
+  margin-inline-start: auto;
+}
+
+/* A switch beside a section title: label and track on one line, the label quieter. */
+.headerSwitch {
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.headerSwitch label {
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+}
+
 /* ------------------------------------------------------------- tiles */
 
 .tiles {
@@ -297,9 +314,89 @@
   color: var(--color-text-tertiary);
 }
 
-.rateLow {
-  color: var(--color-warning);
+.monoPrimary {
+  color: var(--color-text-primary);
+}
+
+.table .end {
+  text-align: end;
+}
+
+/* Time is reference data: regular weight, secondary, tabular. */
+.table .time {
+  color: var(--color-text-secondary);
+}
+
+.actor,
+.target {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.actor :global(.icon) {
+  flex: none;
+  color: var(--color-text-secondary);
+}
+
+.target {
+  gap: var(--space-1) var(--space-2);
+}
+
+/* ------------------------------------------------------------- audit log on phones */
+
+.auditListCard {
+  display: none;
+}
+
+@media (max-width: 639.98px) {
+  .auditTable {
+    display: none;
+  }
+
+  .auditListCard {
+    display: block;
+  }
+}
+
+.auditList {
+  list-style: none;
+}
+
+.auditItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-block: var(--space-3);
+  padding-inline: var(--space-4);
+  min-width: 0;
+}
+
+.auditItem + .auditItem {
+  border-block-start: 1px solid var(--color-border);
+}
+
+.auditSentence {
+  font: var(--text-callout);
   font-weight: 500;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.auditMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+  min-width: 0;
+}
+
+.auditMeta .actor {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .scrollHint {

@@ -257,26 +257,31 @@ test('settings — every control saves through PATCH /v1/me', async ({
   ).toBeVisible();
 
   // Auto-approve explains the exact rule with the account's address.
+  // (The interpolated address is direction-isolated: optional FSI/PDI around it.)
   await expect(page.locator('#assistant')).toContainText(
-    'an email whose recipients are all your own address (layla.haddad@example.com) is sent without asking first',
+    /an email whose recipients are all your own address \(\u2068?layla\.haddad@example\.com\u2069?\) is sent without asking first/,
   );
 
-  // Display name.
+  // Display name: saves when the field is left (no Save button), Enter saves too.
   const name = page.getByRole('textbox', { name: 'Display name' });
+  await expect(page.getByRole('button', { name: /^Save (name|budget)$/ })).toHaveCount(0);
   await name.fill('Layla K. Haddad');
   request = patch();
-  await page.getByRole('button', { name: 'Save name' }).click();
+  await name.press('Tab');
   expect((await request).postDataJSON()).toEqual({ displayName: 'Layla K. Haddad' });
-  await expect(page.getByRole('button', { name: 'Save name' })).toBeDisabled();
+  await name.fill('Layla Haddad');
+  request = patch();
+  await name.press('Enter');
+  expect((await request).postDataJSON()).toEqual({ displayName: 'Layla Haddad' });
 
-  // Budget (validated, then saved).
+  // Budget (validated on leaving the field, then saved).
   const budget = page.getByRole('textbox', { name: 'Monthly AI budget' });
   await budget.fill('abc');
-  await page.getByRole('button', { name: 'Save budget' }).click();
+  await budget.press('Tab');
   await expect(page.getByText('Enter an amount from 0 to 10,000.')).toBeVisible();
   await budget.fill('35.50');
   request = patch();
-  await page.getByRole('button', { name: 'Save budget' }).click();
+  await budget.press('Tab');
   expect((await request).postDataJSON()).toEqual({
     preferences: { spending: { monthlyAiBudgetUsd: 35.5 } },
   });
@@ -302,12 +307,13 @@ test('settings — every control saves through PATCH /v1/me', async ({
   await page.getByRole('button', { name: 'Export my data' }).click();
   const file = await download;
   expect(file.suggestedFilename()).toMatch(/^jarvis-export-\d{4}-\d{2}-\d{2}\.json$/);
-  await expect(page.getByText(/^Downloaded jarvis-export-/)).toBeVisible();
+  await expect(page.getByText(/^Downloaded \u2068?jarvis-export-/)).toBeVisible();
 
   // Revoke another device; this device can only sign out.
   await expect(page.getByRole('button', { name: 'Sign out on this device' })).toBeVisible();
-  await page.getByRole('button', { name: 'Sign out Firefox on Windows' }).click();
-  await expect(page.getByText('Signed out Firefox on Windows.')).toBeVisible();
+  // Device names are direction-isolated (nested FSI…PDI), hence \W+ between the words.
+  await page.getByRole('button', { name: /^Sign out\W+Firefox\W+on\W+Windows\W*$/ }).click();
+  await expect(page.getByText(/^Signed out\W+Firefox\W+on\W+Windows\W*$/)).toBeVisible();
   await expect(page.locator('#security li')).toHaveCount(2);
   await expect(page.getByRole('heading', { name: 'Signed-in devices' })).toBeFocused();
 

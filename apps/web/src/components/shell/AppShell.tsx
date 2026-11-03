@@ -17,6 +17,7 @@ import { IconButton } from '@/components/ui/Button';
 import { Sheet } from '@/components/ui/Dialog';
 import { Icon } from '@/components/ui/Icon';
 import { Popover, PopoverAnchor } from '@/components/ui/Popover';
+import { UserText } from '@/components/ui/UserText';
 import { useI18n } from '@/i18n/I18nProvider';
 import { useAssistantStatus, useHome, useMe } from '@/lib/api/hooks';
 import { cx } from '@/lib/cx';
@@ -27,7 +28,7 @@ import {
 } from '@/lib/events/EventStreamProvider';
 import { useDelayedFlag } from '@/lib/hooks/useDelayedFlag';
 import { useOnline } from '@/lib/hooks/useOnline';
-import { useApplyAppearance } from '@/lib/preferences';
+import { singleKeyShortcutsEnabled, useApplyAppearance } from '@/lib/preferences';
 import { AccountMenuItems } from './AccountMenu';
 import styles from './AppShell.module.css';
 import { AssistantStatusLine } from './AssistantStatusLine';
@@ -40,7 +41,8 @@ import { useSpeakVoiceResults } from '@/features/tasks/useSpeakVoiceResults';
 /**
  * The authenticated app frame: start-side sidebar from 900 px, top bar + bottom tab bar below.
  * Owns the realtime stream, the assistant-wide Presence, the cookie mirror of locale/theme and
- * the keyboard shortcuts (⌘/Ctrl+K or '/' → composer, '?' → shortcuts).
+ * the keyboard shortcuts (⌘/Ctrl+K → composer, from any page; '/' → this page's composer;
+ * '?' → shortcuts; the single-key ones can be turned off).
  */
 export function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -124,9 +126,11 @@ function ShellFrame({ children }: { children: ReactNode }) {
       }
       if (mod || e.altKey || isTypingTarget(e.target) || document.querySelector('dialog[open]'))
         return;
+      // Single-key shortcuts can be turned off in the shortcuts dialog (WCAG 2.1.4).
+      if (!singleKeyShortcutsEnabled()) return;
       if (e.key === '/') {
-        e.preventDefault();
-        registry?.focusComposer();
+        // Only where this page has a request field: '/' never navigates.
+        if (registry?.focusComposerHere()) e.preventDefault();
       } else if (e.key === '?') {
         e.preventDefault();
         setShortcutsOpen(true);
@@ -244,6 +248,7 @@ function NavLink({
 }) {
   const { t } = useI18n();
   const active = isActive(item, pathname);
+  const label = t(item.label);
   return (
     <Link
       href={item.href}
@@ -252,13 +257,15 @@ function NavLink({
       data-active={active || undefined}
     >
       <Icon icon={item.icon} size={20} />
-      <span className={styles.navLabel}>{t(item.label)}</span>
+      {/* Named by its content ("Tasks, 1 approval waiting"): the visible count is decoration and
+          the hidden suffix says what it counts. */}
+      <span className={styles.navLabel}>{label}</span>
       {badge ? (
         <>
           <span className={cx(styles.navCount, 'tabular')} aria-hidden="true">
             {badge}
           </span>
-          {badgeLabel && <span className="visually-hidden">, {badgeLabel}</span>}
+          {badgeLabel && <span className="visually-hidden">{`, ${badgeLabel}`}</span>}
         </>
       ) : null}
     </Link>
@@ -295,14 +302,18 @@ function Sidebar({
     <aside className={styles.sidebar}>
       <div className={styles.brand}>
         <Link href="/" className={styles.brandLink} aria-label={t('shell.brand')}>
-          <Presence
-            state={presence.state}
-            progress={presence.progress}
-            size={24}
-            label={presenceLabel}
-          />
-          <span className={styles.wordmark} aria-hidden="true">
-            {t('common.appName')}
+          {/* The lockup is a mark: ring before wordmark in every direction; only its place
+              in the sidebar mirrors. */}
+          <span className={styles.lockup} dir="ltr">
+            <Presence
+              state={presence.state}
+              progress={presence.progress}
+              size={24}
+              label={presenceLabel}
+            />
+            <span className={styles.wordmark} aria-hidden="true" translate="no">
+              {t('common.appName')}
+            </span>
           </span>
         </Link>
       </div>
@@ -338,6 +349,7 @@ function Sidebar({
             onClick={() => setNotificationsOpen((v) => !v)}
           >
             <Icon icon={Bell} size={20} />
+            {/* "Notifications, 9 unread": the visible label once, then only the count. */}
             <span className={styles.navLabel}>{t('notifications.title')}</span>
             {unread > 0 && (
               <>
@@ -348,7 +360,7 @@ function Sidebar({
                   {unread}
                 </span>
                 <span className="visually-hidden">
-                  , {t('notifications.button', { count: unread })}
+                  {t('notifications.unreadSuffix', { count: unread })}
                 </span>
               </>
             )}
@@ -378,9 +390,7 @@ function Sidebar({
           >
             <Avatar name={me?.displayName ?? ''} size={32} />
             <span className={styles.accountText}>
-              <span className={styles.accountName} dir="auto">
-                {me?.displayName ?? '\u00a0'}
-              </span>
+              <UserText className={styles.accountName}>{me?.displayName ?? '\u00a0'}</UserText>
               <span className={styles.accountEmail}>{me?.email ?? '\u00a0'}</span>
             </span>
             <Icon icon={ChevronsUpDown} size={16} className={styles.accountChevron} />
@@ -426,7 +436,7 @@ function MobileTopBar({
   isAdmin: boolean;
   onShortcuts: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, dir } = useI18n();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLButtonElement>(null);
@@ -434,7 +444,8 @@ function MobileTopBar({
   const headingScrolledAway = useMainHeadingScrolledAway(pathname);
   return (
     <header className={styles.topbar}>
-      <div className={styles.topStart}>
+      {/* The lockup (ring before wordmark) never mirrors; only its place in the bar does. */}
+      <div className={styles.topStart} dir="ltr">
         <Presence
           state={presence.state}
           progress={presence.progress}
@@ -443,10 +454,18 @@ function MobileTopBar({
         />
         {/* Wordmark at rest; the section title once the page's h1 scrolls under the bar. */}
         <span className={styles.topLabels} aria-hidden="true">
-          <span className={styles.topBrand} data-visible={!headingScrolledAway || undefined}>
+          <span
+            className={styles.topBrand}
+            data-visible={!headingScrolledAway || undefined}
+            translate="no"
+          >
             {t('common.appName')}
           </span>
-          <span className={styles.topTitle} data-visible={headingScrolledAway || undefined}>
+          <span
+            className={styles.topTitle}
+            data-visible={headingScrolledAway || undefined}
+            dir={dir}
+          >
             {t(section.label)}
           </span>
         </span>
@@ -566,7 +585,7 @@ function TabBar({ pathname, pendingApprovals }: { pathname: string; pendingAppro
                 <span className={styles.tabLabel}>{t(item.label)}</span>
                 {badge > 0 && (
                   <span className="visually-hidden">
-                    , {t('shell.tasksBadge', { count: badge })}
+                    {`, ${t('shell.tasksBadge', { count: badge })}`}
                   </span>
                 )}
               </Link>

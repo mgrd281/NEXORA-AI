@@ -33,12 +33,15 @@ const shell: Catalog<typeof source> = {
   },
   shortcuts: {
     title: 'Tastenkürzel',
-    focusComposer: 'JARVIS fragen',
+    focusComposer: 'JARVIS von jeder Seite aus fragen',
+    focusComposerHere: 'Zum Anfragefeld dieser Seite springen',
     showShortcuts: 'Tastenkürzel anzeigen',
     send: 'Anfrage senden',
     newLine: 'Neue Zeile in einer Anfrage',
     closeOverlay: 'Dialog oder Bereich schließen',
-    or: 'oder',
+    singleKey: 'Kürzel mit einer Taste',
+    singleKeyHint:
+      '/ und ? ohne Zusatztaste nutzen. Schalte das aus, wenn du Spracheingabe oder andere Eingabehilfen verwendest.',
   },
   placeholder: {
     building: 'Diese Ansicht wird gerade gebaut.',

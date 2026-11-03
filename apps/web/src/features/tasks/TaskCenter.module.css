@@ -1,5 +1,6 @@
 /* Five filters do not fit a phone in every language: the track scrolls inside its own row,
-   edge to edge, so the cut-off option reads as "more this way". */
+   edge to edge. It starts at the page gutter (the default, All, comes first); while more
+   options lie past the trailing edge, that edge fades out as the "scroll for more" cue. */
 .filterBar {
   display: flex;
   min-width: 0;
@@ -16,6 +17,22 @@
 
 .filterBar::-webkit-scrollbar {
   display: none;
+}
+
+.filterBar[data-more-end] {
+  mask-image: linear-gradient(
+    to right,
+    currentColor calc(100% - var(--page-gutter) - var(--space-8)),
+    transparent calc(100% - var(--page-gutter))
+  );
+}
+
+:global([dir='rtl']) .filterBar[data-more-end] {
+  mask-image: linear-gradient(
+    to left,
+    currentColor calc(100% - var(--page-gutter) - var(--space-8)),
+    transparent calc(100% - var(--page-gutter))
+  );
 }
 
 .filterBar > fieldset {

@@ -1,12 +1,13 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ErrorBanner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { Spinner } from '@/components/ui/Spinner';
 import { useToast } from '@/components/ui/Toast';
+import { DangerZone } from '@/features/settings/controls';
 import { useI18n } from '@/i18n/I18nProvider';
 import { api, type ApiError } from '@/lib/api/client';
 import { qk } from '@/lib/api/query-keys';
@@ -17,7 +18,6 @@ import styles from './memory.module.css';
 export function DeleteAllMemories({ onDeleted }: { onDeleted: () => void }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const titleId = useId();
   const deleted = useRef(false);
   // After the dialog has closed (so the page is no longer inert), hand focus to the list.
   useEffect(() => {
@@ -26,16 +26,16 @@ export function DeleteAllMemories({ onDeleted }: { onDeleted: () => void }) {
     onDeleted();
   }, [open, onDeleted]);
   return (
-    <section className={styles.danger} aria-labelledby={titleId}>
-      <div className={styles.dangerText}>
-        <h2 id={titleId} className={styles.cardTitle}>
-          {t('memory.deleteAll.title')}
-        </h2>
-        <p className={styles.hint}>{t('memory.deleteAll.description')}</p>
-      </div>
-      <Button variant="danger" size="sm" onClick={() => setOpen(true)}>
-        {t('memory.deleteAll.button')}
-      </Button>
+    <DangerZone
+      headingLevel={2}
+      title={t('memory.deleteAll.title')}
+      description={t('memory.deleteAll.description')}
+      action={
+        <Button variant="danger" size="sm" onClick={() => setOpen(true)}>
+          {t('memory.deleteAll.button')}
+        </Button>
+      }
+    >
       {open && (
         <DeleteAllDialog
           onClose={() => setOpen(false)}
@@ -45,7 +45,7 @@ export function DeleteAllMemories({ onDeleted }: { onDeleted: () => void }) {
           }}
         />
       )}
-    </section>
+    </DangerZone>
   );
 }
 

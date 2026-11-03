@@ -13,9 +13,11 @@ import {
   Mail,
   ShieldCheck,
   Sparkles,
+  TriangleAlert,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { ApprovalSentence } from '@/components/approvals/ApprovalSentence';
 import { ApprovalSheet } from '@/components/approvals/ApprovalSheet';
 import { CommandComposer } from '@/components/composer/CommandComposer';
 import { useComposerRegistry } from '@/components/composer/ComposerRegistry';
@@ -24,7 +26,7 @@ import { Page } from '@/components/shell/Page';
 import { useShell } from '@/components/shell/ShellContext';
 import { TaskRow } from '@/components/tasks/TaskRow';
 import { ErrorBanner } from '@/components/ui/Banner';
-import { RiskBadge } from '@/components/ui/Badge';
+import { RiskBadge, StatusPill } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, Section } from '@/components/ui/Card';
 import { Icon } from '@/components/ui/Icon';
@@ -35,6 +37,7 @@ import type { MessageKey } from '@/i18n/catalog';
 import { useHome, useMe } from '@/lib/api/hooks';
 import { cx } from '@/lib/cx';
 import { useNow } from '@/lib/hooks/useNow';
+import { isUntrusted } from '@/features/tasks/model';
 import styles from './HomeScreen.module.css';
 import {
   dayPeriod,
@@ -145,10 +148,9 @@ function Greeting() {
   }
   const period = dayPeriod(new Date(now), me.data.timeZone);
   const name = firstName(me.data.displayName);
+  // The name is isolated inside the localized greeting, so the line follows the interface.
   return (
-    <span dir="auto">
-      {name ? t(`home.greeting.${period}`, { name }) : t(`home.greetingAnonymous.${period}`)}
-    </span>
+    <>{name ? t(`home.greeting.${period}`, { name }) : t(`home.greetingAnonymous.${period}`)}</>
   );
 }
 
@@ -259,12 +261,14 @@ function SuggestionChips({ home }: { home: HomeSnapshot }) {
   const { t, tDynamic } = useI18n();
   const registry = useComposerRegistry();
   const firstRun = isFirstRun(home);
+  const offline = home.assistant.planner.mode === 'offline';
   const suggestions = knownSuggestions(home.suggestions).filter(
     (s) =>
       // The composer already explains the offline planner (with a link to its settings).
       s.messageKey !== 'suggest.configureModel' &&
-      // On first run the examples below cover the command suggestions.
-      !(firstRun && s.kind === 'command'),
+      // The examples below (first run) or the composer's offline list (which names the same
+      // commands) already cover the command suggestions.
+      !((firstRun || offline) && s.kind === 'command'),
   );
   if (suggestions.length === 0) return null;
   return (
@@ -355,9 +359,8 @@ function FirstRun({ assistant }: { assistant: AssistantStatus }) {
                   className={styles.example}
                   onClick={() => registry?.fillComposer(text)}
                   title={t('home.suggestionFills')}
-                  dir="auto"
                 >
-                  {text}
+                  <bdi>{text}</bdi>
                 </button>
               </li>
             ))}
@@ -427,6 +430,7 @@ function NeedsYou({
 function ApprovalRow({ approval, onReview }: { approval: Approval; onReview: () => void }) {
   const { t } = useI18n();
   const icon = approval.toolId === 'email.send' ? Mail : Hand;
+  const untrusted = isUntrusted(approval);
   return (
     <li className={styles.approval}>
       <span className={styles.approvalIcon} aria-hidden="true">
@@ -436,11 +440,16 @@ function ApprovalRow({ approval, onReview }: { approval: Approval; onReview: () 
         <p className={styles.approvalTitle}>
           <bdi>{approval.taskTitle}</bdi>
         </p>
-        <p className={styles.approvalSummary} dir="auto">
-          {approval.summary}
-        </p>
+        {/* In the interface language for email (the sheet says the same sentence). */}
+        <ApprovalSentence approval={approval} className={styles.approvalSummary} />
+        {untrusted && (
+          <p className={styles.untrustedNote}>{t('approvals.untrusted.titleNoHost')}</p>
+        )}
         <p className={styles.approvalMeta}>
           <RiskBadge level={approval.riskLevel} label={t(`common.risk.${approval.riskLevel}`)} />
+          {untrusted && (
+            <StatusPill tone="warning" icon={TriangleAlert} label={t('approvals.untrusted.chip')} />
+          )}
           <RelativeTime
             value={approval.expiresAt}
             className={styles.expires}

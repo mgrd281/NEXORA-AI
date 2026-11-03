@@ -83,12 +83,14 @@
 :root[data-theme='light'] {
   --color-canvas: #F7F7F4;
   --color-surface: #FFFFFF;
+  --color-surface-raised: #FFFFFF;
   --color-surface-sunken: #F1F0ED;
   --color-surface-hover: #ECEBE8;
   --color-overlay: rgba(23, 24, 27, 0.32);
   --color-border: #E0E0DD;
   --color-border-strong: #CBCAC7;
-  --color-border-control: #8B8C90;
+  --color-border-overlay: #D6D5D2;
+  --color-border-control: #85868A;
   --color-text-primary: #17181B;
   --color-text-secondary: #595B5F;
   --color-text-tertiary: #686A6F;
@@ -119,11 +121,13 @@
   :root:not([data-theme='light']) {
     --color-canvas: #0E0F12;
     --color-surface: #161719;
-    --color-surface-sunken: #0A0B0D;
+    --color-surface-raised: #1C1D20;
+    --color-surface-sunken: #121316;
     --color-surface-hover: #1F2023;
     --color-overlay: rgba(0, 0, 0, 0.56);
-    --color-border: #292A2D;
+    --color-border: #303135;
     --color-border-strong: #3F4042;
+    --color-border-overlay: #3F4042;
     --color-border-control: #68696D;
     --color-text-primary: #ECEDEF;
     --color-text-secondary: #A9ABB0;
@@ -155,11 +159,13 @@
 :root[data-theme='dark'] {
   --color-canvas: #0E0F12;
   --color-surface: #161719;
-  --color-surface-sunken: #0A0B0D;
+  --color-surface-raised: #1C1D20;
+  --color-surface-sunken: #121316;
   --color-surface-hover: #1F2023;
   --color-overlay: rgba(0, 0, 0, 0.56);
-  --color-border: #292A2D;
+  --color-border: #303135;
   --color-border-strong: #3F4042;
+  --color-border-overlay: #3F4042;
   --color-border-control: #68696D;
   --color-text-primary: #ECEDEF;
   --color-text-secondary: #A9ABB0;

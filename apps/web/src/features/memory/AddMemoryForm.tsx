@@ -76,7 +76,8 @@ export function AddMemoryForm() {
           rows={2}
           maxRows={8}
           maxLength={MAX_MEMORY_LENGTH}
-          dir="auto"
+          // Empty (placeholder) follows the interface; typed text takes its own direction.
+          dir={content ? 'auto' : undefined}
           error={touched && error ? error : undefined}
           onChange={(e) => setContent(e.target.value)}
           onKeyDown={(e) => {

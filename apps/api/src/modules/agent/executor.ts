@@ -15,7 +15,7 @@
  *   4. (tx) record outcome, usage and cost, events, audit.
  * After the last step: VERIFYING → verify every step → COMPLETED (or FAILED).
  */
-import type { Evidence, Locale } from '@jarvis/contracts';
+import type { Evidence, Locale, VerificationCheck } from '@jarvis/contracts';
 import { withContext, type DbContext } from '../../db/pool';
 import type { JobRow, StepRow, TaskRow, ToolExecutionRow } from '../../db/types';
 import { hashObject } from '../../lib/crypto';
@@ -27,13 +27,14 @@ import { requestApproval } from './approval-flow';
 import { loadAgentContext, type AgentContext } from './context';
 import { AgentError, asAgentError } from './errors';
 import type { ModelUsage } from './models/adapter';
-import { asLocale } from './i18n';
+import { asLocale, asMessage } from './i18n';
 import { finishCancellation, type JobOutcome } from './plan-job';
-import { denyMessage } from './policy';
+import { denyMessage, denyReason } from './policy';
 import { deterministicSummary, modelSummary } from './result-summary';
 import type { RuntimeDeps } from './runtime';
 import { withKeepAlive } from './runtime';
-import { assessStep, isTainted } from './step-policy';
+import { stepRef } from './events-data';
+import { assessStep, isTainted, untrustedSource } from './step-policy';
 import {
   failTask,
   lockTask,
@@ -92,13 +93,13 @@ async function failStep(
     type: status === 'BLOCKED' ? 'step.blocked' : 'step.failed',
     data:
       status === 'BLOCKED'
-        ? { stepId: step.id, toolId: step.tool_id, title: step.title, reasons }
+        ? { ...stepRef(step), reasons }
         : {
-            stepId: step.id,
-            toolId: step.tool_id,
-            title: step.title,
+            ...stepRef(step),
             code: error.code,
             message: error.message,
+            ...(error.reason ? { reason: error.reason } : {}),
+            ...(error.params ? { params: error.params } : {}),
           },
   });
   await failTask(trx, ctx, task, error);
@@ -127,7 +128,10 @@ async function prepareNext(deps: RuntimeDeps, ctx: DbContext, taskId: string): P
         ctx,
         task,
         step,
-        new AgentError('INTERNAL', `Unknown tool ${step.tool_id}.`),
+        new AgentError('INTERNAL', `Unknown tool ${step.tool_id}.`, {
+          reason: 'UNKNOWN_TOOL',
+          params: { tool: step.tool_id },
+        }),
       );
       return { kind: 'stop' };
     }
@@ -156,7 +160,10 @@ async function prepareNext(deps: RuntimeDeps, ctx: DbContext, taskId: string): P
         ctx,
         task,
         step,
-        new AgentError('TOOL_FAILED', `The input for “${step.title}” is not valid: ${detail}`),
+        new AgentError('TOOL_FAILED', `The input for “${step.title}” is not valid: ${detail}`, {
+          reason: 'INVALID_STEP_INPUT',
+          params: { step: step.title },
+        }),
       );
       return { kind: 'stop' };
     }
@@ -185,7 +192,11 @@ async function prepareNext(deps: RuntimeDeps, ctx: DbContext, taskId: string): P
         ctx,
         task,
         step,
-        new AgentError(code, denyMessage(code, a.policy.reasons, step.title), { retryable: true }),
+        new AgentError(code, denyMessage(code, a.policy.reasons, step.title), {
+          retryable: true,
+          reason: denyReason(code, a.policy.reasons),
+          params: { step: step.title },
+        }),
         'BLOCKED',
         a.policy.reasons,
       );
@@ -232,18 +243,24 @@ async function prepareNext(deps: RuntimeDeps, ctx: DbContext, taskId: string): P
             ? `${smtpCfg.fromName} <${smtpCfg.fromAddress}>`
             : smtpCfg.fromAddress
           : null;
-        const { details, summary } = tool.approvalDetails(input, {
+        const { details, summary, summaryMessage } = tool.approvalDetails(input, {
           language,
           stepTitle: step.title,
+          stepTitleMessage: asMessage(step.title_message),
           fromAddress,
         });
+        // Say what the suspected injection is about (never the flagged text itself).
+        const untrusted = a.policy.reasons.includes('UNTRUSTED_CONTENT')
+          ? untrustedSource(steps, step)
+          : null;
         await requestApproval(trx, ctx, deps.config, {
           task,
           step,
           toolId: tool.id,
           risk: a.risk,
           summary,
-          details,
+          summaryMessage,
+          details: untrusted ? { ...details, untrusted } : details,
           actionHash,
           reasons: a.policy.reasons,
         });
@@ -310,7 +327,7 @@ async function claimExecution(
           const err = new AgentError(
             'OUTCOME_UNKNOWN',
             `JARVIS was interrupted while running “${step.title}” and cannot tell whether it completed. Check the result yourself (for email: your Sent folder) before retrying.`,
-            { retryable: false },
+            { retryable: false, reason: 'STEP_INTERRUPTED', params: { step: step.title } },
           );
           await failStep(trx, ctx, task, current, err);
           await audit(trx, {
@@ -402,7 +419,7 @@ async function claimExecution(
     await appendEvent(trx, ctx, {
       taskId: step.task_id,
       type: 'step.started',
-      data: { stepId: step.id, toolId: tool.id, title: step.title, attempt: current.attempts + 1 },
+      data: { ...stepRef(step), attempt: current.attempts + 1 },
     });
     return { kind: 'run', executionId, key };
   });
@@ -416,10 +433,13 @@ function abortRejection(signal: AbortSignal, tool: AnyTool, title: string): Prom
           ? new AgentError(
               'OUTCOME_UNKNOWN',
               `“${title}” did not finish in time, so JARVIS cannot tell whether it completed.`,
+              { reason: 'STEP_TIMEOUT', params: { step: title } },
             )
           : new AgentError('TOOL_TIMEOUT', `“${title}” did not finish in time.`, {
               retryable: true,
               transient: true,
+              reason: 'STEP_TIMEOUT',
+              params: { step: title },
             }),
       );
     if (signal.aborted) onAbort();
@@ -427,13 +447,14 @@ function abortRejection(signal: AbortSignal, tool: AnyTool, title: string): Prom
   });
 }
 
-function normalizeToolError(err: unknown, tool: AnyTool): AgentError {
+function normalizeToolError(err: unknown, tool: AnyTool, title: string): AgentError {
   if (err instanceof AgentError) return err;
   // An unexpected exception inside an external tool leaves its outcome unknown.
   if (tool.sideEffect === 'external') {
     return new AgentError(
       'OUTCOME_UNKNOWN',
       'The action failed unexpectedly, so JARVIS cannot tell whether it completed.',
+      { reason: 'STEP_CRASHED', params: { step: title } },
     );
   }
   return asAgentError(err);
@@ -519,7 +540,7 @@ async function markStepSucceeded(
   await appendEvent(trx, ctx, {
     taskId: step.task_id,
     type: 'step.succeeded',
-    data: { stepId: step.id, toolId: tool.id, title: step.title },
+    data: stepRef(step),
   });
 }
 
@@ -597,7 +618,7 @@ async function runStep(
         ]),
       );
     } catch (err) {
-      error = normalizeToolError(err, tool);
+      error = normalizeToolError(err, tool, step.title);
     } finally {
       clearTimeout(timer);
       if (!ac.signal.aborted) ac.abort(); // release the abort listener
@@ -656,28 +677,40 @@ async function verifyAndComplete(deps: RuntimeDeps, ctx: DbContext, taskId: stri
     const verifying =
       task.status === 'RUNNING' ? await transitionTask(trx, ctx, task, 'VERIFYING') : task;
     const steps = await loadSteps(trx, taskId);
-    const checks: string[] = [];
+    // Each check as data (key + params) with its English line as the fallback.
+    const checks: VerificationCheck[] = [];
     const failed: StepRow[] = [];
     for (const s of steps) {
       if (s.status !== 'SUCCEEDED') continue;
       const tool = getTool(s.tool_id);
       if (!tool) continue;
       const v = tool.verify(s.resolved_input ?? s.input, s.output ?? {});
-      checks.push(...v.checks.map((c) => `${s.title}: ${c}`));
+      checks.push(
+        ...v.checks.map((c) => ({
+          stepId: s.id,
+          step: s.title,
+          key: c.key,
+          params: c.params,
+          text: c.text,
+        })),
+      );
       if (!v.ok) failed.push(s);
     }
     if (failed.length) {
       const external = failed.some((s) => getTool(s.tool_id)?.sideEffect === 'external');
-      const message = `Verification failed for: ${failed.map((s) => `“${s.title}”`).join(', ')}.`;
+      const names = failed.map((s) => `“${s.title}”`).join(', ');
+      const message = `Verification failed for: ${names}.`;
       await appendEvent(trx, ctx, {
         taskId,
         type: 'verification.failed',
-        data: { checks, message },
+        data: { checks, message, stepIds: failed.map((s) => s.id) },
       });
       await failTask(trx, ctx, verifying, {
         code: 'VERIFICATION_FAILED',
         message,
         retryable: !external,
+        reason: 'VERIFICATION_FAILED',
+        params: { steps: failed.map((s) => s.title).join(', ') },
       });
       return null;
     }
@@ -692,8 +725,12 @@ async function verifyAndComplete(deps: RuntimeDeps, ctx: DbContext, taskId: stri
   });
   if (!verified) return;
 
-  const fallback = deterministicSummary(verified.steps, verified.language);
+  const deterministic = deterministicSummary(verified.steps, verified.language);
+  const fallback = deterministic.text;
   let summary = fallback;
+  // Server sentences stay data so clients render them in the viewer's locale;
+  // model-written and page text is only ever in the request's language.
+  let summaryMessage = deterministic.message;
   const usage: ModelUsage[] = [];
   const answerOnly = verified.steps.some((s) => s.tool_id === 'assistant.answer');
   if (deps.adapter && verified.agent.route.mode === 'model' && !answerOnly) {
@@ -705,7 +742,10 @@ async function verifyAndComplete(deps: RuntimeDeps, ctx: DbContext, taskId: stri
         fallback,
       });
       usage.push(res.usage);
-      if (res.text) summary = res.text;
+      if (res.text) {
+        summary = res.text;
+        summaryMessage = null;
+      }
     } catch (err) {
       if (err instanceof AgentError) usage.push(...err.usage);
       deps.log.warn('result summary model call failed; using deterministic summary', {
@@ -722,6 +762,7 @@ async function verifyAndComplete(deps: RuntimeDeps, ctx: DbContext, taskId: stri
     const evidence = verified.steps.flatMap((s) => (Array.isArray(s.evidence) ? s.evidence : []));
     const done = await transitionTask(trx, ctx, task, 'COMPLETED', {
       result_summary: summary || null,
+      result_summary_message: summary && summaryMessage ? JSON.stringify(summaryMessage) : null,
       evidence: JSON.stringify(evidence),
       error: null,
     });

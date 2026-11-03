@@ -64,6 +64,19 @@ describe('vertical slice: summarize a page and email it', () => {
     expect(waiting.status).toBe('AWAITING_APPROVAL');
     expect(waiting.planner).toEqual({ mode: 'offline', provider: null, model: null });
     expect(waiting.title).toBe(`Summarize 127.0.0.1:${h.site.port} and email it to you`);
+    expect(waiting.titleMessage).toEqual({
+      key: 'plan.summarizeEmail',
+      params: { host: `127.0.0.1:${h.site.port}` },
+    });
+    expect(waiting.steps.map((s) => s.titleMessage?.key)).toEqual([
+      'step.fetch',
+      'step.summarize',
+      'step.emailSummary',
+    ]);
+    expect(waiting.pendingApproval).toEqual({
+      id: waiting.pendingApprovalId,
+      untrustedSource: false,
+    });
     expect(waiting.steps.map((s) => [s.toolId, s.status])).toEqual([
       ['web.fetch', 'SUCCEEDED'],
       ['text.summarize', 'SUCCEEDED'],
@@ -91,6 +104,12 @@ describe('vertical slice: summarize a page and email it', () => {
     expect(approval.summary).toBe(
       `Send the email “Summary: Renewables overtake coal in Europe” to ${user.email}.`,
     );
+    expect(approval.summaryMessage).toEqual({
+      key: 'approval.email',
+      params: { subject: 'Summary: Renewables overtake coal in Europe', recipients: user.email },
+    });
+    expect(approval.taskTitleMessage?.key).toBe('plan.summarizeEmail');
+    expect(approval.details).not.toHaveProperty('untrusted');
 
     const decided = await h.services.approvals.decide(
       user,
@@ -108,6 +127,10 @@ describe('vertical slice: summarize a page and email it', () => {
     expect(done.resultSummary).toBe(
       `Sent “Summary: Renewables overtake coal in Europe” to ${user.email}.`,
     );
+    expect(done.resultSummaryMessage).toEqual({
+      key: 'result.emailSent',
+      params: { subject: 'Summary: Renewables overtake coal in Europe', recipients: user.email },
+    });
     expect(done.completedAt).not.toBeNull();
     expect(done.cost).toEqual({ estimatedMicroUsd: 0, actualMicroUsd: 0 });
 
@@ -124,6 +147,47 @@ describe('vertical slice: summarize a page and email it', () => {
     expect(receipt.value).toMatch(/^250 /);
     expect(receipt.value).toContain(sent[0]!.messageId);
     expect(done.evidence.find((e) => e.kind === 'http_response')!.value).toContain(`→ 200`);
+    // Every piece of evidence also carries its facts as a code + params.
+    expect(done.evidence.map((e) => e.code)).toEqual([
+      'HTTP_RESPONSE',
+      'CONTENT_HASH',
+      'EXTRACTIVE_SUMMARY',
+      'SMTP_RECEIPT',
+    ]);
+    expect(receipt.params).toMatchObject({
+      replyCode: '250',
+      accepted: 1,
+      total: 1,
+      messageId: sent[0]!.messageId,
+    });
+    expect(done.evidence.find((e) => e.code === 'EXTRACTIVE_SUMMARY')!.params).toMatchObject({
+      excludedSentences: 0,
+    });
+    // Verification results are data: a check key + params per line, the English line as fallback.
+    const verified = done.events.find((e) => e.type === 'verification.passed')!;
+    const checks = verified.data.checks as {
+      stepId: string;
+      step: string;
+      key: string;
+      params: Record<string, unknown>;
+      text: string;
+    }[];
+    expect(checks.map((c) => c.key)).toEqual([
+      'http',
+      'textExtracted',
+      'hashRecorded',
+      'summaryLength',
+      'extractive',
+      'recipientsAccepted',
+      'noneRejected',
+      'serverResponse',
+      'messageId',
+    ]);
+    expect(checks[5]).toMatchObject({
+      stepId: done.steps[2]!.id,
+      params: { accepted: 1, count: 1 },
+      text: '1/1 recipients accepted',
+    });
 
     const types = done.events.map((e) => e.type);
     for (const t of [
@@ -278,6 +342,10 @@ describe('vertical slice: summarize a page and email it', () => {
     expect(done.resultSummary).toMatch(
       /^You declined this action, so nothing was sent or changed: Send the email/,
     );
+    expect(done.resultSummaryMessage).toMatchObject({
+      key: 'result.declined',
+      params: { action: { key: 'approval.email' } },
+    });
     expect(done.steps[2]!.status).toBe('CANCELLED');
     expect(h.smtp.to(user.email)).toHaveLength(0);
     expect(await auditActions(user.userId)).toContain('approval.rejected');
@@ -298,6 +366,16 @@ describe('vertical slice: summarize a page and email it', () => {
     if (approval.details.kind !== 'email') throw new Error('expected email details');
     expect(approval.details.to).toEqual([user.email]);
     expect(approval.details.body).not.toContain('attacker@evil.test');
+    // The approval says what was flagged and what JARVIS did with it — never the text itself.
+    const summarized = waiting.steps[1]!.output as { excludedSentences: number };
+    expect(summarized.excludedSentences).toBeGreaterThan(0);
+    expect(approval.details.untrusted).toEqual({
+      host: `127.0.0.1:${h.site.port}`,
+      excludedSentences: summarized.excludedSentences,
+      signals: expect.arrayContaining(['ignore_previous_instructions', 'exfiltration_request']),
+    });
+    expect(JSON.stringify(approval.details.untrusted)).not.toContain('attacker@evil.test');
+    expect(waiting.pendingApproval).toEqual({ id: approval.id, untrustedSource: true });
 
     await h.services.approvals.decide(
       user,

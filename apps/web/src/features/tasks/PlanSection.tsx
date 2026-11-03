@@ -1,12 +1,14 @@
 'use client';
 
-import type { ErrorCode, TaskDetail, TaskStep, ToolId } from '@jarvis/contracts';
+import type { TaskDetail, TaskStep, ToolId } from '@jarvis/contracts';
 import { RISK_ORDER } from '@jarvis/contracts';
 import type { LucideIcon } from 'lucide-react';
 import {
   BookmarkPlus,
   ChevronDown,
   CircleAlert,
+  CircleCheck,
+  CircleSlash,
   CornerDownRight,
   FileText,
   Globe,
@@ -15,24 +17,31 @@ import {
   MessageSquareText,
   ShieldBan,
   ShieldCheck,
+  TimerOff,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useId, useState } from 'react';
 import { StepStatusPill } from '@/components/tasks/TaskStatusPill';
-import { RiskBadge } from '@/components/ui/Badge';
+import { RiskBadge, StatusPill } from '@/components/ui/Badge';
 import { Card, Section } from '@/components/ui/Card';
 import { Icon } from '@/components/ui/Icon';
 import { RelativeTime } from '@/components/ui/RelativeTime';
 import { Spinner } from '@/components/ui/Spinner';
 import { useI18n } from '@/i18n/I18nProvider';
 import { cx } from '@/lib/cx';
+import { OfflineCommands, TechnicalDetails } from './copy';
 import { EvidenceList } from './EvidenceList';
 import { useDurationFormat, useExactTimeFormat } from './format';
 import {
   completedSteps,
   durationMs,
   guidanceFor,
+  isStepAhead,
+  needsModel,
+  pendingApproval,
   previewEntries,
+  stepDecision,
+  stepDisplayStatus,
   TOOL_LABEL,
   type PreviewValue,
 } from './model';
@@ -67,7 +76,7 @@ export function PlanSection({ task }: { task: TaskDetail }) {
         <Card padding="none">
           <ol className={styles.steps}>
             {task.steps.map((step) => (
-              <PlanStep key={step.id} step={step} taskErrorCode={task.error?.code ?? null} />
+              <PlanStep key={step.id} step={step} task={task} />
             ))}
           </ol>
         </Card>
@@ -90,30 +99,46 @@ function PlanEmpty({ task }: { task: TaskDetail }) {
   return <p className={styles.empty}>{t('tasks.plan.none')}</p>;
 }
 
-function PlanStep({ step, taskErrorCode }: { step: TaskStep; taskErrorCode: ErrorCode | null }) {
-  const { t, tDynamic } = useI18n();
+const DECIDED_ICON = { APPROVED: CircleCheck, REJECTED: CircleSlash, EXPIRED: TimerOff } as const;
+
+function PlanStep({ step, task }: { step: TaskStep; task: TaskDetail }) {
+  const { t, tDynamic, f } = useI18n();
   const duration = useDurationFormat();
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const position = step.position + 1;
   const ms = durationMs(step.startedAt, step.completedAt);
-  // Policy is worth showing up front when it asked, blocked, or the risk is above low.
+  const shown = stepDisplayStatus(step, task.status);
+  // Policy is current only while the step is still ahead: then it explains what will happen.
+  const ahead = isStepAhead(step, task.status);
   const notablePolicy =
     step.policy.decision !== 'allow' ||
     RISK_ORDER[step.riskLevel] >= RISK_ORDER.MEDIUM ||
     step.policy.reasons.includes('AUTO_APPROVED_SELF') ||
     step.policy.reasons.includes('UNTRUSTED_CONTENT');
-  const reasons = step.policy.reasons.map((code) =>
-    tDynamic(`tasks.policy.reasons.${code}`, 'tasks.policy.reasons.unknown', { code }),
-  );
+  const reason = (code: string) =>
+    tDynamic(`tasks.policy.reasons.${code}`, 'tasks.policy.reasons.unknown', { code });
+  const reasons = step.policy.reasons.map(reason);
+  // The approval card at the top already flags untrusted content for the pending decision.
+  const flaggedAbove = pendingApproval(task)?.stepId === step.id;
+  const boxReasons = step.policy.reasons
+    .filter((code) => !(flaggedAbove && code === 'UNTRUSTED_CONTENT'))
+    .map(reason);
+  const showBox =
+    notablePolicy &&
+    boxReasons.length > 0 &&
+    (ahead || (step.policy.decision === 'deny' && step.status === 'BLOCKED'));
+  const decision = stepDecision(task.approvals, step.id);
+  const autoApproved =
+    step.status === 'SUCCEEDED' && step.policy.reasons.includes('AUTO_APPROVED_SELF');
   const hasDetails =
     Object.keys(step.inputPreview).length > 0 ||
     (step.output !== null && Object.keys(step.output).length > 0) ||
     step.evidence.length > 0 ||
-    !notablePolicy;
+    (!showBox && reasons.length > 0);
 
   return (
-    <li className={styles.step} data-status={step.status}>
+    <li className={styles.step} data-status={shown}>
       <span className={styles.marker} aria-hidden="true">
         <span className={cx(styles.number, 'tabular')}>{position}</span>
       </span>
@@ -121,9 +146,18 @@ function PlanStep({ step, taskErrorCode }: { step: TaskStep; taskErrorCode: Erro
         <div className={styles.head}>
           <h3 className={styles.title}>
             <span className="visually-hidden">{t('tasks.plan.stepLabel', { position })}: </span>
-            <span dir="auto">{step.title}</span>
+            <bdi>{step.title}</bdi>
           </h3>
-          <StepStatusPill status={step.status} className={styles.pill} />
+          {shown === 'NOT_RUN' ? (
+            <StatusPill
+              tone="neutral"
+              icon={CircleSlash}
+              label={t('tasks.plan.notRun')}
+              className={styles.pill}
+            />
+          ) : (
+            <StepStatusPill status={shown} className={styles.pill} />
+          )}
         </div>
 
         <div className={styles.meta}>
@@ -131,10 +165,10 @@ function PlanStep({ step, taskErrorCode }: { step: TaskStep; taskErrorCode: Erro
             <Icon icon={TOOL_ICON[step.toolId]} size={16} className={styles.toolIcon} />
             {t(TOOL_LABEL[step.toolId])}
           </span>
-          {RISK_ORDER[step.riskLevel] >= RISK_ORDER.MEDIUM && (
+          {RISK_ORDER[step.riskLevel] >= RISK_ORDER.MEDIUM && shown !== 'NOT_RUN' && (
             <RiskBadge level={step.riskLevel} label={t(`common.risk.${step.riskLevel}`)} />
           )}
-          {step.requiresApproval && step.status === 'PENDING' && (
+          {step.requiresApproval && step.status === 'PENDING' && ahead && (
             <span className={styles.metaItem}>
               <Icon icon={Hand} size={16} />
               {t('tasks.plan.needsApproval')}
@@ -174,20 +208,36 @@ function PlanStep({ step, taskErrorCode }: { step: TaskStep; taskErrorCode: Erro
           )}
         </div>
 
-        {notablePolicy && reasons.length > 0 && (
+        {showBox && (
           <PolicyBlock
             decision={step.policy.decision}
-            reasons={reasons}
-            emphasized={step.status === 'AWAITING_APPROVAL' || step.policy.decision === 'deny'}
+            reasons={boxReasons}
+            emphasized={step.policy.decision === 'deny'}
           />
         )}
 
+        {/* After the decision: one past-tense line instead of the reasons it was asked for. */}
+        {decision && (
+          <p className={styles.decided} data-decision={decision.status}>
+            <Icon icon={DECIDED_ICON[decision.status]} size={16} className={styles.decidedIcon} />
+            {t(`tasks.plan.decided.${decision.status}`, { time: f.time(decision.decidedAt) })}
+          </p>
+        )}
+        {!decision && autoApproved && (
+          <p className={styles.decided}>
+            <Icon icon={ShieldCheck} size={16} className={styles.decidedIcon} />
+            {t('tasks.plan.autoApproved')}
+          </p>
+        )}
+
         {/* The task banner already explains the task's error: here only the step's own cause. */}
-        {step.error && <StepError error={step.error} compact={step.error.code === taskErrorCode} />}
+        {step.error && (
+          <StepError error={step.error} compact={step.error.code === task.error?.code} />
+        )}
 
         {hasDetails && (
           <div id={panelId} hidden={!open} className={styles.details}>
-            {open && <StepDetails step={step} reasons={notablePolicy ? null : reasons} />}
+            {open && <StepDetails step={step} reasons={showBox ? null : reasons} />}
           </div>
         )}
       </div>
@@ -235,31 +285,36 @@ function StepError({
 }) {
   const { t } = useI18n();
   const guidance = guidanceFor(error);
+  // The localized title says what happened; the server's wording stays behind a disclosure.
   if (compact) {
     return (
-      <p className={styles.errorCompact} dir="auto">
+      <p className={styles.errorCompact}>
         <Icon icon={CircleAlert} size={16} className={styles.errorIcon} />
-        <span>{error.message || t(`errors.codes.${error.code}`)}</span>
+        <span>{t(`errors.codes.${error.code}`)}</span>
       </p>
     );
   }
   return (
     <div className={styles.error}>
       <p className={styles.errorTitle}>{t(`errors.codes.${error.code}`)}</p>
-      {error.message && (
-        <p className={styles.errorMessage} dir="auto">
-          {error.message}
-        </p>
-      )}
       <p className={styles.guidance}>
         {t(guidance.key)}
-        {guidance.link && (
+        {guidance.link && !needsModel(error) && (
           <>
             {' '}
             <Link href={guidance.link.href}>{t(guidance.link.key)}</Link>
           </>
         )}
       </p>
+      {needsModel(error) && (
+        <>
+          <OfflineCommands />
+          <Link href="/settings#assistant" className={styles.errorLink}>
+            {t('tasks.actions.setUpModel')}
+          </Link>
+        </>
+      )}
+      <TechnicalDetails message={error.message} />
     </div>
   );
 }

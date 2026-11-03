@@ -2,7 +2,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  min-block-size: 100%;
 }
 
 .summary {
@@ -22,12 +21,25 @@
   color: var(--color-text-secondary);
 }
 
+.untrustedChip {
+  flex: none;
+}
+
 .taskLink {
-  font: var(--text-caption);
+  display: block;
+  min-width: 0;
   max-inline-size: 100%;
+  font: var(--text-caption);
+}
+
+.taskLinkText {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* The parent's start edge: Chromium and WebKit implement this as -webkit-match-parent. */
+  text-align: match-parent;
+  text-align: -webkit-match-parent;
 }
 
 .email {
@@ -77,6 +89,12 @@
   font-weight: 500;
 }
 
+/* The address wraps as one unit; it only breaks inside if it is longer than the column. */
+.address {
+  display: inline-block;
+  max-inline-size: 100%;
+}
+
 .genericValue {
   white-space: pre-wrap;
 }
@@ -111,8 +129,6 @@
 
 .body {
   margin: 0;
-  max-block-size: min(46vh, 420px);
-  overflow: auto;
   padding: var(--space-2) var(--space-4) var(--space-4);
   font: var(--text-body);
   color: var(--color-text-primary);
@@ -121,14 +137,10 @@
   tab-size: 4;
 }
 
-.body:focus-visible {
-  outline-offset: calc(var(--focus-width) * -1);
-}
-
 .why {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .whyTitle {
@@ -158,30 +170,4 @@
 .addNote {
   align-self: flex-start;
   margin-inline-start: calc(var(--space-3) * -1);
-}
-
-.actions {
-  position: sticky;
-  inset-block-end: 0;
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-3);
-  margin-block-start: auto;
-  margin-inline: calc(var(--space-6) * -1);
-  margin-block-end: calc(var(--space-5) * -1);
-  padding: var(--space-4) var(--space-6);
-  padding-block-end: calc(var(--space-4) + env(safe-area-inset-bottom));
-  border-block-start: 1px solid var(--color-border);
-  background: var(--color-surface);
-}
-
-@media (max-width: 639.98px) {
-  .actions {
-    margin-inline: calc(var(--space-4) * -1);
-    padding-inline: var(--space-4);
-  }
-
-  .actions > * {
-    flex: 1 1 0;
-  }
 }

@@ -3,7 +3,7 @@
  * its deterministic validator. Every plan — whoever produced it — passes
  * through validatePlan before anything is persisted or executed.
  */
-import { ToolId } from '@jarvis/contracts';
+import { ServerMessage, ToolId } from '@jarvis/contracts';
 import { z } from 'zod';
 import { sameAddress } from './policy';
 import { findMalformedRefs, findRefs } from './templates';
@@ -16,13 +16,18 @@ export const PlannedStep = z.object({
   key: z.string().regex(/^s[1-9]$/, 'step keys are s1 … s8'),
   toolId: ToolId,
   title: z.string().trim().min(1).max(120),
+  /** Offline planner only: the title as a message, so clients render it in their locale. */
+  titleMessage: ServerMessage.optional(),
   input: z.record(z.string(), z.unknown()),
 });
 export type PlannedStep = z.infer<typeof PlannedStep>;
 
 export const Plan = z.object({
   title: z.string().trim().min(1).max(MAX_TITLE),
+  /** Offline planner only (model plans are written in the request language). */
+  titleMessage: ServerMessage.optional(),
   objective: z.string().trim().min(1).max(1000),
+  objectiveMessage: ServerMessage.optional(),
   steps: z.array(PlannedStep).min(1).max(MAX_STEPS),
 });
 export type Plan = z.infer<typeof Plan>;

@@ -15,7 +15,7 @@ import { selectModel } from '../models/router';
 import { hasTemplate } from '../templates';
 import { detectInjection } from './injection';
 import { MAX_TEXT_CHARS } from './web-fetch';
-import { evidence, type ToolDefinition } from './types';
+import { check, evidence, genericApprovalSummary, type ToolDefinition } from './types';
 
 export const SummarizeInput = z.object({
   text: z
@@ -66,11 +66,18 @@ export function splitSentences(text: string): string[] {
   return out;
 }
 
+/** Sentences of `text` that address AI assistants (never quoted back to the user). */
+export function countInjectedSentences(text: string): number {
+  let n = 0;
+  for (const s of splitSentences(text)) if (detectInjection(s).suspectedInjection) n++;
+  return n;
+}
+
 export function extractiveSummary(
   text: string,
   title?: string,
   opts: { maxSentences?: number; maxChars?: number } = {},
-): { summary: string; sentenceCount: number } {
+): { summary: string; sentenceCount: number; excludedSentences: number } {
   const maxSentences = opts.maxSentences ?? 5;
   const maxChars = opts.maxChars ?? 900;
   const seen = new Set<string>();
@@ -95,7 +102,12 @@ export function extractiveSummary(
   if (picked.length > 0) body = picked.map((s) => `- ${s}`).join('\n');
   else body = truncate(text.replace(/\s+/g, ' ').trim(), 600);
   const head = title?.trim() ? `${title.trim()}\n\n` : '';
-  return { summary: `${head}${body}`, sentenceCount: picked.length };
+  return {
+    summary: `${head}${body}`,
+    sentenceCount: picked.length,
+    // Counted over the whole text, not just up to where picking stopped: none of them is quoted.
+    excludedSentences: countInjectedSentences(text),
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -108,7 +120,15 @@ export const textSummarizeTool: ToolDefinition<SummarizeInput> = {
   description:
     'Summarize a text (for example the text of a fetched page) in a given language. Output: summary (plain text), method ("model" or "extractive"), methodNote (one line describing how the summary was made).',
   inputSchema: SummarizeInput,
-  outputFields: ['summary', 'method', 'methodNote', 'model', 'language', 'suspectedInjection'],
+  outputFields: [
+    'summary',
+    'method',
+    'methodNote',
+    'model',
+    'language',
+    'suspectedInjection',
+    'excludedSentences',
+  ],
   requiredConnection: null,
   permissions: [],
   sideEffect: 'none',
@@ -138,7 +158,7 @@ export const textSummarizeTool: ToolDefinition<SummarizeInput> = {
         { label: 'Language', value: input.language },
       ],
     },
-    summary: t(ctx.language, 'approval.generic', { title: ctx.stepTitle, tool: 'text.summarize' }),
+    ...genericApprovalSummary(ctx, 'text.summarize'),
   }),
   async execute(input, rt, signal) {
     const scan = detectInjection(input.text);
@@ -181,6 +201,8 @@ export const textSummarizeTool: ToolDefinition<SummarizeInput> = {
         sourceChars: input.text.length,
         suspectedInjection: scan.suspectedInjection,
         injectionSignals: scan.injectionSignals,
+        // The model read every sentence (told to ignore instructions); none was left out.
+        excludedSentences: null,
       };
       return {
         output,
@@ -195,13 +217,22 @@ export const textSummarizeTool: ToolDefinition<SummarizeInput> = {
             'model_output',
             res.usage.model,
             `${res.usage.inputTokens} input / ${res.usage.outputTokens} output tokens`,
+            'MODEL_OUTPUT',
+            {
+              model: res.usage.model,
+              inputTokens: res.usage.inputTokens,
+              outputTokens: res.usage.outputTokens,
+            },
           ),
         ],
         costMicro: res.usage.costMicro,
         usage: [res.usage],
       };
     }
-    const { summary, sentenceCount } = extractiveSummary(input.text, input.title);
+    const { summary, sentenceCount, excludedSentences } = extractiveSummary(
+      input.text,
+      input.title,
+    );
     const output = {
       summary,
       method: 'extractive',
@@ -212,6 +243,7 @@ export const textSummarizeTool: ToolDefinition<SummarizeInput> = {
       sentenceCount,
       suspectedInjection: scan.suspectedInjection,
       injectionSignals: scan.injectionSignals,
+      excludedSentences,
     };
     return {
       output,
@@ -219,12 +251,15 @@ export const textSummarizeTool: ToolDefinition<SummarizeInput> = {
         summary: truncate(summary, 1_200),
         method: 'extractive',
         suspectedInjection: scan.suspectedInjection,
+        excludedSentences,
       },
       evidence: [
         evidence(
           'note',
           'Extractive summary',
           `${sentenceCount} key sentences from ${input.text.length} characters; no AI model was used.`,
+          'EXTRACTIVE_SUMMARY',
+          { sentences: sentenceCount, chars: input.text.length, excludedSentences },
         ),
       ],
       costMicro: 0,
@@ -235,10 +270,14 @@ export const textSummarizeTool: ToolDefinition<SummarizeInput> = {
     return {
       ok: summary.trim().length > 0,
       checks: [
-        `Summary of ${summary.length} characters`,
+        check('summaryLength', `Summary of ${summary.length} characters`, {
+          count: summary.length,
+        }),
         output.method === 'extractive'
-          ? 'Extractive summary (no AI model used)'
-          : `Written by ${String(output.model)}`,
+          ? check('extractive', 'Extractive summary (no AI model used)')
+          : check('writtenBy', `Written by ${String(output.model)}`, {
+              model: String(output.model),
+            }),
       ],
     };
   },

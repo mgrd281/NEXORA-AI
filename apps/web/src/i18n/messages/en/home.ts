@@ -12,7 +12,7 @@ const home = {
   },
   status: {
     ready: 'Ready',
-    offlinePlanner: 'Offline planner — limited commands',
+    offlinePlanner: 'Ready in basic mode',
     approvals: '{count, plural, one {Needs your approval} other {# requests need your approval}}',
     working: '{count, plural, one {Working on # task} other {Working on # tasks}}',
     queued: '{count, plural, one {# task waiting to start} other {# tasks waiting to start}}',
@@ -49,7 +49,7 @@ const home = {
   suggest: {
     enableWeb: 'Allow JARVIS to read public web pages',
     connectEmail: 'Connect your email so JARVIS can send messages',
-    configureModel: 'JARVIS is running without an AI model — see what works offline',
+    configureModel: 'JARVIS is running without an AI model — see what it can do',
     summarizeAndEmail: 'Summarize a web page and email it to yourself',
     remember: 'Tell JARVIS something to remember',
   },

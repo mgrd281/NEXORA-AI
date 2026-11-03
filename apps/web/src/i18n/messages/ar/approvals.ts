@@ -15,6 +15,9 @@ const approvals: Catalog<typeof source> = {
   },
   recipients:
     '{count, plural, zero {لا مستلمين} one {مستلم واحد} two {مستلمان} few {# مستلمين} many {# مستلمًا} other {# مستلم}}',
+  summary: {
+    email: 'إرسال «{subject}» إلى {recipients}',
+  },
   why: 'لماذا يطلب JARVIS موافقتك',
   reasons: {
     RISK_LOW: 'هذا إجراء منخفض الخطورة.',
@@ -30,8 +33,14 @@ const approvals: Catalog<typeof source> = {
     AUTO_APPROVED_SELF: 'تسمح إعداداتك بإرسال الرسائل إلى نفسك دون سؤالك.',
     unknown: 'وضعت سياسة الأمان علامة على هذا الإجراء ({code}).',
   },
-  untrustedWarning:
-    'عُثر في المصدر على ما يُشتبه بأنه تعليمات موجّهة إلى الذكاء الاصطناعي. اقرأ الرسالة بعناية قبل الموافقة.',
+  untrusted: {
+    chip: 'مصدر غير موثوق',
+    title: 'حاول نص في {host} إعطاء تعليمات لمساعدي الذكاء الاصطناعي.',
+    titleNoHost: 'حاول نص في أحد المصادر المستخدمة إعطاء تعليمات لمساعدي الذكاء الاصطناعي.',
+    leftOut: 'استبعد JARVIS هذا النص من الملخص.',
+    mayInclude: 'قد تظهر أجزاء منه في الرسالة.',
+    check: 'راجع الرسالة قبل الموافقة.',
+  },
   expires: 'تنتهي صلاحيته {time}',
   note: {
     add: 'إضافة ملاحظة',

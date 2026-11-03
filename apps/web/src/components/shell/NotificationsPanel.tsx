@@ -99,9 +99,8 @@ export function NotificationsPanel({
                       <Icon icon={kind.icon} size={16} />
                     </span>
                     <span className={styles.text}>
-                      <span className={styles.message} dir="auto">
-                        {message(n)}
-                      </span>
+                      {/* A sentence in the interface language; t() isolates the task title. */}
+                      <span className={styles.message}>{message(n)}</span>
                       <RelativeTime value={n.createdAt} className={styles.time} />
                     </span>
                     {isUnread && (

@@ -60,19 +60,27 @@
   min-width: 0;
 }
 
-.title {
-  font: var(--text-body-strong);
+/* With autoDir the text keeps its own direction (so the ellipsis falls at its end) but aligns
+   to the row's start edge. */
+.title,
+.description {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* The parent's start edge: Chromium and WebKit implement this as -webkit-match-parent. */
+  text-align: match-parent;
+  text-align: -webkit-match-parent;
+  unicode-bidi: isolate;
+}
+
+.title {
+  font: var(--text-body-strong);
 }
 
 .description {
   font: var(--text-callout);
   color: var(--color-text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .meta {

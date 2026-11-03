@@ -41,12 +41,10 @@
 }
 
 .link {
+  display: block;
+  min-width: 0;
   color: var(--color-text-primary);
   text-decoration: none;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* The whole row is the link's hit area. */
@@ -70,6 +68,19 @@
   outline-offset: calc(var(--focus-width) * -1);
 }
 
+/* Title and line truncate in their own direction (dir="auto"), aligned to the list's start. */
+.title,
+.line {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  /* The parent's start edge: Chromium and WebKit implement this as -webkit-match-parent. */
+  text-align: match-parent;
+  text-align: -webkit-match-parent;
+  unicode-bidi: isolate;
+}
+
 .title {
   font: var(--text-body-strong);
 }
@@ -77,9 +88,6 @@
 .line {
   font: var(--text-callout);
   color: var(--color-text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .meta {

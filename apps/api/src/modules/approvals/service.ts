@@ -10,7 +10,7 @@ import { safeEqual } from '../../lib/crypto';
 import { AppError, invalidState, notFound } from '../../lib/errors';
 import type { ApprovalService } from '../../services';
 import { expireApproval } from '../agent/approval-flow';
-import { asLocale, t } from '../agent/i18n';
+import { asLocale, asMessage, msg, render } from '../agent/i18n';
 import type { AgentDeps } from '../agent/index';
 import { cancelOpenSteps, lockTask, transitionTask } from '../agent/task-state';
 import { audit } from '../audit/audit';
@@ -105,10 +105,14 @@ export function createApprovalService(deps: AgentDeps): ApprovalService {
           type: 'approval.decided',
           data: { approvalId: approval.id, decision: 'rejected' },
         });
+        const action = asMessage(approval.summary_message);
+        const result = action ? msg('result.declined', { action }) : null;
         await transitionTask(trx, ctx, task, 'CANCELLED', {
-          result_summary: t(asLocale(task.language), 'result.declined', {
-            action: approval.summary,
-          }),
+          result_summary: result
+            ? render(asLocale(task.language), result)
+            : // An approval from before summaries were messages: its stored sentence.
+              render(asLocale(task.language), msg('result.declined', { action: approval.summary })),
+          result_summary_message: result ? JSON.stringify(result) : null,
         });
       }
       await audit(trx, {

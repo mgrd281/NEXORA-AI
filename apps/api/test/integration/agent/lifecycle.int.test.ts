@@ -125,8 +125,20 @@ describe('safety and policy', () => {
     ]) {
       const done = await submit(user, `Summarize ${url}`);
       expect(done.status).toBe('FAILED');
-      expect(done.error).toMatchObject({ code: 'FETCH_BLOCKED', retryable: false });
-      expect(done.steps[0]!.status).toBe('FAILED');
+      expect(done.error).toMatchObject({
+        code: 'FETCH_BLOCKED',
+        retryable: false,
+        reason: 'PRIVATE_ADDRESS',
+      });
+      expect(done.error?.params?.host).toBeTruthy();
+      // A final task has nothing pending: the step that never ran reads as skipped.
+      expect(done.steps.map((s) => s.status)).toEqual(['FAILED', 'SKIPPED']);
+      expect(done.progress).toEqual({ completed: 0, total: 2 });
+      // Retrying would be blocked the same way, so it is neither offered nor accepted.
+      expect(done.canRetry).toBe(false);
+      await expect(
+        h.services.tasks.retry(user, done.id, { acknowledgeUnknownOutcome: false }),
+      ).rejects.toMatchObject({ code: 'INVALID_STATE' });
     }
     expect(unlisted.hits).toHaveLength(0); // never connected
   });
@@ -161,8 +173,13 @@ describe('safety and policy', () => {
     await connectWeb(h.db, user);
     const done = await submit(user, `Summarize ${h.site.url('/article')} and email it to me`);
     expect(done.status).toBe('FAILED');
-    expect(done.error).toMatchObject({ code: 'CONNECTION_REQUIRED', retryable: true });
-    expect(done.steps.map((s) => s.status)).toEqual(['PENDING', 'PENDING', 'BLOCKED']);
+    expect(done.error).toMatchObject({
+      code: 'CONNECTION_REQUIRED',
+      retryable: true,
+      reason: 'CONNECTION_MISSING',
+    });
+    expect(done.canRetry).toBe(true);
+    expect(done.steps.map((s) => s.status)).toEqual(['SKIPPED', 'SKIPPED', 'BLOCKED']);
     expect(done.steps[2]!.policy).toEqual({ decision: 'deny', reasons: ['CONNECTION_MISSING'] });
     expect(done.events.some((e) => e.type === 'step.blocked')).toBe(true);
     expect(await executions(h.db, user, done.id)).toHaveLength(0);
@@ -178,10 +195,17 @@ describe('safety and policy', () => {
     const user = await connectedUser();
     const done = await submit(user, 'What is the weather in Paris tomorrow?');
     expect(done.status).toBe('FAILED');
-    expect(done.error?.code).toBe('PLANNER_UNSUPPORTED');
-    expect(done.error?.message).toContain('Summarize <link>');
+    expect(done.error).toMatchObject({
+      code: 'PLANNER_UNSUPPORTED',
+      reason: 'OFFLINE_UNSUPPORTED',
+    });
     expect(done.steps).toHaveLength(0);
     expect(done.planner).toEqual({ mode: 'offline', provider: null, model: null });
+    // Without an AI model a retry can only fail again.
+    expect(done.canRetry).toBe(false);
+    await expect(
+      h.services.tasks.retry(user, done.id, { acknowledgeUnknownOutcome: false }),
+    ).rejects.toMatchObject({ code: 'INVALID_STATE' });
   });
 
   it('email to self runs without approval when auto-approve is on', async () => {
@@ -198,7 +222,11 @@ describe('safety and policy', () => {
   it('unsupported content types are refused', async () => {
     const user = await connectedUser();
     const done = await submit(user, `Summarize ${h.site.url('/binary')}`);
-    expect(done.error).toMatchObject({ code: 'TOOL_FAILED' });
+    expect(done.error).toMatchObject({
+      code: 'TOOL_FAILED',
+      reason: 'UNSUPPORTED_CONTENT_TYPE',
+      params: { contentType: 'application/octet-stream' },
+    });
     expect(done.error?.message).toContain('application/octet-stream');
   });
 
@@ -228,6 +256,7 @@ describe('cancellation and isolation', () => {
     expect(d.approvals[0]!.status).toBe('CANCELLED');
     expect(d.steps[2]!.status).toBe('CANCELLED');
     expect(d.resultSummary).toBe('Cancelled at your request.');
+    expect(d.resultSummaryMessage).toEqual({ key: 'result.cancelled', params: {} });
     await expect(
       h.services.approvals.decide(
         user,
@@ -353,7 +382,7 @@ describe('crash recovery', () => {
     await drain(h.worker);
     const again = await detail(h.db, user, done.id);
     expect(again.status).toBe('COMPLETED');
-    expect(again.resultSummary).toBe('Saved to memory: “verification resumes”.');
+    expect(again.resultSummary).toBe('Saved to memory: “Verification resumes”.');
     const rows = await withContext(h.db, user, (trx) =>
       trx.selectFrom('memories').select('id').execute(),
     );
@@ -367,14 +396,22 @@ describe('memory', () => {
     const done = await submit(user, 'remember that I prefer aisle seats');
     expect(done.status).toBe('COMPLETED');
     expect(done.title).toBe('Remember: I prefer aisle seats');
+    expect(done.titleMessage).toEqual({
+      key: 'plan.remember',
+      params: { text: 'I prefer aisle seats' },
+    });
     expect(done.resultSummary).toBe('Saved to memory: “I prefer aisle seats”.');
-    expect(done.evidence.map((e) => e.kind)).toEqual(['record']);
+    expect(done.resultSummaryMessage).toEqual({
+      key: 'result.memorySaved',
+      params: { text: 'I prefer aisle seats' },
+    });
+    expect(done.evidence.map((e) => [e.kind, e.code])).toEqual([['record', 'MEMORY_RECORD']]);
     const rows = await withContext(h.db, user, (trx) =>
       trx.selectFrom('memories').selectAll().execute(),
     );
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
-      content: 'I prefer aisle seats',
+      content: 'I prefer aisle seats.',
       kind: 'preference',
       source: 'assistant',
       source_task_id: done.id,
@@ -396,7 +433,13 @@ describe('memory', () => {
   it('German and Arabic requests are planned in their language', async () => {
     const user = await connectedUser();
     const de = await submit(user, 'Merk dir, dass ich Gangplätze bevorzuge');
-    expect(de).toMatchObject({ status: 'COMPLETED', title: 'Merken: ich Gangplätze bevorzuge' });
+    expect(de).toMatchObject({ status: 'COMPLETED', title: 'Merken: Ich Gangplätze bevorzuge' });
+    // The server sentence is data too, so an English UI can show it in English.
+    expect(de.steps[0]!.titleMessage).toEqual({ key: 'step.remember', params: {} });
+    expect(de.resultSummaryMessage).toEqual({
+      key: 'result.memorySaved',
+      params: { text: 'Ich Gangplätze bevorzuge' },
+    });
     const ar = await submit(user, 'تذكر أن رقم غرفتي 214');
     expect(ar).toMatchObject({ status: 'COMPLETED', title: 'تذكّر: رقم غرفتي 214' });
   });

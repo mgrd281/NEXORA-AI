@@ -12,7 +12,16 @@ import type { MessageParams } from './types';
 export interface IcuContext {
   plural: Intl.PluralRules;
   number: (n: number) => string;
+  /**
+   * Wrap each interpolated, non-empty string in FSI…PDI (U+2068/U+2069) so it keeps its own
+   * direction inside the sentence. Numbers and plural/select selectors are never wrapped.
+   */
+  isolate?: boolean;
 }
+
+/** First-strong isolate / pop directional isolate (Unicode bidi, UAX #9). */
+export const FSI = '\u2068';
+export const PDI = '\u2069';
 
 export function formatIcu(message: string, params: MessageParams, ctx: IcuContext): string {
   return render(message, params, ctx, undefined);
@@ -107,7 +116,8 @@ function parseBranches(body: string): Map<string, string> {
 
 function valueToString(value: MessageParams[string], ctx: IcuContext): string {
   if (value === null || value === undefined) return '';
-  return typeof value === 'number' ? ctx.number(value) : value;
+  if (typeof value === 'number') return ctx.number(value);
+  return ctx.isolate && value !== '' ? `${FSI}${value}${PDI}` : value;
 }
 
 /** Names of every argument a message uses, including inside plural/select branches. */

@@ -156,24 +156,214 @@ export const DeleteAccountRequest = z.object({
 });
 
 /* ------------------------------------------------------------------ */
+/* Server-written sentences (localised by clients)                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Keys of the sentences the server composes (offline plan and step titles,
+ * approval summaries, result lines). Clients render them in the viewer's
+ * locale from `{ key, params }`; the server keeps en/de/ar templates of the
+ * same keys (apps/api/src/modules/agent/i18n.ts) for its plain-text fallback.
+ *
+ * Parameters per key:
+ *   plan.summarize, plan.summarizeEmail, step.fetch      { host }
+ *   plan.remember, plan.emailSelf                         { text }   (the user's own words)
+ *   objective.summarize                                   { url }
+ *   objective.summarizeEmail                              { url, email }
+ *   objective.emailSelf                                   { email }
+ *   objective.remember, step.summarize, step.emailSummary, step.remember,
+ *   step.emailNote, result.cancelled, result.expired      {}
+ *   approval.email, result.emailSent                      { subject, recipients }
+ *   approval.generic                                      { title, tool }
+ *   approval.recipientsMany                               { count }
+ *   result.memorySaved                                    { text }
+ *   result.declined                                       { action }
+ * A parameter is a string, a number or a nested message (e.g. `recipients`
+ * is a nested approval.recipientsMany for more than two recipients, `title`
+ * a nested step title, `action` the declined approval's summary).
+ */
+export const ServerMessageKey = z.enum([
+  'plan.summarize',
+  'plan.summarizeEmail',
+  'plan.remember',
+  'plan.emailSelf',
+  'objective.summarize',
+  'objective.summarizeEmail',
+  'objective.remember',
+  'objective.emailSelf',
+  'step.fetch',
+  'step.summarize',
+  'step.emailSummary',
+  'step.remember',
+  'step.emailNote',
+  'approval.email',
+  'approval.generic',
+  'approval.recipientsMany',
+  'result.emailSent',
+  'result.memorySaved',
+  'result.declined',
+  'result.cancelled',
+  'result.expired',
+]);
+export type ServerMessageKey = z.infer<typeof ServerMessageKey>;
+
+export type ServerMessageParam = string | number | ServerMessage;
+export interface ServerMessage {
+  key: ServerMessageKey;
+  params: Record<string, ServerMessageParam>;
+}
+export const ServerMessage: z.ZodType<ServerMessage> = z.object({
+  key: ServerMessageKey,
+  get params() {
+    return z.record(z.string(), z.union([z.string(), z.number(), ServerMessage]));
+  },
+});
+
+/* ------------------------------------------------------------------ */
 /* Tasks                                                               */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Machine-readable detail of a TaskError (the `code` says what kind of
+ * failure; the reason says which one). Clients localise `code` + `reason` +
+ * `params`; `message` is an English developer fallback.
+ */
+export const TaskErrorReason = z.enum([
+  // web.fetch / SSRF guard
+  'INVALID_URL',
+  'UNSUPPORTED_SCHEME',
+  'EMBEDDED_CREDENTIALS',
+  'MISSING_HOST',
+  'PRIVATE_ADDRESS', // { host }
+  'FETCH_TIMEOUT', // { host, seconds }
+  'HOST_NOT_FOUND', // { host }
+  'CONNECT_FAILED', // { host }
+  'TLS_CERTIFICATE', // { host }
+  'FETCH_FAILED', // { host }
+  'UNSUPPORTED_ENCODING', // { encoding }
+  'PAGE_TOO_LARGE', // { limitMb }
+  'TOO_MANY_REDIRECTS', // { max }
+  'HTTP_ERROR', // { host, status }
+  'UNSUPPORTED_CONTENT_TYPE', // { contentType }
+  'MISSING_CONTENT_TYPE',
+  'NO_READABLE_TEXT',
+  // email.send
+  'EMAIL_NOT_CONNECTED',
+  'SMTP_AUTH',
+  'SMTP_REFUSED', // { responseCode }
+  'SMTP_CONNECT',
+  'SMTP_UNUSABLE',
+  'SEND_INTERRUPTED',
+  'SEND_TIMEOUT',
+  // runtime
+  'STEP_INTERRUPTED', // { step }
+  'STEP_TIMEOUT', // { step }
+  'STEP_CRASHED', // { step }
+  'INVALID_STEP_INPUT', // { step }
+  'UNKNOWN_TOOL', // { tool }
+  'VERIFICATION_FAILED', // { steps }
+  // planner
+  'OFFLINE_UNSUPPORTED',
+  'MEMORY_TOO_LONG', // { max }
+  'INVALID_PLAN',
+  'NO_TOOLS',
+  'PLANNING_FAILED',
+  // policy (same names as the policy reason codes)
+  'CONNECTION_MISSING', // { step }
+  'MEMORY_DISABLED',
+  'RISK_CRITICAL',
+  'BUDGET_ZERO',
+  'BUDGET_EXHAUSTED',
+  'EXTERNAL_MODELS_DISABLED',
+  'MODEL_UNAVAILABLE',
+  'POLICY_DENIED', // { step }
+]);
+export type TaskErrorReason = z.infer<typeof TaskErrorReason>;
+
 export const TaskError = z.object({
   code: ErrorCode,
+  /** English developer fallback. Clients show copy for code / reason / params instead. */
   message: z.string(),
   /** Whether a retry is safe without risking a duplicate side effect. */
   retryable: z.boolean(),
+  reason: TaskErrorReason.optional(),
+  params: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
 });
 export type TaskError = z.infer<typeof TaskError>;
+
+/**
+ * What a piece of evidence records, with its facts as parameters, so clients
+ * can label it in the viewer's locale. `label` / `value` stay as the
+ * protocol-level, English fallback.
+ *   HTTP_RESPONSE      { method, url, status, contentType, bytes }
+ *   CONTENT_HASH       { algorithm, hash }
+ *   SMTP_RECEIPT       { replyCode, accepted, total, response, messageId }
+ *   MODEL_OUTPUT       { model, inputTokens, outputTokens }
+ *   EXTRACTIVE_SUMMARY { sentences, chars, excludedSentences }
+ *   MEMORY_RECORD      { memoryId, kind }
+ *   ANSWER_TRUNCATED   {}
+ */
+export const EvidenceCode = z.enum([
+  'HTTP_RESPONSE',
+  'CONTENT_HASH',
+  'SMTP_RECEIPT',
+  'MODEL_OUTPUT',
+  'EXTRACTIVE_SUMMARY',
+  'MEMORY_RECORD',
+  'ANSWER_TRUNCATED',
+]);
+export type EvidenceCode = z.infer<typeof EvidenceCode>;
 
 export const Evidence = z.object({
   kind: z.enum(['http_response', 'smtp_receipt', 'record', 'content_hash', 'model_output', 'note']),
   label: z.string(),
   value: z.string(),
   at: Timestamp,
+  /** Absent on evidence recorded before codes existed. */
+  code: EvidenceCode.optional(),
+  params: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
 });
 export type Evidence = z.infer<typeof Evidence>;
+
+/**
+ * One verification result, as carried in `verification.passed` /
+ * `verification.failed` event data (`checks`). Clients localise `key` +
+ * `params`; `text` is the English fallback and `step` the step's title.
+ *   http { status, url } · textExtracted { count } · hashRecorded · hashMissing
+ *   injectionFlagged · summaryLength { count } · extractive · writtenBy { model }
+ *   recipientsAccepted { accepted, count } · noneRejected · rejected { list }
+ *   serverResponse { response } · messageId { id } · answerLength { count }
+ *   memoryStored { id } · memoryMissing
+ */
+export const VerificationCheckKey = z.enum([
+  'http',
+  'textExtracted',
+  'hashRecorded',
+  'hashMissing',
+  'injectionFlagged',
+  'summaryLength',
+  'extractive',
+  'writtenBy',
+  'recipientsAccepted',
+  'noneRejected',
+  'rejected',
+  'serverResponse',
+  'messageId',
+  'answerLength',
+  'memoryStored',
+  'memoryMissing',
+]);
+export type VerificationCheckKey = z.infer<typeof VerificationCheckKey>;
+
+export const VerificationCheck = z.object({
+  stepId: Id,
+  /** The step's title as stored (see TaskStep.titleMessage for its localisable form). */
+  step: z.string(),
+  key: VerificationCheckKey,
+  params: z.record(z.string(), z.union([z.string(), z.number()])),
+  text: z.string(),
+});
+export type VerificationCheck = z.infer<typeof VerificationCheck>;
 
 export const PolicyDecision = z.object({
   decision: z.enum(['allow', 'require_approval', 'deny']),
@@ -186,6 +376,8 @@ export const TaskStep = z.object({
   id: Id,
   position: z.number().int().nonnegative(),
   title: z.string(),
+  /** Set when the server wrote the title (offline planner): render it in the viewer's locale. */
+  titleMessage: ServerMessage.nullable().optional(),
   toolId: ToolId,
   riskLevel: RiskLevel,
   status: StepStatus,
@@ -203,6 +395,21 @@ export const TaskStep = z.object({
 });
 export type TaskStep = z.infer<typeof TaskStep>;
 
+/**
+ * Facts about content flagged as a suspected prompt injection that this
+ * action consumes (attached when the policy adds UNTRUSTED_CONTENT). Never
+ * contains the flagged text itself.
+ */
+export const UntrustedSource = z.object({
+  /** Host of the page the content came from, when it came from web.fetch. */
+  host: z.string().nullable(),
+  /** Sentences left out of the extractive summary because they addressed AI assistants; null when not applicable. */
+  excludedSentences: z.number().int().nonnegative().nullable(),
+  /** Detector signal ids, e.g. ignore_previous_instructions, exfiltration_request. */
+  signals: z.array(z.string()),
+});
+export type UntrustedSource = z.infer<typeof UntrustedSource>;
+
 export const ApprovalDetails = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('email'),
@@ -210,11 +417,13 @@ export const ApprovalDetails = z.discriminatedUnion('kind', [
     to: z.array(z.string()),
     subject: z.string(),
     body: z.string(),
+    untrusted: UntrustedSource.optional(),
   }),
   z.object({
     kind: z.literal('generic'),
     toolId: ToolId,
     fields: z.array(z.object({ label: z.string(), value: z.string() })),
+    untrusted: UntrustedSource.optional(),
   }),
 ]);
 export type ApprovalDetails = z.infer<typeof ApprovalDetails>;
@@ -223,12 +432,15 @@ export const Approval = z.object({
   id: Id,
   taskId: Id,
   taskTitle: z.string(),
+  taskTitleMessage: ServerMessage.nullable().optional(),
   stepId: Id,
   toolId: ToolId,
   status: ApprovalStatus,
   riskLevel: RiskLevel,
-  /** Exactly what will happen, in one sentence. */
+  /** Exactly what will happen, in one sentence (request language; see summaryMessage). */
   summary: z.string(),
+  /** `summary` as a message key + params, to render in the viewer's locale. */
+  summaryMessage: ServerMessage.nullable().optional(),
   details: ApprovalDetails,
   /** Hash binding the approval to the exact action shown; required when deciding. */
   actionHash: z.string(),
@@ -257,14 +469,26 @@ export type PlannerInfo = z.infer<typeof PlannerInfo>;
 
 export const TaskSummary = z.object({
   id: Id,
+  /** In the request's language (or the request itself until planned); see titleMessage. */
   title: z.string(),
+  /** Set when the server wrote the title (offline planner): render it in the viewer's locale. */
+  titleMessage: ServerMessage.nullable().optional(),
   request: z.string(),
   status: TaskStatus,
   riskLevel: RiskLevel,
   source: TaskSource,
+  /** `completed` counts succeeded steps only. */
   progress: z.object({ completed: z.number().int(), total: z.number().int() }),
   pendingApprovalId: Id.nullable(),
+  /** The pending approval, with whether it acts on content flagged as a prompt injection. */
+  pendingApproval: z.object({ id: Id, untrustedSource: z.boolean() }).nullable().optional(),
+  /** In the request's language; see resultSummaryMessage. */
   resultSummary: z.string().nullable(),
+  /**
+   * Set when the result line is a server sentence (not page or model text):
+   * render it in the viewer's locale instead of `resultSummary`.
+   */
+  resultSummaryMessage: ServerMessage.nullable().optional(),
   error: TaskError.nullable(),
   createdAt: Timestamp,
   updatedAt: Timestamp,
@@ -302,6 +526,7 @@ export type TaskEvent = z.infer<typeof TaskEvent>;
 
 export const TaskDetail = TaskSummary.extend({
   objective: z.string().nullable(),
+  objectiveMessage: ServerMessage.nullable().optional(),
   conversationId: Id,
   planner: PlannerInfo.nullable(),
   answer: z.string().nullable(),
@@ -507,7 +732,15 @@ export const AdminOverview = z.object({
     database: z.boolean(),
     worker: z.object({ healthy: z.boolean(), lastHeartbeatAt: Timestamp.nullable() }),
     planner: AssistantStatus.shape.planner,
+    /** Queued jobs that are due now; same as queueReady (kept for older clients). */
     queueDepth: z.number().int(),
+    // The three below are always sent by this API; optional only for older fixtures.
+    /** Queued jobs that are due now (the backlog the worker has to work through). */
+    queueReady: z.number().int().optional(),
+    /** Queued jobs that are due later (e.g. approval expiry timers): not backlog. */
+    queueScheduled: z.number().int().optional(),
+    /** How long the oldest due job has waited, or null when nothing is due. */
+    oldestReadyAgeMs: z.number().int().nullable().optional(),
   }),
   users: z.object({ total: z.number().int(), active7d: z.number().int() }),
   tenants: z.object({ total: z.number().int() }),

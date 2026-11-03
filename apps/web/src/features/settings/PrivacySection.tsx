@@ -10,7 +10,7 @@ import { TextField } from '@/components/ui/Field';
 import { useI18n } from '@/i18n/I18nProvider';
 import { api, isApiError, type ApiError } from '@/lib/api/client';
 import { cx } from '@/lib/cx';
-import { SettingRow, SettingsCard } from './controls';
+import { DangerZone, SettingRow, SettingsCard } from './controls';
 import { SettingsSection } from './SettingsSection';
 import { exportFileName } from './exportFile';
 import styles from './settings.module.css';
@@ -102,26 +102,18 @@ function DeleteAccountCard() {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   return (
-    <SettingsCard className={styles.dangerCard}>
-      <SettingRow>
-        <div className={styles.actionRow}>
-          <div className={styles.actionText}>
-            <h3 className={styles.rowTitle}>{t('settings.privacy.deleteTitle')}</h3>
-            <p className={styles.rowText}>{t('settings.privacy.deleteDescription')}</p>
-          </div>
-          <Button
-            size="sm"
-            variant="danger"
-            className={styles.actionButton}
-            onClick={() => setOpen(true)}
-          >
-            {t('settings.privacy.deleteButton')}
-          </Button>
-        </div>
-      </SettingRow>
+    <DangerZone
+      title={t('settings.privacy.deleteTitle')}
+      description={t('settings.privacy.deleteDescription')}
+      action={
+        <Button size="sm" variant="danger" onClick={() => setOpen(true)}>
+          {t('settings.privacy.deleteButton')}
+        </Button>
+      }
+    >
       {/* Mounted only while open, so the password never outlives the dialog. */}
       {open && <DeleteAccountDialog onClose={() => setOpen(false)} />}
-    </SettingsCard>
+    </DangerZone>
   );
 }
 

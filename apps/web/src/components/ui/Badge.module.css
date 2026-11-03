@@ -50,3 +50,20 @@
   background: var(--color-danger-soft);
   color: var(--color-danger);
 }
+
+/* On tinted containers: no fill, a hairline in the tone (text keeps the tone colour). */
+.outline {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 40%, transparent);
+}
+
+.neutral.outline {
+  box-shadow: inset 0 0 0 1px var(--color-border-strong);
+}
+
+/* Forced colours drop fills: keep the chip's shape. */
+@media (forced-colors: active) {
+  .badge {
+    border: 1px solid CanvasText;
+  }
+}

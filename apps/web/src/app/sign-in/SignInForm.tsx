@@ -82,9 +82,10 @@ export function SignInForm({ next, sessionEnded }: { next: string; sessionEnded:
   return (
     <main className={styles.page}>
       <div className={styles.column}>
-        <div className={styles.brand}>
+        {/* The lockup is a mark: ring before wordmark in every direction. */}
+        <div className={styles.brand} dir="ltr">
           <Presence state={busy ? 'thinking' : online ? 'idle' : 'offline'} size={40} />
-          <span className={styles.wordmark} aria-hidden="true">
+          <span className={styles.wordmark} aria-hidden="true" translate="no">
             {t('common.appName')}
           </span>
         </div>

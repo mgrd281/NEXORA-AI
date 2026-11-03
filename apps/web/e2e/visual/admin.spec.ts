@@ -357,13 +357,21 @@ test('admin — load more users and audit events, refresh', async ({
     audit: 40,
   });
   const usersTable = page.getByRole('table', { name: 'Accounts on this installation' });
-  const auditTable = page.getByRole('table', { name: 'Security-relevant actions, newest first' });
+  // The audit log is a table from 640 px and a stacked list (one entry per event) on phones.
+  const auditRows =
+    testInfo.project.name === 'mobile'
+      ? page
+          .getByRole('list', { name: 'Security-relevant actions, newest first' })
+          .getByRole('listitem')
+      : page
+          .getByRole('table', { name: 'Security-relevant actions, newest first' })
+          .locator('tbody tr');
   await expect(usersTable.locator('tbody tr')).toHaveCount(25);
-  await expect(auditTable.locator('tbody tr')).toHaveCount(25);
+  await expect(auditRows).toHaveCount(25);
   await page.getByRole('button', { name: 'Load more' }).first().click();
   await expect(usersTable.locator('tbody tr')).toHaveCount(35);
   await page.getByRole('button', { name: 'Load more' }).click();
-  await expect(auditTable.locator('tbody tr')).toHaveCount(40);
+  await expect(auditRows).toHaveCount(40);
   await expect(page.getByRole('button', { name: 'Load more' })).toHaveCount(0);
 
   const before = api.calls.filter((c) => c === 'adminOverview').length;

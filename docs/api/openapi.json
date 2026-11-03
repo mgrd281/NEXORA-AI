@@ -3038,6 +3038,22 @@
               },
               "queueDepth": {
                 "type": "integer"
+              },
+              "queueReady": {
+                "type": "integer"
+              },
+              "queueScheduled": {
+                "type": "integer"
+              },
+              "oldestReadyAgeMs": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": ["database", "worker", "planner", "queueDepth"],
@@ -3233,6 +3249,16 @@
           "taskTitle": {
             "type": "string"
           },
+          "taskTitleMessage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServerMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "stepId": {
             "type": "string",
             "format": "uuid"
@@ -3248,6 +3274,16 @@
           },
           "summary": {
             "type": "string"
+          },
+          "summaryMessage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServerMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "details": {
             "$ref": "#/components/schemas/ApprovalDetails"
@@ -3345,6 +3381,9 @@
               },
               "body": {
                 "type": "string"
+              },
+              "untrusted": {
+                "$ref": "#/components/schemas/UntrustedSource"
               }
             },
             "required": ["kind", "from", "to", "subject", "body"],
@@ -3375,6 +3414,9 @@
                   "required": ["label", "value"],
                   "additionalProperties": false
                 }
+              },
+              "untrusted": {
+                "$ref": "#/components/schemas/UntrustedSource"
               }
             },
             "required": ["kind", "toolId", "fields"],
@@ -3746,10 +3788,34 @@
           "at": {
             "type": "string",
             "format": "date-time"
+          },
+          "code": {
+            "$ref": "#/components/schemas/EvidenceCode"
+          },
+          "params": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": ["string", "number"]
+            }
           }
         },
         "required": ["kind", "label", "value", "at"],
         "additionalProperties": false
+      },
+      "EvidenceCode": {
+        "type": "string",
+        "enum": [
+          "HTTP_RESPONSE",
+          "CONTENT_HASH",
+          "SMTP_RECEIPT",
+          "MODEL_OUTPUT",
+          "EXTRACTIVE_SUMMARY",
+          "MEMORY_RECORD",
+          "ANSWER_TRUNCATED"
+        ]
       },
       "ExportAccountResponse": {
         "type": "object",
@@ -4266,6 +4332,61 @@
         "type": "string",
         "enum": ["owner", "member", "platform_admin"]
       },
+      "ServerMessage": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/ServerMessageKey"
+          },
+          "params": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "$ref": "#/components/schemas/ServerMessage"
+                }
+              ]
+            }
+          }
+        },
+        "required": ["key", "params"],
+        "additionalProperties": false
+      },
+      "ServerMessageKey": {
+        "type": "string",
+        "enum": [
+          "plan.summarize",
+          "plan.summarizeEmail",
+          "plan.remember",
+          "plan.emailSelf",
+          "objective.summarize",
+          "objective.summarizeEmail",
+          "objective.remember",
+          "objective.emailSelf",
+          "step.fetch",
+          "step.summarize",
+          "step.emailSummary",
+          "step.remember",
+          "step.emailNote",
+          "approval.email",
+          "approval.generic",
+          "approval.recipientsMany",
+          "result.emailSent",
+          "result.memorySaved",
+          "result.declined",
+          "result.cancelled",
+          "result.expired"
+        ]
+      },
       "SessionInfo": {
         "type": "object",
         "properties": {
@@ -4399,6 +4520,16 @@
           "title": {
             "type": "string"
           },
+          "titleMessage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServerMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "request": {
             "type": "string"
           },
@@ -4435,8 +4566,39 @@
               }
             ]
           },
+          "pendingApproval": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "untrustedSource": {
+                    "type": "boolean"
+                  }
+                },
+                "required": ["id", "untrustedSource"],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "resultSummary": {
             "type": ["string", "null"]
+          },
+          "resultSummaryMessage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServerMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "error": {
             "anyOf": [
@@ -4469,6 +4631,16 @@
           },
           "objective": {
             "type": ["string", "null"]
+          },
+          "objectiveMessage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServerMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "conversationId": {
             "type": "string",
@@ -4584,10 +4756,70 @@
           },
           "retryable": {
             "type": "boolean"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/TaskErrorReason"
+          },
+          "params": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": ["string", "number"]
+            }
           }
         },
         "required": ["code", "message", "retryable"],
         "additionalProperties": false
+      },
+      "TaskErrorReason": {
+        "type": "string",
+        "enum": [
+          "INVALID_URL",
+          "UNSUPPORTED_SCHEME",
+          "EMBEDDED_CREDENTIALS",
+          "MISSING_HOST",
+          "PRIVATE_ADDRESS",
+          "FETCH_TIMEOUT",
+          "HOST_NOT_FOUND",
+          "CONNECT_FAILED",
+          "TLS_CERTIFICATE",
+          "FETCH_FAILED",
+          "UNSUPPORTED_ENCODING",
+          "PAGE_TOO_LARGE",
+          "TOO_MANY_REDIRECTS",
+          "HTTP_ERROR",
+          "UNSUPPORTED_CONTENT_TYPE",
+          "MISSING_CONTENT_TYPE",
+          "NO_READABLE_TEXT",
+          "EMAIL_NOT_CONNECTED",
+          "SMTP_AUTH",
+          "SMTP_REFUSED",
+          "SMTP_CONNECT",
+          "SMTP_UNUSABLE",
+          "SEND_INTERRUPTED",
+          "SEND_TIMEOUT",
+          "STEP_INTERRUPTED",
+          "STEP_TIMEOUT",
+          "STEP_CRASHED",
+          "INVALID_STEP_INPUT",
+          "UNKNOWN_TOOL",
+          "VERIFICATION_FAILED",
+          "OFFLINE_UNSUPPORTED",
+          "MEMORY_TOO_LONG",
+          "INVALID_PLAN",
+          "NO_TOOLS",
+          "PLANNING_FAILED",
+          "CONNECTION_MISSING",
+          "MEMORY_DISABLED",
+          "RISK_CRITICAL",
+          "BUDGET_ZERO",
+          "BUDGET_EXHAUSTED",
+          "EXTERNAL_MODELS_DISABLED",
+          "MODEL_UNAVAILABLE",
+          "POLICY_DENIED"
+        ]
       },
       "TaskEvent": {
         "type": "object",
@@ -4667,6 +4899,16 @@
           },
           "title": {
             "type": "string"
+          },
+          "titleMessage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServerMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "toolId": {
             "$ref": "#/components/schemas/ToolId"
@@ -4776,6 +5018,16 @@
           "title": {
             "type": "string"
           },
+          "titleMessage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServerMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "request": {
             "type": "string"
           },
@@ -4812,8 +5064,39 @@
               }
             ]
           },
+          "pendingApproval": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "untrustedSource": {
+                    "type": "boolean"
+                  }
+                },
+                "required": ["id", "untrustedSource"],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "resultSummary": {
             "type": ["string", "null"]
+          },
+          "resultSummaryMessage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServerMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "error": {
             "anyOf": [
@@ -4869,6 +5152,33 @@
       "ToolId": {
         "type": "string",
         "enum": ["web.fetch", "text.summarize", "email.send", "memory.save", "assistant.answer"]
+      },
+      "UntrustedSource": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": ["string", "null"]
+          },
+          "excludedSentences": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "signals": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["host", "excludedSentences", "signals"],
+        "additionalProperties": false
       },
       "UpdateMemoryRequest": {
         "type": "object",
@@ -5026,6 +5336,56 @@
           "tasks"
         ],
         "additionalProperties": false
+      },
+      "VerificationCheck": {
+        "type": "object",
+        "properties": {
+          "stepId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "step": {
+            "type": "string"
+          },
+          "key": {
+            "$ref": "#/components/schemas/VerificationCheckKey"
+          },
+          "params": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": ["string", "number"]
+            }
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": ["stepId", "step", "key", "params", "text"],
+        "additionalProperties": false
+      },
+      "VerificationCheckKey": {
+        "type": "string",
+        "enum": [
+          "http",
+          "textExtracted",
+          "hashRecorded",
+          "hashMissing",
+          "injectionFlagged",
+          "summaryLength",
+          "extractive",
+          "writtenBy",
+          "recipientsAccepted",
+          "noneRejected",
+          "rejected",
+          "serverResponse",
+          "messageId",
+          "answerLength",
+          "memoryStored",
+          "memoryMissing"
+        ]
       },
       "VoiceSession": {
         "type": "object",

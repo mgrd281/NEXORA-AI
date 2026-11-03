@@ -74,42 +74,34 @@
   margin-inline: var(--space-1);
 }
 
-.below {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  min-block-size: 20px;
-  padding-inline: var(--space-4);
-}
-
 .hint {
+  flex: none;
+  align-self: flex-end;
   display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: var(--space-1);
+  block-size: var(--control-md);
+  margin: 0;
   font: var(--text-caption);
   letter-spacing: var(--tracking-caption);
   color: var(--color-text-tertiary);
+  white-space: nowrap;
 }
 
 .dot {
   padding-inline: var(--space-1);
 }
 
-/* Keyboard hints are noise on touch devices and phones. */
-@media (pointer: coarse), (max-width: 639.98px) {
+/* Keyboard hints are noise on touch devices, and inside the field they need room. */
+@media (pointer: coarse), (max-width: 1199.98px) {
   .hint {
-    display: none;
-  }
-
-  .below:not(:has(.count)) {
     display: none;
   }
 }
 
 .count {
-  margin-inline-start: auto;
+  align-self: flex-end;
+  padding-inline: var(--space-4);
   font: var(--text-caption);
   color: var(--color-text-secondary);
 }
@@ -122,54 +114,101 @@
   margin-block-start: var(--space-1);
 }
 
-.offline {
+/* Basic mode: one quiet line of what works without an AI model. */
+.basic {
   display: flex;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-}
-
-.offlineIcon {
-  margin-block-start: 2px;
-  color: var(--color-text-secondary);
-}
-
-.offlineBody {
-  display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
-  min-width: 0;
-  font: var(--text-callout);
+  padding-inline: var(--space-4);
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
   color: var(--color-text-secondary);
 }
 
-.offlineTitle {
+.basicMode {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: 28px;
+  margin-inline-end: var(--space-1);
+  padding-inline-end: var(--space-1);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font: var(--text-caption);
   font-weight: 500;
+  text-decoration: none;
+}
+
+.basicMode:hover {
   color: var(--color-text-primary);
+  text-decoration: none;
 }
 
-.offlineList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding-inline-start: var(--space-4);
-  list-style: disc;
-}
-
-.offlineList li::marker {
+.basicChevron {
+  margin-inline-start: calc(var(--space-1) * -1);
   color: var(--color-text-tertiary);
 }
 
-.command {
+.basicDot {
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-tertiary);
+}
+
+/* The chips flow on the same line as the mode label (two short rows on a phone). */
+.basicList {
+  display: contents;
+  list-style: none;
+}
+
+.basicItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  block-size: 28px;
+  padding-inline: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: transparent;
   color: var(--color-text-primary);
+  font: var(--text-caption);
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+.chip:hover:not(:disabled) {
+  border-color: var(--color-border-control);
+  background: var(--color-surface-hover);
+}
+
+.chip:disabled {
+  color: var(--color-text-tertiary);
+  border-style: dashed;
+}
+
+/* 44px hit area on touch without changing the line. */
+@media (pointer: coarse) {
+  .basicMode::after,
+  .chip::after {
+    content: '';
+    position: absolute;
+    inset-block: -8px;
+    inset-inline: 0;
+  }
 }
 
 .missing {
   color: var(--color-text-tertiary);
-}
-
-.offlineLink {
-  align-self: flex-start;
-  font: var(--text-label);
 }

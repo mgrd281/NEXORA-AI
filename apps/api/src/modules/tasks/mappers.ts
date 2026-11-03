@@ -6,7 +6,8 @@
 import {
   TaskEventType,
   canCancel,
-  canRetry,
+  canRetryTask,
+  TaskErrorReason,
   type Approval,
   type ApprovalDetails,
   type Evidence,
@@ -19,6 +20,7 @@ import {
 } from '@jarvis/contracts';
 import type { Trx } from '../../db/pool';
 import type { ApprovalRow, StepRow, TaskRow } from '../../db/types';
+import { asMessage } from '../agent/i18n';
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
@@ -26,6 +28,7 @@ export interface TaskAggregate extends TaskRow {
   steps_done: number | null;
   steps_total: number | null;
   pending_approval_id: string | null;
+  pending_approval_reasons: string[] | null;
 }
 
 /** Base query for TaskSummary lists: task columns + progress + pending approval. */
@@ -34,10 +37,11 @@ export function taskSummaryQuery(trx: Trx) {
     .selectFrom('tasks as t')
     .selectAll('t')
     .select((eb) => [
+      // Only steps that ran and succeeded: a step SKIPPED because the task failed is not progress.
       eb
         .selectFrom('task_steps as s')
         .whereRef('s.task_id', '=', 't.id')
-        .where('s.status', 'in', ['SUCCEEDED', 'SKIPPED'])
+        .where('s.status', '=', 'SUCCEEDED')
         .select(eb.fn.countAll<number>().as('n'))
         .as('steps_done'),
       eb
@@ -49,33 +53,62 @@ export function taskSummaryQuery(trx: Trx) {
         .selectFrom('approvals as a')
         .whereRef('a.task_id', '=', 't.id')
         .where('a.status', '=', 'PENDING')
+        .orderBy('a.created_at', 'desc')
         .select('a.id')
         .limit(1)
         .as('pending_approval_id'),
+      eb
+        .selectFrom('approvals as a')
+        .whereRef('a.task_id', '=', 't.id')
+        .where('a.status', '=', 'PENDING')
+        .orderBy('a.created_at', 'desc')
+        .select('a.reasons')
+        .limit(1)
+        .as('pending_approval_reasons'),
     ]);
 }
 
 function toTaskError(e: unknown): TaskError | null {
   if (!e || typeof e !== 'object') return null;
   const x = e as Partial<TaskError>;
+  const reason = TaskErrorReason.safeParse(x.reason);
+  const params =
+    x.params && typeof x.params === 'object'
+      ? Object.fromEntries(
+          Object.entries(x.params).filter(
+            ([, v]) => typeof v === 'string' || typeof v === 'number',
+          ),
+        )
+      : null;
   return {
     code: (x.code ?? 'INTERNAL') as TaskError['code'],
     message: x.message ?? '',
     retryable: !!x.retryable,
+    ...(reason.success ? { reason: reason.data } : {}),
+    ...(params && Object.keys(params).length ? { params } : {}),
   };
 }
 
 export function toTaskSummary(t: TaskAggregate): TaskSummary {
+  const pendingId = t.pending_approval_id ?? null;
   return {
     id: t.id,
     title: t.title,
+    titleMessage: asMessage(t.title_message),
     request: t.request,
     status: t.status,
     riskLevel: t.risk_level,
     source: t.source,
     progress: { completed: Number(t.steps_done ?? 0), total: Number(t.steps_total ?? 0) },
-    pendingApprovalId: t.pending_approval_id ?? null,
+    pendingApprovalId: pendingId,
+    pendingApproval: pendingId
+      ? {
+          id: pendingId,
+          untrustedSource: (t.pending_approval_reasons ?? []).includes('UNTRUSTED_CONTENT'),
+        }
+      : null,
     resultSummary: t.result_summary,
+    resultSummaryMessage: t.result_summary ? asMessage(t.result_summary_message) : null,
     error: toTaskError(t.error),
     createdAt: t.created_at.toISOString(),
     updatedAt: t.updated_at.toISOString(),
@@ -92,6 +125,7 @@ export function toTaskStep(s: StepRow): TaskStep {
     id: s.id,
     position: s.position,
     title: s.title,
+    titleMessage: asMessage(s.title_message),
     toolId: s.tool_id as ToolId,
     riskLevel: s.risk_level,
     status: s.status,
@@ -107,16 +141,20 @@ export function toTaskStep(s: StepRow): TaskStep {
   };
 }
 
-export function toApproval(a: ApprovalRow & { task_title: string }): Approval {
+export function toApproval(
+  a: ApprovalRow & { task_title: string; task_title_message?: unknown },
+): Approval {
   return {
     id: a.id,
     taskId: a.task_id,
     taskTitle: a.task_title,
+    taskTitleMessage: asMessage(a.task_title_message),
     stepId: a.step_id,
     toolId: a.tool_id as ToolId,
     status: a.status,
     riskLevel: a.risk_level,
     summary: a.summary,
+    summaryMessage: asMessage(a.summary_message),
     details: a.details as ApprovalDetails,
     actionHash: a.action_hash,
     reasons: a.reasons,
@@ -133,7 +171,7 @@ export function approvalQuery(trx: Trx) {
     .selectFrom('approvals as a')
     .innerJoin('tasks as t', 't.id', 'a.task_id')
     .selectAll('a')
-    .select('t.title as task_title');
+    .select(['t.title as task_title', 't.title_message as task_title_message']);
 }
 
 export function toTaskEvent(e: {
@@ -152,8 +190,17 @@ export function toTaskEvent(e: {
   };
 }
 
+export interface DetailContext {
+  /** Whether an AI model is available to the user now (decides canRetry for PLANNER_UNSUPPORTED). */
+  modelAvailable?: boolean;
+}
+
 /** Full task detail (one round trip per relation; all scoped by RLS). */
-export async function loadTaskDetail(trx: Trx, taskId: string): Promise<TaskDetail | null> {
+export async function loadTaskDetail(
+  trx: Trx,
+  taskId: string,
+  ctx: DetailContext = {},
+): Promise<TaskDetail | null> {
   const t = (await taskSummaryQuery(trx).where('t.id', '=', taskId).executeTakeFirst()) as
     TaskAggregate | undefined;
   if (!t) return null;
@@ -176,9 +223,11 @@ export async function loadTaskDetail(trx: Trx, taskId: string): Promise<TaskDeta
       .limit(500)
       .execute(),
   ]);
+  const summary = toTaskSummary(t);
   return {
-    ...toTaskSummary(t),
+    ...summary,
     objective: t.objective,
+    objectiveMessage: asMessage(t.objective_message),
     conversationId: t.conversation_id,
     planner: t.planner ?? null,
     answer: t.answer,
@@ -188,7 +237,8 @@ export async function loadTaskDetail(trx: Trx, taskId: string): Promise<TaskDeta
     cost: { estimatedMicroUsd: t.estimated_cost_micro, actualMicroUsd: t.actual_cost_micro },
     evidence: toEvidence(t.evidence),
     canCancel: canCancel(t.status),
-    canRetry: canRetry(t.status),
+    // Offered only when a retry can help (not for blocked addresses, invalid input…).
+    canRetry: canRetryTask(summary, { modelAvailable: ctx.modelAvailable }),
     startedAt: iso(t.started_at),
   };
 }

@@ -34,7 +34,10 @@ NEXT_DIST_DIR=.next-foundation pnpm --filter @jarvis/web build
   Type styles: `font: var(--text-body)` in modules or the `.t-body` utility classes.
 - Server data only through React Query with keys from `lib/api/query-keys.ts`; realtime events
   invalidate those keys automatically.
-- User content: `dir="auto"` or `<bdi>`; URLs, emails, hashes in `.ltr` spans.
+- User content inside the interface: `<UserText>` (keeps the UI's direction and alignment, isolates
+  the text); `dir="auto"` only where the text is the whole surface (an email body, an input). A
+  truncating line takes `dir="auto"` itself (see TaskRow) so the ellipsis follows the text.
+  `t()` wraps every interpolated string in FSI…PDI; URLs, emails, hashes go in `.ltr` spans.
 - Icons only via `<Icon icon={…} />` (lucide), `mirror` for directional ones.
 
 ## Visual tests (mock API)

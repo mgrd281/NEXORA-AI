@@ -96,6 +96,8 @@ export interface TaskErrorJson {
   code: string;
   message: string;
   retryable: boolean;
+  reason?: string;
+  params?: Record<string, string | number>;
 }
 
 export interface EvidenceJson {
@@ -103,6 +105,14 @@ export interface EvidenceJson {
   label: string;
   value: string;
   at: string;
+  code?: string;
+  params?: Record<string, string | number>;
+}
+
+/** A server sentence as {key, params} (contracts ServerMessage). */
+export interface ServerMessageJson {
+  key: string;
+  params: Record<string, unknown>;
 }
 
 export interface TasksTable {
@@ -111,8 +121,10 @@ export interface TasksTable {
   user_id: string;
   conversation_id: string;
   title: string;
+  title_message: Json<ServerMessageJson | null> | null;
   request: string;
   objective: string | null;
+  objective_message: Json<ServerMessageJson | null> | null;
   status: Generated<TaskStatusValue>;
   risk_level: Generated<RiskValue>;
   source: 'text' | 'voice' | 'schedule' | 'api';
@@ -124,6 +136,7 @@ export interface TasksTable {
   } | null>;
   answer: string | null;
   result_summary: string | null;
+  result_summary_message: Json<ServerMessageJson | null> | null;
   evidence: JsonDefault<EvidenceJson[]>;
   error: Json<TaskErrorJson | null>;
   estimated_cost_micro: Generated<number>;
@@ -173,6 +186,7 @@ export interface TaskStepsTable {
   position: number;
   step_key: string;
   title: string;
+  title_message: Json<ServerMessageJson | null> | null;
   tool_id: string;
   input: Json<Record<string, unknown>>;
   resolved_input: Json<Record<string, unknown> | null> | null;
@@ -222,6 +236,7 @@ export interface ApprovalsTable {
   status: Generated<'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED' | 'CANCELLED' | 'SUPERSEDED'>;
   risk_level: RiskValue;
   summary: string;
+  summary_message: Json<ServerMessageJson | null> | null;
   details: Json<Record<string, unknown>>;
   action_hash: string;
   reasons: Generated<string[]>;

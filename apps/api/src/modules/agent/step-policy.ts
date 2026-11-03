@@ -1,5 +1,5 @@
 /** Glue between a step, its tool and the policy engine (used at plan and execution time). */
-import { RISK_ORDER, type RiskLevel } from '@jarvis/contracts';
+import { RISK_ORDER, type RiskLevel, type UntrustedSource } from '@jarvis/contracts';
 import type { Config } from '../../config';
 import type { StepRow } from '../../db/types';
 import { redact } from '../../lib/redact';
@@ -69,4 +69,55 @@ export function isTainted(steps: StepRow[], target: StepRow): boolean {
     tainted.set(s.step_key, flagged || inherited);
   }
   return findRefs(target.input).some((r) => tainted.get(r.stepKey));
+}
+
+type Out = Record<string, unknown> | null;
+
+/**
+ * What the policy's UNTRUSTED_CONTENT is about, for the approval: the page
+ * the flagged content came from, how many sentences the summary left out,
+ * and the detector's signal ids. Walks the steps `target` depends on
+ * (transitively); null when none of them was flagged. Never includes the
+ * flagged text itself.
+ */
+export function untrustedSource(steps: StepRow[], target: StepRow): UntrustedSource | null {
+  const byKey = new Map(steps.map((s) => [s.step_key, s]));
+  const seen = new Set<string>();
+  const deps: StepRow[] = [];
+  const visit = (s: StepRow) => {
+    for (const ref of findRefs(s.input)) {
+      if (seen.has(ref.stepKey)) continue;
+      seen.add(ref.stepKey);
+      const dep = byKey.get(ref.stepKey);
+      if (!dep || dep.position >= target.position) continue;
+      deps.push(dep);
+      visit(dep);
+    }
+  };
+  visit(target);
+  const flagged = deps.filter((s) => (s.output as Out)?.suspectedInjection === true);
+  if (flagged.length === 0) return null;
+
+  let host: string | null = null;
+  for (const s of [...deps].sort((a, b) => a.position - b.position)) {
+    const url = (s.output as Out)?.finalUrl;
+    if (s.tool_id !== 'web.fetch' || typeof url !== 'string') continue;
+    try {
+      host = new URL(url).host;
+      break;
+    } catch {
+      // Not a URL: keep looking.
+    }
+  }
+  let excluded: number | null = null;
+  for (const s of deps) {
+    const n = (s.output as Out)?.excludedSentences;
+    if (s.tool_id === 'text.summarize' && typeof n === 'number') excluded = (excluded ?? 0) + n;
+  }
+  const signals = new Set<string>();
+  for (const s of flagged) {
+    const list = (s.output as Out)?.injectionSignals;
+    if (Array.isArray(list)) for (const id of list) if (typeof id === 'string') signals.add(id);
+  }
+  return { host, excludedSentences: excluded, signals: [...signals].sort() };
 }

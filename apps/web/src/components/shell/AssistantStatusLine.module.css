@@ -28,12 +28,27 @@
   border-radius: var(--radius-full);
 }
 
-.healthy {
+.ok {
   background: var(--color-success);
 }
 
-.unhealthy {
+/* Basic mode: working as designed, nothing to celebrate or fix. */
+.neutral {
+  background: var(--color-text-tertiary);
+}
+
+.danger {
   background: var(--color-danger);
+}
+
+.line:has(.danger) {
+  color: var(--color-danger);
+}
+
+@media (forced-colors: active) {
+  .dot {
+    background: CanvasText;
+  }
 }
 
 .text {

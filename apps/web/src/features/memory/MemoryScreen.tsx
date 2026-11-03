@@ -199,7 +199,7 @@ function MemoryList({ initialQuery }: { initialQuery: string }) {
                 hideLabel
                 placeholder={t('memory.search.placeholder')}
                 value={query}
-                dir="auto"
+                dir={query ? 'auto' : undefined}
                 enterKeyHint="search"
                 className={styles.searchInput}
                 onChange={(e) => setQuery(e.target.value)}

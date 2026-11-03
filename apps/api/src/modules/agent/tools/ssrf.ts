@@ -11,14 +11,13 @@ import { AgentError } from '../errors';
 /** Shared classifier (lib/net.ts) — one source of truth for every outbound connection. */
 export const isBlockedAddress = isPrivateAddress;
 
-const blockedError = () =>
-  new AgentError(
-    'FETCH_BLOCKED',
-    'JARVIS does not fetch private, local or reserved network addresses.',
-    {
-      retryable: false,
-    },
-  );
+/** English developer fallback; clients show copy for FETCH_BLOCKED / PRIVATE_ADDRESS. */
+export const privateAddressError = (host: string) =>
+  new AgentError('FETCH_BLOCKED', `Blocked a private, local or reserved address (${host}).`, {
+    retryable: false,
+    reason: 'PRIVATE_ADDRESS',
+    params: { host },
+  });
 
 /**
  * `lookup` for http/https that only returns public addresses unless
@@ -38,7 +37,7 @@ export function guardedLookup(allowPrivate: ReadonlySet<string>, port: number): 
         list.some((a) => allowPrivate.has(`${a.address}:${port}`));
       const usable = allowed ? list : list.filter((a) => !isBlockedAddress(a.address));
       if (usable.length === 0)
-        return callback(blockedError() as unknown as NodeJS.ErrnoException, '', 4);
+        return callback(privateAddressError(hostname) as unknown as NodeJS.ErrnoException, '', 4);
       if ((options as { all?: boolean }).all)
         return (callback as unknown as (e: null, a: typeof usable) => void)(null, usable);
       return callback(null, usable[0]!.address, usable[0]!.family);

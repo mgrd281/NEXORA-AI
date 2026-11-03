@@ -36,11 +36,11 @@
   outline: none;
 }
 
-/* System banners line up with the page column (reading or wide, see Page). */
+/* System banners line up with the page column: same start edge as every Page, reading or wide
+   width (see Page.module.css). */
 .banner {
-  inline-size: 100%;
   max-inline-size: var(--content-max);
-  margin-inline: auto;
+  margin-inline: max(0px, (100% - var(--content-wide-max)) / 2) 0;
 }
 
 .main:has([data-page-width='wide']) .banner {
@@ -86,7 +86,6 @@
 .brandLink {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
   padding-block: var(--space-1);
   padding-inline: var(--space-1) var(--space-2);
   margin-inline-start: calc(var(--space-1) * -1);
@@ -98,6 +97,13 @@
 .brandLink:hover {
   color: var(--color-text-primary);
   text-decoration: none;
+}
+
+/* Ring + wordmark, always in this order (dir="ltr"). */
+.lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .wordmark {
@@ -267,8 +273,9 @@
   padding-block-start: env(safe-area-inset-top);
   padding-inline: max(var(--space-4), env(safe-area-inset-left))
     max(var(--space-2), env(safe-area-inset-right));
-  border-block-end: 1px solid var(--color-border);
-  background: var(--color-canvas);
+  border-block-end: 1px solid var(--color-border-overlay);
+  background: var(--color-surface-raised);
+  --badge-ring: var(--color-surface-raised);
 }
 
 @media (min-width: 900px) {
@@ -348,8 +355,8 @@
   inset-inline: 0;
   padding-block-end: env(safe-area-inset-bottom);
   padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
-  border-block-start: 1px solid var(--color-border);
-  background: var(--color-canvas);
+  border-block-start: 1px solid var(--color-border-overlay);
+  background: var(--color-surface-raised);
 }
 
 @media (min-width: 900px) {
@@ -414,7 +421,7 @@
   font-weight: 600;
   line-height: 16px;
   text-align: center;
-  box-shadow: 0 0 0 2px var(--color-canvas);
+  box-shadow: 0 0 0 2px var(--color-surface-raised);
 }
 
 .tabLabel {
@@ -426,4 +433,21 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ------------------------------------------------------------- forced colors */
+
+/* Windows High Contrast drops backgrounds and shadows: keep the current page and the counts
+   visible with system-colour outlines and borders. */
+@media (forced-colors: active) {
+  .navItem[aria-current='page']:not(:focus-visible),
+  .tab[aria-current='page']:not(:focus-visible) {
+    outline: 2px solid CanvasText;
+    outline-offset: -2px;
+  }
+
+  .navCount,
+  .tabBadge {
+    border: 1px solid CanvasText;
+  }
 }

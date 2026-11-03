@@ -71,6 +71,18 @@
   min-width: 0;
 }
 
+/* Protocol details (HTTP / SMTP codes, type, size): secondary, one left-to-right line. */
+.code {
+  font: var(--text-mono);
+  color: var(--color-text-secondary);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.codeFailed {
+  color: var(--color-danger);
+}
+
 .detail {
   font: var(--text-callout);
   color: var(--color-text-secondary);

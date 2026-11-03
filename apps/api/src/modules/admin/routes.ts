@@ -19,12 +19,37 @@ import { workerHealth } from '../jobs/queue';
 const USERS_FN_CAP = 100;
 const AUDIT_FN_CAP = 200;
 
+/**
+ * Admin page views are audited once per admin and list per window, not on
+ * every fetch, refresh or "Load more": otherwise the views themselves bury
+ * the events the audit log is for.
+ */
+export const ADMIN_VIEW_AUDIT_WINDOW_MS = 10 * 60_000;
+
+export function viewAuditThrottle(windowMs = ADMIN_VIEW_AUDIT_WINDOW_MS, now = () => Date.now()) {
+  const last = new Map<string, number>();
+  return (adminId: string, action: string): boolean => {
+    const key = `${adminId}:${action}`;
+    const t = now();
+    const prev = last.get(key);
+    if (prev !== undefined && t - prev < windowMs) return false;
+    last.set(key, t);
+    if (last.size > 1_000) {
+      for (const [k, at] of last) if (t - at >= windowMs) last.delete(k);
+    }
+    return true;
+  };
+}
+
 interface OverviewJson {
   users_total: number;
   users_active_7d: number;
   tenants_total: number;
   tasks_by_status: Record<string, number>;
   queue_depth: number;
+  queue_ready?: number;
+  queue_scheduled?: number;
+  oldest_ready_age_ms?: number | null;
   cost_30d_micro: number;
   tool_reliability: {
     tool_id: string;
@@ -47,6 +72,7 @@ function hasMore(rows: number, limit: number, cap: number): boolean {
 
 export function registerAdminRoutes(app: FastifyInstance, deps: AppDeps) {
   const { db } = deps;
+  const shouldAuditView = viewAuditThrottle();
 
   defineRoute(app, deps, 'adminOverview', async ({ ctx, req }) => {
     const database = await pingDb(db);
@@ -72,7 +98,10 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AppDeps) {
           lastHeartbeatAt: worker.lastHeartbeatAt ? worker.lastHeartbeatAt.toISOString() : null,
         },
         planner,
-        queueDepth: num(o.queue_depth),
+        queueDepth: num(o.queue_ready ?? o.queue_depth),
+        queueReady: num(o.queue_ready ?? o.queue_depth),
+        queueScheduled: num(o.queue_scheduled),
+        oldestReadyAgeMs: optNum(o.oldest_ready_age_ms),
       },
       users: { total: num(o.users_total), active7d: num(o.users_active_7d) },
       tenants: { total: num(o.tenants_total) },
@@ -112,13 +141,15 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AppDeps) {
         from admin_list_users(${query.limit + 1}, ${before}::timestamptz) u`.execute(db);
     const more = hasMore(res.rows.length, query.limit, USERS_FN_CAP);
     const rows = res.rows.slice(0, query.limit);
-    await audit(db, {
-      tenantId: ctx.tenantId,
-      actorType: 'admin',
-      actorId: ctx.userId,
-      action: 'admin.users_viewed',
-      metadata: { count: rows.length },
-    });
+    if (query.cursor === undefined && shouldAuditView(ctx.userId, 'admin.users_viewed')) {
+      await audit(db, {
+        tenantId: ctx.tenantId,
+        actorType: 'admin',
+        actorId: ctx.userId,
+        action: 'admin.users_viewed',
+        metadata: { count: rows.length },
+      });
+    }
     return {
       items: rows.map((u) => ({
         id: u.id,
@@ -151,13 +182,15 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AppDeps) {
     }>`select * from admin_list_audit(${query.limit + 1}, ${beforeId}::bigint)`.execute(db);
     const more = hasMore(res.rows.length, query.limit, AUDIT_FN_CAP);
     const rows = res.rows.slice(0, query.limit);
-    await audit(db, {
-      tenantId: ctx.tenantId,
-      actorType: 'admin',
-      actorId: ctx.userId,
-      action: 'admin.audit_viewed',
-      metadata: { count: rows.length },
-    });
+    if (query.cursor === undefined && shouldAuditView(ctx.userId, 'admin.audit_viewed')) {
+      await audit(db, {
+        tenantId: ctx.tenantId,
+        actorType: 'admin',
+        actorId: ctx.userId,
+        action: 'admin.audit_viewed',
+        metadata: { count: rows.length },
+      });
+    }
     return {
       items: rows.map((a) => ({
         id: String(a.id),

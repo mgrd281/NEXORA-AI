@@ -17,16 +17,26 @@ const composer: Catalog<typeof source> = {
   queued:
     'Anfrage gesendet. JARVIS ist gerade nicht erreichbar, daher wartet sie in der Warteschlange.',
   offline: {
-    title: 'Offline-Planer',
-    body: 'Ohne KI-Modell versteht JARVIS diese Anfragen:',
-    summarize:
-      'Fasse <Link> zusammen – mit „und schick sie mir per E-Mail“ kommt das Ergebnis per E-Mail',
-    remember: 'Merk dir, dass <etwas>',
-    emailMe: 'Schick mir: <Text>',
+    title: 'Basismodus',
+    body: 'JARVIS arbeitet ohne KI-Modell und versteht diese Anfragen.',
+    summarize: 'Link zusammenfassen',
+    remember: 'Etwas merken',
+    emailMe: 'Mir selbst mailen',
+    fills: 'Setzt eine Beispielanfrage ins Feld',
+    templates: {
+      summarize: 'Fasse {slot} zusammen und schick sie mir per E-Mail',
+      remember: 'Merk dir, dass {slot}',
+      emailMe: 'Schick mir: {slot}',
+    },
+    slots: {
+      link: 'Link',
+      something: 'etwas',
+      text: 'Text',
+    },
     needsWeb: 'benötigt Webzugriff',
     needsEmail: 'benötigt eine E-Mail-Verbindung',
     memoryOff: 'Gedächtnis ist ausgeschaltet',
-    settingsLink: 'Assistenteneinstellungen',
+    settingsLink: 'Über den Basismodus',
   },
 };
 

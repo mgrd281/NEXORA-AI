@@ -183,8 +183,9 @@
 
 /* ------------------------------------------------------------- needs you */
 
+/* The same amber hairline as the task page's approval card; the surface stays neutral. */
 .needsCard {
-  border-color: color-mix(in srgb, var(--color-warning) 32%, var(--color-border));
+  border-color: color-mix(in srgb, var(--color-warning) 40%, var(--color-border));
 }
 
 .approval {
@@ -241,6 +242,12 @@
 .approvalSummary {
   font: var(--text-callout);
   color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.untrustedNote {
+  font: var(--text-callout);
+  color: var(--color-text-primary);
   overflow-wrap: anywhere;
 }
 

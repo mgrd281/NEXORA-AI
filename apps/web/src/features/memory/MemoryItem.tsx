@@ -13,6 +13,7 @@ import { TextArea } from '@/components/ui/Field';
 import { RelativeTime } from '@/components/ui/RelativeTime';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { useToast } from '@/components/ui/Toast';
+import { UserText } from '@/components/ui/UserText';
 import { useI18n } from '@/i18n/I18nProvider';
 import { api, type ApiError } from '@/lib/api/client';
 import { qk } from '@/lib/api/query-keys';
@@ -79,9 +80,11 @@ function ViewMemory({
   return (
     <div className={styles.view}>
       <div className={styles.main}>
-        <p className={styles.content} dir="auto">
+        {/* The row keeps the interface's alignment (next to its kind and date); only the
+            content's own direction is isolated. */}
+        <UserText as="p" className={styles.content}>
           {memory.content}
-        </p>
+        </UserText>
         <div className={styles.meta}>
           <Badge icon={KIND_ICONS[memory.kind]}>{t(`memory.kinds.${memory.kind}`)}</Badge>
           <span>
@@ -191,7 +194,8 @@ function EditMemory({ memory, onDone }: { memory: Memory; onDone: () => void }) 
         maxLength={MAX_MEMORY_LENGTH}
         maxRows={8}
         rows={2}
-        dir="auto"
+        // An empty field follows the interface; typed text takes its own direction.
+        dir={content ? 'auto' : undefined}
         error={touched ? error : undefined}
         onChange={(e) => setContent(e.target.value)}
         onKeyDown={(e) => {
@@ -271,8 +275,8 @@ function DeleteMemoryDialog({
       }
     >
       <div className={styles.dialogBody}>
-        <blockquote className={styles.quote} dir="auto">
-          {memory.content}
+        <blockquote className={styles.quote}>
+          <UserText as="p">{memory.content}</UserText>
         </blockquote>
         {remove.isError && <ErrorBanner error={remove.error} />}
       </div>

@@ -3,16 +3,20 @@ import type {
   ConnectionProvider,
   ErrorCode,
   Evidence,
+  EvidenceCode,
   Locale,
   Preferences,
   RiskLevel,
+  ServerMessage,
   ToolId,
+  VerificationCheckKey,
 } from '@jarvis/contracts';
 import type { z } from 'zod';
 import type { Config } from '../../../config';
 import type { Db, DbContext } from '../../../db/pool';
 import type { ConnectionRow } from '../../../db/types';
 import type { SecretBox } from '../../../lib/crypto';
+import { msg, render } from '../i18n';
 import type { ModelAdapter, ModelUsage } from '../models/adapter';
 
 export interface AccountInfo {
@@ -59,9 +63,24 @@ export interface ToolResult {
   answer?: string;
 }
 
+/** One verification result: a check key + params for clients, `text` as the English fallback. */
+export interface CheckResult {
+  key: VerificationCheckKey;
+  params: Record<string, string | number>;
+  text: string;
+}
+
 export interface Verification {
   ok: boolean;
-  checks: string[];
+  checks: CheckResult[];
+}
+
+export function check(
+  key: VerificationCheckKey,
+  text: string,
+  params: Record<string, string | number> = {},
+): CheckResult {
+  return { key, params, text };
 }
 
 export interface RiskContext {
@@ -76,6 +95,8 @@ export interface CostContext {
 export interface ApprovalContext {
   language: Locale;
   stepTitle: string;
+  /** The step title as a message, when the server wrote it (offline planner). */
+  stepTitleMessage: ServerMessage | null;
   /** Sender shown for email approvals (from the SMTP connection). */
   fromAddress: string | null;
 }
@@ -111,7 +132,11 @@ export interface ToolDefinition<I> {
   estimateCostMicro(input: I, ctx: CostContext): number;
   /** Display-safe, redacted view of the input. */
   preview(input: I): Record<string, unknown>;
-  approvalDetails(input: I, ctx: ApprovalContext): { details: ApprovalDetails; summary: string };
+  /** `summaryMessage` is `summary` as a message key, so clients can render it in their locale. */
+  approvalDetails(
+    input: I,
+    ctx: ApprovalContext,
+  ): { details: ApprovalDetails; summary: string; summaryMessage: ServerMessage | null };
   /** Recipients of an outbound message, for policy (email.send only). */
   recipients?(input: I): string[];
   execute(input: I, rt: ToolRuntime, signal: AbortSignal): Promise<ToolResult>;
@@ -130,6 +155,34 @@ export interface ToolDefinition<I> {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyTool = ToolDefinition<any>;
 
-export function evidence(kind: Evidence['kind'], label: string, value: string): Evidence {
-  return { kind, label, value, at: new Date().toISOString() };
+/**
+ * A piece of evidence. `label` / `value` are the protocol-level fallback;
+ * `code` + `params` carry the same facts for clients to label in their locale.
+ */
+export function evidence(
+  kind: Evidence['kind'],
+  label: string,
+  value: string,
+  code?: EvidenceCode,
+  params?: Record<string, string | number>,
+): Evidence {
+  return {
+    kind,
+    label,
+    value,
+    at: new Date().toISOString(),
+    ...(code ? { code, params: params ?? {} } : {}),
+  };
+}
+
+/** "Run “<step>” (<tool>)." — the approval summary of tools without a specific sentence. */
+export function genericApprovalSummary(
+  ctx: ApprovalContext,
+  tool: ToolId,
+): { summary: string; summaryMessage: ServerMessage } {
+  const summaryMessage = msg('approval.generic', {
+    title: ctx.stepTitleMessage ?? ctx.stepTitle,
+    tool,
+  });
+  return { summary: render(ctx.language, summaryMessage), summaryMessage };
 }

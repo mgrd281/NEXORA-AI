@@ -10,6 +10,7 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Icon } from '@/components/ui/Icon';
 import { RelativeTime } from '@/components/ui/RelativeTime';
 import { useToast } from '@/components/ui/Toast';
+import { UserText } from '@/components/ui/UserText';
 import { useI18n } from '@/i18n/I18nProvider';
 import { api, type ApiError } from '@/lib/api/client';
 import { forgetConnection, storeConnection } from './api';
@@ -95,17 +96,13 @@ function ConnectedDetails({ connection }: { connection: Connection }) {
           <dt>{t('connections.email.sendsAs')}</dt>
           <dd>
             <span className="ltr">{address}</span>
-            {customLabel && (
-              <span className={styles.detailNote} dir="auto">
-                {connection.label}
-              </span>
-            )}
+            {customLabel && <UserText className={styles.detailNote}>{connection.label}</UserText>}
           </dd>
         </div>
       </dl>
       {connection.status !== 'active' && connection.lastError && (
         <Banner tone="danger" title={t('connections.email.lastErrorTitle')}>
-          <p dir="auto">{connection.lastError}</p>
+          <UserText as="p">{connection.lastError}</UserText>
         </Banner>
       )}
       <h3 id={listId} className={styles.subTitle}>
@@ -165,15 +162,14 @@ function ConnectedActions({
           t('connections.email.neverVerified')
         )}
       </span>
+      {/* Everyday actions first, both secondary; the quiet danger action last. */}
       <div className={styles.actions}>
-        <Button variant="danger" onClick={() => setConfirming(true)}>
-          {t('connections.email.disconnect')}
-        </Button>
-        <Button variant="ghost" onClick={onUpdate}>
-          {t('connections.email.update')}
-        </Button>
         <Button loading={test.isPending} onClick={() => test.mutate()}>
           {t('connections.email.test')}
+        </Button>
+        <Button onClick={onUpdate}>{t('connections.email.update')}</Button>
+        <Button variant="danger" onClick={() => setConfirming(true)}>
+          {t('connections.email.disconnect')}
         </Button>
       </div>
       {test.isError && (

@@ -24,6 +24,7 @@ import type {
   PolicyDecision,
   Preferences,
   RiskLevel,
+  TaskErrorReason,
   ToolId,
 } from '@jarvis/contracts';
 import type { OfflineReason } from './models/router';
@@ -140,6 +141,25 @@ export function evaluatePolicy(p: PolicyInput): PolicyResult {
   return { decision: 'allow', reasons, denyCode: null };
 }
 
+const DENY_REASONS = [
+  'CONNECTION_MISSING',
+  'MEMORY_DISABLED',
+  'RISK_CRITICAL',
+  'BUDGET_ZERO',
+  'BUDGET_EXHAUSTED',
+  'EXTERNAL_MODELS_DISABLED',
+] as const satisfies readonly TaskErrorReason[];
+
+/** The TaskError reason of a deny: the policy reason itself, so clients can explain it. */
+export function denyReason(code: ErrorCode, reasons: string[]): TaskErrorReason {
+  const known = DENY_REASONS.find((r) => reasons.includes(r));
+  if (known) return known;
+  if (code === 'MODEL_NOT_CONFIGURED' || reasons.includes('MODEL_UNAVAILABLE'))
+    return 'MODEL_UNAVAILABLE';
+  return 'POLICY_DENIED';
+}
+
+/** English developer fallback for a deny (clients show copy for the reason). */
 export function denyMessage(code: ErrorCode, reasons: string[], toolTitle: string): string {
   if (reasons.includes('CONNECTION_MISSING'))
     return `“${toolTitle}” needs a connection that is not set up or not active. Connect it in Settings → Connections, then retry.`;

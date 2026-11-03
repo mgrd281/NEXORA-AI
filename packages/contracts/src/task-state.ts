@@ -1,4 +1,4 @@
-import type { TaskStatus } from './enums';
+import type { ErrorCode, TaskStatus } from './enums';
 
 /**
  * The task lifecycle. Shared by the backend (which enforces it inside a
@@ -43,8 +43,36 @@ export function canCancel(status: TaskStatus): boolean {
   return canTransition(status, 'CANCELLED');
 }
 
+/** Whether the status allows a retry at all (see canRetryTask for whether it can help). */
 export function canRetry(status: TaskStatus): boolean {
   return canTransition(status, 'QUEUED');
+}
+
+export interface RetryContext {
+  /** Whether an AI model is available to this user now (assistant status planner.mode === 'model'). */
+  modelAvailable?: boolean;
+}
+
+/**
+ * Whether retrying a task can help: the status allows it AND the last error
+ * is not one that would only happen again.
+ *  - EXPIRED (the approval timed out) and transient errors: yes.
+ *  - OUTCOME_UNKNOWN: yes, after the user confirms they checked (RetryTaskRequest).
+ *  - PLANNER_UNSUPPORTED: only once an AI model is available.
+ *  - Anything the server marked non-retryable (FETCH_BLOCKED, invalid input,
+ *    HTTP 404, unsupported content…): no; asking differently is the way forward.
+ * This is what TaskDetail.canRetry reports and what the retry endpoint enforces.
+ */
+export function canRetryTask(
+  task: { status: TaskStatus; error: { code: ErrorCode; retryable: boolean } | null },
+  ctx: RetryContext = {},
+): boolean {
+  const { status, error } = task;
+  if (!canRetry(status)) return false;
+  if (status === 'EXPIRED' || !error) return true;
+  if (error.code === 'OUTCOME_UNKNOWN') return true;
+  if (error.code === 'PLANNER_UNSUPPORTED') return ctx.modelAvailable === true;
+  return error.retryable;
 }
 
 export class InvalidTransitionError extends Error {

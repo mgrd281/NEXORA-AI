@@ -2,8 +2,21 @@
 
 import type { AdminOverview, AdminUser, AuditEvent, TaskStatus } from '@jarvis/contracts';
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
-import { ListChecks, RefreshCw, ScrollText, ShieldX, UsersRound, Wrench } from 'lucide-react';
-import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import {
+  Bot,
+  ListChecks,
+  RefreshCw,
+  ScrollText,
+  Server,
+  ShieldCheck,
+  ShieldX,
+  TriangleAlert,
+  UserRound,
+  UsersRound,
+  Wrench,
+} from 'lucide-react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Page } from '@/components/shell/Page';
 import { TaskStatusPill } from '@/components/tasks/TaskStatusPill';
 import { Badge, type Tone } from '@/components/ui/Badge';
@@ -11,9 +24,11 @@ import { Banner, ErrorBanner } from '@/components/ui/Banner';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Icon } from '@/components/ui/Icon';
 import { Money } from '@/components/ui/Money';
 import { RelativeTime } from '@/components/ui/RelativeTime';
 import { Skeleton, SkeletonRow } from '@/components/ui/Skeleton';
+import { Switch } from '@/components/ui/Switch';
 import { useI18n } from '@/i18n/I18nProvider';
 import type { MessageKey } from '@/i18n/catalog';
 import { isApiError } from '@/lib/api/client';
@@ -21,7 +36,19 @@ import { useMe } from '@/lib/api/hooks';
 import { qk } from '@/lib/api/query-keys';
 import { cx } from '@/lib/cx';
 import { useAdminAudit, useAdminOverview, useAdminUsers } from './api';
-import { orderedStatusCounts, shortId, successRate, toolLabelKey } from './format';
+import {
+  auditEventKey,
+  auditTargetKey,
+  groupAuditEvents,
+  isAdminView,
+  isLowRate,
+  LOW_SUCCESS_RATE,
+  orderedStatusCounts,
+  shortId,
+  successRate,
+  toolLabelKey,
+  type AuditRow,
+} from './format';
 import styles from './admin.module.css';
 
 export function AdminScreen() {
@@ -131,10 +158,12 @@ const PROVIDER_NAMES: Record<string, string> = { anthropic: 'Anthropic' };
 function AdminSection({
   title,
   description,
+  actions,
   children,
 }: {
   title: string;
   description?: string;
+  actions?: ReactNode;
   children: ReactNode;
 }) {
   const id = useId();
@@ -145,6 +174,7 @@ function AdminSection({
           {title}
         </h2>
         {description && <p className={styles.sectionDescription}>{description}</p>}
+        {actions && <div className={styles.sectionActions}>{actions}</div>}
       </div>
       {children}
     </section>
@@ -310,7 +340,7 @@ function TasksByStatus({ byStatus }: { byStatus: Record<string, number> }) {
 function ToolReliability({ rows }: { rows: AdminOverview['toolReliability'] }) {
   const { t, f } = useI18n();
   const ms = (v: number | null) =>
-    v === null ? t('admin.tools.none') : t('admin.tools.ms', { value: f.number(Math.round(v)) });
+    v === null ? t('admin.tools.none') : f.duration(Math.round(v), 'compact');
   return (
     <AdminSection title={t('admin.tools.title')}>
       {rows.length === 0 ? (
@@ -353,9 +383,19 @@ function ToolReliability({ rows }: { rows: AdminOverview['toolReliability'] }) {
                   </th>
                   <td className={styles.num}>{f.number(r.executions)}</td>
                   <td className={styles.num}>
-                    <span className={cx(rate !== null && rate < 0.9 && styles.rateLow)}>
-                      {rate === null ? t('admin.tools.none') : f.percent(rate)}
-                    </span>
+                    {rate === null ? (
+                      t('admin.tools.none')
+                    ) : isLowRate(rate) ? (
+                      // Below the threshold: said in words with an icon, not by colour alone.
+                      <Badge tone="warning" icon={TriangleAlert}>
+                        {t('admin.tools.rateLow', {
+                          rate: f.percent(rate),
+                          threshold: f.percent(LOW_SUCCESS_RATE),
+                        })}
+                      </Badge>
+                    ) : (
+                      f.percent(rate)
+                    )}
                   </td>
                   <td className={styles.num}>{f.number(r.failed)}</td>
                   <td className={styles.num}>{ms(r.p50Ms)}</td>
@@ -376,13 +416,21 @@ function ToolReliability({ rows }: { rows: AdminOverview['toolReliability'] }) {
  * A table that scrolls sideways inside its card on narrow screens, with the first column
  * pinned. The scroll container is focusable so keyboard users can scroll it too.
  */
-function TableFrame({ caption, children }: { caption: string; children: ReactNode }) {
+function TableFrame({
+  caption,
+  className,
+  children,
+}: {
+  caption: string;
+  className?: string;
+  children: ReactNode;
+}) {
   const { t } = useI18n();
   const hintId = useId();
   const scrollerRef = useRef<HTMLDivElement>(null);
   const overflowing = useOverflowing(scrollerRef);
   return (
-    <div className={styles.tableCard}>
+    <div className={cx(styles.tableCard, className)}>
       <div
         ref={scrollerRef}
         className={styles.scroller}
@@ -542,19 +590,44 @@ function EmailAddress({ email }: { email: string }) {
   );
 }
 
-const ACTOR_TONE: Record<AuditEvent['actorType'], Tone> = {
-  user: 'neutral',
-  admin: 'warning',
-  agent: 'accent',
-  system: 'neutral',
+const ACTOR_ICON: Record<AuditEvent['actorType'], LucideIcon> = {
+  user: UserRound,
+  admin: ShieldCheck,
+  agent: Bot,
+  system: Server,
 };
 
+/** Account emails by user id, from the Users list (already loaded on this page). */
+function useUserEmails(): Map<string, string> {
+  const users = useAdminUsers(true);
+  return useMemo(
+    () => new Map((users.data?.pages.flatMap((p) => p.items) ?? []).map((u) => [u.id, u.email])),
+    [users.data],
+  );
+}
+
 function AuditSection() {
-  const { t, f } = useI18n();
+  const { t } = useI18n();
   const audit = useAdminAudit(true);
+  const emails = useUserEmails();
+  const [showAdminViews, setShowAdminViews] = useState(false);
   const items = audit.data?.pages.flatMap((p) => p.items) ?? [];
+  const rows = groupAuditEvents(items, !showAdminViews);
+  const hasAdminViews = items.some((e) => isAdminView(e.action));
   return (
-    <AdminSection title={t('admin.audit.title')}>
+    <AdminSection
+      title={t('admin.audit.title')}
+      actions={
+        hasAdminViews && (
+          <Switch
+            checked={showAdminViews}
+            onChange={setShowAdminViews}
+            label={t('admin.audit.showAdminViews')}
+            className={styles.headerSwitch}
+          />
+        )
+      }
+    >
       {audit.isPending ? (
         <TableSkeleton />
       ) : audit.isError && items.length === 0 ? (
@@ -569,52 +642,54 @@ function AuditSection() {
         </Card>
       ) : (
         <>
-          <TableFrame caption={t('admin.audit.caption')}>
+          {/* From 640 px: a table. Phones: one stacked entry per event (sentence, then who
+              and when), so the event itself never scrolls out of view. */}
+          <TableFrame caption={t('admin.audit.caption')} className={styles.auditTable}>
             <thead>
               <tr>
-                <th scope="col">{t('admin.audit.time')}</th>
+                <th scope="col">{t('admin.audit.event')}</th>
                 <th scope="col">{t('admin.audit.actor')}</th>
-                <th scope="col">{t('admin.audit.action')}</th>
                 <th scope="col">{t('admin.audit.target')}</th>
+                <th scope="col" className={styles.end}>
+                  {t('admin.audit.time')}
+                </th>
               </tr>
             </thead>
             <tbody>
-              {items.map((e) => (
-                <tr key={e.id}>
+              {rows.map((row) => (
+                <tr key={row.key}>
                   <th scope="row">
-                    <time dateTime={e.at} className="tabular">
-                      {f.dateTime(e.at)}
-                    </time>
+                    <AuditEventText row={row} withKey />
                   </th>
                   <td>
-                    <span className={styles.cellInline}>
-                      <Badge tone={ACTOR_TONE[e.actorType]}>
-                        {t(`admin.audit.actors.${e.actorType}`)}
-                      </Badge>
-                      {e.actorId && (
-                        <span className={cx(styles.mono, 'ltr')} title={e.actorId}>
-                          {shortId(e.actorId)}
-                        </span>
-                      )}
-                    </span>
+                    <AuditActor event={row.event} emails={emails} />
                   </td>
                   <td>
-                    <span className={cx(styles.mono, 'ltr')}>{e.action}</span>
+                    <AuditTarget event={row.event} emails={emails} />
                   </td>
-                  <td>
-                    {e.targetType ? (
-                      <span className={cx(styles.mono, 'ltr')} title={e.targetId ?? undefined}>
-                        {e.targetType}
-                        {e.targetId ? ` · ${shortId(e.targetId)}` : ''}
-                      </span>
-                    ) : (
-                      <span className={styles.muted}>{t('admin.tools.none')}</span>
-                    )}
+                  <td className={cx(styles.end, styles.time)}>
+                    <AuditTime at={row.event.at} />
                   </td>
                 </tr>
               ))}
             </tbody>
           </TableFrame>
+          <Card padding="none" className={styles.auditListCard}>
+            <ul className={styles.auditList} aria-label={t('admin.audit.caption')}>
+              {rows.map((row) => (
+                <li key={row.key} className={styles.auditItem}>
+                  <span className={styles.auditSentence}>
+                    <AuditEventText row={row} />
+                  </span>
+                  <span className={styles.auditMeta}>
+                    <AuditActor event={row.event} emails={emails} compact />
+                    <span aria-hidden="true">·</span>
+                    <AuditTime at={row.event.at} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Card>
           {audit.isError && <ErrorBanner error={audit.error} />}
           <LoadMore
             hasMore={audit.hasNextPage}
@@ -624,6 +699,109 @@ function AuditSection() {
         </>
       )}
     </AdminSection>
+  );
+}
+
+/** "Signed in" (with the raw action key as a caption), or "Viewed admin pages 12 times". */
+function AuditEventText({
+  row,
+  withKey = false,
+}: {
+  row: AuditRow<AuditEvent>;
+  withKey?: boolean;
+}) {
+  const { t } = useI18n();
+  if (row.kind === 'adminViews') {
+    return <span>{t('admin.audit.adminViews', { count: row.count })}</span>;
+  }
+  const action = row.event.action;
+  const key = auditEventKey(action);
+  if (!key) return <span className={cx(styles.mono, styles.monoPrimary, 'ltr')}>{action}</span>;
+  return withKey ? (
+    <span className={styles.cellStack}>
+      <span>{t(key)}</span>
+      <span className={cx(styles.mono, 'ltr')}>{action}</span>
+    </span>
+  ) : (
+    <span title={action}>{t(key)}</span>
+  );
+}
+
+/**
+ * Who acted: the account's email when it is known, JARVIS for the agent, or System. `compact`
+ * (the phone list) names the admin role with the icon instead of a badge, so actor and time
+ * stay on one line.
+ */
+function AuditActor({
+  event,
+  emails,
+  compact = false,
+}: {
+  event: AuditEvent;
+  emails: Map<string, string>;
+  compact?: boolean;
+}) {
+  const { t } = useI18n();
+  const email = event.actorId ? emails.get(event.actorId) : undefined;
+  const who = email ?? (event.actorId ? shortId(event.actorId) : null);
+  const adminIcon = compact && event.actorType === 'admin';
+  const icon = (
+    <Icon
+      icon={ACTOR_ICON[event.actorType]}
+      size={16}
+      label={adminIcon ? t('admin.audit.actors.admin') : undefined}
+    />
+  );
+  if (event.actorType === 'agent' || event.actorType === 'system') {
+    return (
+      <span
+        className={styles.actor}
+        title={
+          event.actorType === 'agent' && who ? t('admin.audit.agentFor', { actor: who }) : undefined
+        }
+      >
+        {icon}
+        <span>{t(`admin.audit.actors.${event.actorType}`)}</span>
+      </span>
+    );
+  }
+  return (
+    <span className={styles.actor} title={event.actorId ?? undefined}>
+      {icon}
+      {who ? (
+        <span className={cx('ltr', !email && styles.mono)}>{who}</span>
+      ) : (
+        <span>{t(`admin.audit.actors.${event.actorType}`)}</span>
+      )}
+      {event.actorType === 'admin' && !compact && <Badge>{t('admin.audit.actors.admin')}</Badge>}
+    </span>
+  );
+}
+
+function AuditTarget({ event, emails }: { event: AuditEvent; emails: Map<string, string> }) {
+  const { t } = useI18n();
+  if (!event.targetType) return <span className={styles.muted}>{t('admin.tools.none')}</span>;
+  const key = auditTargetKey(event.targetType);
+  const id = event.targetId;
+  const email = event.targetType === 'user' && id ? emails.get(id) : undefined;
+  return (
+    <span className={styles.target} title={id ?? undefined}>
+      <span>{key ? t(key) : event.targetType}</span>
+      {email ? (
+        <span className="ltr">{email}</span>
+      ) : id ? (
+        <span className={cx(styles.mono, 'ltr')}>{shortId(id)}</span>
+      ) : null}
+    </span>
+  );
+}
+
+function AuditTime({ at }: { at: string }) {
+  const { f } = useI18n();
+  return (
+    <time dateTime={at} className="tabular">
+      {f.dateTime(at)}
+    </time>
   );
 }
 

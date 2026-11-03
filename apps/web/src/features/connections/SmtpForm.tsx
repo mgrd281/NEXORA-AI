@@ -8,6 +8,7 @@ import { Banner, ErrorBanner } from '@/components/ui/Banner';
 import { Button, IconButton } from '@/components/ui/Button';
 import { Select, TextField } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
+import { UserText } from '@/components/ui/UserText';
 import { useI18n } from '@/i18n/I18nProvider';
 import { api, isApiError, type ApiError } from '@/lib/api/client';
 import { storeConnection } from './api';
@@ -113,7 +114,7 @@ export function SmtpForm({
           error={error('label')}
           value={draft.label}
           maxLength={60}
-          dir="auto"
+          dir={draft.label ? 'auto' : undefined}
           autoComplete="off"
           required
           onChange={(e) => set('label', e.target.value)}
@@ -222,7 +223,7 @@ export function SmtpForm({
           hint={t('connections.email.form.fromNameHint')}
           value={draft.fromName}
           maxLength={80}
-          dir="auto"
+          dir={draft.fromName ? 'auto' : undefined}
           autoComplete="off"
           onChange={(e) => set('fromName', e.target.value)}
         />
@@ -230,7 +231,7 @@ export function SmtpForm({
 
       {verifyFailed ? (
         <Banner tone="danger" live title={t('connections.email.form.failedTitle')}>
-          <p dir="auto">{connect.error.message}</p>
+          <UserText as="p">{connect.error.message}</UserText>
         </Banner>
       ) : connect.isError ? (
         <ErrorBanner error={connect.error} />

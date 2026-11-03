@@ -9,6 +9,7 @@ const settings = {
     appearance: 'Appearance',
     voice: 'Voice',
     assistant: 'Assistant & autonomy',
+    usage: 'Usage & budget',
     notifications: 'Notifications',
     security: 'Security',
     privacy: 'Privacy & data',
@@ -19,11 +20,20 @@ const settings = {
     failed: 'Couldn’t save. {reason}',
   },
   language: 'Language',
+  /** Current values in the section index on narrow screens. */
+  index: {
+    voiceOn: 'Read aloud on',
+    voiceOff: 'Read aloud off',
+    notificationsOn: '{on} of {total} on',
+    devices: '{count, plural, one {# signed-in device} other {# signed-in devices}}',
+    paidOff: 'Paid models off',
+    memoryOn: 'Memory on',
+    memoryOff: 'Memory off',
+  },
   profile: {
     displayName: 'Display name',
     displayNameHint: 'Shown in JARVIS and used in greetings.',
     displayNameRequired: 'Enter a name.',
-    save: 'Save name',
     email: 'Email',
     emailHint: 'You sign in with this address. It can’t be changed here.',
     memberSince: 'Member since {date}',
@@ -53,14 +63,14 @@ const settings = {
       'Requests are planned by an external AI model. Its costs count toward your monthly budget.',
     reasons: {
       NO_API_KEY:
-        'No AI model key is configured on the server, so JARVIS uses its offline planner. It handles a fixed set of commands but can’t answer open questions.',
+        'No AI model key is configured on the server, so JARVIS runs in basic mode. It handles a fixed set of commands but can’t answer open questions.',
       USER_DISABLED_EXTERNAL_MODELS:
-        'You turned off external AI models, so JARVIS uses its offline planner and sends nothing to an AI provider.',
+        'You turned off external AI models, so JARVIS runs in basic mode and sends nothing to an AI provider.',
       BUDGET_EXHAUSTED:
-        'This month’s AI budget is used up, so JARVIS uses its offline planner until the budget resets or you raise it.',
+        'This month’s AI budget is used up, so JARVIS runs in basic mode until the budget resets or you raise it.',
       BUDGET_ZERO:
-        'Your monthly AI budget is 0, so JARVIS uses its offline planner and never uses a paid model.',
-      unknown: 'No AI model is available right now, so JARVIS uses its offline planner.',
+        'Your monthly AI budget is 0, so JARVIS runs in basic mode and never uses a paid model.',
+      unknown: 'No AI model is available right now, so JARVIS runs in basic mode.',
     },
     worker: 'Worker',
     workerHealthy: 'Running',
@@ -87,15 +97,17 @@ const settings = {
     statusFailed: 'JARVIS couldn’t load the assistant status.',
     externalModels: 'Allow external AI models',
     externalModelsDescription:
-      'When on, your request and relevant memories may be sent to the AI provider configured on this server to plan and answer it. When off, nothing is sent to an external model and JARVIS uses its offline planner.',
+      'When on, your request and relevant memories may be sent to the AI provider configured on this server to plan and answer it. When off, nothing is sent to an external model and JARVIS runs in basic mode.',
+    externalModelsInactive: 'No AI provider is set up on this server, so this has no effect yet.',
     autoApprove: 'Send emails to myself without asking',
     autoApproveDescription:
       'When on, an email whose recipients are all your own address ({email}) is sent without asking first. Any email to someone else still needs your approval, and so does an email JARVIS flags as unusual, for example one built from suspicious web content.',
     budget: 'Monthly AI budget',
     budgetHint:
-      'AI model costs stop at this amount each month; JARVIS then uses its offline planner. Enter 0 to never use paid models.',
+      'AI model costs stop at this amount each month; JARVIS then switches to basic mode. Enter 0 to never use paid models.',
+    budgetHintInactive:
+      'Applies once an AI model is set up on this server. AI model costs then stop at this amount each month; enter 0 to never use paid models.',
     budgetUnit: 'USD',
-    budgetSave: 'Save budget',
     budgetInvalid: 'Enter an amount from 0 to 10,000.',
     usageTitle: 'This month',
     usageSpent: '{spent} of {budget}',
@@ -105,8 +117,7 @@ const settings = {
     usageNoPaid: 'Paid AI models are off because the budget is 0.',
     usageBreakdown: 'AI models {ai} · Tools {tools}',
     usageResets: 'Resets {date}',
-    usageExhausted:
-      'This month’s budget is used up. JARVIS uses its offline planner until it resets.',
+    usageExhausted: 'This month’s budget is used up. JARVIS runs in basic mode until it resets.',
     usageFailed: 'JARVIS couldn’t load this month’s usage.',
     tasksCompleted: 'Completed',
     tasksFailed: 'Failed or cancelled',

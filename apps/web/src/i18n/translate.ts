@@ -1,6 +1,6 @@
 import { INTL_LOCALE, type Locale } from './config';
 import type { MessageKey, Messages } from './catalog';
-import { formatIcu } from './icu';
+import { formatIcu, FSI, PDI } from './icu';
 import type { MessageParams } from './types';
 
 export type TranslateFn = (key: MessageKey, params?: MessageParams) => string;
@@ -15,15 +15,38 @@ export function lookup(messages: Messages, key: string): string | undefined {
   return typeof node === 'string' ? node : undefined;
 }
 
+/** Removes bidi isolation marks, e.g. before a translated string becomes request text. */
+export function stripIsolates(text: string): string {
+  return text.replace(/[\u2066-\u2069]/g, '');
+}
+
+/**
+ * A translated template with one `{slot}` parameter → its plain text (no bidi marks) and the
+ * slot's range in it, so the slot can be selected for the user to type over. The translator
+ * isolates the slot value in FSI…PDI, which is how it is found.
+ */
+export function templateWithSlot(translated: string): { text: string; start: number; end: number } {
+  const text = stripIsolates(translated);
+  const open = translated.indexOf(FSI);
+  const close = translated.indexOf(PDI, open + 1);
+  if (open < 0 || close < 0) return { text, start: text.length, end: text.length };
+  const start = stripIsolates(translated.slice(0, open)).length;
+  const end = start + stripIsolates(translated.slice(open + 1, close)).length;
+  return { text, start, end };
+}
+
 /**
  * Creates t(key, params) for one locale. A missing key renders the key itself (and warns in
- * development) so a gap is visible instead of silently blank.
+ * development) so a gap is visible instead of silently blank. Interpolated strings are
+ * wrapped in FSI…PDI, so a value keeps its own direction inside the sentence: an Arabic task
+ * title in an English sentence (or an English one in Arabic) no longer reorders the words and
+ * punctuation around it.
  */
 export function createTranslator(locale: Locale, messages: Messages): TranslateFn {
   const tag = INTL_LOCALE[locale];
   const plural = new Intl.PluralRules(tag);
   const numberFmt = new Intl.NumberFormat(tag);
-  const ctx = { plural, number: (n: number) => numberFmt.format(n) };
+  const ctx = { plural, number: (n: number) => numberFmt.format(n), isolate: true };
   return (key, params) => {
     const message = lookup(messages, key);
     if (message === undefined) {

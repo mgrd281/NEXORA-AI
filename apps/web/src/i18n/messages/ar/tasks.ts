@@ -48,10 +48,13 @@ const tasks: Catalog<typeof source> = {
     created: 'أُنشئت {time}',
     request: 'طلبك',
     sourceLabel: 'المصدر: {source}',
+    technicalDetails: 'التفاصيل التقنية',
   },
   actions: {
     cancel: 'إلغاء المهمة',
     retry: 'إعادة المحاولة',
+    askAgain: 'اطلب من جديد',
+    setUpModel: 'إعداد نموذج ذكاء اصطناعي',
     cancelled: 'أُلغيت المهمة.',
     cancelRequested: 'طُلب الإلغاء. سيتوقف JARVIS بعد الخطوة الحالية.',
     retried: 'تجري إعادة المحاولة. سيكمل JARVIS من الخطوة التي فشلت.',
@@ -90,8 +93,8 @@ const tasks: Catalog<typeof source> = {
     OUTCOME_UNKNOWN:
       'ابحث في مجلد البريد المرسل في صندوقك. إن لم تجد الرسالة فأعد المحاولة، وسيطلب منك JARVIS التأكيد أولًا.',
     MODEL_ERROR: 'حدثت مشكلة في نموذج الذكاء الاصطناعي. حاول مرة أخرى بعد بضع دقائق.',
-    MODEL_NOT_CONFIGURED: 'اطلب من جديد بأمر يفهمه المخطِّط دون اتصال، أو أعدّ نموذج ذكاء اصطناعي.',
-    PLANNER_UNSUPPORTED: 'اطلب من جديد بأمر يفهمه المخطِّط دون اتصال، أو أعدّ نموذج ذكاء اصطناعي.',
+    MODEL_NOT_CONFIGURED: 'اطلب من جديد بأحد هذه الطلبات، أو أعدّ نموذج ذكاء اصطناعي:',
+    PLANNER_UNSUPPORTED: 'اطلب من جديد بأحد هذه الطلبات، أو أعدّ نموذج ذكاء اصطناعي:',
     BUDGET_EXCEEDED:
       'ارفع ميزانيتك الشهرية للذكاء الاصطناعي من الإعدادات، أو انتظر حتى الشهر القادم.',
     POLICY_DENIED: 'تمنع إعداداتك أو سياسة الأمان ذلك. غيّرها أو غيّر الطلب، ثم اطلب من جديد.',
@@ -104,6 +107,7 @@ const tasks: Catalog<typeof source> = {
     bodyEmail: 'كتب JARVIS الرسالة ولن يرسلها إلا بعد موافقتك.',
     bodyGeneric: 'لن يكمل JARVIS إلا بعد موافقتك على هذه الخطوة.',
     review: 'المراجعة واتخاذ القرار',
+    reviewShort: 'مراجعة',
     to: 'إلى',
     subject: 'الموضوع',
   },
@@ -116,7 +120,13 @@ const tasks: Catalog<typeof source> = {
   },
   result: {
     title: 'النتيجة',
-    evidence: 'الأدلة',
+    summary: 'الملخص',
+    copySummary: 'الملخص',
+    emailed: 'أُرسل بالبريد إلى {recipients}',
+    remembered: 'حُفظ في الذاكرة: «{text}»',
+    proof: 'الأدلة',
+    proofCount:
+      '{count, plural, zero {لا عناصر} one {عنصر واحد} two {عنصران} few {# عناصر} many {# عنصرًا} other {# عنصر}}',
     noEvidence: 'لم تُسجَّل أدلة لهذه المهمة.',
   },
   plan: {
@@ -128,6 +138,13 @@ const tasks: Catalog<typeof source> = {
     none: 'لم تُوضع خطة.',
     stepLabel: 'الخطوة {position}',
     needsApproval: 'يطلب الموافقة قبل التنفيذ',
+    notRun: 'لم تُنفَّذ',
+    decided: {
+      APPROVED: 'وافقت عليها · {time}',
+      REJECTED: 'رفضتها · {time}',
+      EXPIRED: 'انتهت صلاحية طلب الموافقة · {time}',
+    },
+    autoApproved: 'أُرسلت دون سؤالك: تسمح إعداداتك بإرسال الرسائل إلى نفسك.',
     attempts:
       '{count, plural, zero {لا محاولات} one {محاولة واحدة} two {محاولتان} few {# محاولات} many {# محاولة} other {# محاولة}}',
     duration: 'استغرقت {duration}',
@@ -200,11 +217,14 @@ const tasks: Catalog<typeof source> = {
   },
   evidence: {
     smtp_receipt: 'قبلها خادم البريد',
-    http_response: 'جُلبت صفحة الويب',
-    content_hash: 'بصمة المحتوى',
-    record: 'حُفظ السجل',
-    model_output: 'مُخرجات نموذج الذكاء الاصطناعي',
+    http_response: 'قُرئت الصفحة',
+    content_hash: 'بصمة الصفحة',
+    record: 'حُفظ',
+    model_output: 'كتبها نموذج ذكاء اصطناعي',
     note: 'ملاحظة',
+    extractive: 'لُخّصت دون نموذج ذكاء اصطناعي',
+    extractiveDetail:
+      '{sentences, plural, zero {لا جمل} one {جملة رئيسية واحدة} two {جملتان رئيسيتان} few {# جمل رئيسية} many {# جملة رئيسية} other {# جملة رئيسية}} مقتبسة من نص طوله {chars} حرف',
     messageId: 'معرّف الرسالة',
     tokens: '{input} رمزًا مُدخلًا · {output} رمزًا مُخرجًا',
     opensInNewTab: '(يفتح في علامة تبويب جديدة)',
@@ -217,12 +237,55 @@ const tasks: Catalog<typeof source> = {
     count:
       '{count, plural, zero {لا أحداث} one {حدث واحد} two {حدثان} few {# أحداث} many {# حدثًا} other {# حدث}}',
     empty: 'لا أحداث بعد.',
+    checksPassed:
+      '{count, plural, zero {لم ينجح أي فحص} one {نجح فحص واحد} two {نجح فحصان} few {نجحت # فحوص} many {نجح # فحصًا} other {نجح # فحص}}',
+    checksRun:
+      '{count, plural, zero {لا فحوص} one {فحص واحد} two {فحصان} few {# فحوص} many {# فحصًا} other {# فحص}}',
+    showChecks: 'إظهار الفحوص',
+    hideChecks: 'إخفاء الفحوص',
+    milestones: {
+      asked: 'طلبت',
+      approved: 'وافقت',
+      declined: 'رفضت',
+      approvalExpired: 'انتهت صلاحية الموافقة',
+      sent: 'أُرسلت',
+      saved: 'حُفظت',
+      retried: 'أُعيدت المحاولة',
+      done: 'اكتملت',
+      failed: 'فشلت',
+      cancelled: 'أُلغيت',
+      waiting: 'بانتظار الموافقة',
+      inProgress: 'قيد التنفيذ',
+    },
+  },
+  checks: {
+    unknown: '{text}',
+    http: 'HTTP {status} من {url}',
+    textExtracted:
+      'استُخرج من الصفحة نص مقروء من {count, plural, zero {لا أحرف} one {حرف واحد} two {حرفين} few {# أحرف} many {# حرفًا} other {# حرف}}',
+    hashRecorded: 'سُجّلت بصمة المحتوى',
+    hashMissing: 'بصمة المحتوى مفقودة',
+    injectionFlagged: 'عُثر على نص موجّه إلى مساعدي الذكاء الاصطناعي وتجاهله JARVIS',
+    summaryLength:
+      'ملخص من {count, plural, zero {لا أحرف} one {حرف واحد} two {حرفين} few {# أحرف} many {# حرفًا} other {# حرف}}',
+    extractive: 'لُخّص دون نموذج ذكاء اصطناعي',
+    writtenBy: 'كتبه {model}',
+    recipientsAccepted:
+      'قُبل {accepted} من {count, plural, zero {لا مستلمين} one {مستلم واحد} two {مستلمَين} few {# مستلمين} many {# مستلمًا} other {# مستلم}}',
+    noneRejected: 'لم يُرفض أي مستلم',
+    rejected: 'رُفض: {list}',
+    serverResponse: 'رد الخادم: {response}',
+    messageId: 'معرّف الرسالة {id}',
+    answerLength:
+      'إجابة من {count, plural, zero {لا أحرف} one {حرف واحد} two {حرفين} few {# أحرف} many {# حرفًا} other {# حرف}}',
+    memoryStored: 'حُفظ في الذاكرة',
+    memoryMissing: 'سجل الذاكرة مفقود',
   },
   events: {
     created: 'طلبت من JARVIS',
     statusChanged: 'الحالة: {status}',
     planReadyOffline:
-      'الخطة جاهزة: {count, plural, zero {لا خطوات} one {خطوة واحدة} two {خطوتان} few {# خطوات} many {# خطوة} other {# خطوة}} بالمخطِّط دون اتصال',
+      'الخطة جاهزة: {count, plural, zero {لا خطوات} one {خطوة واحدة} two {خطوتان} few {# خطوات} many {# خطوة} other {# خطوة}} دون نموذج ذكاء اصطناعي',
     planReadyModel:
       'الخطة جاهزة: {count, plural, zero {لا خطوات} one {خطوة واحدة} two {خطوتان} few {# خطوات} many {# خطوة} other {# خطوة}} بواسطة {model}',
     planReady:
@@ -246,13 +309,11 @@ const tasks: Catalog<typeof source> = {
   details: {
     title: 'التفاصيل',
     planner: 'المخطِّط',
-    plannerOffline: 'محرّك القواعد دون اتصال',
     plannerPending: 'لم يُخطَّط لها بعد',
-    estimatedCost: 'التكلفة التقديرية',
-    actualCost: 'التكلفة الفعلية',
+    cost: 'التكلفة',
+    costNoModel: '{amount} · دون نموذج ذكاء اصطناعي',
+    costEstimate: 'نحو {amount} (تقديرًا)',
     attempt: 'المحاولة',
-    source: 'المصدر',
-    created: 'أُنشئت',
     started: 'بدأت',
     finished: 'انتهت',
     taskId: 'معرّف المهمة',

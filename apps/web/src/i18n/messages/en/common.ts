@@ -98,7 +98,8 @@ const common = {
     unavailable: 'JARVIS is unavailable — tasks will wait',
   },
   assistant: {
-    offlinePlanner: 'Offline planner',
+    /** The deterministic planner that works without an AI model. */
+    offlinePlanner: 'Basic mode',
     modelConnected: '{provider} connected',
     modelGeneric: 'AI model connected',
     workerHealthy: 'Worker running',

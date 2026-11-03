@@ -10,9 +10,9 @@ import { z } from 'zod';
 import { withContext } from '../../../db/pool';
 import { truncate } from '../../../lib/redact';
 import { AgentError } from '../errors';
-import { t } from '../i18n';
+import { msg, render, withoutFinalStop } from '../i18n';
 import { hasTemplate } from '../templates';
-import { evidence, type ToolDefinition } from './types';
+import { check, evidence, type ToolDefinition } from './types';
 
 export const MemorySaveInput = z.object({
   content: z
@@ -24,6 +24,15 @@ export const MemorySaveInput = z.object({
   kind: MemoryKind.describe('"preference" for likes/dislikes and habits, otherwise "fact".'),
 });
 export type MemorySaveInput = z.infer<typeof MemorySaveInput>;
+
+/**
+ * A note as it sits inside a quoted sentence ("Saved to memory: “…”."): one
+ * line, at most 120 characters, without its own final full stop (the
+ * sentence around it ends with one).
+ */
+export function quotable(content: string): string {
+  return withoutFinalStop(truncate(content.replace(/\s+/g, ' ').trim(), 120));
+}
 
 export const memorySaveTool: ToolDefinition<MemorySaveInput> = {
   id: 'memory.save',
@@ -47,20 +56,26 @@ export const memorySaveTool: ToolDefinition<MemorySaveInput> = {
   riskLevel: () => 'LOW',
   estimateCostMicro: () => 0,
   preview: (input) => ({ content: input.content, kind: input.kind }),
-  approvalDetails: (input, ctx) => ({
-    details: {
-      kind: 'generic',
-      toolId: 'memory.save',
-      fields: [
-        { label: 'Note', value: input.content },
-        { label: 'Kind', value: input.kind },
-      ],
-    },
-    summary: t(ctx.language, 'result.memorySaved', { text: truncate(input.content, 120) }),
-  }),
+  approvalDetails: (input, ctx) => {
+    const summaryMessage = msg('result.memorySaved', { text: quotable(input.content) });
+    return {
+      details: {
+        kind: 'generic',
+        toolId: 'memory.save',
+        fields: [
+          { label: 'Note', value: input.content },
+          { label: 'Kind', value: input.kind },
+        ],
+      },
+      summary: render(ctx.language, summaryMessage),
+      summaryMessage,
+    };
+  },
   async execute(input, rt) {
     if (!rt.preferences.memory.enabled) {
-      throw new AgentError('POLICY_DENIED', 'Memory is turned off in your privacy settings.');
+      throw new AgentError('POLICY_DENIED', 'Memory is turned off in your privacy settings.', {
+        reason: 'MEMORY_DISABLED',
+      });
     }
     const row = await withContext(rt.db, rt.ctx, async (trx) => {
       const existing = await trx
@@ -93,7 +108,12 @@ export const memorySaveTool: ToolDefinition<MemorySaveInput> = {
     return {
       output,
       outputPreview: { memoryId: row.id, content: input.content, kind: input.kind },
-      evidence: [evidence('record', 'Memory saved', `memory ${row.id} (${input.kind})`)],
+      evidence: [
+        evidence('record', 'Memory saved', `memory ${row.id} (${input.kind})`, 'MEMORY_RECORD', {
+          memoryId: row.id,
+          kind: input.kind,
+        }),
+      ],
       costMicro: 0,
     };
   },
@@ -101,7 +121,13 @@ export const memorySaveTool: ToolDefinition<MemorySaveInput> = {
     const ok = typeof output.memoryId === 'string' && output.content === input.content;
     return {
       ok,
-      checks: [ok ? `Memory ${String(output.memoryId)} stored` : 'Memory record missing'],
+      checks: [
+        ok
+          ? check('memoryStored', `Memory ${String(output.memoryId)} stored`, {
+              id: String(output.memoryId),
+            })
+          : check('memoryMissing', 'Memory record missing'),
+      ],
     };
   },
   audit: (input) => ({

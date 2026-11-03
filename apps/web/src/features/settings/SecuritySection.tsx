@@ -12,6 +12,7 @@ import { Icon } from '@/components/ui/Icon';
 import { RelativeTime } from '@/components/ui/RelativeTime';
 import { SkeletonRow } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
+import { UserText } from '@/components/ui/UserText';
 import { useI18n, type I18n } from '@/i18n/I18nProvider';
 import { api } from '@/lib/api/client';
 import { describeError } from '@/lib/api/errors';
@@ -135,7 +136,7 @@ function SessionRow({ session, onRevoked }: { session: SessionInfo; onRevoked: (
       </span>
       <div className={styles.sessionMain}>
         <span className={styles.sessionTitle}>
-          <span dir="auto">{title}</span>
+          <UserText>{title}</UserText>
           {session.current && <Badge>{t('settings.security.thisDevice')}</Badge>}
         </span>
         <span className={styles.sessionMeta}>

@@ -5,6 +5,7 @@ const notifications: Catalog<typeof source> = {
   title: 'Mitteilungen',
   button:
     '{count, plural, =0 {Mitteilungen} one {Mitteilungen, # ungelesen} other {Mitteilungen, # ungelesen}}',
+  unreadSuffix: '{count, plural, one {, # ungelesen} other {, # ungelesen}}',
   markAllRead: 'Alle als gelesen markieren',
   empty: 'Alles gelesen.',
   loadError: 'Mitteilungen konnten nicht geladen werden.',

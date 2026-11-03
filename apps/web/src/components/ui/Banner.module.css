@@ -38,8 +38,18 @@
   align-self: center;
 }
 
+/*
+ * Tone lives in the icon, the title and a tinted hairline; the background stays the surface,
+ * so a banner never becomes a coloured slab (soft fills are for pills and icon discs).
+ */
+.info,
+.success,
+.warning,
+.danger {
+  background: var(--color-surface);
+}
+
 .info {
-  background: var(--color-surface-sunken);
   border-color: var(--color-border);
 }
 
@@ -48,34 +58,36 @@
 }
 
 .success {
-  background: var(--color-success-soft);
+  border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
 }
 
-.success .icon {
+.success .icon,
+.success .title {
   color: var(--color-success);
 }
 
 .warning {
-  background: var(--color-warning-soft);
+  border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
 }
 
-.warning .icon {
+.warning .icon,
+.warning .title {
   color: var(--color-warning);
 }
 
 .danger {
-  background: var(--color-danger-soft);
+  border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
 }
 
-.danger .icon {
+.danger .icon,
+.danger .title {
   color: var(--color-danger);
 }
 
-/* Secondary text on tinted backgrounds uses the primary text color for contrast. */
-.success .text,
-.warning .text,
-.danger .text {
-  color: var(--color-text-primary);
+@media (forced-colors: active) {
+  .banner {
+    border-color: CanvasText;
+  }
 }
 
 .details {

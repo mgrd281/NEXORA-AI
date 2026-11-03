@@ -12,16 +12,29 @@ const composer = {
   characterCount: '{count} of {max} characters',
   sent: 'Request sent.',
   queued: 'Request sent. JARVIS is unavailable right now, so it waits in the queue.',
+  /** Basic mode: the deterministic planner that works without an AI model. */
   offline: {
-    title: 'Offline planner',
-    body: 'Without an AI model, JARVIS understands these requests:',
-    summarize: 'Summarize <link> — add “and email it to me” to get it by email',
-    remember: 'Remember that <something>',
-    emailMe: 'Email me: <text>',
+    title: 'Basic mode',
+    body: 'JARVIS is working without an AI model and understands these requests.',
+    summarize: 'Summarize a link',
+    remember: 'Remember something',
+    emailMe: 'Email yourself',
+    fills: 'Puts an example request in the field',
+    /** Filled into the field; the {slot} is selected so typing or pasting replaces it. */
+    templates: {
+      summarize: 'Summarize {slot} and email it to me',
+      remember: 'Remember that {slot}',
+      emailMe: 'Email me: {slot}',
+    },
+    slots: {
+      link: 'link',
+      something: 'something',
+      text: 'text',
+    },
     needsWeb: 'needs web access',
     needsEmail: 'needs an email connection',
     memoryOff: 'memory is turned off',
-    settingsLink: 'Assistant settings',
+    settingsLink: 'About basic mode',
   },
 };
 
