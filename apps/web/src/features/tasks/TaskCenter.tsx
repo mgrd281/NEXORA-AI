@@ -26,7 +26,6 @@ import {
   type TaskFilter,
 } from './model';
 import styles from './TaskCenter.module.css';
-import { useSpeakVoiceResults } from './useSpeakVoiceResults';
 
 /**
  * Task Center: every task, filtered by status (synced to ?status=), paged by cursor, kept live
@@ -36,7 +35,6 @@ export function TaskCenter() {
   const { t } = useI18n();
   const searchParams = useSearchParams();
   const filter = parseFilter(searchParams.get('status'));
-  useSpeakVoiceResults();
 
   const setFilter = useCallback((next: TaskFilter) => {
     // Shallow URL update: the App Router syncs useSearchParams without a server round trip.

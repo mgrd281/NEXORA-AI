@@ -213,3 +213,15 @@
   opacity: 1;
   visibility: visible;
 }
+
+/* Closed tooltips are removed from layout: a hidden-but-present absolutely positioned
+   box still extends the scrollable overflow and widened phone layouts at the inline-end edge. */
+.tooltip:not([data-open]) {
+  display: none;
+}
+
+@starting-style {
+  .tooltip[data-open] {
+    opacity: 0;
+  }
+}

@@ -11,8 +11,8 @@
 set -euo pipefail
 
 ADMIN_URL="${ADMIN_DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/postgres}"
-OWNER_PASSWORD="${JARVIS_OWNER_PASSWORD:-jarvis_owner_dev}"
-APP_PASSWORD="${JARVIS_APP_PASSWORD:-jarvis_app_dev}"
+OWNER_PASSWORD="${JARVIS_DB_OWNER_PASSWORD:-jarvis_owner_dev}"
+APP_PASSWORD="${JARVIS_DB_APP_PASSWORD:-jarvis_app_dev}"
 DATABASES="${JARVIS_DATABASES:-jarvis jarvis_test}"
 
 psql "$ADMIN_URL" -v ON_ERROR_STOP=1 -q <<SQL

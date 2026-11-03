@@ -67,8 +67,9 @@ them on Ctrl-C or when one exits, and accepts `DEV_SKIP="web mailbox"` to leave 
 Check a running API: `SMOKE_EMAIL=you@example.com scripts/smoke.sh http://127.0.0.1:4000` (liveness,
 readiness, sign-in, worker heartbeat, sign-out; prompts for the password).
 
-> `scripts/db-setup.sh` reads `JARVIS_OWNER_PASSWORD` as the **database role** password, while the
-> CLI reads it as the **account** password. Run `db-setup.sh` in a shell where it is not exported.
+> Database role passwords are `JARVIS_DB_OWNER_PASSWORD` / `JARVIS_DB_APP_PASSWORD` (read by
+> `scripts/db-setup.sh` and the Compose init script); `JARVIS_OWNER_PASSWORD` is only the **account**
+> password read by `create-owner`.
 
 ## Docker Compose (local full stack)
 

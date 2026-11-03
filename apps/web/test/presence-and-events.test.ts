@@ -130,6 +130,9 @@ describe('queriesToInvalidate', () => {
     );
   });
   it('ignores answer deltas and heartbeats', () => {
+    expect(
+      queriesToInvalidate({ type: 'step.succeeded', taskId, data: { toolId: 'memory.save' } }),
+    ).toContainEqual(qk.memories.all);
     expect(queriesToInvalidate({ type: 'task.answer.delta', taskId })).toEqual([]);
     expect(queriesToInvalidate({ type: 'heartbeat', taskId: null })).toEqual([]);
   });

@@ -8,7 +8,7 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter @jarvis/api --filter @jarvis/web dev",
+    "dev": "pnpm --parallel --filter @jarvis/api --filter @jarvis/web run /^dev(:worker)?$/",
     "build": "pnpm -r --workspace-concurrency=1 build",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",

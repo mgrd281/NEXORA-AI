@@ -7,6 +7,7 @@ import type { ConnectionProvider, Preferences } from '@jarvis/contracts';
 import { sql } from 'kysely';
 import type { Config } from '../../config';
 import type { Trx } from '../../db/pool';
+import { currentMonth } from '../../lib/period';
 import type { ConnectionRow } from '../../db/types';
 import { loadMe } from '../account/me';
 import { asLocale } from './i18n';
@@ -22,18 +23,17 @@ export interface AgentContext {
   route: ModelRoute;
 }
 
-/** Start of the current calendar month in UTC (the budget period). */
-export function monthStart(now = new Date()): Date {
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-}
-
-/** Model spend of the current user this month (RLS scopes it to the user). */
-export async function monthlyAiSpend(trx: Trx, now = new Date()): Promise<number> {
+/**
+ * Model spend of the current user in the current calendar month of their time
+ * zone (the budget period shown in Settings → usage). RLS scopes it to the user.
+ */
+export async function monthlyAiSpend(trx: Trx, timeZone: string): Promise<number> {
+  const { start } = await currentMonth(trx, timeZone);
   const row = await trx
     .selectFrom('cost_records')
     .select((eb) => eb.fn.coalesce(eb.fn.sum<number>('amount_micro'), sql<number>`0`).as('total'))
     .where('category', '=', 'model')
-    .where('created_at', '>=', monthStart(now))
+    .where('created_at', '>=', start)
     .executeTakeFirst();
   return Number(row?.total ?? 0);
 }
@@ -56,7 +56,7 @@ export async function loadAgentContext(
   const me = await loadMe(trx, userId);
   const [connections, spentMicro] = await Promise.all([
     activeConnections(trx),
-    monthlyAiSpend(trx),
+    monthlyAiSpend(trx, me.timeZone),
   ]);
   const limitMicro = usdToMicro(me.preferences.spending.monthlyAiBudgetUsd);
   const route = decideRoute({

@@ -55,13 +55,14 @@ describe('lib/net isPrivateAddress (shared foundation)', () => {
     expect(isPrivateAddress(ip)).toBe(true);
   });
 
-  // Known foundation bug (reported to the integrator): the ::ffff:0:0/96 entry in
-  // lib/net's BlockList makes node:net match every IPv4 address, so public IPv4
-  // hosts are classified as private. web.fetch uses tools/ssrf.ts instead. This
-  // test starts failing once lib/net is fixed — then delete it and delegate.
-  it.fails('classifies public IPv4 addresses as public (fails until lib/net is fixed)', () => {
-    expect(isPrivateAddress('8.8.8.8')).toBe(false);
-  });
+  // Regression: a single BlockList holding ::ffff:0:0/96 used to match every IPv4
+  // address, which refused all public SMTP hosts.
+  it.each(['8.8.8.8', '1.1.1.1', '142.250.185.78', '2a00:1450:4001:82b::200e', '::ffff:8.8.8.8'])(
+    '%s is public',
+    (ip) => {
+      expect(isPrivateAddress(ip)).toBe(false);
+    },
+  );
 });
 
 describe('web.fetch target checks', () => {

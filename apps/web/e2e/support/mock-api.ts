@@ -198,6 +198,21 @@ const DEFAULTS: Partial<Record<RouteName, MockHandler>> = {
       completedAt: null,
     };
     s.tasks = [task, ...s.tasks];
+    s.taskDetails[task.id] = {
+      ...task,
+      objective: null,
+      conversationId: crypto.randomUUID(),
+      planner: null,
+      answer: null,
+      steps: [],
+      approvals: [],
+      events: [],
+      cost: { estimatedMicroUsd: 0, actualMicroUsd: 0 },
+      evidence: [],
+      canCancel: true,
+      canRetry: false,
+      startedAt: null,
+    };
     return { status: 202, body: task };
   },
   listApprovals: (_r, s) => ({

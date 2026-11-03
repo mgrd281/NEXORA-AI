@@ -4,6 +4,7 @@
  * wherever it is rendered.
  */
 import {
+  TaskEventType,
   canCancel,
   canRetry,
   type Approval,
@@ -168,6 +169,9 @@ export async function loadTaskDetail(trx: Trx, taskId: string): Promise<TaskDeta
       .selectFrom('task_events')
       .select(['id', 'task_id', 'type', 'data', 'created_at'])
       .where('task_id', '=', taskId)
+      // The same log also carries user-stream events tied to a task (e.g.
+      // notification.created); the task timeline contract only has task events.
+      .where('type', 'in', TaskEventType.options)
       .orderBy('id')
       .limit(500)
       .execute(),

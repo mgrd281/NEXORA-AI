@@ -30,7 +30,6 @@ import { Card, Section } from '@/components/ui/Card';
 import { Icon } from '@/components/ui/Icon';
 import { RelativeTime } from '@/components/ui/RelativeTime';
 import { Skeleton, SkeletonRow } from '@/components/ui/Skeleton';
-import { useSpeakVoiceResults } from '@/features/tasks/useSpeakVoiceResults';
 import { useI18n } from '@/i18n/I18nProvider';
 import type { MessageKey } from '@/i18n/catalog';
 import { useHome, useMe } from '@/lib/api/hooks';
@@ -62,7 +61,6 @@ export function HomeScreen() {
   const [reviewing, setReviewing] = useState<Approval | null>(null);
   const statusRef = useRef<HTMLSpanElement>(null);
   const decidedTask = useRef<string | null>(null);
-  useSpeakVoiceResults();
 
   // After a decision the Review button disappears once Home refreshes: move focus to the
   // task's row (now under In progress or Recent) or, failing that, the status line.

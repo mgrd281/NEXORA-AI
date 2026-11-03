@@ -41,7 +41,6 @@ import { attemptOf, guidanceFor, isCancelRequested, pendingApproval, shortHash }
 import { PlanSection } from './PlanSection';
 import { TaskActions } from './TaskActions';
 import styles from './TaskDetail.module.css';
-import { useSpeakVoiceResults } from './useSpeakVoiceResults';
 
 /** "anthropic" → "Anthropic" (provider ids are lower-case slugs). */
 function providerName(provider: string): string {
@@ -63,7 +62,6 @@ const SOURCE_ICON: Record<TaskDetail['source'], LucideIcon> = {
 export function TaskDetailScreen({ id }: { id: string }) {
   const valid = Id.safeParse(id).success;
   const detail = useTaskDetail(id, valid);
-  useSpeakVoiceResults();
 
   if (!valid || isApiError(detail.error, 'NOT_FOUND')) return <TaskNotFound />;
   if (detail.isPending) return <TaskDetailSkeleton />;

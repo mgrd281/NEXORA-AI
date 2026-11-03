@@ -36,9 +36,12 @@ const smtp = new SMTPServer({
     });
   },
 });
-smtp.listen(Number(process.env.MAILBOX_SMTP_PORT ?? 2525), '127.0.0.1', () =>
-  console.log('dev mailbox SMTP on 127.0.0.1:2525'),
-);
+// Loopback by default; MAILBOX_HOST=0.0.0.0 exposes it inside a container network.
+const HOST = process.env.MAILBOX_HOST ?? '127.0.0.1';
+const SMTP_PORT = Number(process.env.MAILBOX_SMTP_PORT ?? 2525);
+const HTTP_PORT = Number(process.env.MAILBOX_HTTP_PORT ?? 2580);
+
+smtp.listen(SMTP_PORT, HOST, () => console.log(`dev mailbox SMTP on ${HOST}:${SMTP_PORT}`));
 
 createServer((req, res) => {
   res.setHeader('content-type', 'application/json');
@@ -56,6 +59,6 @@ createServer((req, res) => {
   if (m) return res.end(JSON.stringify(messages.find((x) => x.id === Number(m[1])) ?? null));
   res.statusCode = 404;
   res.end('{}');
-}).listen(Number(process.env.MAILBOX_HTTP_PORT ?? 2580), '127.0.0.1', () =>
-  console.log('dev mailbox HTTP on http://127.0.0.1:2580/messages'),
+}).listen(HTTP_PORT, HOST, () =>
+  console.log(`dev mailbox HTTP on http://${HOST}:${HTTP_PORT}/messages`),
 );

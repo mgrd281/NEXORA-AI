@@ -23,7 +23,7 @@ ADMIN_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres pnpm d
 
 `scripts/db-setup.sh` creates the roles `jarvis_owner` (schema owner, migrations) and `jarvis_app`
 (runtime, `NOBYPASSRLS`) and the databases `jarvis` and `jarvis_test`. Passwords default to
-`jarvis_owner_dev` / `jarvis_app_dev` (override with `JARVIS_OWNER_PASSWORD`, `JARVIS_APP_PASSWORD`;
+`jarvis_owner_dev` / `jarvis_app_dev` (override with `JARVIS_DB_OWNER_PASSWORD`, `JARVIS_DB_APP_PASSWORD`;
 databases with `JARVIS_DATABASES`). These defaults are for local development and CI only.
 
 ## 2. Configure the API

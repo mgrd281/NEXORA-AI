@@ -175,6 +175,12 @@ export async function startWorker(): Promise<void> {
   await Promise.allSettled([...inFlight]);
   clearInterval(heartbeatTimer);
   clearInterval(reclaimTimer);
+  // Remove this worker's heartbeat so health reflects only live workers.
+  await db
+    .deleteFrom('worker_heartbeats')
+    .where('worker_id', '=', workerId)
+    .execute()
+    .catch((e: unknown) => log.warn('heartbeat cleanup failed', { error: errorMessage(e) }));
   await listener.close();
   await closeDb(db);
   log.info('worker stopped', { workerId });

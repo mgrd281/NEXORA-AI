@@ -35,6 +35,7 @@ import { ADMIN_NAV, isActive, PRIMARY_NAV, sectionFor, type NavItem } from './na
 import { NotificationsPanel } from './NotificationsPanel';
 import { ShellContext, type ShellState } from './ShellContext';
 import { ShortcutsDialog } from './ShortcutsDialog';
+import { useSpeakVoiceResults } from '@/features/tasks/useSpeakVoiceResults';
 
 /**
  * The authenticated app frame: start-side sidebar from 900 px, top bar + bottom tab bar below.
@@ -63,6 +64,8 @@ function ShellFrame({ children }: { children: ReactNode }) {
   const online = useOnline();
   const registry = useComposerRegistry();
   const applyAppearance = useApplyAppearance();
+  // Read voice-initiated results aloud on every screen (honours preferences.voice.speakResponses).
+  useSpeakVoiceResults();
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [listening, setListening] = useState(false);
   const [flash, setFlash] = useState<'completed' | 'failed' | null>(null);

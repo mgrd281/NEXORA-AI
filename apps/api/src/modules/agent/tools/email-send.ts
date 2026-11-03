@@ -160,7 +160,16 @@ export const emailSendTool: ToolDefinition<EmailSendInput> = {
         rt.config,
       );
     } catch (err) {
-      throw classifySmtpError(err);
+      // Nothing has been sent at this point (secret decryption, SSRF check, transport
+      // setup), so the failure is definite and never OUTCOME_UNKNOWN.
+      const classified = classifySmtpError(err);
+      throw classified.code === 'OUTCOME_UNKNOWN'
+        ? new AgentError(
+            'CONNECTION_FAILED',
+            'The saved email connection could not be used. Reconnect the email account, then retry. Nothing was sent.',
+            { retryable: true },
+          )
+        : classified;
     }
     const messageId = messageIdFor(rt.idempotencyKey, cfg.fromAddress);
     const subject = input.subject.replace(/[\r\n]+/g, ' ').trim();

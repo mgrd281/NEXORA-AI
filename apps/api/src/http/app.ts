@@ -111,15 +111,13 @@ export async function buildApp(
     }
     const status = (err as { statusCode?: number }).statusCode;
     if (status === 429) {
-      return reply
-        .code(429)
-        .send({
-          error: {
-            code: 'RATE_LIMITED',
-            message: 'Too many requests. Try again shortly.',
-            requestId: req.id,
-          },
-        });
+      return reply.code(429).send({
+        error: {
+          code: 'RATE_LIMITED',
+          message: 'Too many requests. Try again shortly.',
+          requestId: req.id,
+        },
+      });
     }
     if (status && status >= 400 && status < 500) {
       const code =
@@ -131,15 +129,13 @@ export async function buildApp(
         .send({ error: { code: 'VALIDATION_FAILED', message: code, requestId: req.id } });
     }
     req.log.error({ err }, 'unhandled error');
-    return reply
-      .code(500)
-      .send({
-        error: {
-          code: 'INTERNAL',
-          message: 'Something went wrong on our side.',
-          requestId: req.id,
-        },
-      });
+    return reply.code(500).send({
+      error: {
+        code: 'INTERNAL',
+        message: 'Something went wrong on our side.',
+        requestId: req.id,
+      },
+    });
   });
 
   app.setNotFoundHandler((req, reply) =>

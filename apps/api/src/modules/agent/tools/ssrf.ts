@@ -1,89 +1,15 @@
 /**
- * SSRF guard for web.fetch.
- *
- * WORKAROUND: lib/net.ts registers the IPv6 range ::ffff:0:0/96 in the same
- * node:net BlockList as the IPv4 ranges, and BlockList applies IPv4-mapped
- * IPv6 rules to plain IPv4 addresses — so lib/net's isPrivateAddress() reports
- * *every* IPv4 address (e.g. 8.8.8.8) as private and web.fetch would refuse
- * all public IPv4 sites. This module keeps the same ranges without that entry,
- * handles IPv4-mapped/compatible IPv6 by extracting the embedded IPv4 address,
- * and additionally blocks 6to4 (2002::/16) and Teredo (2001::/32), which can
- * embed private IPv4 addresses. Once lib/net.ts drops the ::ffff:0:0/96 entry
- * this can delegate to it.
+ * SSRF guard for web.fetch: a DNS lookup that only yields public addresses
+ * (classification lives in lib/net.ts) and fails with an agent-level
+ * FETCH_BLOCKED error, which the executor reports on the step.
  */
 import { lookup as dnsLookup } from 'node:dns';
-import { BlockList, isIP, type LookupFunction } from 'node:net';
+import type { LookupFunction } from 'node:net';
+import { isPrivateAddress } from '../../../lib/net';
 import { AgentError } from '../errors';
 
-const v4 = new BlockList();
-for (const [net, prefix] of [
-  ['0.0.0.0', 8],
-  ['10.0.0.0', 8],
-  ['100.64.0.0', 10],
-  ['127.0.0.0', 8],
-  ['169.254.0.0', 16],
-  ['172.16.0.0', 12],
-  ['192.0.0.0', 24],
-  ['192.0.2.0', 24],
-  ['192.88.99.0', 24],
-  ['192.168.0.0', 16],
-  ['198.18.0.0', 15],
-  ['198.51.100.0', 24],
-  ['203.0.113.0', 24],
-  ['224.0.0.0', 4],
-  ['240.0.0.0', 4],
-] as const)
-  v4.addSubnet(net, prefix, 'ipv4');
-
-const v6 = new BlockList();
-for (const [net, prefix] of [
-  ['::', 128],
-  ['::1', 128],
-  ['64:ff9b::', 96],
-  ['100::', 64],
-  ['2001::', 32],
-  ['2001:db8::', 32],
-  ['2002::', 16],
-  ['fc00::', 7],
-  ['fe80::', 10],
-  ['fec0::', 10],
-  ['ff00::', 8],
-] as const)
-  v6.addSubnet(net, prefix, 'ipv6');
-
-/** Expands an IPv6 address to 8 numeric groups (handles :: and a trailing dotted quad). */
-function expandIpv6(ip: string): number[] | null {
-  let s = ip.toLowerCase().split('%')[0]!;
-  const dotted = /(\d+\.\d+\.\d+\.\d+)$/.exec(s);
-  if (dotted) {
-    const parts = dotted[1]!.split('.').map(Number);
-    if (parts.some((p) => p > 255)) return null;
-    s = `${s.slice(0, -dotted[1]!.length)}${((parts[0]! << 8) | parts[1]!).toString(16)}:${((parts[2]! << 8) | parts[3]!).toString(16)}`;
-  }
-  const [head, tail] = s.split('::');
-  const h = head ? head.split(':') : [];
-  const t = tail !== undefined ? (tail ? tail.split(':') : []) : [];
-  const fill = s.includes('::') ? 8 - h.length - t.length : 0;
-  const groups = [...h, ...Array<string>(Math.max(0, fill)).fill('0'), ...t];
-  if (groups.length !== 8) return null;
-  const nums = groups.map((g) => parseInt(g || '0', 16));
-  return nums.some((n) => Number.isNaN(n) || n > 0xffff) ? null : nums;
-}
-
-/** True for private, loopback, link-local, reserved, multicast and non-IP input. */
-export function isBlockedAddress(ip: string): boolean {
-  const family = isIP(ip);
-  if (family === 4) return v4.check(ip, 'ipv4');
-  if (family !== 6) return true;
-  const g = expandIpv6(ip);
-  if (!g) return true;
-  const embeddedV4 =
-    g.slice(0, 5).every((x) => x === 0) && (g[5] === 0xffff || g[5] === 0) // ::ffff:a.b.c.d or ::a.b.c.d
-      ? `${g[6]! >> 8}.${g[6]! & 255}.${g[7]! >> 8}.${g[7]! & 255}`
-      : null;
-  if (embeddedV4 && !(g[5] === 0 && g[6] === 0 && g[7]! <= 1)) return v4.check(embeddedV4, 'ipv4');
-  return v6.check(ip, 'ipv6');
-}
+/** Shared classifier (lib/net.ts) — one source of truth for every outbound connection. */
+export const isBlockedAddress = isPrivateAddress;
 
 const blockedError = () =>
   new AgentError(

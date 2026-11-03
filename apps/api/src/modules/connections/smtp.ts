@@ -22,6 +22,9 @@ export interface SmtpSecret {
 
 const LOCALHOST = new Set(['localhost', '127.0.0.1', '::1']);
 
+/** Socket errors that mean "nothing is listening there", which nodemailer wraps as ESOCKET. */
+const UNREACHABLE = /ECONNREFUSED|ENOTFOUND|EHOSTUNREACH|ENETUNREACH|EAI_AGAIN|ECONNRESET/;
+
 /** AAD binds a ciphertext to its owner and provider, so rows cannot be swapped. */
 export const secretAad = (userId: string, provider: string) => `${userId}:${provider}`;
 
@@ -92,9 +95,9 @@ export async function verifySmtp(
         ? e.message
         : e.code === 'EAUTH'
           ? 'The mail server rejected the username or password.'
-          : e.code === 'ETIMEDOUT' || e.code === 'ECONNECTION'
+          : e.code === 'ETIMEDOUT' || e.code === 'ECONNECTION' || UNREACHABLE.test(e.message ?? '')
             ? 'Could not reach the mail server. Check host and port.'
-            : e.code === 'ESOCKET'
+            : e.code === 'ESOCKET' || e.code === 'ETLS'
               ? 'Secure connection to the mail server failed. Check the security setting.'
               : 'The mail server could not be verified.';
     return { ok: false, error: msg };

@@ -48,7 +48,7 @@ const SIGNALS: Signal[] = [
   {
     id: 'exfiltration_request',
     pattern:
-      /\b(?:send|e-?mail|forward|upload|leak|exfiltrate|reveal|transmit)\b[^.\n]{0,40}?\b(?:your|the\s+user'?s?|all|their|my)\s+(?:memories|memory|passwords?|credentials|api\s*keys?|secrets?|tokens?|contacts|conversations?|chat\s+history|system\s+prompt)\b/i,
+      /\b(?:send|e-?mail|forward|upload|leak|exfiltrate|reveal|transmit)\b[^.\n]{0,40}?\b(?:your|the\s+user['’]?s?|all|their|my)\s+(?:memories|memory|passwords?|credentials|api\s*keys?|secrets?|tokens?|contacts|conversations?|chat\s+history|system\s+prompt)\b/i,
   },
   {
     id: 'prompt_markup',

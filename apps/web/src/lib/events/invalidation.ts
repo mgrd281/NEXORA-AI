@@ -6,17 +6,21 @@ import { qk, type QueryKey } from '../api/query-keys';
  * stream provider batches the result and calls queryClient.invalidateQueries for each key.
  * `task.answer.delta` and `heartbeat` invalidate nothing (deltas go to subscribers instead).
  */
-export function queriesToInvalidate(event: Pick<StreamEvent, 'type' | 'taskId'>): QueryKey[] {
+export function queriesToInvalidate(
+  event: Pick<StreamEvent, 'type' | 'taskId'> & { data?: StreamEvent['data'] },
+): QueryKey[] {
   const taskKeys: QueryKey[] = event.taskId
     ? [qk.tasks.detail(event.taskId), qk.tasks.lists, qk.home]
     : [qk.tasks.lists, qk.home];
 
   switch (event.type) {
+    case 'step.succeeded':
+      // A memory saved by JARVIS must appear on an open Memory screen right away.
+      return event.data?.toolId === 'memory.save' ? [...taskKeys, qk.memories.all] : taskKeys;
     case 'task.created':
     case 'task.status_changed':
     case 'plan.ready':
     case 'step.started':
-    case 'step.succeeded':
     case 'step.failed':
     case 'step.blocked':
     case 'verification.passed':

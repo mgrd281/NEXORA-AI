@@ -1,34 +1,11 @@
 import type { FastifyInstance } from 'fastify';
-import { sql } from 'kysely';
-import type { Db } from '../../db/pool';
 import { withContext } from '../../db/pool';
 import { defineRoute } from '../../http/route';
 import type { AppDeps } from '../../services';
+import { currentMonth } from '../../lib/period';
 import { resolvePreferences } from '../account/me';
 
 const MICRO_PER_USD = 1_000_000;
-
-/**
- * The calendar month containing `now` in the user's time zone, as UTC
- * instants. Postgres does the calendar math, so DST transitions are exact.
- * Falls back to UTC if the stored zone is unknown to Postgres.
- */
-export async function currentMonth(db: Db, timeZone: string): Promise<{ start: Date; end: Date }> {
-  const query = (tz: string) =>
-    sql<{ start: Date; end: Date }>`
-      select date_trunc('month', now() at time zone ${tz}) at time zone ${tz} as start,
-             (date_trunc('month', now() at time zone ${tz}) + interval '1 month') at time zone ${tz} as end`.execute(
-      db,
-    );
-  let res;
-  try {
-    res = await query(timeZone);
-  } catch {
-    res = await query('UTC');
-  }
-  const row = res.rows[0]!;
-  return { start: new Date(row.start), end: new Date(row.end) };
-}
 
 /** Task outcome buckets; 'failed' matches the task list's "failed" filter. */
 const FAILED_STATUSES = ['FAILED', 'CANCELLED', 'EXPIRED'] as const;
