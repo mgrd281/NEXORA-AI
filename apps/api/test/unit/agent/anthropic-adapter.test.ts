@@ -110,7 +110,7 @@ describe('Anthropic adapter + model planner', () => {
     const { client, calls } = fakeClient([message(JSON.stringify(validPlan))]);
     const adapter = createAnthropicAdapter({ client });
     const out = await planTask(
-      { config, adapter, route },
+      { config, adapter, route, planningModel: 'deep' },
       planningInput('Summarize https://example.com/a and email it to me'),
     );
     expect(out.ok).toBe(true);
@@ -163,7 +163,7 @@ describe('Anthropic adapter + model planner', () => {
       message(JSON.stringify(validPlan)),
     ]);
     const out = await planTask(
-      { config, adapter: createAnthropicAdapter({ client }), route },
+      { config, adapter: createAnthropicAdapter({ client }), route, planningModel: 'deep' },
       planningInput('Summarize https://example.com/a and email it to me'),
     );
     expect(out.ok).toBe(true);
@@ -177,7 +177,7 @@ describe('Anthropic adapter + model planner', () => {
   it('fails with MODEL_ERROR after a second invalid plan', async () => {
     const { client } = fakeClient([message('{"title": 1}'), message('not json at all')]);
     const out = await planTask(
-      { config, adapter: createAnthropicAdapter({ client }), route },
+      { config, adapter: createAnthropicAdapter({ client }), route, planningModel: 'deep' },
       planningInput('hello'),
     );
     expect(out.ok).toBe(false);
@@ -190,7 +190,7 @@ describe('Anthropic adapter + model planner', () => {
   it('treats stop_reason "refusal" as a non-retryable MODEL_ERROR and still bills it', async () => {
     const { client, calls } = fakeClient([message('{"title":"partial', { stop: 'refusal' })]);
     const out = await planTask(
-      { config, adapter: createAnthropicAdapter({ client }), route },
+      { config, adapter: createAnthropicAdapter({ client }), route, planningModel: 'deep' },
       planningInput('something'),
     );
     expect(out.ok).toBe(false);
@@ -203,13 +203,31 @@ describe('Anthropic adapter + model planner', () => {
     expect(calls).toHaveLength(1); // no repair attempt after a refusal
   });
 
+  it('plans on Sonnet 5.5 (effort medium) unless the user chose Opus', async () => {
+    const { client, calls } = fakeClient([
+      message(JSON.stringify(validPlan), { model: 'claude-sonnet-5-5' }),
+    ]);
+    const out = await planTask(
+      { config, adapter: createAnthropicAdapter({ client }), route },
+      planningInput('Summarize https://example.com/a and email it to me'),
+    );
+    expect(out.ok).toBe(true);
+    expect(out.planner).toEqual({
+      mode: 'model',
+      provider: 'anthropic',
+      model: 'claude-sonnet-5-5',
+    });
+    expect(calls[0]!.model).toBe('claude-sonnet-5-5');
+    expect(calls[0]!.output_config).toMatchObject({ effort: 'medium' });
+  });
+
   it('treats a truncated plan (max_tokens) as invalid and repairs', async () => {
     const { client, calls } = fakeClient([
       message('{"title":"x","objective":"y","steps":[', { stop: 'max_tokens' }),
       message(JSON.stringify(validPlan)),
     ]);
     const out = await planTask(
-      { config, adapter: createAnthropicAdapter({ client }), route },
+      { config, adapter: createAnthropicAdapter({ client }), route, planningModel: 'deep' },
       planningInput('Summarize https://example.com/a and email it to me'),
     );
     expect(out.ok).toBe(true);
@@ -254,7 +272,7 @@ describe('Anthropic adapter + model planner', () => {
       }),
     ]);
     const out = await planTask(
-      { config, adapter: createAnthropicAdapter({ client }), route },
+      { config, adapter: createAnthropicAdapter({ client }), route, planningModel: 'deep' },
       planningInput('Summarize https://example.com/a and email it to me'),
     );
     expect(out.ok).toBe(true);
@@ -335,7 +353,7 @@ describe('Anthropic adapter + model planner', () => {
       new Anthropic.RateLimitError(429, undefined, 'rate', new Headers()),
     ]);
     const out = await planTask(
-      { config, adapter: createAnthropicAdapter({ client }), route },
+      { config, adapter: createAnthropicAdapter({ client }), route, planningModel: 'deep' },
       planningInput('x'),
     );
     expect(out.ok).toBe(false);

@@ -245,6 +245,12 @@ const settings: Catalog<typeof source> = {
     externalModels: 'السماح بنماذج الذكاء الاصطناعي الخارجية',
     externalModelsDescription:
       'عند التفعيل، قد يُرسل طلبك والذكريات ذات الصلة إلى مزوّد الذكاء الاصطناعي المضبوط على هذا الخادم لتخطيطه والإجابة عنه. عند الإيقاف، لا يُرسل شيء إلى أي نموذج خارجي ويعمل JARVIS في الوضع الأساسي.',
+    planningModel: 'نموذج التخطيط',
+    planningModelOption: { balanced: 'Claude Sonnet 5.5', deep: 'Claude Opus 5.5' },
+    planningModelHint: {
+      balanced: 'سريع وقليل التكلفة. يُنصح به للمهام اليومية.',
+      deep: 'أقوى نموذج للمهام المعقدة. تكلفة التخطيط ضعف التكلفة تقريبًا.',
+    },
     externalModelsInactive:
       'لم يُضبط أي مزوّد للذكاء الاصطناعي على هذا الخادم، لذا لا أثر لهذا الخيار بعد.',
     autoApprove: 'إرسال الرسائل إليّ دون سؤال',

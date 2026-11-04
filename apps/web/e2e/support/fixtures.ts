@@ -288,7 +288,7 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
         voiceNames: { en: null, de: null, ar: null },
       },
       autonomy: { autoApproveEmailToSelf: false },
-      ai: { allowExternalModels: true },
+      ai: { allowExternalModels: true, planningModel: 'balanced' },
       notifications: { approvalRequested: true, taskCompleted: true, taskFailed: true },
       spending: { monthlyAiBudgetUsd: 20, monthlyPurchaseLimitUsd: 0 },
       memory: { enabled: true },

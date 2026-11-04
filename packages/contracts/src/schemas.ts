@@ -136,6 +136,10 @@ export const SkillPreferences = z.object({
 });
 export type SkillPreferences = z.infer<typeof SkillPreferences>;
 
+/** The model tier that plans tasks (preferences.ai.planningModel). */
+export const PlanningModel = z.enum(['balanced', 'deep']);
+export type PlanningModel = z.infer<typeof PlanningModel>;
+
 export const Preferences = z.object({
   voice: z.object({
     /** Read final results aloud after a voice request. */
@@ -184,6 +188,11 @@ export const Preferences = z.object({
   ai: z.object({
     /** When false, requests are never sent to external model providers. */
     allowExternalModels: z.boolean(),
+    /**
+     * Which model plans tasks: 'balanced' (Claude Sonnet 5.5, effort medium; the default,
+     * fast and inexpensive) or 'deep' (Claude Opus 5.5, effort medium; strongest, ~2× cost).
+     */
+    planningModel: PlanningModel.default('balanced'),
   }),
   notifications: z.object({
     approvalRequested: z.boolean(),
@@ -226,7 +235,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
     voiceNames: { en: null, de: null, ar: null },
   },
   autonomy: { autoApproveEmailToSelf: false },
-  ai: { allowExternalModels: true },
+  ai: { allowExternalModels: true, planningModel: 'balanced' },
   notifications: { approvalRequested: true, taskCompleted: true, taskFailed: true },
   spending: { monthlyAiBudgetUsd: 20, monthlyPurchaseLimitUsd: 0 },
   memory: { enabled: true },
@@ -296,7 +305,8 @@ export const UpdateMeRequest = z
           })
           .partial(),
         autonomy: Preferences.shape.autonomy.partial(),
-        ai: Preferences.shape.ai.partial(),
+        // Spelled out without defaults: a PATCH that omits planningModel keeps it.
+        ai: z.object({ allowExternalModels: z.boolean(), planningModel: PlanningModel }).partial(),
         notifications: Preferences.shape.notifications.partial(),
         // Spelled out without defaults: a PATCH that omits a field must keep its stored value.
         spending: z

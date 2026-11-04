@@ -92,16 +92,16 @@ describe('model mode', () => {
       expect(done.planner).toEqual({
         mode: 'model',
         provider: 'anthropic',
-        model: 'claude-opus-5-5',
+        model: 'claude-sonnet-5-5',
       });
       expect(done.title).toBe('Capital of France');
       expect(done.answer).toBe('Paris is the capital of France.');
       expect(done.resultSummary).toBe('Paris is the capital of France.');
       expect(done.evidence.map((e) => e.kind)).toEqual(['model_output']);
 
-      // Planning on the deep tier, the answer on the balanced tier; no extra result-summary call.
+      // Planning and the answer on the balanced tier by default; no extra result-summary call.
       expect(model.calls.map((c) => [c.purpose, c.model])).toEqual([
-        ['planning', 'claude-opus-5-5'],
+        ['planning', 'claude-sonnet-5-5'],
         ['answer', 'claude-sonnet-5-5'],
       ]);
       // The planner prompt carries the catalog of available tools only (no smtp/web connected).
@@ -111,10 +111,10 @@ describe('model mode', () => {
 
       const m = await metering(user, s.id);
       expect(m.usage.map((u) => [u.model, u.input_tokens, u.output_tokens])).toEqual([
-        ['claude-opus-5-5', 2_000, 600],
+        ['claude-sonnet-5-5', 2_000, 600],
         ['claude-sonnet-5-5', 1_500, 300],
       ]);
-      const planning = 2_000 * 4 + 600 * 20; // 20,000 µ$
+      const planning = 2_000 * 2 + 600 * 10; // 10,000 µ$
       const answer = 1_500 * 2 + 300 * 10; // 6,000 µ$
       expect(m.costs.map((c) => c.amount_micro).sort((a, b) => a - b)).toEqual([answer, planning]);
       expect(m.costs.every((c) => c.category === 'model' && c.usage_event_id)).toBe(true);

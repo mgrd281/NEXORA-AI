@@ -89,7 +89,15 @@ describe('model router', () => {
   });
 
   it('maps purposes to tiers', () => {
+    // Planning: Sonnet by default; Opus only when the user chose it (preferences.ai.planningModel).
     expect(selectModel(models, 'planning')).toMatchObject({
+      model: 'claude-sonnet-5-5',
+      effort: 'medium',
+    });
+    expect(selectModel(models, 'planning', { planningModel: 'balanced' }).model).toBe(
+      'claude-sonnet-5-5',
+    );
+    expect(selectModel(models, 'planning', { planningModel: 'deep' })).toMatchObject({
       model: 'claude-opus-5-5',
       effort: 'medium',
     });

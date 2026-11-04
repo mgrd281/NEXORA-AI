@@ -531,7 +531,9 @@ describe('task creation and status', () => {
         provider: 'anthropic',
         reason: null,
       });
-      const optedOut = await newUser(withKey.db, { ai: { allowExternalModels: false } });
+      const optedOut = await newUser(withKey.db, {
+        ai: { allowExternalModels: false, planningModel: 'balanced' },
+      });
       expect((await withKey.services.status.get(optedOut)).planner.reason).toBe(
         'USER_DISABLED_EXTERNAL_MODELS',
       );

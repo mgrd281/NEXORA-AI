@@ -1,6 +1,6 @@
 'use client';
 
-import type { AssistantStatus, Me } from '@jarvis/contracts';
+import type { AssistantStatus, Me, PlanningModel } from '@jarvis/contracts';
 import { CircleCheck, CircleMinus, Info } from 'lucide-react';
 import Link from 'next/link';
 import { useId } from 'react';
@@ -8,12 +8,14 @@ import { plannerLabel } from '@/components/shell/AssistantStatusLine';
 import { ErrorBanner } from '@/components/ui/Banner';
 import { Icon } from '@/components/ui/Icon';
 import { RelativeTime } from '@/components/ui/RelativeTime';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useI18n } from '@/i18n/I18nProvider';
 import type { MessageKey } from '@/i18n/catalog';
 import { useAssistantStatus } from '@/lib/api/hooks';
 import { cx } from '@/lib/cx';
-import { PreferenceSwitch, SettingsCard } from './controls';
+import { useSaveMe } from './api';
+import { PreferenceSwitch, SaveStatus, SettingRow, SettingsCard } from './controls';
 import { SettingsSection } from './SettingsSection';
 import styles from './settings.module.css';
 
@@ -43,6 +45,7 @@ export function AssistantSection({ me }: { me: Me }) {
           read={(m) => m.preferences.ai.allowExternalModels}
           write={(v) => ({ preferences: { ai: { allowExternalModels: v } } })}
         />
+        <PlanningModelRow me={me} />
         <PreferenceSwitch
           me={me}
           label={t('settings.assistant.autoApprove')}
@@ -52,6 +55,35 @@ export function AssistantSection({ me }: { me: Me }) {
         />
       </SettingsCard>
     </SettingsSection>
+  );
+}
+
+/** Which Claude model plans tasks: Sonnet 5.5 (default, inexpensive) or Opus 5.5 (strongest). */
+function PlanningModelRow({ me }: { me: Me }) {
+  const { t } = useI18n();
+  const saver = useSaveMe();
+  const saved = me.preferences.ai.planningModel ?? 'balanced';
+  const value = saver.variables?.preferences?.ai?.planningModel ?? saved;
+  const off = !me.preferences.ai.allowExternalModels;
+  return (
+    <SettingRow>
+      <SegmentedControl<PlanningModel>
+        legend={t('settings.assistant.planningModel')}
+        showLegend
+        value={value}
+        onChange={(next) => {
+          if (next === saved || saver.pending) return;
+          saver.save({ preferences: { ai: { planningModel: next } } });
+        }}
+        options={(['balanced', 'deep'] as const).map((v) => ({
+          value: v,
+          label: t(`settings.assistant.planningModelOption.${v}`),
+          disabled: off,
+        }))}
+      />
+      <p className={styles.note}>{t(`settings.assistant.planningModelHint.${value}`)}</p>
+      <SaveStatus state={saver.state} error={saver.error} />
+    </SettingRow>
   );
 }
 

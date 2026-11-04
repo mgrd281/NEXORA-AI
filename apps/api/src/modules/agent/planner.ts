@@ -195,7 +195,14 @@ function numberLiteralnessFailed(issues: string[]): boolean {
 }
 
 export async function planTask(
-  deps: { config: Config; adapter: ModelAdapter | null; route: ModelRoute; signal?: AbortSignal },
+  deps: {
+    config: Config;
+    adapter: ModelAdapter | null;
+    route: ModelRoute;
+    signal?: AbortSignal;
+    /** preferences.ai.planningModel (default 'balanced': Sonnet). */
+    planningModel?: 'balanced' | 'deep';
+  },
   input: PlanningInput,
 ): Promise<PlanOutcome> {
   const toolMap = new Map(input.tools.map((t) => [t.id, t]));
@@ -262,7 +269,7 @@ export async function planTask(
     return { ok: true, plan: checked.plan, planner: OFFLINE_PLANNER, usage: [] };
   }
 
-  const choice = selectModel(deps.config, 'planning');
+  const choice = selectModel(deps.config, 'planning', { planningModel: deps.planningModel });
   const planner: PlannerInfo = {
     mode: 'model',
     provider: deps.adapter.provider,

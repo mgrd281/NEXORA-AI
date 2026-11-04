@@ -247,6 +247,12 @@ const settings = {
     externalModels: 'Allow external AI models',
     externalModelsDescription:
       'When on, your request and relevant memories may be sent to the AI provider configured on this server to plan and answer it. When off, nothing is sent to an external model and JARVIS runs in basic mode.',
+    planningModel: 'Planning model',
+    planningModelOption: { balanced: 'Claude Sonnet 5.5', deep: 'Claude Opus 5.5' },
+    planningModelHint: {
+      balanced: 'Fast and inexpensive. Recommended for everyday tasks.',
+      deep: 'The strongest model for complex tasks. Planning costs about twice as much.',
+    },
     externalModelsInactive: 'No AI provider is set up on this server, so this has no effect yet.',
     autoApprove: 'Send emails to myself without asking',
     autoApproveDescription:

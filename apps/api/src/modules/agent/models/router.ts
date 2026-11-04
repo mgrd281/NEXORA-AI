@@ -10,9 +10,11 @@
  *    extractive, and assistant.answer is unavailable. Nothing leaves the server.
  *
  * 2. Tier per purpose (only in model mode):
- *      planning        → MODEL_DEEP     (Claude Opus 5.5, effort medium) — the plan
- *                                          is the safety-critical artefact, so it
- *                                          gets the strongest model.
+ *      planning        → MODEL_BALANCED (Claude Sonnet 5.5, effort medium) by default;
+ *                        MODEL_DEEP     (Claude Opus 5.5, effort medium) when the user
+ *                                          chose preferences.ai.planningModel = 'deep'.
+ *                                          Either way the plan is validated and policy-
+ *                                          checked deterministically before anything runs.
  *      answer          → MODEL_BALANCED (Claude Sonnet 5.5, effort medium)
  *      summarize       → MODEL_FAST     (Claude Haiku 5.5, effort low); text longer
  *                                          than 60k chars → MODEL_BALANCED
@@ -71,11 +73,15 @@ export interface ModelChoice {
 export function selectModel(
   config: Pick<Config, 'MODEL_FAST' | 'MODEL_BALANCED' | 'MODEL_DEEP'>,
   purpose: ModelPurpose,
-  opts: { inputChars?: number } = {},
+  opts: { inputChars?: number; planningModel?: 'balanced' | 'deep' } = {},
 ): ModelChoice {
   switch (purpose) {
     case 'planning':
-      return { model: config.MODEL_DEEP, effort: 'medium', maxTokens: 16_000 };
+      return {
+        model: opts.planningModel === 'deep' ? config.MODEL_DEEP : config.MODEL_BALANCED,
+        effort: 'medium',
+        maxTokens: 16_000,
+      };
     case 'answer':
       return { model: config.MODEL_BALANCED, effort: 'medium', maxTokens: 16_000 };
     case 'summarize':

@@ -254,6 +254,12 @@ const settings: Catalog<typeof source> = {
     externalModels: 'Externe KI-Modelle erlauben',
     externalModelsDescription:
       'Wenn aktiv, können deine Anfrage und passende Erinnerungen an den auf diesem Server eingerichteten KI-Anbieter gesendet werden, um sie zu planen und zu beantworten. Wenn aus, geht nichts an ein externes Modell und JARVIS arbeitet im Basismodus.',
+    planningModel: 'Modell für die Planung',
+    planningModelOption: { balanced: 'Claude Sonnet 5.5', deep: 'Claude Opus 5.5' },
+    planningModelHint: {
+      balanced: 'Schnell und günstig. Empfohlen für alltägliche Aufgaben.',
+      deep: 'Das stärkste Modell für komplexe Aufgaben. Die Planung kostet etwa doppelt so viel.',
+    },
     externalModelsInactive:
       'Auf diesem Server ist kein KI-Anbieter eingerichtet, daher wirkt sich das noch nicht aus.',
     autoApprove: 'E-Mails an mich ohne Rückfrage senden',

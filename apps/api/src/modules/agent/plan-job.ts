@@ -229,7 +229,13 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
       telephonyAvailable: a.telephony?.configured === true,
     });
     outcome = await planTask(
-      { config: deps.config, adapter: deps.adapter, route: a.route, signal: deps.signal },
+      {
+        config: deps.config,
+        adapter: deps.adapter,
+        route: a.route,
+        signal: deps.signal,
+        planningModel: a.preferences.ai.planningModel,
+      },
       {
         request: start.task.request,
         language: start.language,

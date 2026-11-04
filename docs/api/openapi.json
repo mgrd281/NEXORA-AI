@@ -13355,6 +13355,10 @@
         "required": ["mode", "provider", "model"],
         "additionalProperties": false
       },
+      "PlanningModel": {
+        "type": "string",
+        "enum": ["balanced", "deep"]
+      },
       "Platform": {
         "type": "string",
         "enum": ["web", "ios", "android", "macos"]
@@ -13520,9 +13524,13 @@
             "properties": {
               "allowExternalModels": {
                 "type": "boolean"
+              },
+              "planningModel": {
+                "default": "balanced",
+                "$ref": "#/components/schemas/PlanningModel"
               }
             },
-            "required": ["allowExternalModels"],
+            "required": ["allowExternalModels", "planningModel"],
             "additionalProperties": false
           },
           "notifications": {
@@ -16341,6 +16349,10 @@
                 "properties": {
                   "allowExternalModels": {
                     "type": "boolean"
+                  },
+                  "planningModel": {
+                    "type": "string",
+                    "enum": ["balanced", "deep"]
                   }
                 }
               },
