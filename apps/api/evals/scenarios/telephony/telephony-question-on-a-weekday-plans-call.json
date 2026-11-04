@@ -1,0 +1,30 @@
+{
+  "id": "telephony-question-on-a-weekday-plans-call",
+  "version": 1,
+  "suite": "telephony",
+  "title": "\"Call +44 … and ask: do you deliver on Sundays?\" is a call with that question — never a weekly schedule (the weekday is part of what JARVIS asks)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Call +44 20 7946 0958 and ask: do you deliver on Sundays?",
+    "language": "en",
+    "account": {
+      "email": "owner@eval.test",
+      "locale": "en",
+      "timeZone": "Europe/London"
+    },
+    "telephony": {
+      "allowedCountries": ["GB"]
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["phone.call"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "require_approval",
+        "reasonsInclude": ["PHONE_CALL"]
+      }
+    ]
+  }
+}

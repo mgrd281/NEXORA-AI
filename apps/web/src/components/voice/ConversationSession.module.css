@@ -1,0 +1,321 @@
+.conversation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-block-size: 100%;
+}
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding-block-start: var(--space-2);
+  text-align: center;
+}
+
+.status {
+  margin-block-start: var(--space-2);
+  font: var(--text-title3);
+  letter-spacing: var(--tracking-title3);
+  color: var(--color-text-primary);
+}
+
+.help {
+  max-inline-size: 48ch;
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+}
+
+/* ---- waiting for an approval (decided on screen only) */
+
+.approval {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-warning-soft);
+}
+
+.approvalIcon {
+  display: inline-flex;
+  color: var(--color-warning);
+}
+
+.approvalText {
+  flex: 1 1 16rem;
+  font: var(--text-callout);
+  color: var(--color-text-primary);
+}
+
+/* ---- captions */
+
+.captions {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.scroller {
+  min-block-size: 120px;
+  max-block-size: min(40vh, 360px);
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-4);
+  overscroll-behavior: contain;
+}
+
+.scroller:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: calc(var(--focus-width) * -1);
+}
+
+.placeholder {
+  font: var(--text-body);
+  color: var(--color-text-tertiary);
+}
+
+.log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.caption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-inline-size: 88%;
+}
+
+/* JARVIS on the start side, you on the end side (mirrors in RTL). */
+.jarvis {
+  align-self: flex-start;
+}
+
+.user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.speaker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.tag {
+  font-weight: 400;
+  color: var(--color-text-tertiary);
+}
+
+.text {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font: var(--text-body);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.jarvis .text {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-inline-start: 3px solid var(--color-accent);
+}
+
+.user .text {
+  background: var(--color-accent-soft);
+}
+
+.caption[data-kind='approval'] .text,
+.caption[data-kind='busy'] .text {
+  border-inline-start-color: var(--color-warning);
+}
+
+.caption[data-kind='error'] .text {
+  border-inline-start-color: var(--color-danger);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+}
+
+.taskLink {
+  color: var(--color-accent);
+}
+
+.hearing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-block-start: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.hearingText {
+  font: var(--text-body);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.interim {
+  color: var(--color-text-tertiary);
+}
+
+/* ---- text fallback */
+
+.input {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-block: var(--space-1);
+  padding-inline: var(--space-4) var(--space-1);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-control);
+  background: var(--color-surface);
+}
+
+.input:focus-within {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+.field {
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: 40px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font: var(--text-body);
+  color: var(--color-text-primary);
+}
+
+.field::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.tooLong {
+  font: var(--text-caption);
+  color: var(--color-danger);
+}
+
+/* ---- settings and notes */
+
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.language {
+  max-inline-size: 280px;
+}
+
+.note {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+}
+
+.keyboard {
+  display: none;
+}
+
+@media (pointer: fine) {
+  .keyboard {
+    display: block;
+  }
+}
+
+/* ---- the text field and the controls, always in view at the bottom */
+
+.actions {
+  position: sticky;
+  /* Flush with the sheet's bottom edge (the body's own bottom padding is below it). */
+  inset-block-end: calc(var(--space-5) * -1);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-block-start: auto;
+  margin-inline: calc(var(--space-6) * -1);
+  margin-block-end: calc(var(--space-5) * -1);
+  padding: var(--space-3) var(--space-6) var(--space-4);
+  padding-block-end: calc(var(--space-4) + env(safe-area-inset-bottom));
+  border-block-start: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.actionsEnd {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  /* On its own line (long labels) it still sits on the end side. */
+  margin-inline-start: auto;
+}
+
+@media (max-width: 639.98px) {
+  .actions {
+    margin-inline: calc(var(--space-4) * -1);
+    padding-inline: var(--space-4);
+  }
+
+  /* Phones: End and the microphone side by side; typing is the field right above. */
+  .controls {
+    flex-wrap: nowrap;
+  }
+
+  .controls > *,
+  .actionsEnd > * {
+    flex: 1 1 0;
+  }
+
+  .actionsEnd {
+    flex: 1 1 0;
+    order: -1;
+    margin-inline-start: 0;
+  }
+
+  .typeInstead {
+    display: none;
+  }
+
+  .caption {
+    max-inline-size: 94%;
+  }
+
+  .scroller {
+    max-block-size: none;
+  }
+}

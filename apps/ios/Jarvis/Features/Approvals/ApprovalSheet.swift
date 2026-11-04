@@ -135,6 +135,8 @@ struct ApprovalSheet: View {
             PurchasePreview(action: action)
         case .formSubmission(let action):
             FormSubmissionPreview(action: action)
+        case .phoneCall(let action):
+            PhoneCallPreview(action: action)
         case .generic(let action):
             Card {
                 Text(action.toolId.label)
@@ -240,6 +242,8 @@ struct ApprovalSheet: View {
             return String(localized: "Approve and buy")
         case .formSubmission:
             return String(localized: "Approve and submit")
+        case .phoneCall:
+            return String(localized: "Approve and call")
         case .generic, .unknown:
             return String(localized: "Approve")
         }
@@ -250,6 +254,7 @@ struct ApprovalSheet: View {
         case .purchase: String(localized: "Nothing is bought. The task stops at this step.")
         case .booking: String(localized: "Nothing is booked. The task stops at this step.")
         case .calendarEvent: String(localized: "Your calendar isn't changed. The task stops at this step.")
+        case .phoneCall: String(localized: "No call is placed. The task stops at this step.")
         case .email(let email) where email.isDraft: String(localized: "No draft is saved. The task stops at this step.")
         default: String(localized: "Nothing is sent. The task stops at this step.")
         }

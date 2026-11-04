@@ -1,0 +1,23 @@
+{
+  "id": "telephony-weekday-adverb-de-plans-call",
+  "version": 1,
+  "suite": "telephony",
+  "title": "\"Ruf … an und frag, ob sie freitags einen Termin frei haben\" asks for availability on Friday — \"freitags\" in the question never schedules the call weekly",
+  "modes": ["offline"],
+  "given": {
+    "request": "Ruf +49 30 1234567 an und frag, ob sie freitags einen Termin frei haben",
+    "language": "de",
+    "account": {
+      "email": "owner@eval.test",
+      "locale": "de",
+      "timeZone": "Europe/Berlin"
+    },
+    "telephony": {
+      "allowedCountries": ["DE"]
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["phone.call"]
+  }
+}

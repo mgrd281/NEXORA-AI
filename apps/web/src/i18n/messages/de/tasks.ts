@@ -10,6 +10,7 @@ const tasks: Catalog<typeof source> = {
     tasks: 'Aufgaben',
     conversations: 'Gespräche',
     scheduled: 'Geplant',
+    calls: 'Anrufe',
   },
   filters: {
     legend: 'Aufgaben anzeigen',
@@ -133,6 +134,7 @@ const tasks: Catalog<typeof source> = {
     bodyPurchase:
       'JARVIS gibt die Bestellung erst auf, wenn du den genauen Gesamtbetrag freigibst.',
     bodyForm: 'JARVIS sendet das Formular erst ab, wenn du die Angaben freigibst.',
+    bodyPhoneCall: 'JARVIS ruft erst an, wenn du genehmigst, wen es anruft und was genau es sagt.',
   },
   answer: {
     title: 'Antwort',
@@ -236,6 +238,14 @@ const tasks: Catalog<typeof source> = {
       PURCHASE_CURRENCY: 'Der Preis ist nicht in US-Dollar, der Währung deines Kauflimits.',
       PURCHASE: 'Es kostet Geld, daher fragt JARVIS immer zuerst.',
       BINDING_COMMITMENT: 'Es ist gegenüber der Website verbindlich, daher fragt JARVIS zuerst.',
+      DO_NOT_CALL: 'Diese Nummer möchte nicht mehr angerufen werden.',
+      CALL_OUTSIDE_HOURS: 'Es ist außerhalb der Zeiten, in denen JARVIS anruft.',
+      CALL_LIMIT: 'JARVIS hat heute schon so viele Anrufe getätigt wie erlaubt.',
+      CALL_DESTINATION_BLOCKED: 'JARVIS ruft solche Nummern oder dieses Land nicht an.',
+      TELEPHONY_NOT_CONFIGURED: 'Anrufe sind auf diesem Server nicht eingerichtet.',
+      PHONE_CALL: 'Dabei spricht JARVIS am Telefon für dich, deshalb fragt es immer zuerst.',
+      CALL_RECORDING: 'Der Anruf würde aufgezeichnet – nur, wenn die andere Person zustimmt.',
+      CALL_PERSONAL_INFO: 'JARVIS darf persönliche Angaben weitergeben, die du genannt hast.',
     },
   },
   fields: {
@@ -335,6 +345,25 @@ const tasks: Catalog<typeof source> = {
       ORDER_CONFIRMATION: 'Bestellung vom Shop bestätigt',
       CART_SNAPSHOT: 'Warenkorb im Shop',
       HANDOVER: 'An dich übergeben',
+      CALL_PLACED: 'Anruf vom Anbieter aufgebaut',
+      CALL_ENDED: 'Anruf beendet',
+      AI_DISCLOSED: 'Als KI-Assistent vorgestellt',
+      RECORDING_CONSENT: 'Einwilligung zur Aufzeichnung',
+      CALL_TRANSCRIPT: 'Gesprächsverlauf',
+      CALL_RECORDING: 'Aufzeichnung (mit Einwilligung)',
+      CALL_TRANSFER: 'Zu dir durchgestellt',
+      DO_NOT_CALL_RECORDED: 'Diese Nummer wird nicht mehr angerufen',
+    },
+    phaseD: {
+      placed: 'Der Telefonanbieter hat den Anruf angenommen',
+      ended: '{result} · {duration}',
+      disclosed: 'In Satz {n} des Anrufs, vor allem anderen',
+      consent:
+        '{consent, select, accepted {Der Aufnahme zugestimmt} declined {Die Aufnahme abgelehnt} other {Nicht gefragt}}',
+      transcript: '{turns, plural, one {# Satz} other {# Sätze}} des Anrufs als Text gespeichert',
+      recording: '{duration}, mit Einwilligung aufgenommen',
+      transfer: 'Status beim Anbieter: {status}',
+      doNotCall: 'Auf die Sperrliste gesetzt: {number}',
     },
     phaseC: {
       providerResponse: '{provider} hat mit Status {status} geantwortet',
@@ -373,6 +402,12 @@ const tasks: Catalog<typeof source> = {
       cart: 'Schließ den Kauf im Shop ab',
       unknownOrder: 'Ergebnis der Bestellung unklar',
       unconfirmedBooking: 'Die Buchung ist nicht bestätigt',
+      callRetry: 'Der Anruf hat niemanden erreicht',
+      callUnknown: 'Unklar, ob der Anruf getätigt wurde',
+      doNotCall: 'Diese Nummer möchte nicht angerufen werden',
+      callHours: 'Außerhalb der Anrufzeiten',
+      callDeclined: 'Kein Gespräch mit einer KI gewünscht',
+      callRecording: 'Die Aufnahme wurde abgelehnt',
     },
     reconnect:
       'Nach dem neuen Verbinden bietet JARVIS dir an, diese Aufgabe zu wiederholen. Bis dahin wurde nichts ausgeführt.',
@@ -401,6 +436,18 @@ const tasks: Catalog<typeof source> = {
     viewOrders: 'Bestellungen ansehen',
     unconfirmedBooking:
       'Die Buchung wurde gesendet, aber die Website hat keine Bestätigung gezeigt. Frag bei der Website nach, bevor du es erneut versuchst; eine Wiederholung sucht die Buchung zuerst.',
+    callRetry:
+      'Ein neuer Versuch ist ein neuer Anruf und wird erneut gegen die Anrufzeiten, dein Tageslimit und die Sperrliste geprüft.',
+    callUnknown:
+      'Ein neuer Versuch fragt erst nach, ob du es geprüft hast. JARVIS sucht den Anruf dann zuerst beim Anbieter und wählt dafür nie zweimal.',
+    doNotCall:
+      'Unter dieser Nummer wurde JARVIS gebeten, nicht mehr anzurufen. Entferne sie nur von der Liste, wenn das ein Missverständnis war.',
+    manageDoNotCall: 'Sperrliste öffnen',
+    callHours:
+      'JARVIS ruft nur innerhalb der erlaubten Zeiten in der Zeitzone der angerufenen Person an. Versuche es dann erneut.',
+    callDeclined: 'JARVIS ruft dafür nicht noch einmal an. Ruf bei Bedarf selbst an.',
+    callRecording:
+      'Frage erneut ohne verpflichtende Aufnahme, wenn der Anruf auch ohne sie möglich ist.',
   },
   phaseC: {
     failure: {
@@ -636,6 +683,14 @@ const tasks: Catalog<typeof source> = {
     offersCompared:
       '{count, plural, one {# Angebot} other {# Angebote}} verglichen, jeweils mit Quellseite',
     withinLimit: 'Innerhalb deines monatlichen Kauflimits ({remaining} übrig)',
+    callConnected: 'Der Telefonanbieter hat den Anruf aufgebaut ({callSid})',
+    aiDisclosed: 'JARVIS hat zuerst gesagt, dass es ein KI-Assistent ist',
+    callEnded: 'Anruf beendet: {result}',
+    goalReached: 'Das Ziel des Anrufs wurde erreicht',
+    detailsCollected: '{count, plural, one {# Angabe} other {# Angaben}} aus dem Gespräch notiert',
+    consentRespected: 'Einwilligung zur Aufzeichnung beachtet ({consent})',
+    transcriptStored:
+      '{turns, plural, one {# Gesprächsbeitrag} other {# Gesprächsbeiträge}} als Nachweis gespeichert',
   },
   events: {
     created: 'Du hast JARVIS gefragt',
@@ -694,6 +749,7 @@ const tasks: Catalog<typeof source> = {
       book: '{service} auf {site} buchen',
       compareProducts: 'Angebote für {query} vergleichen',
       buy: '{product} auf {site} kaufen',
+      call: '{who} anrufen',
     },
     objective: {
       summarize: '{url} lesen und zusammenfassen.',
@@ -717,6 +773,7 @@ const tasks: Catalog<typeof source> = {
       compareProducts:
         'Preise, Versandkosten und Lieferzeiten für {query} in den unterstützten Shops vergleichen.',
       buy: '{product} auf {site} bestellen, sobald du den genauen Gesamtbetrag bestätigst.',
+      call: '{who} als KI-Assistent anrufen und berichten, was gesagt wurde.',
     },
     step: {
       fetch: '{host} lesen',
@@ -749,6 +806,7 @@ const tasks: Catalog<typeof source> = {
       compareOffers: 'Angebote vergleichen',
       prepareCart: 'Warenkorb auf {site} füllen',
       checkout: 'Bestellung auf {site} aufgeben',
+      call: '{who} anrufen',
     },
     approval: {
       email: 'Die E-Mail „{subject}“ an {recipients} senden.',
@@ -765,6 +823,7 @@ const tasks: Catalog<typeof source> = {
       formSubmission: 'Das Formular auf {site} absenden.',
       cart: 'Die Artikel auf {site} in den Warenkorb legen – es wird nichts gekauft.',
       purchase: 'Für {total} bei {merchant} kaufen.',
+      call: '{who} ({number}) anrufen und als KI-Assistent für dich sprechen.',
     },
     result: {
       emailSent: '„{subject}“ an {recipients} gesendet.',
@@ -784,6 +843,9 @@ const tasks: Catalog<typeof source> = {
       formSubmitted: 'Formular auf {site} abgesendet.',
       cartPrepared: 'Der Warenkorb auf {site} ist bereit – es wurde nichts gekauft.',
       orderPlaced: 'Bei {merchant} bestellt (Bestellung {orderId}).',
+      callCompleted: '{who} angerufen – das Ziel des Anrufs wurde erreicht.',
+      callAnswered: '{who} angerufen – der Anruf wurde angenommen, das Ziel aber nicht erreicht.',
+      callTransferred: '{who} angerufen und zu dir durchgestellt.',
     },
     question: {
       emailContent: 'Was soll in der E-Mail stehen?',
@@ -800,6 +862,9 @@ const tasks: Catalog<typeof source> = {
         'Welche Angaben soll ich der Website geben? Zum Beispiel deine Telefonnummer.',
       product: 'Welches Produkt meinst du? Nenne das Modell oder füge den Link ein.',
       site: 'Wo soll ich nachsehen? Nenne eine der unterstützten Websites.',
+      phoneNumber:
+        'Welche Nummer soll ich anrufen? Schreib sie mit Ländervorwahl, zum Beispiel +49 30 1234567.',
+      callGoal: 'Was soll ich am Telefon sagen oder fragen?',
     },
   },
 };

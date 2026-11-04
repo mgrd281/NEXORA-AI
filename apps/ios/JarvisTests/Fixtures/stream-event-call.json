@@ -1,0 +1,13 @@
+{
+  "id": "9123",
+  "type": "call.status_changed",
+  "taskId": null,
+  "at": "2026-11-04T09:20:00.000Z",
+  "data": {
+    "callId": "e5f6a7b8-c9d0-4e1f-8a2b-4c5d6e7f8091",
+    "taskId": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+    "stepId": "c3d4e5f6-a7b8-4c9d-8e0f-2a3b4c5d6e7f",
+    "status": "ringing",
+    "result": null
+  }
+}

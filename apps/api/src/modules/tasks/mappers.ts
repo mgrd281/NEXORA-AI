@@ -5,6 +5,7 @@
  */
 import {
   AssistantQuestion,
+  Locale,
   TaskEventType,
   canCancel,
   canRetryTask,
@@ -24,6 +25,7 @@ import type { ApprovalRow, StepRow, TaskRow } from '../../db/types';
 import { asMessage } from '../agent/i18n';
 import { loadTaskAttachments } from '../attachments/mappers';
 import { loadTaskBrowserSessions } from '../evidence/mappers';
+import { callsOfTask } from '../telephony/mappers';
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
@@ -141,6 +143,8 @@ export function toTaskSummary(t: TaskAggregate): TaskSummary {
     question: t.outcome === 'question' ? toQuestion(t.question) : null,
     scheduleId: t.schedule_id ?? null,
     attachmentCount: Number(t.attachment_count ?? 0),
+    // Phase D: the request's language as the planner detected it (voice mode speaks in it).
+    language: Locale.safeParse(t.language).data ?? null,
   };
 }
 
@@ -232,7 +236,7 @@ export async function loadTaskDetail(
   const t = (await taskSummaryQuery(trx).where('t.id', '=', taskId).executeTakeFirst()) as
     TaskAggregate | undefined;
   if (!t) return null;
-  const [steps, approvals, events, attachments, browserSessions] = await Promise.all([
+  const [steps, approvals, events, attachments, browserSessions, calls] = await Promise.all([
     trx
       .selectFrom('task_steps')
       .selectAll()
@@ -253,6 +257,8 @@ export async function loadTaskDetail(
     loadTaskAttachments(trx, [taskId]),
     // Phase C: the browser agent's sessions, oldest first, with their evidence files.
     loadTaskBrowserSessions(trx, taskId),
+    // Phase D: the task's phone calls, oldest first (turns up to CALL_LIMITS.turnsInTaskDetail).
+    callsOfTask(trx, taskId),
   ]);
   const summary = toTaskSummary(t);
   return {
@@ -273,6 +279,7 @@ export async function loadTaskDetail(
     startedAt: iso(t.started_at),
     attachments: attachments.get(taskId) ?? [],
     browserSessions,
+    calls,
   };
 }
 

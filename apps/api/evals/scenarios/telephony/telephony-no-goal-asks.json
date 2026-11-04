@@ -1,0 +1,24 @@
+{
+  "id": "telephony-no-goal-asks",
+  "version": 1,
+  "suite": "telephony",
+  "title": "\"Call +49 30 1234567\" with nothing to say or ask: JARVIS asks what the call is for",
+  "modes": ["offline"],
+  "given": {
+    "request": "Call +49 30 1234567",
+    "language": "en",
+    "account": {
+      "email": "owner@eval.test",
+      "locale": "en",
+      "timeZone": "Europe/Berlin"
+    },
+    "telephony": {
+      "allowedCountries": ["DE"]
+    }
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["call_goal"],
+    "sideEffectsAtMost": 0
+  }
+}

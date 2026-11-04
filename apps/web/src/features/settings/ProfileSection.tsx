@@ -6,6 +6,7 @@ import { TextField } from '@/components/ui/Field';
 import { useI18n } from '@/i18n/I18nProvider';
 import { useSaveMe } from './api';
 import { SaveStatus, SettingRow, SettingsCard } from './controls';
+import { PhoneNumberRow } from './PhoneNumberRow';
 import { SettingsSection } from './SettingsSection';
 import styles from './settings.module.css';
 
@@ -96,6 +97,7 @@ export function ProfileSection({ me }: { me: Me }) {
             {t('settings.profile.memberSince', { date: f.date(me.createdAt) })}
           </p>
         </SettingRow>
+        <PhoneNumberRow me={me} />
       </SettingsCard>
     </SettingsSection>
   );

@@ -160,6 +160,8 @@ struct TaskSummary: Decodable, Sendable, Equatable, Identifiable {
     /// The schedule that created this task (source `schedule`).
     var scheduleId: String? = nil
     var attachmentCount: Int? = nil
+    /// Phase D: the request's language as the planner detected it (nil until planned).
+    var language: AppLocale? = nil
 
     var displayTitle: String { titleMessage.rendered(or: title) }
 
@@ -228,6 +230,10 @@ struct TaskDetail: Decodable, Sendable, Equatable, Identifiable {
     var attachments: [Attachment]? = nil
     /// Phase C: the browser agent's sessions for this task, oldest first.
     var browserSessions: [BrowserSession]? = nil
+    /// Phase D: the task's phone calls (attempts), oldest first.
+    var calls: [CallSession]? = nil
+    /// Phase D: the request's language as the planner detected it (nil until planned).
+    var language: AppLocale? = nil
 
     private enum CodingKeys: String, CodingKey {
         case id, title, request, status, riskLevel, source, progress, pendingApprovalId
@@ -236,7 +242,8 @@ struct TaskDetail: Decodable, Sendable, Equatable, Identifiable {
         case pendingApprovalRef = "pendingApproval"
         case outcome, question, scheduleId, attachmentCount
         case objective, objectiveMessage, conversationId, planner, answer, steps, approvals
-        case events, cost, evidence, canCancel, canRetry, startedAt, attachments, browserSessions
+        case events, cost, evidence, canCancel, canRetry, startedAt, attachments, browserSessions, calls
+        case language
     }
 
     var displayTitle: String { titleMessage.rendered(or: title) }
@@ -264,6 +271,12 @@ struct TaskDetail: Decodable, Sendable, Equatable, Identifiable {
     /// email that may have been sent). Retrying then needs an explicit acknowledgement.
     var hasUnknownOutcome: Bool {
         error?.code == .outcomeUnknown || steps.contains { $0.error?.code == .outcomeUnknown }
+    }
+
+    /// Phase D: the provider didn't confirm whether a call was placed (`CALL_STATE_UNKNOWN`).
+    var hasUnknownCallState: Bool {
+        error?.reason == "CALL_STATE_UNKNOWN" || steps.contains { $0.error?.reason == "CALL_STATE_UNKNOWN" }
+            || (calls ?? []).contains { $0.status == .outcomeUnknown }
     }
 }
 

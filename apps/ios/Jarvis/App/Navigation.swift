@@ -45,6 +45,21 @@ struct BookingRoute: Hashable {
 /// Threads JARVIS watches for replies.
 struct EmailWatchesRoute: Hashable {}
 
+// Phase D
+/// One call with every turn.
+struct CallRoute: Hashable {
+    let id: String
+}
+
+/// Calls JARVIS placed.
+struct CallsRoute: Hashable {}
+
+/// The account's phone number and its verification.
+struct PhoneSettingsRoute: Hashable {}
+
+/// Numbers JARVIS won't call.
+struct DoNotCallRoute: Hashable {}
+
 extension View {
     /// Registers the app's push destinations. Apply once per NavigationStack, on its root view.
     func jarvisDestinations() -> some View {
@@ -80,6 +95,18 @@ extension View {
         }
         .navigationDestination(for: EmailWatchesRoute.self) { _ in
             EmailWatchesView()
+        }
+        .navigationDestination(for: CallRoute.self) { route in
+            CallDetailView(callId: route.id)
+        }
+        .navigationDestination(for: CallsRoute.self) { _ in
+            CallsView()
+        }
+        .navigationDestination(for: PhoneSettingsRoute.self) { _ in
+            PhoneSettingsView()
+        }
+        .navigationDestination(for: DoNotCallRoute.self) { _ in
+            DoNotCallView()
         }
     }
 }

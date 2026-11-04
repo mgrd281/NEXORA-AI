@@ -12,6 +12,8 @@ export interface ShellState {
   isAdmin: boolean;
   /** Voice capture is active somewhere in the app (drives Presence 'listening'). */
   setListening: (listening: boolean) => void;
+  /** JARVIS is speaking in a voice conversation (drives Presence 'speaking'). */
+  setSpeaking: (speaking: boolean) => void;
   openShortcuts: () => void;
 }
 

@@ -81,6 +81,7 @@ import { PlanSection } from './PlanSection';
 import { NextStep, hasNextStep } from './phase-c/NextStep';
 import { SessionArtifactsContext } from './phase-c/PhaseCEvidence';
 import { PhaseCResults } from './phase-c/PhaseCResults';
+import { CallResults } from '@/features/calls/CallCard';
 import { useTaskActions } from './TaskActions';
 import styles from './TaskDetail.module.css';
 
@@ -269,6 +270,7 @@ function TaskDetailView({
                 task={task}
                 onChooseSlot={showFollowUp ? (text) => followUp.current?.setText(text) : undefined}
               />
+              <CallResults task={task} />
               <ConversationContinuation
                 followUpRef={followUp}
                 conversationId={task.conversationId}
@@ -468,6 +470,8 @@ const APPROVAL_BODY: Record<Approval['details']['kind'], MessageKey> = {
   booking: 'tasks.approvalPanel.bodyBooking',
   purchase: 'tasks.approvalPanel.bodyPurchase',
   form_submission: 'tasks.approvalPanel.bodyForm',
+  // Phase D: the sheet shows the number, the script, what is shared, recording and cost.
+  phone_call: 'tasks.approvalPanel.bodyPhoneCall',
 };
 
 function ApprovalPanel({

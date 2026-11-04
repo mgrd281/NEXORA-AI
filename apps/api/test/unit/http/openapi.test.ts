@@ -1,13 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { EVENTS_PATH, routes, type RouteDef } from '@jarvis/contracts';
+import { EVENTS_PATH, routes, telephonyWebhookRoutes, type RouteDef } from '@jarvis/contracts';
 import { buildOpenApi, isUpToDate, OUTPUT_PATH } from '../../../scripts/openapi';
 
 type Op = {
   operationId: string;
+  tags?: string[];
   security?: unknown[];
   parameters?: { name: string; in: string }[];
-  requestBody?: unknown;
+  requestBody?: { content?: Record<string, unknown> };
   responses: Record<string, unknown>;
 };
 const doc = buildOpenApi() as {
@@ -19,12 +20,25 @@ const opFor = (r: RouteDef) =>
   doc.paths[r.path.replace(/:(\w+)/g, '{$1}')]?.[r.method.toLowerCase()];
 
 describe('OpenAPI document', () => {
-  it('is OpenAPI 3.1 with both auth schemes', () => {
+  it('is OpenAPI 3.1 with both auth schemes (and the telephony webhooks’ signature)', () => {
     expect(doc.openapi).toBe('3.1.0');
     expect(Object.keys(doc.components.securitySchemes).sort()).toEqual([
       'bearerAuth',
       'cookieAuth',
+      'twilioSignature',
     ]);
+  });
+
+  it('describes the telephony webhooks as their own group, signed, never session-authenticated', () => {
+    for (const [name, hook] of Object.entries(telephonyWebhookRoutes)) {
+      const path = hook.path.replace(/:([A-Za-z]+)/g, '{$1}');
+      const op = doc.paths[path]?.post;
+      expect(op, name).toBeDefined();
+      expect(op!.operationId).toBe(name);
+      expect(op!.tags).toEqual(['telephony-webhooks']);
+      expect(op!.security).toEqual([{ twilioSignature: [] }]);
+      expect(Object.keys(op!.requestBody!.content!)).toEqual(['application/x-www-form-urlencoded']);
+    }
   });
 
   it('describes every route of the contract table', () => {

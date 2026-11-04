@@ -70,6 +70,14 @@ const PolicyExpectation = z.object({
   reasonsExclude: z.array(z.string()).default([]),
 });
 
+/** A simulated callee of the mock Twilio (pipeline mode): how the call ends and what is said. */
+export const CalleeScenario = z.object({
+  outcome: z.enum(['answer', 'busy', 'no-answer', 'failed', 'machine']).default('answer'),
+  /** What the callee says to each of JARVIS's questions, in order. */
+  turns: z.array(z.string().min(1)).default([]),
+});
+export type CalleeScenario = z.infer<typeof CalleeScenario>;
+
 export const Scenario = z
   .object({
     id: z.string().regex(/^[a-z0-9-]+$/),
@@ -127,6 +135,12 @@ export const Scenario = z
           doNotCall: z.array(z.string()).default([]),
           /** The account's own number (default country of national numbers; transfers). */
           ownPhone: z.object({ number: z.string(), verified: z.boolean() }).optional(),
+          /**
+           * Pipeline mode: the simulated callee of the mock Twilio (tools/mock-twilio) for the
+           * scenario's call, and — for an acknowledged retry — of the next attempt.
+           */
+          callee: CalleeScenario.optional(),
+          calleeOnRetry: CalleeScenario.optional(),
         })
         .optional(),
       conversation: z
@@ -204,6 +218,18 @@ export const Scenario = z
               .optional(),
             attendees: z.array(z.string()).optional(),
             binding: z.boolean().optional(),
+            /**
+             * Phase D: the call the step places (tool.call), decided with given.telephony —
+             * exactly the facts assessStep computes (step-policy.ts callPolicyFacts).
+             */
+            call: z
+              .object({
+                to: z.string(),
+                calleeTimeZone: z.string().nullable().default(null),
+                recording: z.enum(['off', 'if_consented', 'required']).default('off'),
+                sharedDetails: z.number().int().min(0).default(0),
+              })
+              .optional(),
           }),
         )
         .optional(),

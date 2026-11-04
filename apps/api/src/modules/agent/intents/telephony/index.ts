@@ -10,5 +10,8 @@
  * unless the user names another; personal details only those the user wrote for the call.
  */
 import type { OfflineIntent } from '../types';
+import { phoneCallIntent } from './calls';
 
-export const telephonyIntents: readonly OfflineIntent[] = [];
+export { callRequestHead, isCallRequest } from './calls';
+
+export const telephonyIntents: readonly OfflineIntent[] = [phoneCallIntent];

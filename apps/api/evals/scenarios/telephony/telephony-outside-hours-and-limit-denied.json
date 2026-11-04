@@ -1,0 +1,39 @@
+{
+  "id": "telephony-outside-hours-and-limit-denied",
+  "version": 1,
+  "suite": "telephony",
+  "title": "Telephony — outside the calling hours of the callee's zone, and over the daily limit, nothing is dialled",
+  "modes": ["offline"],
+  "given": {
+    "request": "Call +49 30 12345678 and tell them I am 10 minutes late",
+    "account": { "email": "owner@eval.test", "locale": "en", "timeZone": "Europe/Berlin" },
+    "telephony": {
+      "allowedCountries": ["DE"],
+      "now": "2026-11-04T21:30:00Z",
+      "callsToday": 10,
+      "maxPerDay": 10
+    },
+    "syntheticSteps": [
+      {
+        "toolId": "phone.call",
+        "risk": "MEDIUM",
+        "sideEffect": "external",
+        "call": { "to": "+493012345678" }
+      },
+      {
+        "toolId": "phone.call",
+        "risk": "MEDIUM",
+        "sideEffect": "external",
+        "call": { "to": "+493012345678", "calleeTimeZone": "America/Los_Angeles" }
+      }
+    ]
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "CALL_OUTSIDE_HOURS",
+    "policy": [
+      { "step": 0, "decision": "deny", "reasonsInclude": ["CALL_OUTSIDE_HOURS"] },
+      { "step": 1, "decision": "deny", "reasonsInclude": ["CALL_LIMIT"] }
+    ]
+  }
+}

@@ -185,6 +185,8 @@ enum ToolId: String, Codable, Sendable {
     case shopCompare = "shop.compare"
     case shopPrepareCart = "shop.prepare_cart"
     case shopCheckout = "shop.checkout"
+    // Phase D: an outbound phone call that says it is an AI assistant (approved by tap only)
+    case phoneCall = "phone.call"
     case unknown
 
     init(from decoder: any Decoder) throws {
@@ -292,6 +294,10 @@ enum EventType: String, Codable, Sendable, CaseIterable {
     case browserSessionChanged = "browser_session.changed"
     case orderChanged = "order.changed"
     case bookingChanged = "booking.changed"
+    // Phase D account events (ids, enums and times only: screens refetch)
+    case callStatusChanged = "call.status_changed"
+    case callTurn = "call.turn"
+    case phoneVerificationChanged = "phone_verification.changed"
     case unknown
 
     init(from decoder: any Decoder) throws {
@@ -351,6 +357,11 @@ enum MissingInfo: String, Codable, Sendable, CaseIterable {
     case product
     /// Which supported site or shop.
     case site
+    // Phase D
+    /// Which number to call, written with its country code.
+    case phoneNumber = "phone_number"
+    /// What JARVIS should say or ask on the call.
+    case callGoal = "call_goal"
     case unknown
 
     init(from decoder: any Decoder) throws {
@@ -450,6 +461,9 @@ enum SkillUnavailableReason: String, Codable, Sendable, CaseIterable {
     case providerNotConfigured = "PROVIDER_NOT_CONFIGURED"
     /// The isolated browser agent isn't running on this server (or its evidence storage is missing).
     case browserUnavailable = "BROWSER_UNAVAILABLE"
+    // Phase D
+    /// This server has no telephony provider configured (phone calls are impossible here).
+    case telephonyNotConfigured = "TELEPHONY_NOT_CONFIGURED"
     case unknown
 
     init(from decoder: any Decoder) throws {
@@ -678,11 +692,13 @@ enum BrowserStopReason: String, Codable, Sendable, CaseIterable {
     }
 }
 
-/// Files the browser agent keeps as evidence.
+/// Files kept as evidence: the browser agent's (Phase C) and, only with the callee's consent,
+/// a call recording (Phase D).
 enum EvidenceArtifactKind: String, Codable, Sendable, CaseIterable {
     case screenshot
     case extract
     case ics
+    case recording
     case unknown
 
     init(from decoder: any Decoder) throws {
@@ -694,6 +710,8 @@ enum EvidenceMediaType: String, Codable, Sendable, CaseIterable {
     case png = "image/png"
     case json = "application/json"
     case calendar = "text/calendar"
+    /// Phase D: a call recording (only with the callee's consent).
+    case mpeg = "audio/mpeg"
     case unknown
 
     init(from decoder: any Decoder) throws {
@@ -706,6 +724,7 @@ enum EvidenceMediaType: String, Codable, Sendable, CaseIterable {
         case .png: "png"
         case .json: "json"
         case .calendar: "ics"
+        case .mpeg: "mp3"
         case .unknown: "bin"
         }
     }
@@ -762,6 +781,229 @@ enum AttendeeResponse: String, Codable, Sendable, CaseIterable {
     case declined
     case tentative
     case needsAction = "needs_action"
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+}
+
+// MARK: - Phase D (docs/architecture/phase-d.md)
+
+/// What a phone call is for (`phone.call` purpose).
+enum CallPurpose: String, Codable, Sendable, CaseIterable {
+    /// Deliver the user's message and record the reply.
+    case message
+    /// Ask which times are free on a date.
+    case availability
+    /// Ask the user's questions and record the answers.
+    case questions
+    /// Book an appointment within the approved window (binding; needs the model).
+    case appointment
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+}
+
+/// Lifecycle of one call attempt. The contract has a value `unknown` (the create-call
+/// request's outcome is unknown); a value from a newer server decodes to `.unrecognized`.
+enum CallStatus: String, Codable, Sendable, CaseIterable {
+    case queued
+    case dialing
+    case ringing
+    case inProgress = "in_progress"
+    case ended
+    /// The provider didn't confirm whether the call was placed: reconciled before any new call.
+    case outcomeUnknown = "unknown"
+    case unrecognized
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unrecognized)
+    }
+
+    /// Placed (or about to be) and not finished.
+    var isLive: Bool {
+        self == .queued || self == .dialing || self == .ringing || self == .inProgress
+    }
+}
+
+/// How an ended call ended. Only `completed` and `answered` count as a call that took place.
+enum CallResult: String, Codable, Sendable, CaseIterable {
+    case completed
+    case answered
+    case busy
+    case noAnswer = "no_answer"
+    case failed
+    case voicemail
+    case hungUp = "hung_up"
+    case declined
+    case canceled
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+
+    /// The call took place (someone answered and the conversation ended normally).
+    var tookPlace: Bool { self == .completed || self == .answered }
+}
+
+/// Who spoke a call turn. `system` = a line JARVIS played that is not dialog.
+enum CallSpeaker: String, Codable, Sendable, CaseIterable {
+    case agent
+    case callee
+    case system
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+}
+
+/// What a call turn is (for display and evidence).
+enum CallTurnKind: String, Codable, Sendable, CaseIterable {
+    case disclosure
+    case consentRequest = "consent_request"
+    case consentReply = "consent_reply"
+    case question
+    case answer
+    case statement
+    case clarification
+    case refusal
+    case transfer
+    case voicemail
+    case goodbye
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+}
+
+/// Recording of a call; default off.
+enum RecordingMode: String, Codable, Sendable, CaseIterable {
+    case off
+    /// Recorded only after the callee accepted; otherwise not recorded.
+    case ifConsented = "if_consented"
+    /// Without the callee's consent JARVIS ends the call politely.
+    case required
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+}
+
+/// The callee's answer to the recording question.
+enum RecordingConsent: String, Codable, Sendable, CaseIterable {
+    case notAsked = "not_asked"
+    case accepted
+    case declined
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+}
+
+/// Answering-machine detection. The contract has a value `unknown` (the provider couldn't
+/// tell); a value from a newer server decodes to `.unrecognized`.
+enum AnsweredBy: String, Codable, Sendable, CaseIterable {
+    case human
+    case machine
+    case fax
+    case undetermined = "unknown"
+    case unrecognized
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unrecognized)
+    }
+}
+
+/// What JARVIS does when a machine answers.
+enum VoicemailAction: String, Codable, Sendable, CaseIterable {
+    case hangUp = "hang_up"
+    case leaveMessage = "leave_message"
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+}
+
+/// Facts noted during a call (for the result and the timeline).
+enum CallNoteCode: String, Codable, Sendable, CaseIterable {
+    case optedOut = "OPTED_OUT"
+    case recordingConsentAccepted = "RECORDING_CONSENT_ACCEPTED"
+    case recordingConsentDeclined = "RECORDING_CONSENT_DECLINED"
+    case transferRequested = "TRANSFER_REQUESTED"
+    case transferConnected = "TRANSFER_CONNECTED"
+    case transferFailed = "TRANSFER_FAILED"
+    case transferUnavailable = "TRANSFER_UNAVAILABLE"
+    case outsidePurposeRefused = "OUTSIDE_PURPOSE_REFUSED"
+    case injectionFlagged = "INJECTION_FLAGGED"
+    case lowConfidence = "LOW_CONFIDENCE"
+    case durationLimit = "DURATION_LIMIT"
+    case voicemailMessageLeft = "VOICEMAIL_MESSAGE_LEFT"
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+}
+
+/// Where a do-not-call entry came from.
+enum DoNotCallSource: String, Codable, Sendable, CaseIterable {
+    /// The callee asked during a call.
+    case calleeRequest = "callee_request"
+    /// The user added it.
+    case user
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+}
+
+/// A verification call to the account's own number.
+enum PhoneVerificationStatus: String, Codable, Sendable, CaseIterable {
+    case calling
+    case pending
+    case verified
+    case expired
+    case failed
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+}
+
+/// Voice mode: one dictated request, or a continuous conversation.
+enum VoiceSessionMode: String, Codable, Sendable, CaseIterable {
+    case dictation
+    case conversation
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+}
+
+/// How a voice session ended (metadata only).
+enum VoiceEndReason: String, Codable, Sendable, CaseIterable {
+    case endButton = "end_button"
+    case escapeKey = "escape_key"
+    /// "stop" / "stopp" / "توقف".
+    case voiceCommand = "voice_command"
+    /// No speech for `VoiceLimits.idleEndSeconds` (announced first).
+    case idle
+    case switchedToText = "switched_to_text"
+    /// The voice screen was left.
+    case navigation
+    case error
     case unknown
 
     init(from decoder: any Decoder) throws {

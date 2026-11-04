@@ -199,6 +199,23 @@ enum ApiErrorReasonText {
             text = String(localized: "error.api.CALENDAR_UNAVAILABLE", defaultValue: "\(p.provider) didn't answer in time.")
         case "EVIDENCE_NOT_AVAILABLE":
             text = String(localized: "error.api.EVIDENCE_NOT_AVAILABLE", defaultValue: "This evidence file can't be read on this server right now.")
+        // Phase D: the account's phone number and its verification
+        case "PHONE_NUMBER_INVALID":
+            text = String(localized: "error.api.PHONE_NUMBER_INVALID", defaultValue: "That isn't a valid phone number. Write it with its country code, for example +49 30 1234567.")
+        case "PHONE_NUMBER_REQUIRED":
+            text = String(localized: "error.api.PHONE_NUMBER_REQUIRED", defaultValue: "Add your phone number first.")
+        case "PHONE_ALREADY_VERIFIED":
+            text = String(localized: "error.api.PHONE_ALREADY_VERIFIED", defaultValue: "This number is already verified.")
+        case "PHONE_VERIFICATION_INVALID":
+            text = String(localized: "error.api.PHONE_VERIFICATION_INVALID", defaultValue: "That code isn't right. Tries left: \(p.attemptsLeft).")
+        case "PHONE_VERIFICATION_EXPIRED":
+            text = String(localized: "error.api.PHONE_VERIFICATION_EXPIRED", defaultValue: "This code has expired. Start a new verification call.")
+        case "PHONE_VERIFICATION_LIMIT":
+            text = String(localized: "error.api.PHONE_VERIFICATION_LIMIT", defaultValue: "You can ask for at most \(p.max) verification calls a day.")
+        case "TELEPHONY_NOT_CONFIGURED":
+            text = String(localized: "error.api.TELEPHONY_NOT_CONFIGURED", defaultValue: "Phone calls aren't set up on this server.")
+        case "CALL_DESTINATION_BLOCKED":
+            text = String(localized: "error.api.CALL_DESTINATION_BLOCKED", defaultValue: "JARVIS doesn't call numbers like this one: premium-rate numbers and countries this server doesn't call are blocked.")
         default:
             // Webhook reasons are not reachable from this app (webhooks are managed on the web).
             return nil
@@ -405,6 +422,39 @@ enum TaskErrorText {
             text = String(localized: "error.reason.PURCHASE_LIMIT", defaultValue: "This purchase (\(p.amount)) would go over your monthly limit of \(p.limit) (\(p.spent) already spent).")
         case "PURCHASE_CURRENCY":
             text = String(localized: "error.reason.PURCHASE_CURRENCY", defaultValue: "The price is in \(p.currency), but your purchase limit is in US dollars, so JARVIS won't buy it.")
+        // Phase D: phone calls. Unsuccessful calls said and agreed nothing; a retry is a new call.
+        case "CALL_BUSY":
+            text = String(localized: "error.reason.CALL_BUSY", defaultValue: "The line was busy. Nothing was said or agreed. You can try again.")
+        case "CALL_NO_ANSWER":
+            text = String(localized: "error.reason.CALL_NO_ANSWER", defaultValue: "Nobody answered. Nothing was said or agreed. You can try again later.")
+        case "CALL_FAILED":
+            text = String(localized: "error.reason.CALL_FAILED", defaultValue: "The phone provider couldn't connect the call. Nothing was said or agreed.")
+        case "CALL_VOICEMAIL":
+            text = String(localized: "error.reason.CALL_VOICEMAIL", defaultValue: "A voicemail answered instead of a person. You can try again later.")
+        case "CALL_HUNG_UP":
+            text = String(localized: "error.reason.CALL_HUNG_UP", defaultValue: "The other person hung up before the goal was reached. Nothing was agreed.")
+        case "CALL_DECLINED":
+            text = String(localized: "error.reason.CALL_DECLINED", defaultValue: "The other person didn't want to talk to an AI assistant. JARVIS won't call again for this.")
+        case "CALL_DURATION_LIMIT":
+            text = String(localized: "error.reason.CALL_DURATION_LIMIT", defaultValue: "The call reached its maximum length (\(p.seconds)) before the goal was reached.")
+        case "RECORDING_CONSENT_DECLINED":
+            text = String(localized: "error.reason.RECORDING_CONSENT_DECLINED", defaultValue: "The other person didn't agree to the recording you required, so JARVIS ended the call politely.")
+        case "CALL_STATE_UNKNOWN":
+            text = String(localized: "error.reason.CALL_STATE_UNKNOWN", defaultValue: "JARVIS can't tell whether the call was placed. Before calling again, it asks the phone provider, so the same call is never placed twice.")
+        case "PHONE_NUMBER_INVALID":
+            text = String(localized: "error.reason.PHONE_NUMBER_INVALID", defaultValue: "\(p.number) isn't a valid phone number.")
+        case "NUMBER_NOT_LITERAL":
+            text = String(localized: "error.reason.NUMBER_NOT_LITERAL", defaultValue: "JARVIS calls only numbers you write yourself. Write the number with its country code.")
+        case "DO_NOT_CALL":
+            text = String(localized: "error.reason.DO_NOT_CALL", defaultValue: "\(p.number) asked not to be called again, so JARVIS won't call it.")
+        case "CALL_OUTSIDE_HOURS":
+            text = String(localized: "error.reason.CALL_OUTSIDE_HOURS", defaultValue: "JARVIS calls only between \(p.start) and \(p.end) (\(p.timeZone)). Try again then.")
+        case "CALL_LIMIT":
+            text = String(localized: "error.reason.CALL_LIMIT", defaultValue: "JARVIS has made \(p.max) calls today, the most allowed. Try again tomorrow.")
+        case "CALL_DESTINATION_BLOCKED":
+            text = String(localized: "error.reason.CALL_DESTINATION_BLOCKED", defaultValue: "JARVIS doesn't call this number: premium-rate numbers and countries this server doesn't call are blocked.")
+        case "TELEPHONY_NOT_CONFIGURED":
+            text = String(localized: "error.reason.TELEPHONY_NOT_CONFIGURED", defaultValue: "Phone calls aren't set up on this server.")
         default:
             return nil
         }
@@ -434,7 +484,11 @@ final class ErrorParams {
     static func display(_ value: JSONValue, name: String) -> String? {
         switch (name, value) {
         case ("seconds", .number(let seconds)):
-            return Duration.seconds(seconds).formatted(.units(allowed: [.seconds], width: .wide))
+            // Whole minutes read as minutes ("5 minutes"); anything else in seconds.
+            let whole = seconds.rounded() == seconds && seconds >= 60 && seconds < 1e9
+                && Int(seconds) % 60 == 0
+            let units: Set<Duration.UnitsFormatStyle.Unit> = whole ? [.minutes] : [.seconds]
+            return Duration.seconds(seconds).formatted(.units(allowed: units, width: .wide))
         case ("limitBytes", .number(let bytes)):
             return ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .memory)
         case ("skill", .string(let raw)):
@@ -445,6 +499,13 @@ final class ErrorParams {
             return raw
         case ("language", .string(let raw)):
             return Locale.current.localizedString(forIdentifier: raw) ?? raw
+        // Phase D: calling hours ("08:00" in the app's time format, in the callee's zone)
+        case ("start", .string(let raw)), ("end", .string(let raw)):
+            return LocalTimeText.format(raw) ?? raw
+        case ("timeZone", .string(let raw)):
+            return TimeZone(identifier: raw) != nil ? RecurrenceText.zoneName(raw) : raw
+        case ("country", .string(let raw)):
+            return Locale.current.localizedString(forRegionCode: raw) ?? raw
         // Phase C
         case ("provider", .string(let raw)):
             return OAuthProvider.named(raw)?.name ?? ConnectionProvider(rawValue: raw).map(\.label) ?? raw

@@ -192,6 +192,7 @@ export function FollowUpComposer({
       sendLabel={t('conversations.followUp.send')}
       sentMessage={() => t('conversations.followUp.sent')}
       onCreated={(task) => onSent?.(task)}
+      conversationId={conversationId}
       shortcutTarget={false}
       focusOnMount={focusOnMount}
       blocked={blocked}
@@ -215,6 +216,8 @@ interface ComposerFormProps {
   handleRef?: Ref<ComposerHandle>;
   /** Content under the form (the basic-mode line). */
   after?: ReactNode;
+  /** The conversation this field continues (a voice conversation continues it too). */
+  conversationId?: string;
 }
 
 type Notice = 'waitForUploads' | 'removeFailed' | null;
@@ -232,6 +235,7 @@ function ComposerForm({
   className,
   handleRef,
   after,
+  conversationId,
 }: ComposerFormProps) {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -523,6 +527,7 @@ function ComposerForm({
       <VoiceMode
         open={voiceOpen}
         onClose={() => setVoiceOpen(false)}
+        conversationId={conversationId ?? null}
         submit={sendRequest}
         sentMessage={sentMessage(status.data?.worker.healthy === false)}
         onCreated={onCreated}

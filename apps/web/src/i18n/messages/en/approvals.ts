@@ -9,6 +9,7 @@ const approvals = {
     purchase: 'Review this purchase',
     form_submission: 'Review this form',
     emailDraft: 'Review this draft',
+    phone_call: 'Review this phone call',
   },
   fields: {
     from: 'From',
@@ -61,6 +62,10 @@ const approvals = {
     unknown: 'The safety policy flagged this action ({code}).',
     PURCHASE: 'This spends your money. JARVIS always asks, and shows the exact total.',
     BINDING_COMMITMENT: 'This is binding with the site (for example, cancellation fees may apply).',
+    PHONE_CALL: 'JARVIS will speak for you to someone else, so it always asks first.',
+    CALL_RECORDING: 'You asked for a recording. JARVIS records only if the other person agrees.',
+    CALL_PERSONAL_INFO:
+      'JARVIS may tell the other person the personal details listed below — nothing else.',
   },
   /** Reasons worded for what is approved (an invitation, a draft, a paid booking). */
   reasonsByKind: {
@@ -103,6 +108,7 @@ const approvals = {
     purchase: 'Approve and buy',
     form_submission: 'Approve and submit',
     emailDraft: 'Approve and save draft',
+    phone_call: 'Approve and call',
   },
   approvePurchaseLabel: 'Approve and buy for {total} from {merchant}',
   approveLabel: {
@@ -115,6 +121,7 @@ const approvals = {
     purchase: 'Approve and place this order',
     form_submission: 'Approve and submit this form',
     emailDraft: 'Approve and save draft (nothing is sent)',
+    phone_call: 'Approve and call, exactly as shown',
   },
   decline: 'Decline',
   declineLabel: {
@@ -127,6 +134,7 @@ const approvals = {
     purchase: 'Decline this purchase',
     form_submission: 'Decline submitting this form',
     emailDraft: 'Decline saving this draft',
+    phone_call: 'Decline this call',
   },
   results: {
     approved: 'Approved. JARVIS is continuing the task.',
@@ -222,6 +230,70 @@ const approvals = {
       '{form, select, contact {Contact form} reservation {Reservation form} other {Form “{form}”}}',
     evidence: 'The form on {site} as JARVIS saw it',
     note: 'JARVIS fills in exactly these values and submits the form once.',
+  },
+  /** Phase D: a phone call (ApprovalDetails kind 'phone_call'). */
+  call: {
+    callee: 'Who JARVIS calls',
+    number: 'Number',
+    numberUnnamed: 'Number only (no name given)',
+    country: 'Country',
+    onBehalfOf: 'On behalf of',
+    callerId: 'Number they see',
+    callerIdUnknown: 'Not set on this server',
+    language: 'Language of the call',
+    purpose: 'Purpose',
+    purposes: {
+      message: 'Deliver a message',
+      availability: 'Ask for free times',
+      questions: 'Ask questions',
+      appointment: 'Book an appointment',
+    },
+    goal: 'Goal',
+    when: 'Date asked about',
+    window: 'Between {start} and {end}',
+    anyTime: 'Any time that day',
+    script: 'Exactly what JARVIS will say',
+    scriptNote:
+      'Spoken in {language}. The opening always says that an AI assistant is calling for {name}.',
+    lines: {
+      opening: 'Opening',
+      recordingQuestion: 'Recording question',
+      message: 'Message',
+      question: 'Question {n}',
+      closing: 'Closing',
+      voicemail: 'Left on a voicemail',
+    },
+    dialog: 'How JARVIS talks',
+    dialogs: {
+      scripted: 'Only these lines, plus fixed answers like who is calling',
+      model:
+        'These lines, and it may answer their questions within this purpose — it never agrees to or shares anything else',
+    },
+    shared: 'Personal details it may share',
+    sharedNone: 'None — JARVIS shares no personal details on this call',
+    sharedNote: 'Anything else it is asked for, JARVIS refuses.',
+    duration: 'Longest call',
+    hours: 'Calls only between',
+    hoursValue: '{start}–{end}, {zone}',
+    recording: 'Recording',
+    recordings: {
+      off: 'Off — only notes of what is said are kept',
+      if_consented: 'Only if they agree when asked; otherwise not recorded',
+      required: 'Required — if they say no, JARVIS ends the call politely',
+    },
+    voicemail: 'If a voicemail answers',
+    voicemails: {
+      hang_up: 'Hang up without leaving a message',
+      leave_message: 'Leave the voicemail message above',
+    },
+    transfer: 'Put them through to you',
+    transferTo: 'If they ask for a person: to your verified number {number}',
+    transferNo: 'No',
+    binding: 'Binding',
+    bindingYes: 'JARVIS may agree to an appointment on this date and in this window',
+    cost: 'Cost, at most',
+    costUnknown: 'Unknown — the phone provider bills the call',
+    note: 'JARVIS calls once after you approve. Everything the other person says is treated as information, never as instructions: it can’t change the number, the purpose or what is shared.',
   },
   task: 'Task',
   notReviewable:

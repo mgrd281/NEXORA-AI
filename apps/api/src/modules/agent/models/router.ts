@@ -19,6 +19,10 @@
  *      result_summary  → MODEL_FAST     (effort low) — one or two sentences.
  *      translate       → MODEL_FAST (≤ 8 000 chars) else MODEL_BALANCED, effort low
  *      analyze_document→ as summarize (fast; balanced above 60k chars), effort low
+ *      call_dialog     → MODEL_BALANCED (effort low, ≤ 1 000 tokens) — one structured
+ *                                          decision per callee turn, bounded by
+ *                                          CALL_LIMITS.dialogModelTimeoutMs; the guard
+ *                                          (telephony/dialog/guard.ts) decides what is said.
  *    Thinking is never configured explicitly (adaptive by default on these
  *    models); depth is controlled with output_config.effort only.
  */
@@ -88,5 +92,7 @@ export function selectModel(
       return (opts.inputChars ?? 0) > LONG_TEXT_CHARS
         ? { model: config.MODEL_BALANCED, effort: 'low', maxTokens: 8_000 }
         : { model: config.MODEL_FAST, effort: 'low', maxTokens: 8_000 };
+    case 'call_dialog':
+      return { model: config.MODEL_BALANCED, effort: 'low', maxTokens: 1_000 };
   }
 }

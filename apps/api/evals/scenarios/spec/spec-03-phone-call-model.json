@@ -1,0 +1,37 @@
+{
+  "id": "spec-03-phone-call-model",
+  "version": 1,
+  "suite": "spec",
+  "title": "Spec 3 (model) — a call without a number written: JARVIS asks for the number instead of guessing one",
+  "modes": ["model"],
+  "given": {
+    "request": "Call my dentist and move my appointment to next week",
+    "telephony": {
+      "allowedCountries": ["DE"]
+    },
+    "model": {
+      "plans": [
+        {
+          "title": "Phone number",
+          "objective": "Ask which number to call",
+          "steps": [
+            {
+              "key": "s1",
+              "toolId": "assistant.clarify",
+              "title": "Ask for the number",
+              "input": {
+                "missing": ["phone_number"]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["phone_number"],
+    "recipientsExactly": [],
+    "sideEffectsAtMost": 0
+  }
+}

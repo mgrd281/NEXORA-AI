@@ -780,10 +780,7 @@ export interface BrowserSessionsTable {
 
 export type EvidenceArtifactKindValue = 'screenshot' | 'extract' | 'ics' | 'recording';
 export type EvidenceMediaTypeValue =
-  | 'image/png'
-  | 'application/json'
-  | 'text/calendar'
-  | 'audio/mpeg';
+  'image/png' | 'application/json' | 'text/calendar' | 'audio/mpeg';
 
 export interface EvidenceArtifactsTable {
   /** Generate it before the insert: storage_key must be built from it (CHECK). */
@@ -901,7 +898,8 @@ export interface CommittedPurchasesView {
 /* Phase D (0008): calls, turns, do-not-call, phone verification       */
 /* ------------------------------------------------------------------ */
 
-export type CallStatusValue = 'queued' | 'dialing' | 'ringing' | 'in_progress' | 'ended' | 'unknown';
+export type CallStatusValue =
+  'queued' | 'dialing' | 'ringing' | 'in_progress' | 'ended' | 'unknown';
 export type CallResultValue =
   | 'completed'
   | 'answered'

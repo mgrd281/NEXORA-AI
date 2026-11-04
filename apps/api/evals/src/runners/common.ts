@@ -28,7 +28,7 @@ import type { ModelRoute } from '../../../src/modules/agent/models/router';
 import type { Plan } from '../../../src/modules/agent/plan';
 import type { PlanningInput } from '../../../src/modules/agent/planner';
 import { denyReason, evaluatePolicy } from '../../../src/modules/agent/policy';
-import { assessStep, denyError } from '../../../src/modules/agent/step-policy';
+import { assessStep, callPolicyFacts, denyError } from '../../../src/modules/agent/step-policy';
 import { findRefs } from '../../../src/modules/agent/templates';
 import { extractHtml, normalizeText } from '../../../src/modules/agent/tools/html';
 import { detectInjection } from '../../../src/modules/agent/tools/injection';
@@ -231,9 +231,7 @@ export function telephonyContextOf(p: Prepared): TelephonyContext {
     maxPerDay: t.maxPerDay,
     callsToday: t.callsToday,
     doNotCall: new Set(t.doNotCall.map((n) => phoneNumberHash(key, n).toString('hex'))),
-    ownPhone: t.ownPhone
-      ? { ...t.ownPhone, region: regionOfNumber(t.ownPhone.number) }
-      : null,
+    ownPhone: t.ownPhone ? { ...t.ownPhone, region: regionOfNumber(t.ownPhone.number) } : null,
     // Inside the default calling hours unless the scenario sets the clock.
     now: t.now ? new Date(t.now) : tenInTheMorning(p.account.timeZone),
   };
@@ -477,6 +475,21 @@ export function observeSynthetic(p: Prepared, agent: AgentContext): Observed {
         : null,
       attendees: s.attendees,
       binding: s.binding ?? false,
+      // Phase D: a call's facts, as assessStep computes them.
+      call: s.call
+        ? callPolicyFacts(
+            {
+              to: s.call.to,
+              calleeTimeZone: s.call.calleeTimeZone,
+              purpose: 'message',
+              recording: s.call.recording,
+              sharedDetails: s.call.sharedDetails,
+              allowTransfer: false,
+            },
+            agent,
+            evalConfig(),
+          )
+        : null,
     });
     if (r.decision === 'deny' && firstDeny === null) firstDeny = denyReason(r.denyCode!, r.reasons);
     return { step: i, toolId: s.toolId, decision: r.decision, reasons: r.reasons };

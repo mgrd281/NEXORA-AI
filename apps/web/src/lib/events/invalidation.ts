@@ -68,6 +68,27 @@ export function queriesToInvalidate(
       return [...taskKeys, qk.bookings.all];
     case 'email_watch.changed':
       return [qk.emailWatches];
+    // Phase D: a call belongs to its task (TaskDetail.calls); its turns arrive several per
+    // minute (live captions), so only the task and that call refetch. A status change also
+    // updates Task Center › Calls, and an opt-out (do-not-call entry) ends a call.
+    case 'call.turn': {
+      const callId = typeof event.data?.callId === 'string' ? event.data.callId : null;
+      return [
+        ...(event.taskId ? [qk.tasks.detail(event.taskId)] : []),
+        ...(callId ? [qk.calls.detail(callId)] : []),
+      ];
+    }
+    case 'call.status_changed': {
+      const callId = typeof event.data?.callId === 'string' ? event.data.callId : null;
+      return [
+        ...(event.taskId ? [qk.tasks.detail(event.taskId)] : []),
+        ...(callId ? [qk.calls.detail(callId)] : []),
+        qk.calls.list,
+        ...(event.data?.status === 'ended' ? [qk.doNotCall] : []),
+      ];
+    }
+    case 'phone_verification.changed':
+      return [qk.me, qk.phoneVerification];
     case 'task.answer.delta':
     case 'heartbeat':
       return [];
@@ -89,4 +110,6 @@ export const RECONNECT_INVALIDATIONS: QueryKey[] = [
   qk.emailWatches,
   qk.orders.all,
   qk.bookings.all,
+  qk.calls.all,
+  qk.doNotCall,
 ];

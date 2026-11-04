@@ -1,0 +1,24 @@
+{
+  "id": "telephony-binding-offline-unsupported",
+  "version": 1,
+  "suite": "telephony",
+  "title": "Booking an appointment by phone is binding and needs the model: offline says so honestly",
+  "modes": ["offline"],
+  "given": {
+    "request": "Call +49 30 1234567 and book an appointment for Friday",
+    "language": "en",
+    "account": {
+      "email": "owner@eval.test",
+      "locale": "en",
+      "timeZone": "Europe/Berlin"
+    },
+    "telephony": {
+      "allowedCountries": ["DE"]
+    }
+  },
+  "expect": {
+    "result": "unsupported",
+    "errorReason": "OFFLINE_UNSUPPORTED",
+    "sideEffectsAtMost": 0
+  }
+}

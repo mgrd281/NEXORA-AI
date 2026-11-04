@@ -91,6 +91,8 @@ struct EvidenceArtifact: Decodable, Sendable, Equatable, Identifiable {
     let pageUrl: String?
     let taskId: String?
     let browserSessionId: String?
+    /// Phase D: the call a recording belongs to (absent from older servers).
+    var callSessionId: String? = nil
     /// API path that streams the file to its owner.
     let downloadPath: String
     let createdAt: Date

@@ -49,6 +49,7 @@ import {
   Page,
   PageQuery,
   PhoneVerification,
+  PhoneVerificationState,
   RetryTaskRequest,
   Schedule,
   ScheduleDetail,
@@ -914,6 +915,14 @@ export const routes = {
   },
 
   // The account's own phone number: verification by a call that reads a code
+  getPhoneVerification: {
+    method: 'GET',
+    path: '/v1/me/phone/verification',
+    summary: 'The verification call in progress (or that just failed), if any',
+    tag: 'account',
+    auth: 'user',
+    response: PhoneVerificationState,
+  },
   startPhoneVerification: {
     method: 'POST',
     path: '/v1/me/phone/verification',

@@ -518,6 +518,8 @@ describe('task creation and status', () => {
       booking: false,
       shopping: false,
       purchases: false,
+      // Phase D: no telephony gateway is configured in these tests (telephony tests cover true).
+      phoneCalls: false,
     });
     expect(s.version).toBe(h.config.APP_VERSION);
     expect(typeof s.worker.healthy).toBe('boolean');

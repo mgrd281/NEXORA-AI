@@ -56,10 +56,17 @@ describe('skills', () => {
       unavailableReason: 'MODEL_REQUIRED',
     });
     expect(by['document-analysis']).toMatchObject({ available: true });
-    expect(by['phone-calling']).toMatchObject({
+    expect(by['device-automation']).toMatchObject({
       status: 'planned',
       unavailableReason: 'PLANNED',
       tools: [],
+    });
+    // Phase D: phone.call is built; without a telephony gateway on this server it cannot run.
+    expect(by['phone-calling']).toMatchObject({
+      status: 'implemented',
+      available: false,
+      unavailableReason: 'TELEPHONY_NOT_CONFIGURED',
+      tools: ['phone.call'],
     });
     expect(by['workflow-planning']).toMatchObject({ canToggle: false, available: true });
   });
@@ -135,7 +142,7 @@ describe('skills', () => {
     expect((await detail(h.db, user, s.id)).error).toMatchObject({ reason: 'MEMORY_DISABLED' });
 
     for (const [id, reason] of [
-      ['phone-calling', 'SKILL_PLANNED'],
+      ['device-automation', 'SKILL_PLANNED'],
       ['workflow-planning', 'SKILL_NOT_TOGGLEABLE'],
     ] as const) {
       const err = await h.services.skills.setEnabled(user, id, false).catch((e: unknown) => e);

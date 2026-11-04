@@ -1,0 +1,36 @@
+{
+  "id": "spec-04-unsuccessful-phone-call",
+  "version": 1,
+  "suite": "spec",
+  "title": "Spec 4 — an unsuccessful phone call: the line is busy → FAILED CALL_BUSY (retryable, one call placed, nothing said) → a retry places a new attempt that is answered → COMPLETED",
+  "modes": ["offline", "pipeline"],
+  "given": {
+    "request": "Call the front desk at +49 30 6712345 and tell them I will be 10 minutes late",
+    "approve": "all",
+    "telephony": {
+      "allowedCountries": ["DE"],
+      "callee": { "outcome": "busy" },
+      "calleeOnRetry": { "outcome": "answer", "turns": ["Thanks, see you soon."] }
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["phone.call"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "require_approval",
+        "reasonsInclude": ["PHONE_CALL"]
+      }
+    ],
+    "pipeline": {
+      "status": "FAILED",
+      "errorCode": "TOOL_FAILED",
+      "errorReason": "CALL_BUSY",
+      "retryable": true,
+      "sideEffectsExactly": 1,
+      "executions": { "phone.call": 1 },
+      "acknowledgedRetry": { "status": "COMPLETED", "sideEffectsExactly": 2 }
+    }
+  }
+}

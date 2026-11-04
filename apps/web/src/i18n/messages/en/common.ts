@@ -96,6 +96,7 @@ const common = {
     shopCompare: 'Compare offers',
     shopPrepareCart: 'Fill a cart',
     shopCheckout: 'Place an order',
+    phoneCall: 'Make a phone call',
   },
   /** Phase C: what an OAuth connection lets JARVIS do (ConnectionCapability, camel-cased). */
   capabilities: {
@@ -129,6 +130,7 @@ const common = {
     idle: 'Ready',
     queued: 'Queued',
     listening: 'Listening…',
+    speaking: 'Speaking…',
     thinking: 'Planning…',
     verifying: 'Checking the results…',
     running: 'Working',

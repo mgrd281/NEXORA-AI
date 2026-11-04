@@ -1,7 +1,7 @@
 /**
- * Browser speech APIs: dictation via the Web Speech API (SpeechRecognition, prefixed in Chrome
- * and Safari) and read-aloud via speechSynthesis. Audio never reaches JARVIS; recognition runs
- * in the browser's speech service.
+ * Browser speech recognition for one dictated request (SpeechRecognition, prefixed in Chrome and
+ * Safari). Speaking, and the conversation mode, go through the seams of ./engine (types.ts,
+ * browser.ts). Audio never reaches JARVIS; recognition runs in the browser's speech service.
  */
 
 export interface SpeechRecognitionResultLike {
@@ -55,50 +55,10 @@ export function isVoiceInputSupported(): boolean {
   );
 }
 
-/** Splits recognition results into the final text and the still-changing interim text. */
-export function readResults(event: SpeechRecognitionEventLike): { final: string; interim: string } {
-  let final = '';
-  let interim = '';
-  for (let i = 0; i < event.results.length; i++) {
-    const result = event.results[i];
-    const text = result?.[0]?.transcript ?? '';
-    if (result?.isFinal) final += text;
-    else interim += text;
-  }
-  return { final, interim };
-}
-
 /** Joins transcript pieces with single spaces. */
 export function joinTranscript(...parts: string[]): string {
   return parts
     .map((p) => p.trim())
     .filter(Boolean)
     .join(' ');
-}
-
-export function canSpeak(): boolean {
-  return typeof window !== 'undefined' && 'speechSynthesis' in window;
-}
-
-/**
- * Reads text aloud with the browser's speech synthesis in the given language (e.g. 'de-DE').
- * Cancels anything still being spoken. Returns false when synthesis is unavailable.
- */
-export function speak(text: string, lang: string): boolean {
-  if (!canSpeak() || !text.trim()) return false;
-  const synth = window.speechSynthesis;
-  synth.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = lang;
-  const prefix = lang.slice(0, 2).toLowerCase();
-  const voice =
-    synth.getVoices().find((v) => v.lang.toLowerCase() === lang.toLowerCase()) ??
-    synth.getVoices().find((v) => v.lang.toLowerCase().startsWith(prefix));
-  if (voice) utterance.voice = voice;
-  synth.speak(utterance);
-  return true;
-}
-
-export function stopSpeaking(): void {
-  if (canSpeak()) window.speechSynthesis.cancel();
 }

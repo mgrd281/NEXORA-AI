@@ -33,9 +33,16 @@ export function approvalSentence(
   if (details.kind !== 'email') {
     // With the locale, a total ("USD 129.99") reads in the viewer's notation.
     const money = f.intlLocale ? { intlLocale: f.intlLocale } : undefined;
-    const rendered = messages
-      ? renderServerMessage({ t, messages, f: money }, approval.summaryMessage)
-      : null;
+    // Phase D: the number reads as it is written on the approval ("+49 30 1234567"), the same
+    // number as the E.164 parameter.
+    const message =
+      details.kind === 'phone_call' && approval.summaryMessage?.key === 'approval.call'
+        ? {
+            ...approval.summaryMessage,
+            params: { ...approval.summaryMessage.params, number: details.toDisplay },
+          }
+        : approval.summaryMessage;
+    const rendered = messages ? renderServerMessage({ t, messages, f: money }, message) : null;
     return rendered !== null
       ? { text: rendered, localized: true }
       : { text: approval.summary, localized: false };

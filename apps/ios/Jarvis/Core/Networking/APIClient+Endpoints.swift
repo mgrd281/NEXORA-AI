@@ -363,23 +363,123 @@ extension APIClient {
 
     // MARK: Voice sessions (metadata only)
 
-    func startVoiceSession(locale: String) async throws -> VoiceSession {
+    /// Starts the metadata record of a voice session. A conversation names the conversation
+    /// it continues (follow-ups); the server answers 404 for one that isn't the caller's.
+    func startVoiceSession(
+        locale: String,
+        mode: VoiceSessionMode = .dictation,
+        conversationId: String? = nil
+    ) async throws -> VoiceSession {
         try await send(
             .post,
             "/v1/voice-sessions",
-            body: VoiceSessionStartRequest(locale: locale.prefix(contractLength: 16), engine: "ios_speech")
-        )
-    }
-
-    func endVoiceSession(id: String, outcome: VoiceSessionEndRequest.Outcome, transcriptChars: Int, errorCode: String?) async throws {
-        let _: VoiceSession = try await send(
-            .post,
-            "/v1/voice-sessions/\(Self.id(id))/end",
-            body: VoiceSessionEndRequest(
-                outcome: outcome,
-                transcriptChars: min(max(transcriptChars, 0), 10_000),
-                errorCode: errorCode.map { $0.prefix(contractLength: 64) }
+            body: VoiceSessionStartRequest(
+                locale: locale.prefix(contractLength: 16),
+                engine: "ios_speech",
+                mode: mode == .unknown ? nil : mode,
+                conversationId: conversationId
             )
         )
     }
+
+    /// Ends the record with counters only (no audio, no transcript).
+    func endVoiceSession(
+        id: String,
+        outcome: VoiceSessionEndRequest.Outcome,
+        transcriptChars: Int,
+        errorCode: String?,
+        counters: VoiceSessionCounters? = nil,
+        endReason: VoiceEndReason? = nil
+    ) async throws {
+        let _: VoiceSession = try await send(
+            .post,
+            "/v1/voice-sessions/\(Self.id(id))/end",
+            body: Self.voiceSessionEnd(
+                outcome: outcome,
+                transcriptChars: transcriptChars,
+                errorCode: errorCode,
+                counters: counters,
+                endReason: endReason
+            )
+        )
+    }
+
+    /// The end body with every value clamped to the contract's bounds.
+    static func voiceSessionEnd(
+        outcome: VoiceSessionEndRequest.Outcome,
+        transcriptChars: Int,
+        errorCode: String?,
+        counters: VoiceSessionCounters?,
+        endReason: VoiceEndReason?
+    ) -> VoiceSessionEndRequest {
+        var body = VoiceSessionEndRequest(
+            outcome: outcome,
+            transcriptChars: min(max(transcriptChars, 0), 100_000),
+            errorCode: errorCode.map { $0.prefix(contractLength: 64) }
+        )
+        if let counters {
+            body.turns = min(max(counters.turns, 0), 500)
+            body.bargeIns = min(max(counters.bargeIns, 0), 10_000)
+            body.reconnects = min(max(counters.reconnects, 0), 1_000)
+        }
+        if let endReason, endReason != .unknown { body.endReason = endReason }
+        return body
+    }
+
+    // MARK: Phone calls (Phase D; records of what the agent did — no route places a call)
+
+    func calls(result: CallResult? = nil, cursor: String?, limit: Int = 25) async throws -> Page<CallSummary> {
+        var query = [URLQueryItem(name: "limit", value: String(limit))]
+        if let result, result != .unknown { query.append(URLQueryItem(name: "result", value: result.rawValue)) }
+        if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
+        return try await send(.get, "/v1/calls", query: query)
+    }
+
+    /// A call with its status timeline and every turn.
+    func call(id: String) async throws -> CallSession {
+        try await send(.get, "/v1/calls/\(Self.id(id))")
+    }
+
+    /// Numbers JARVIS won't call for this account (masked).
+    func doNotCallEntries() async throws -> [DoNotCallEntry] {
+        let list: ItemList<DoNotCallEntry> = try await send(.get, "/v1/do-not-call")
+        return list.items
+    }
+
+    /// Removes a number from the do-not-call list (audited on the server).
+    func deleteDoNotCall(id: String) async throws {
+        let _: EmptyResponse = try await send(.delete, "/v1/do-not-call/\(Self.id(id))")
+    }
+
+    /// The verification in progress (or that just failed), so the code field can be shown again.
+    func currentPhoneVerification() async throws -> PhoneVerification? {
+        let state: PhoneVerificationState = try await send(.get, "/v1/me/phone/verification")
+        return state.verification
+    }
+
+    /// Calls the account's own number and reads out a code (201).
+    func startPhoneVerification() async throws -> PhoneVerification {
+        try await send(.post, "/v1/me/phone/verification")
+    }
+
+    /// Confirms the code from the verification call; the number becomes verified.
+    func confirmPhoneVerification(code: String) async throws -> Me {
+        try await send(
+            .post,
+            "/v1/me/phone/verification/confirm",
+            body: ConfirmPhoneVerificationRequest(code: code)
+        )
+    }
+}
+
+/// Counters of a voice conversation, sent when it ends (metadata only).
+struct VoiceSessionCounters: Sendable, Equatable {
+    /// Requests sent.
+    var turns = 0
+    /// Times the user spoke while JARVIS was speaking.
+    var bargeIns = 0
+    /// Request retries and recognition restarts after errors.
+    var reconnects = 0
+    /// Characters of the requests sent.
+    var chars = 0
 }

@@ -161,7 +161,10 @@ async function seedAll(ctx: DbContext) {
         tenant_id: ctx.tenantId,
         user_id: ctx.userId,
         phone_number: '+4915112345678',
-        code_ciphertext: secrets.seal('123456', `phone-verification:${ctx.userId}:${verificationId}`),
+        code_ciphertext: secrets.seal(
+          '123456',
+          `phone-verification:${ctx.userId}:${verificationId}`,
+        ),
         code_key_id: secrets.keyId,
         webhook_token_hash: sha256(verificationToken),
         expires_at: new Date(Date.now() + 10 * 60_000),
@@ -357,7 +360,10 @@ describe('calls: database invariants', () => {
     });
     const again = (overrides: CallOverrides) =>
       withContext(db, alice, (trx) =>
-        trx.insertInto('call_sessions').values(callRow(alice, task, overrides)).execute(),
+        trx
+          .insertInto('call_sessions')
+          .values(callRow(alice, task, overrides))
+          .execute(),
       );
     await expect(again({ idempotency_key: `call:${task.stepId}:other` })).rejects.toThrow(
       /call_sessions_once_per_attempt/,
@@ -372,15 +378,25 @@ describe('calls: database invariants', () => {
     const alice = await createTestUser(db);
     const bob = await createTestUser(db);
     const shared = sid('CA');
-    const dialing = { status: 'dialing' as const, provider_call_sid: shared, dialed_at: new Date() };
+    const dialing = {
+      status: 'dialing' as const,
+      provider_call_sid: shared,
+      dialed_at: new Date(),
+    };
     await withContext(db, alice, async (trx) => {
       const task = await seedTask(trx, alice);
-      await trx.insertInto('call_sessions').values(callRow(alice, task, dialing)).execute();
+      await trx
+        .insertInto('call_sessions')
+        .values(callRow(alice, task, dialing))
+        .execute();
     });
     await expect(
       withContext(db, bob, async (trx) => {
         const task = await seedTask(trx, bob);
-        await trx.insertInto('call_sessions').values(callRow(bob, task, dialing)).execute();
+        await trx
+          .insertInto('call_sessions')
+          .values(callRow(bob, task, dialing))
+          .execute();
       }),
     ).rejects.toThrow(/provider_call_sid/);
   });
@@ -416,7 +432,10 @@ describe('calls: database invariants', () => {
       await expect(
         withContext(db, alice, async (trx) => {
           const task = await seedTask(trx, alice);
-          await trx.insertInto('call_sessions').values(callRow(alice, task, overrides)).execute();
+          await trx
+            .insertInto('call_sessions')
+            .values(callRow(alice, task, overrides))
+            .execute();
         }),
         JSON.stringify(overrides),
       ).rejects.toThrow(/violates check constraint/);

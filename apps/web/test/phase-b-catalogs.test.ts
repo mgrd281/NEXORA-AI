@@ -35,6 +35,12 @@ const DENY_ONLY = new Set([
   'PURCHASES_DISABLED',
   'PURCHASE_LIMIT',
   'PURCHASE_CURRENCY',
+  // Phase D
+  'DO_NOT_CALL',
+  'CALL_OUTSIDE_HOURS',
+  'CALL_LIMIT',
+  'CALL_DESTINATION_BLOCKED',
+  'TELEPHONY_NOT_CONFIGURED',
 ]);
 
 const KEYS: Array<[string, readonly string[], (value: string) => string]> = [

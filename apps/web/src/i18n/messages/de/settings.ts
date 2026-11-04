@@ -95,6 +95,54 @@ const settings: Catalog<typeof source> = {
     emailHint: 'Mit dieser Adresse meldest du dich an. Diese Adresse lässt sich hier nicht ändern.',
     memberSince: 'Dabei seit {date}',
   },
+  phone: {
+    label: 'Telefonnummer',
+    hint: 'Mit Ländervorwahl, zum Beispiel +49 30 1234567. JARVIS nutzt sie nur, um Anrufende zu dir durchzustellen, wenn du es erlaubst, und als Land für Nummern, die du ohne Vorwahl schreibst.',
+    invalid: 'Die Nummer mit Ländervorwahl schreiben, zum Beispiel +49 30 1234567.',
+    save: 'Nummer speichern',
+    remove: 'Nummer entfernen',
+    verified: 'Bestätigt am {date}',
+    notVerified: 'Nicht bestätigt',
+    verifiedNote:
+      'Anrufende können zu dieser Nummer durchgestellt werden, wenn du es für einen Anruf erlaubst.',
+    notVerifiedNote: 'Bestätige sie, damit JARVIS Anrufende zu dir durchstellen kann.',
+    verify: 'Per Anruf bestätigen',
+    calling: 'JARVIS ruft {number} an und liest einen {length}-stelligen Code vor.',
+    code: 'Code aus dem Anruf',
+    codeHint:
+      'Die Ziffern, die JARVIS vorgelesen hat. {attempts, plural, one {Noch # Versuch} other {Noch # Versuche}}, gültig bis {time}.',
+    codeInvalid: 'Die {length} Ziffern eingeben, die JARVIS vorgelesen hat.',
+    confirm: 'Bestätigen',
+    cancel: 'Abbrechen',
+    verifiedNow: 'Deine Telefonnummer ist bestätigt.',
+    failed: 'Der Bestätigungsanruf hat nicht geklappt. Du kannst es erneut versuchen.',
+    expired: 'Dieser Code ist abgelaufen. Starte einen neuen Bestätigungsanruf.',
+    notConfigured:
+      'Telefonanrufe sind auf diesem Server nicht eingerichtet, daher kann die Nummer noch nicht bestätigt werden.',
+    personalData: 'Personenbezogene Daten: im Export enthalten und mit dem Konto gelöscht.',
+  },
+  doNotCall: {
+    title: 'Nummern, die JARVIS nicht anruft',
+    description:
+      'Bittet jemand JARVIS, nicht mehr anzurufen, kommt die Nummer auf diese Liste, und jeder spätere Anruf dorthin wird abgelehnt. Hier wird sie nur maskiert angezeigt.',
+    empty: 'Keine Nummern. Bittet jemand JARVIS, nicht mehr anzurufen, erscheint die Nummer hier.',
+    sources: {
+      callee_request: 'Im Anruf gewünscht',
+      user: 'Von dir hinzugefügt',
+    },
+    added: 'Hinzugefügt am {date}',
+    openCall: 'Anruf öffnen, aus dem das stammt',
+    remove: 'Entfernen',
+    removeLabel: '{number} von der Liste entfernen',
+    confirmTitle: '{number} wieder anrufen lassen?',
+    confirmCallee:
+      'Die Person möchte nicht mehr angerufen werden. Entferne die Nummer nur, wenn das ein Missverständnis war – JARVIS kann sie dann wieder anrufen, wenn du es anfragst und genehmigst.',
+    confirmUser: 'JARVIS kann sie dann wieder anrufen, wenn du es anfragst und genehmigst.',
+    confirm: 'Von der Liste entfernen',
+    keep: 'Behalten',
+    removed: '{number} wurde von der Liste entfernt.',
+    loadError: 'JARVIS konnte die Liste nicht laden.',
+  },
   region: {
     languageHint: 'Gilt sofort, auf diesem und deinen anderen Geräten.',
     timeZone: 'Zeitzone',
@@ -115,6 +163,32 @@ const settings: Catalog<typeof source> = {
     recognition: 'Erkennungssprache',
     recognitionAuto: 'Wie die Oberfläche ({language})',
     recognitionHint: 'Die Sprache, auf die JARVIS beim Diktieren hört.',
+    conversation: 'Im Gespräch sprechen',
+    conversationDescription:
+      'Der Sprachmodus startet als Gespräch: JARVIS antwortet laut und hört weiter zu, sodass du mit JARVIS hin und her sprechen kannst. Genehmigungen werden immer auf dem Bildschirm bestätigt.',
+    rate: 'Sprechtempo',
+    rateHint: 'Wie schnell JARVIS in Sprachgesprächen spricht.',
+    rateValue: '{rate}×',
+    pause: 'Pause vor dem Senden',
+    pauseHint:
+      'Wie lange JARVIS nach dem Sprechen wartet, bevor das Gesagte gesendet wird. Eine längere Pause wählen, wenn du beim Sprechen innehältst.',
+    pauseValue: '{seconds} s',
+    voices: 'Stimmen',
+    voicesHint:
+      'Die Stimme, mit der JARVIS in jeder Sprache spricht – aus den Stimmen dieses Geräts.',
+    voiceFor: 'Stimme für {language}',
+    voiceDefault: 'Standard des Geräts',
+    voiceOnline: '{name} (online)',
+    voiceMissing:
+      'Die gespeicherte Stimme gibt es auf diesem Gerät nicht; der Standard wird verwendet.',
+    voiceMissingOption: 'Gespeicherte Stimme (nicht auf diesem Gerät)',
+    noVoicesFor:
+      'Keine Stimme für {language} auf diesem Gerät – der Standard des Browsers wird verwendet.',
+    preview: 'Anhören',
+    previewLabel: 'Stimme für {language} anhören',
+    noSpeech: 'Dieser Browser kann nicht sprechen. Antworten von JARVIS erscheinen als Untertitel.',
+    onlineNote:
+      'Mit „online“ gekennzeichnete Stimmen erzeugt der Dienst des Browserherstellers: Was JARVIS sagt, wird dorthin gesendet.',
   },
   assistant: {
     statusTitle: 'Status des Assistenten',
@@ -155,6 +229,7 @@ const settings: Catalog<typeof source> = {
       booking: 'Termine auf unterstützten Websites buchen',
       shopping: 'Produkte in unterstützten Shops vergleichen',
       purchases: 'Mit deiner Freigabe kaufen',
+      phoneCalls: 'Für dich telefonieren',
     },
     capabilityOn: 'Verfügbar',
     capabilityOff: 'Nicht verfügbar',
@@ -173,6 +248,7 @@ const settings: Catalog<typeof source> = {
       booking: 'Braucht den Browser-Agent auf diesem Server',
       shopping: 'Braucht den Browser-Agent auf diesem Server',
       purchases: 'Ein monatliches Kauflimit festlegen',
+      phoneCalls: 'Benötigt einen Telefonanbieter auf diesem Server',
     },
     statusFailed: 'JARVIS konnte den Status des Assistenten nicht laden.',
     externalModels: 'Externe KI-Modelle erlauben',
@@ -262,7 +338,7 @@ const settings: Catalog<typeof source> = {
     },
     exportTitle: 'Deine Daten exportieren',
     exportDescription:
-      'Lade alles, was JARVIS über dich speichert, als eine JSON-Datei herunter: Profil, Einstellungen, Gespräche und Aufgaben, Freigaben, Erinnerungen, Zeitpläne, Mitteilungen, Verbindungen und Webhooks. Angehängte Dateien sind enthalten, insgesamt bis zu 20 MB; weitere werden aufgelistet und bleiben herunterladbar. Passwörter, Schlüssel und Signaturgeheimnisse von Webhooks sind nie enthalten.',
+      'Lade alles, was JARVIS über dich speichert, als eine JSON-Datei herunter: Profil, Einstellungen, Gespräche und Aufgaben, Freigaben, Erinnerungen, Zeitpläne, Mitteilungen, Verbindungen, Webhooks, deine Telefonnummer, Anrufe mit dem Gesagten und die Sperrliste (maskiert). Angehängte Dateien sind enthalten, insgesamt bis zu 20 MB; weitere werden aufgelistet und bleiben herunterladbar. Passwörter, Schlüssel und Signaturgeheimnisse von Webhooks sind nie enthalten.',
     exportButton: 'Meine Daten exportieren',
     exporting: 'Export wird vorbereitet …',
     exported: '{file} heruntergeladen',

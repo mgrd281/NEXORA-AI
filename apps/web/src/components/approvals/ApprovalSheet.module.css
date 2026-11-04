@@ -511,3 +511,76 @@
 .swatchThis {
   background: var(--color-accent);
 }
+
+/* ------------------------------------------------------------------ phone call (Phase D) */
+
+.phone {
+  font: var(--text-body-strong);
+  letter-spacing: 0.01em;
+}
+
+.scriptNote {
+  margin: 0;
+  padding: var(--space-1) var(--space-4) 0;
+}
+
+.script {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  list-style: none;
+}
+
+.scriptLine {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.scriptLabel {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.scriptText {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-inline-start: 3px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  font: var(--text-body);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.shared {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sharedItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+}
+
+.sharedLabel {
+  color: var(--color-text-secondary);
+}
+
+.sharedLabel::after {
+  content: ':';
+}
+
+.sharedValue {
+  font-weight: 500;
+}

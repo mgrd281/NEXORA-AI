@@ -10,6 +10,7 @@ const tasks: Catalog<typeof source> = {
     tasks: 'المهام',
     conversations: 'المحادثات',
     scheduled: 'المجدولة',
+    calls: 'المكالمات',
   },
   filters: {
     legend: 'عرض المهام',
@@ -123,6 +124,7 @@ const tasks: Catalog<typeof source> = {
     bodyBooking: 'لن يحجز JARVIS إلا بعد موافقتك على الموعد والبيانات التي سيرسلها.',
     bodyPurchase: 'لن يقدّم JARVIS الطلب إلا بعد موافقتك على المبلغ الإجمالي الدقيق.',
     bodyForm: 'لن يرسل JARVIS النموذج إلا بعد موافقتك على ما سيرسله.',
+    bodyPhoneCall: 'لن يجري JARVIS المكالمة إلا بعد موافقتك على من سيتصل به وما سيقوله بالضبط.',
   },
   answer: {
     title: 'الإجابة',
@@ -224,6 +226,14 @@ const tasks: Catalog<typeof source> = {
       PURCHASE_CURRENCY: 'السعر ليس بالدولار الأمريكي، عملة حد مشترياتك.',
       PURCHASE: 'إنه ينفق المال، لذا يسأل JARVIS دائمًا أولًا.',
       BINDING_COMMITMENT: 'إنه مُلزِم تجاه الموقع، لذا يسأل JARVIS أولًا.',
+      DO_NOT_CALL: 'طلب صاحب هذا الرقم عدم الاتصال به مرة أخرى.',
+      CALL_OUTSIDE_HOURS: 'الوقت خارج الساعات التي يجري فيها JARVIS المكالمات.',
+      CALL_LIMIT: 'أجرى JARVIS اليوم الحد الأقصى المسموح به من المكالمات.',
+      CALL_DESTINATION_BLOCKED: 'لا يتصل JARVIS بهذا النوع من الأرقام أو بهذا البلد.',
+      TELEPHONY_NOT_CONFIGURED: 'لم تُعدّ المكالمات الهاتفية على هذا الخادم.',
+      PHONE_CALL: 'يتحدث فيها JARVIS نيابةً عنك عبر الهاتف، لذا يطلب موافقتك دائمًا أولًا.',
+      CALL_RECORDING: 'ستُسجَّل المكالمة فقط إذا وافق الطرف الآخر.',
+      CALL_PERSONAL_INFO: 'يجوز لـJARVIS مشاركة بيانات شخصية حددتها أنت.',
     },
   },
   fields: {
@@ -323,6 +333,26 @@ const tasks: Catalog<typeof source> = {
       ORDER_CONFIRMATION: 'أكّد المتجر الطلب',
       CART_SNAPSHOT: 'السلة في المتجر',
       HANDOVER: 'سُلّمت الخطوة إليك',
+      CALL_PLACED: 'أجرى المزوّد المكالمة',
+      CALL_ENDED: 'انتهت المكالمة',
+      AI_DISCLOSED: 'عرّف بنفسه كمساعد ذكي',
+      RECORDING_CONSENT: 'الموافقة على التسجيل',
+      CALL_TRANSCRIPT: 'ما قيل في المكالمة',
+      CALL_RECORDING: 'تسجيل المكالمة (بموافقة)',
+      CALL_TRANSFER: 'حُوّلت المكالمة إليك',
+      DO_NOT_CALL_RECORDED: 'لن يُتصل بهذا الرقم مرة أخرى',
+    },
+    phaseD: {
+      placed: 'قبل مزوّد الاتصال المكالمة',
+      ended: '{result} · {duration}',
+      disclosed: 'في العبارة {n} من المكالمة، قبل أي شيء آخر',
+      consent:
+        '{consent, select, accepted {وافقوا على التسجيل} declined {رفضوا التسجيل} other {لم يُسألوا}}',
+      transcript:
+        '{turns, plural, zero {لا عبارات محفوظة} one {عبارة واحدة من المكالمة محفوظة نصًّا} two {عبارتان من المكالمة محفوظتان نصًّا} few {# عبارات من المكالمة محفوظة نصًّا} many {# عبارة من المكالمة محفوظة نصًّا} other {# عبارة من المكالمة محفوظة نصًّا}}',
+      recording: '{duration}، سُجّلت بموافقتهم',
+      transfer: 'الحالة لدى المزوّد: {status}',
+      doNotCall: 'أُضيف إلى قائمة عدم الاتصال: {number}',
     },
     phaseC: {
       providerResponse: 'استجاب {provider} بالحالة {status}',
@@ -362,6 +392,12 @@ const tasks: Catalog<typeof source> = {
       cart: 'أكمل الشراء في المتجر',
       unknownOrder: 'نتيجة الطلب غير معروفة',
       unconfirmedBooking: 'الحجز غير مؤكَّد',
+      callRetry: 'لم تصل المكالمة إلى أحد',
+      callUnknown: 'لا يُعرف إن كانت المكالمة قد أُجريت',
+      doNotCall: 'طلب هذا الرقم عدم الاتصال به',
+      callHours: 'خارج أوقات الاتصال',
+      callDeclined: 'لم يرغبوا في التحدث مع ذكاء اصطناعي',
+      callRecording: 'رُفض التسجيل',
     },
     reconnect:
       'بعد إعادة الربط يعرض عليك JARVIS إعادة محاولة هذه المهمة. لم يُنفَّذ أي شيء في الأثناء.',
@@ -388,6 +424,17 @@ const tasks: Catalog<typeof source> = {
     viewOrders: 'عرض طلباتك',
     unconfirmedBooking:
       'أُرسل الحجز، لكن الموقع لم يعرض تأكيدًا. تحقق مع الموقع قبل المحاولة مجددًا؛ إذ تبحث إعادة المحاولة عن الحجز أولًا.',
+    callRetry:
+      'إعادة المحاولة مكالمة جديدة يُتحقق منها مجددًا وفق أوقات الاتصال وحدّك اليومي وقائمة عدم الاتصال.',
+    callUnknown:
+      'تطلب إعادة المحاولة منك تأكيد أنك تحققت. ثم يبحث JARVIS عن المكالمة لدى المزوّد أولًا، ولا يتصل مرتين لها أبدًا.',
+    doNotCall:
+      'طلب أحدهم على هذا الرقم من JARVIS عدم الاتصال مجددًا. لا تُزِله من القائمة إلا إذا كان ذلك سوء فهم.',
+    manageDoNotCall: 'فتح قائمة عدم الاتصال',
+    callHours:
+      'لا يتصل JARVIS إلا ضمن الأوقات المسموح بها في المنطقة الزمنية للطرف الآخر. أعد المحاولة حينها.',
+    callDeclined: 'لن يتصل JARVIS مجددًا لهذا الغرض. اتصل بهم بنفسك إن احتجت.',
+    callRecording: 'اطلب مرة أخرى دون اشتراط التسجيل إن كان يمكن إجراء المكالمة بدونه.',
   },
   phaseC: {
     failure: {
@@ -634,6 +681,15 @@ const tasks: Catalog<typeof source> = {
     offersCompared:
       'قورن {count, plural, zero {لا عروض} one {عرض واحد} two {عرضان} few {# عروض} many {# عرضًا} other {# عرض}}، كلٌّ مع صفحة مصدره',
     withinLimit: 'ضمن حد الشراء الشهري ({remaining} متبقٍّ)',
+    callConnected: 'أجرى مزوّد الاتصالات المكالمة ({callSid})',
+    aiDisclosed: 'أوضح JARVIS أولًا أنه مساعد ذكي',
+    callEnded: 'انتهت المكالمة: {result}',
+    goalReached: 'تحقق هدف المكالمة',
+    detailsCollected:
+      'دُوِّنت {count, plural, zero {لا معلومات} one {معلومة واحدة} two {معلومتان} few {# معلومات} many {# معلومة} other {# معلومة}} مما قيل',
+    consentRespected: 'رُوعيت الموافقة على التسجيل ({consent})',
+    transcriptStored:
+      'حُفظت {turns, plural, zero {لا مداخلات} one {مداخلة واحدة} two {مداخلتان} few {# مداخلات} many {# مداخلة} other {# مداخلة}} من المكالمة سجلًّا لها',
   },
   events: {
     created: 'طلبت من JARVIS',
@@ -695,6 +751,7 @@ const tasks: Catalog<typeof source> = {
       book: 'حجز {service} على {site}',
       compareProducts: 'مقارنة العروض لـ {query}',
       buy: 'شراء {product} من {site}',
+      call: 'الاتصال هاتفيًا بـ{who}',
     },
     objective: {
       summarize: 'قراءة {url} وتلخيصها.',
@@ -715,6 +772,7 @@ const tasks: Catalog<typeof source> = {
       book: 'حجز {service} على {site} بعد موافقتك، والاحتفاظ بالتأكيد.',
       compareProducts: 'مقارنة الأسعار وتكاليف الشحن ومدد التوصيل لـ {query} في المتاجر المدعومة.',
       buy: 'طلب {product} من {site} بعد موافقتك على المبلغ الإجمالي الدقيق.',
+      call: 'الاتصال بـ{who} بصفتي مساعدك الذكي ونقل ما قيل.',
     },
     step: {
       fetch: 'قراءة {host}',
@@ -747,6 +805,7 @@ const tasks: Catalog<typeof source> = {
       compareOffers: 'مقارنة العروض',
       prepareCart: 'تجهيز سلة التسوق على {site}',
       checkout: 'تقديم الطلب على {site}',
+      call: 'الاتصال بـ{who}',
     },
     approval: {
       email: 'إرسال البريد «{subject}» إلى {recipients}.',
@@ -764,6 +823,7 @@ const tasks: Catalog<typeof source> = {
       formSubmission: 'إرسال النموذج على {site}.',
       cart: 'وضع المنتجات في سلة التسوق على {site} — لن يُشترى شيء.',
       purchase: 'الشراء بمبلغ {total} من {merchant}.',
+      call: 'الاتصال بـ{who} ({number}) والتحدث نيابةً عنك بصفتي مساعدًا ذكيًا.',
     },
     result: {
       emailSent: 'أُرسل «{subject}» إلى {recipients}.',
@@ -782,6 +842,9 @@ const tasks: Catalog<typeof source> = {
       formSubmitted: 'تم إرسال النموذج على {site}.',
       cartPrepared: 'سلة التسوق على {site} جاهزة — لم يُشترَ شيء.',
       orderPlaced: 'تم الطلب من {merchant} (الطلب {orderId}).',
+      callCompleted: 'تم الاتصال بـ{who} وتحقق هدف المكالمة.',
+      callAnswered: 'تم الاتصال بـ{who} وجرى الرد، لكن الهدف لم يتحقق.',
+      callTransferred: 'تم الاتصال بـ{who} وتحويل المكالمة إليك.',
     },
     question: {
       emailContent: 'ماذا ينبغي أن تتضمن الرسالة؟',
@@ -797,6 +860,8 @@ const tasks: Catalog<typeof source> = {
       contactDetails: 'ما البيانات التي ينبغي أن أقدمها للموقع؟ على سبيل المثال رقم هاتفك.',
       product: 'أي منتج تقصد؟ اذكر الطراز أو الصق رابطه.',
       site: 'أين ينبغي أن أبحث؟ اذكر أحد المواقع المدعومة.',
+      phoneNumber: 'بأي رقم ينبغي أن أتصل؟ اكتبه مع رمز الدولة، على سبيل المثال +49 30 1234567.',
+      callGoal: 'ماذا ينبغي أن أقول أو أسأل في المكالمة؟',
     },
   },
 };

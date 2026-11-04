@@ -136,6 +136,28 @@ const errors = {
       'This purchase ({amount}) would go over your monthly limit of {limit} ({spent} already spent).',
     PURCHASE_CURRENCY:
       'The price is in {currency}, but your purchase limit is in US dollars, so JARVIS won’t buy it.',
+    CALL_BUSY: 'The line was busy. Nothing was said or agreed. You can try again.',
+    CALL_NO_ANSWER: 'Nobody answered. Nothing was said or agreed. You can try again later.',
+    CALL_FAILED: 'The phone provider couldn’t connect the call. Nothing was said or agreed.',
+    CALL_VOICEMAIL: 'A voicemail answered instead of a person. You can try again later.',
+    CALL_HUNG_UP: 'The other person hung up before the goal was reached. Nothing was agreed.',
+    CALL_DECLINED:
+      'The other person didn’t want to talk to an AI assistant. JARVIS won’t call again for this.',
+    CALL_DURATION_LIMIT:
+      'The call reached its maximum length of {seconds, plural, one {# second} other {# seconds}} before the goal was reached.',
+    RECORDING_CONSENT_DECLINED:
+      'The other person didn’t agree to the recording you required, so JARVIS ended the call politely.',
+    CALL_STATE_UNKNOWN:
+      'JARVIS can’t tell whether the call was placed. Check before you retry — JARVIS asks the phone provider first.',
+    PHONE_NUMBER_INVALID: '{number} isn’t a valid phone number.',
+    NUMBER_NOT_LITERAL:
+      'JARVIS calls only numbers you write yourself. Write the number with its country code.',
+    DO_NOT_CALL: '{number} asked not to be called again, so JARVIS won’t call it.',
+    CALL_OUTSIDE_HOURS: 'JARVIS calls only between {start} and {end} ({timeZone}). Try again then.',
+    CALL_LIMIT: 'JARVIS has made {max} calls today, the most allowed. Try again tomorrow.',
+    CALL_DESTINATION_BLOCKED:
+      'JARVIS doesn’t call this number: premium-rate numbers and countries this server doesn’t call are blocked.',
+    TELEPHONY_NOT_CONFIGURED: 'Phone calls aren’t set up on this server.',
   },
   /**
    * Why an API request was refused (contracts ApiErrorReason, sent in error.details.reason),
@@ -186,6 +208,17 @@ const errors = {
     CALENDAR_NOT_CONNECTED: 'No calendar is connected.',
     CALENDAR_UNAVAILABLE: '{provider} didn’t answer in time.',
     EVIDENCE_NOT_AVAILABLE: 'This evidence file can’t be read on this server right now.',
+    PHONE_NUMBER_INVALID:
+      'That isn’t a valid phone number. Write it with its country code, for example +49 30 1234567.',
+    PHONE_NUMBER_REQUIRED: 'Add your phone number first.',
+    PHONE_ALREADY_VERIFIED: 'This number is already verified.',
+    PHONE_VERIFICATION_INVALID:
+      'That code isn’t right. {attemptsLeft, plural, one {# try left} other {# tries left}}.',
+    PHONE_VERIFICATION_EXPIRED: 'This code has expired. Start a new verification call.',
+    PHONE_VERIFICATION_LIMIT: 'You can request at most {max} verification calls a day.',
+    TELEPHONY_NOT_CONFIGURED: 'Phone calls aren’t set up on this server.',
+    CALL_DESTINATION_BLOCKED: 'JARVIS doesn’t call numbers like this one.',
+    WEBHOOK_SIGNATURE_INVALID: 'The request isn’t signed by the phone provider.',
   },
   network: 'Can’t reach JARVIS. Check your connection.',
   badResponse: 'JARVIS sent a response this app doesn’t understand. Reload the page.',

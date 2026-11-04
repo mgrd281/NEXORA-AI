@@ -29,36 +29,18 @@ import { registerWebhookRoutes } from './modules/webhooks/routes';
 import type { AppDeps } from './services';
 
 /**
- * Contract routes whose handlers have not landed yet (Phase C's list ended empty).
- * Phase D stage 1 → 2 (docs/architecture/phase-d.md §0, §9): the six telephony user
- * routes are the telephony engineer's. They answer 404 outside production;
+ * Contract routes whose handlers have not landed yet. Phase D's list ended empty (the
+ * telephony user routes are registered by modules/telephony/routes.ts);
  * assertAllRoutesRegistered refuses any pending route in production regardless.
- * Remove each name in the change that registers its handler.
  */
-export const PENDING_ROUTES: ReadonlySet<RouteName> = new Set<RouteName>([
-  'listCalls',
-  'getCall',
-  'listDoNotCall',
-  'deleteDoNotCall',
-  'startPhoneVerification',
-  'confirmPhoneVerification',
-]);
+export const PENDING_ROUTES: ReadonlySet<RouteName> = new Set<RouteName>([]);
 
 /**
- * Phase D stage 1 → 2: telephony webhooks (contracts telephonyWebhookRoutes) whose
- * handlers have not landed yet — same rules as PENDING_ROUTES.
+ * Telephony webhooks (contracts telephonyWebhookRoutes) whose handlers have not landed yet —
+ * same rules as PENDING_ROUTES. Empty since Phase D stage 2.
  */
 export const PENDING_WEBHOOK_ROUTES: ReadonlySet<TelephonyWebhookName> =
-  new Set<TelephonyWebhookName>([
-    'twilioCallVoice',
-    'twilioCallGather',
-    'twilioCallStatus',
-    'twilioCallAmd',
-    'twilioCallDial',
-    'twilioCallRecording',
-    'twilioVerificationVoice',
-    'twilioVerificationStatus',
-  ]);
+  new Set<TelephonyWebhookName>([]);
 
 /**
  * Registers every HTTP module. Boot fails if any route in the contract table

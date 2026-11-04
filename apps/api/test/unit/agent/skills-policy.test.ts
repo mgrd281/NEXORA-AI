@@ -289,11 +289,17 @@ describe('skill availability per user', () => {
     );
 
   it('reports the first reason a skill cannot run', () => {
-    expect(entry('phone-calling', agent())).toMatchObject({
+    expect(entry('device-automation', agent())).toMatchObject({
       status: 'planned',
       available: false,
       unavailableReason: 'PLANNED',
       canToggle: false,
+    });
+    // Phase D: phone.call is built; without a telephony gateway on the server it cannot run.
+    expect(entry('phone-calling', agent())).toMatchObject({
+      status: 'implemented',
+      available: false,
+      unavailableReason: 'TELEPHONY_NOT_CONFIGURED',
     });
     expect(
       entry(

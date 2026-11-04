@@ -19,7 +19,7 @@ struct PresenceStateTests {
         #expect(derive { $0.connection = .connecting } == .idle)
     }
 
-    @Test("Listening wins over everything and clamps the level")
+    @Test("Listening wins over everything but JARVIS speaking, and clamps the level")
     func listening() {
         let state = derive {
             $0.isListening = true

@@ -12,6 +12,7 @@ import { useI18n } from '@/i18n/I18nProvider';
 import { api, isApiError, type ApiError } from '@/lib/api/client';
 import { cx } from '@/lib/cx';
 import { DangerZone, SettingRow, SettingsCard } from './controls';
+import { DoNotCallCard } from './DoNotCallCard';
 import { SettingsSection } from './SettingsSection';
 import { exportFileName } from './exportFile';
 import { RetentionSelect } from './RetentionControls';
@@ -53,6 +54,7 @@ export function PrivacySection({ me }: { me: Me }) {
         </SettingRow>
         <ExportRow />
       </SettingsCard>
+      <DoNotCallCard />
       <DeleteAccountCard />
     </SettingsSection>
   );

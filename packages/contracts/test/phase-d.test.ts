@@ -24,9 +24,11 @@ import {
   MissingInfo,
   PhoneCallInput,
   PhoneVerification,
+  PhoneVerificationState,
   PolicyReason,
   Preferences,
   ServerMessageKey,
+  TaskSummary,
   SkillUnavailableReason,
   TELEPHONY_WEBHOOK_LIMITS,
   TELEPHONY_WEBHOOK_PREFIX,
@@ -305,9 +307,9 @@ describe('Phase D: voice conversation preferences and sessions', () => {
       preferences: { voice: { speakingRate: 1.25, voiceNames: { de: 'Anna' } } },
     });
     expect(patch.preferences?.voice).toEqual({ speakingRate: 1.25, voiceNames: { de: 'Anna' } });
-    expect(
-      UpdateMeRequest.safeParse({ preferences: { voice: { speakingRate: 3 } } }).success,
-    ).toBe(false);
+    expect(UpdateMeRequest.safeParse({ preferences: { voice: { speakingRate: 3 } } }).success).toBe(
+      false,
+    );
     expect(
       UpdateMeRequest.safeParse({ preferences: { voice: { endOfSpeechSilenceMs: 100 } } }).success,
     ).toBe(false);
@@ -445,6 +447,14 @@ describe('Phase D: phone.call input, approval and call records', () => {
       createdAt: AT,
     });
     expect(Object.keys(e)).not.toContain('numberHash');
+    // Additive: the task of that call (older servers omit it).
+    expect(DoNotCallEntry.parse({ ...e, taskId: ID }).taskId).toBe(ID);
+  });
+
+  it('additive Phase D fields of existing read models decode from older payloads', () => {
+    expect(TaskSummary.shape.language.safeParse(undefined).success).toBe(true);
+    expect(TaskSummary.shape.language.parse('de')).toBe('de');
+    expect(CallSummary.shape.taskTitle.safeParse(undefined).success).toBe(true);
   });
 });
 
@@ -454,12 +464,21 @@ describe('Phase D: user routes', () => {
     'getCall',
     'listDoNotCall',
     'deleteDoNotCall',
+    'getPhoneVerification',
     'startPhoneVerification',
     'confirmPhoneVerification',
   ] as const;
 
-  it('adds six routes, all for signed-in users', () => {
+  it('adds seven routes, all for signed-in users', () => {
     for (const name of PHASE_D) expect((routes[name] as RouteDef).auth, name).toBe('user');
+  });
+
+  it('the live verification can be read again (a client that left or reloaded resumes)', () => {
+    expect(routes.getPhoneVerification).toMatchObject({
+      method: 'GET',
+      path: routes.startPhoneVerification.path,
+    });
+    expect(PhoneVerificationState.parse({ verification: null })).toEqual({ verification: null });
   });
 
   it('calls are records of what the agent did: no HTTP route places a call', () => {
@@ -524,9 +543,19 @@ describe('Phase D: telephony webhook route group', () => {
       'twilioCallStatus',
       'twilioCallAmd',
       'twilioCallDial',
+      'twilioCallWhisper',
       'twilioCallRecording',
     ]);
     expect(defs.filter(([, d]) => d.target === 'verification')).toHaveLength(2);
+  });
+
+  it('the transfer whisper names the call JARVIS placed as its parent (the owner’s leg is a child)', () => {
+    const form = telephonyWebhookRoutes.twilioCallWhisper.form;
+    expect(form.safeParse({ CallSid: CALL_SID, AccountSid: ACCOUNT_SID }).success).toBe(false);
+    expect(
+      form.parse({ CallSid: CALL_SID, AccountSid: ACCOUNT_SID, ParentCallSid: CALL_SID }),
+    ).toMatchObject({ ParentCallSid: CALL_SID });
+    expect(telephonyWebhookRoutes.twilioCallWhisper.responds).toBe('twiml');
   });
 });
 

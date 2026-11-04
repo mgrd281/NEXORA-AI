@@ -28,19 +28,19 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "يستخدم JARVIS الميكروفون فقط أثناء نطقك لطلب. يتحوّل الصوت إلى نص على الـ iPhone أو عبر خدمة الكلام من Apple؛ ولا يتلقى JARVIS سوى النص الذي تختار إرساله."
+            "value": "يستخدم JARVIS الميكروفون فقط أثناء فتح وضع الصوت. يُحوَّل الصوت إلى نص على الـiPhone أو عبر خدمة Apple للتعرّف على الكلام، ولا يتلقى JARVIS سوى طلباتك نصًا، ولا يتلقى الصوت أبدًا."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "JARVIS nutzt das Mikrofon nur, während du eine Anfrage sprichst. Der Ton wird auf deinem iPhone oder vom Spracherkennungsdienst von Apple in Text umgewandelt; JARVIS erhält nur den Text, den du senden möchtest."
+            "value": "JARVIS verwendet das Mikrofon nur, solange der Sprachmodus geöffnet ist. Audio wird auf deinem iPhone oder vom Spracherkennungsdienst von Apple in Text umgewandelt; JARVIS erhält nur deine Anfragen als Text, nie Audio."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "JARVIS uses the microphone only while you are speaking a request. Audio is turned into text on your iPhone or by Apple's speech service; JARVIS receives only the text you choose to send."
+            "value": "JARVIS uses the microphone only while voice mode is open. Audio is turned into text on your iPhone or by Apple's speech service; JARVIS receives only your requests as text, never audio."
           }
         }
       }
@@ -50,19 +50,19 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "يحوّل JARVIS طلباتك المنطوقة إلى نص لتتمكن من مراجعتها قبل الإرسال. عندما تدعم لغتك ذلك، يتم التعرّف على الـ iPhone؛ وإلا فتعالج خدمة الكلام من Apple الصوت."
+            "value": "يحوّل JARVIS ما تقوله إلى نص: في الطلب الواحد تراجعه قبل الإرسال، وفي المحادثة يُرسَل بعد توقف قصير. عندما تدعم لغتك ذلك يتم التعرّف على الكلام على الـiPhone، وإلا فتعالج خدمة Apple للتعرّف على الكلام الصوت."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "JARVIS wandelt deine gesprochenen Anfragen in Text um, damit du sie vor dem Senden prüfen kannst. Wenn deine Sprache es unterstützt, erfolgt die Erkennung auf deinem iPhone; sonst verarbeitet der Spracherkennungsdienst von Apple den Ton."
+            "value": "JARVIS wandelt das Gesagte in Text um: Bei einer einzelnen Anfrage prüfst du ihn vor dem Senden, in einem Gespräch wird er nach einer kurzen Pause gesendet. Wenn deine Sprache es unterstützt, erfolgt die Erkennung auf deinem iPhone, sonst verarbeitet der Spracherkennungsdienst von Apple das Audio."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "JARVIS turns your spoken requests into text so you can review them before sending. When your language supports it, recognition happens on your iPhone; otherwise Apple's speech service processes the audio."
+            "value": "JARVIS turns what you say into text: for a single request you review it before sending; in a conversation it is sent after a short pause. When your language supports it, recognition happens on your iPhone; otherwise Apple's speech service processes the audio."
           }
         }
       }

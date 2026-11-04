@@ -12,6 +12,7 @@ const approvals: Catalog<typeof source> = {
     purchase: 'مراجعة هذا الشراء',
     emailDraft: 'مراجعة هذه المسودة',
     form_submission: 'مراجعة هذا النموذج',
+    phone_call: 'راجع هذه المكالمة',
   },
   fields: {
     from: 'من',
@@ -62,6 +63,10 @@ const approvals: Catalog<typeof source> = {
     unknown: 'وضعت سياسة الأمان علامة على هذا الإجراء ({code}).',
     PURCHASE: 'هذا ينفق من مالك. يسأل JARVIS دائمًا ويعرض المبلغ الإجمالي الدقيق.',
     BINDING_COMMITMENT: 'هذا مُلزِم تجاه الموقع (مثلًا قد تُطبَّق رسوم إلغاء).',
+    PHONE_CALL: 'سيتحدث JARVIS نيابةً عنك مع شخص آخر، ولذلك يطلب موافقتك دائمًا أولًا.',
+    CALL_RECORDING: 'طلبت تسجيل المكالمة. لن يسجّل JARVIS إلا إذا وافق الطرف الآخر.',
+    CALL_PERSONAL_INFO:
+      'يجوز لـJARVIS أن يذكر للطرف الآخر البيانات الشخصية المدرجة أدناه فقط، ولا شيء غيرها.',
   },
   reasonsByKind: {
     calendar_event: {
@@ -103,6 +108,7 @@ const approvals: Catalog<typeof source> = {
     purchase: 'الموافقة والشراء',
     form_submission: 'الموافقة والإرسال',
     emailDraft: 'الموافقة وحفظ المسودة',
+    phone_call: 'الموافقة والاتصال',
   },
   approvePurchaseLabel: 'الموافقة والشراء بمبلغ {total} من {merchant}',
   approveLabel: {
@@ -115,6 +121,7 @@ const approvals: Catalog<typeof source> = {
     purchase: 'الموافقة على هذا الطلب وتقديمه',
     form_submission: 'الموافقة والإرسال لهذا النموذج',
     emailDraft: 'الموافقة وحفظ المسودة دون إرسال',
+    phone_call: 'الموافقة والاتصال كما هو معروض تمامًا',
   },
   decline: 'رفض',
   declineLabel: {
@@ -127,6 +134,7 @@ const approvals: Catalog<typeof source> = {
     purchase: 'رفض هذا الشراء',
     form_submission: 'رفض إرسال هذا النموذج',
     emailDraft: 'رفض حفظ هذه المسودة',
+    phone_call: 'رفض هذه المكالمة',
   },
   results: {
     approved: 'تمت الموافقة. يتابع JARVIS تنفيذ المهمة.',
@@ -221,6 +229,69 @@ const approvals: Catalog<typeof source> = {
       '{form, select, contact {نموذج التواصل} reservation {نموذج الحجز} other {النموذج «{form}»}}',
     evidence: 'النموذج في {site} كما رآه JARVIS',
     note: 'يملأ JARVIS هذه القيم بالضبط ويرسل النموذج مرة واحدة.',
+  },
+  call: {
+    callee: 'من سيتصل به JARVIS',
+    number: 'الرقم',
+    numberUnnamed: 'الرقم فقط (لم يُذكر اسم)',
+    country: 'البلد',
+    onBehalfOf: 'نيابةً عن',
+    callerId: 'الرقم الذي يظهر لهم',
+    callerIdUnknown: 'غير مُعَدّ على هذا الخادم',
+    language: 'لغة المكالمة',
+    purpose: 'الغرض',
+    purposes: {
+      message: 'إيصال رسالة',
+      availability: 'السؤال عن الأوقات المتاحة',
+      questions: 'طرح أسئلة',
+      appointment: 'حجز موعد',
+    },
+    goal: 'الهدف',
+    when: 'التاريخ المسؤول عنه',
+    window: 'بين {start} و{end}',
+    anyTime: 'أي وقت في ذلك اليوم',
+    script: 'ما سيقوله JARVIS بالضبط',
+    scriptNote:
+      'يُقال باللغة {language}. يذكر الافتتاح دائمًا أن مساعد ذكاء اصطناعي يتصل نيابةً عن {name}.',
+    lines: {
+      opening: 'الافتتاح',
+      recordingQuestion: 'سؤال التسجيل',
+      message: 'الرسالة',
+      question: 'السؤال {n}',
+      closing: 'الختام',
+      voicemail: 'على البريد الصوتي',
+    },
+    dialog: 'طريقة كلام JARVIS',
+    dialogs: {
+      scripted: 'هذه العبارات فقط، مع أجوبة ثابتة مثل من المتصل',
+      model:
+        'هذه العبارات، ويمكنه الإجابة عن أسئلتهم ضمن هذا الغرض، دون أن يوافق على أي شيء آخر أو يشاركه',
+    },
+    shared: 'البيانات الشخصية التي يمكنه مشاركتها',
+    sharedNone: 'لا شيء، فلن يشارك JARVIS أي بيانات شخصية في هذه المكالمة',
+    sharedNote: 'يرفض JARVIS أي شيء آخر يُطلب منه.',
+    duration: 'أطول مدة للمكالمة',
+    hours: 'الاتصال فقط بين',
+    hoursValue: '{start}–{end}، {zone}',
+    recording: 'التسجيل',
+    recordings: {
+      off: 'متوقف، تُحفظ ملاحظات بما يُقال فقط',
+      if_consented: 'فقط إن وافقوا عند سؤالهم، وإلا فلا تسجيل',
+      required: 'مطلوب، فإن رفضوا أنهى JARVIS المكالمة بلطف',
+    },
+    voicemail: 'إذا ردّ البريد الصوتي',
+    voicemails: {
+      hang_up: 'إنهاء المكالمة دون ترك رسالة',
+      leave_message: 'ترك رسالة البريد الصوتي أعلاه',
+    },
+    transfer: 'تحويلهم إليك',
+    transferTo: 'إن طلبوا التحدث إلى شخص: إلى رقمك المؤكَّد {number}',
+    transferNo: 'لا',
+    binding: 'مُلزِم',
+    bindingYes: 'يمكن لـJARVIS الموافقة على موعد في هذا التاريخ وضمن هذه الفترة',
+    cost: 'التكلفة القصوى',
+    costUnknown: 'غير معروفة، إذ يحاسب مزوّد الاتصال على المكالمة',
+    note: 'يتصل JARVIS مرة واحدة بعد موافقتك. يُعامَل كل ما يقوله الطرف الآخر كمعلومات لا كتعليمات، فلا يمكنه تغيير الرقم أو الغرض أو ما تتم مشاركته.',
   },
   task: 'المهمة',
   notReviewable:

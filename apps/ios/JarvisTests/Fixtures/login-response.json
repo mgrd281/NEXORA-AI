@@ -16,7 +16,15 @@
     "preferences": {
       "voice": {
         "speakResponses": true,
-        "recognitionLocale": "de-DE"
+        "recognitionLocale": "de-DE",
+        "conversationMode": true,
+        "speakingRate": 1.2,
+        "endOfSpeechSilenceMs": 1800,
+        "voiceNames": {
+          "en": null,
+          "de": "com.apple.voice.premium.de-DE.Anna",
+          "ar": null
+        }
       },
       "autonomy": {
         "autoApproveEmailToSelf": false
@@ -46,7 +54,9 @@
         ]
       }
     },
-    "createdAt": "2026-10-01T08:00:00.000Z"
+    "createdAt": "2026-10-01T08:00:00.000Z",
+    "phoneNumber": null,
+    "phoneNumberVerifiedAt": null
   },
   "session": {
     "id": "cade17b9-e460-462c-a974-8ccb0270515b",

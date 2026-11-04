@@ -263,6 +263,15 @@ export const PHASE_C_EVIDENCE = [
   'ORDER_CONFIRMATION',
   'CART_SNAPSHOT',
   'HANDOVER',
+  // Phase D: phone calls (rendered the same way: from code + params)
+  'CALL_PLACED',
+  'CALL_ENDED',
+  'AI_DISCLOSED',
+  'RECORDING_CONSENT',
+  'CALL_TRANSCRIPT',
+  'CALL_RECORDING',
+  'CALL_TRANSFER',
+  'DO_NOT_CALL_RECORDED',
 ] as const satisfies readonly EvidenceCode[];
 export type PhaseCEvidenceCode = (typeof PHASE_C_EVIDENCE)[number];
 

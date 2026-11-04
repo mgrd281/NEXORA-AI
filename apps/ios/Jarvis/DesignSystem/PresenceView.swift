@@ -36,6 +36,7 @@ struct PresenceView: View {
     private var centerSymbol: String? {
         switch state {
         case .listening: MeridianIcon.voice
+        case .speaking: "speaker.wave.2"
         case .awaiting: "hand.raised"
         case .completed: MeridianIcon.approve
         case .failed: "exclamationmark"
@@ -107,6 +108,20 @@ private struct PresenceRenderer {
                     lineWidth: lineWidth
                 )
             }
+
+        case .speaking:
+            // Two rings breathing out of phase; with Reduce Motion a steady double ring.
+            let wave = reduceMotion ? 1.0 : breathing(period: 1.2)
+            context.stroke(
+                circle(center: center, radius: radius),
+                with: .color(MeridianColor.accent),
+                lineWidth: lineWidth
+            )
+            context.stroke(
+                circle(center: center, radius: radius * (0.62 + 0.14 * wave)),
+                with: .color(MeridianColor.accent.opacity(reduceMotion ? 0.5 : 0.25 + 0.5 * wave)),
+                lineWidth: max(1.5, lineWidth * 0.6)
+            )
 
         case .planning:
             let start = reduceMotion ? -90.0 : rotationDegrees(period: MeridianMotion.presenceRotation)

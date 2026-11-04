@@ -13,6 +13,14 @@ import { useStreamEvent } from '@/lib/events/EventStreamProvider';
 const spoken = new Set<string>();
 
 /**
+ * A voice conversation speaks its own replies (sentence by sentence, with barge-in): its tasks
+ * are never read aloud a second time by this hook.
+ */
+export function markTaskSpoken(taskId: string): void {
+  spoken.add(taskId);
+}
+
+/**
  * When a task started by voice completes (live task.status_changed → COMPLETED) and the account
  * turned on preferences.voice.speakResponses, reads its result summary aloud — the server's
  * result (a server sentence in the interface language, the voice's language), never a

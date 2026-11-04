@@ -159,6 +159,12 @@ final class AppModel {
         me = fresh
     }
 
+    /// The account as a route answered it (e.g. after confirming a phone verification).
+    func replaceMe(_ fresh: Me) {
+        guard phase == .signedIn else { return }
+        me = fresh
+    }
+
     // MARK: Tasks
 
     /// Submits a request. `idempotencyKey` must stay the same when re-sending the same

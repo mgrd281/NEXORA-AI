@@ -37,7 +37,7 @@ import { requestApproval } from './approval-flow';
 import { insertAssistantMessage, questionOf, taskOutcome } from './completion';
 import { loadAgentContext, stepCommittedSpend, type AgentContext } from './context';
 import { loadConversationContext, type PriorTurn } from './conversation-context';
-import { AgentError, asAgentError } from './errors';
+import { AgentError, ToolCancelledError, asAgentError } from './errors';
 import type { ModelUsage } from './models/adapter';
 import { asLocale, asMessage } from './i18n';
 import {
@@ -765,6 +765,17 @@ async function runStep(
       if (autoRetry) return false;
       const task = await lockTask(trx, step.task_id);
       if (task.status !== 'RUNNING') return true;
+      if (e instanceof ToolCancelledError) {
+        // The task was cancelled while the step ran and the tool stopped for it: the step and
+        // the task end CANCELLED (not FAILED, so nothing offers a retry).
+        await trx
+          .updateTable('task_steps')
+          .set({ status: 'CANCELLED', completed_at: new Date() })
+          .where('id', '=', step.id)
+          .execute();
+        await finishCancellation(trx, ctx, task, 'step');
+        return true;
+      }
       await failStep(trx, ctx, task, step, e);
       return true;
     });

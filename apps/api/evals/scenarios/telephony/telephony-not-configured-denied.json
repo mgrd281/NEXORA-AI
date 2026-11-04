@@ -1,0 +1,28 @@
+{
+  "id": "telephony-not-configured-denied",
+  "version": 1,
+  "suite": "telephony",
+  "title": "Without a telephony provider on the server the call is denied (TELEPHONY_NOT_CONFIGURED), nothing is dialled",
+  "modes": ["offline"],
+  "given": {
+    "request": "Call +49 30 1234567 and tell them I am late",
+    "language": "en",
+    "account": {
+      "email": "owner@eval.test",
+      "locale": "en",
+      "timeZone": "Europe/Berlin"
+    }
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "TELEPHONY_NOT_CONFIGURED",
+    "sideEffectsAtMost": 0,
+    "policy": [
+      {
+        "step": 0,
+        "decision": "deny",
+        "reasonsInclude": ["TELEPHONY_NOT_CONFIGURED"]
+      }
+    ]
+  }
+}

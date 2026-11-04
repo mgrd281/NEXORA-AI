@@ -12,11 +12,19 @@ struct VoiceCaptureView: View {
     let conversationId: String?
     /// Files already uploaded in the composer; sent with the spoken request.
     let attachmentIds: [String]
+    /// Offers switching to a continuous conversation (Phase D), when set.
+    let onSwitchToConversation: (() -> Void)?
     let onCreated: (TaskSummary) -> Void
 
-    init(conversationId: String? = nil, attachmentIds: [String] = [], onCreated: @escaping (TaskSummary) -> Void) {
+    init(
+        conversationId: String? = nil,
+        attachmentIds: [String] = [],
+        onSwitchToConversation: (() -> Void)? = nil,
+        onCreated: @escaping (TaskSummary) -> Void
+    ) {
         self.conversationId = conversationId
         self.attachmentIds = attachmentIds
+        self.onSwitchToConversation = onSwitchToConversation
         self.onCreated = onCreated
     }
 
@@ -41,6 +49,17 @@ struct VoiceCaptureView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    if let onSwitchToConversation {
+                        Button {
+                            onSwitchToConversation()
+                        } label: {
+                            Label("Talk with JARVIS", systemImage: "bubble.left.and.text.bubble.right")
+                        }
+                        .disabled(model?.phase == .submitting)
+                        .accessibilityHint(Text("Switches to a conversation: JARVIS answers aloud and listens again"))
+                    }
                 }
             }
         }

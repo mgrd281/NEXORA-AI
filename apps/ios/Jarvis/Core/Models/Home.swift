@@ -41,6 +41,9 @@ struct AssistantStatus: Decodable, Sendable, Equatable {
         var shopping: Bool? = nil
         /// Purchases are possible at all (shopping available and a purchase limit above 0).
         var purchases: Bool? = nil
+        // Phase D; nil from older servers (unknown).
+        /// Phone calls can be placed (phone.call built, telephony configured, the skill on).
+        var phoneCalls: Bool? = nil
     }
 
     let planner: Planner

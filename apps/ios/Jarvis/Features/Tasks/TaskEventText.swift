@@ -45,7 +45,8 @@ enum TaskEventText {
             return String(localized: "Retried")
         case .notificationCreated, .connectionChanged, .heartbeat, .conversationMessage,
              .conversationChanged, .scheduleChanged, .webhookDeliveryFailed, .webhookEndpointChanged,
-             .emailWatchChanged, .browserSessionChanged, .orderChanged, .bookingChanged, .unknown:
+             .emailWatchChanged, .browserSessionChanged, .orderChanged, .bookingChanged,
+             .callStatusChanged, .callTurn, .phoneVerificationChanged, .unknown:
             return String(localized: "Update")
         }
     }
@@ -64,7 +65,8 @@ enum TaskEventText {
         case .taskRetried: "arrow.clockwise.circle"
         case .taskAnswerDelta, .notificationCreated, .connectionChanged, .heartbeat, .conversationMessage,
              .conversationChanged, .scheduleChanged, .webhookDeliveryFailed, .webhookEndpointChanged,
-             .emailWatchChanged, .browserSessionChanged, .orderChanged, .bookingChanged, .unknown: "circle"
+             .emailWatchChanged, .browserSessionChanged, .orderChanged, .bookingChanged,
+             .callStatusChanged, .callTurn, .phoneVerificationChanged, .unknown: "circle"
         }
     }
 }
@@ -102,6 +104,15 @@ enum PolicyReasonText {
         case "PURCHASE_CURRENCY": String(localized: "The price isn't in US dollars, the currency of your purchase limit.")
         case "PURCHASE": String(localized: "This spends your money. JARVIS always asks, and shows the exact total.")
         case "BINDING_COMMITMENT": String(localized: "This is binding with the site (for example, cancellation fees may apply).")
+        // Phase D
+        case "DO_NOT_CALL": String(localized: "This number asked not to be called again.")
+        case "CALL_OUTSIDE_HOURS": String(localized: "It's outside the hours in which JARVIS places calls.")
+        case "CALL_LIMIT": String(localized: "JARVIS has made the most calls allowed for today.")
+        case "CALL_DESTINATION_BLOCKED": String(localized: "JARVIS doesn't call this kind of number or this country.")
+        case "TELEPHONY_NOT_CONFIGURED": String(localized: "Phone calls aren't set up on this server.")
+        case "PHONE_CALL": String(localized: "JARVIS speaks for you to someone else on the phone, so it always asks first.")
+        case "CALL_RECORDING": String(localized: "You asked for a recording. JARVIS records only if the other person agrees.")
+        case "CALL_PERSONAL_INFO": String(localized: "JARVIS may tell the other person the personal details listed — nothing else.")
         default: nil
         }
     }

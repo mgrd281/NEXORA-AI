@@ -135,7 +135,13 @@ export function useTaskActions({
   const step = failedStep(task);
   const action = nextAction(task);
   const fixKind = hasNextStep(task.error);
-  const fixFirst = fixKind === 'reconnect' || fixKind === 'allow' || fixKind === 'limit';
+  // A retry that would be refused the same way is never the emphasised action.
+  const fixFirst =
+    fixKind === 'reconnect' ||
+    fixKind === 'allow' ||
+    fixKind === 'limit' ||
+    fixKind === 'doNotCall' ||
+    fixKind === 'callDeclined';
 
   const cancelButton = task.canCancel ? (
     <Button

@@ -53,6 +53,20 @@ export class AgentError extends AppError {
   }
 }
 
+/**
+ * Thrown by a tool that stopped because the task was cancelled while it ran (phone.call: JARVIS
+ * said a closing line and hung up). The executor then ends the step and the task CANCELLED, in
+ * the same transaction that records the execution — never FAILED, never retried
+ * (docs/architecture/phase-d.md §3.2). Whatever really happened (the call and its outcome) is the
+ * tool's own record.
+ */
+export class ToolCancelledError extends AgentError {
+  constructor(message = 'The task was cancelled while this step ran.') {
+    super('TOOL_FAILED', message, { retryable: false });
+    this.name = 'ToolCancelledError';
+  }
+}
+
 /** Normalises anything thrown by a tool or the runtime into a user-safe TaskError. */
 export function toTaskError(err: unknown): TaskError {
   if (err instanceof AgentError) return err.toTaskError();

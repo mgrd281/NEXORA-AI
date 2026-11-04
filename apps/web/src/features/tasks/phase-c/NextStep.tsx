@@ -2,7 +2,7 @@
 
 import type { TaskDetail, TaskError } from '@jarvis/contracts';
 import { ConnectionCapability, OAuthProvider } from '@jarvis/contracts';
-import { ExternalLink, Wallet } from 'lucide-react';
+import { ExternalLink, PhoneOff, Wallet } from 'lucide-react';
 import { ButtonLink } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { useI18n } from '@/i18n/I18nProvider';
@@ -21,7 +21,14 @@ export type NextStepKind =
   | 'currency'
   | 'cart'
   | 'unknownOrder'
-  | 'unconfirmedBooking';
+  | 'unconfirmedBooking'
+  // Phase D: phone calls
+  | 'callRetry'
+  | 'callUnknown'
+  | 'doNotCall'
+  | 'callHours'
+  | 'callDeclined'
+  | 'callRecording';
 
 /** The failure has one specific next step (Phase C), or null for the generic guidance. */
 export function hasNextStep(
@@ -52,6 +59,24 @@ export function hasNextStep(
       return 'unknownOrder';
     case 'BOOKING_UNCONFIRMED':
       return 'unconfirmedBooking';
+    // Phase D: an unsuccessful call (scenario 4) — nothing was said or agreed.
+    case 'CALL_BUSY':
+    case 'CALL_NO_ANSWER':
+    case 'CALL_VOICEMAIL':
+    case 'CALL_HUNG_UP':
+    case 'CALL_FAILED':
+    case 'CALL_DURATION_LIMIT':
+      return 'callRetry';
+    case 'CALL_STATE_UNKNOWN':
+      return 'callUnknown';
+    case 'DO_NOT_CALL':
+      return 'doNotCall';
+    case 'CALL_OUTSIDE_HOURS':
+      return 'callHours';
+    case 'CALL_DECLINED':
+      return 'callDeclined';
+    case 'RECORDING_CONSENT_DECLINED':
+      return 'callRecording';
     default:
       return null;
   }
@@ -195,6 +220,28 @@ export function NextStep({ task }: { task: TaskDetail }) {
       return (
         <div className={styles.step}>
           <p>{t('tasks.nextStep.unconfirmedBooking')}</p>
+        </div>
+      );
+    case 'doNotCall':
+      return (
+        <div className={styles.step}>
+          <p>{t('tasks.nextStep.doNotCall')}</p>
+          <div className={styles.actions}>
+            <ButtonLink href="/settings#privacy" size="sm" icon={PhoneOff}>
+              {t('tasks.nextStep.manageDoNotCall')}
+            </ButtonLink>
+          </div>
+        </div>
+      );
+    case 'callRetry':
+    case 'callUnknown':
+    case 'callHours':
+    case 'callDeclined':
+    case 'callRecording':
+      // The header's Retry places a new call (OUTCOME_UNKNOWN asks to acknowledge first).
+      return (
+        <div className={styles.step}>
+          <p>{t(`tasks.nextStep.${kind}`)}</p>
         </div>
       );
   }

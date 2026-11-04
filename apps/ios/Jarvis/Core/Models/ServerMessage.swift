@@ -334,6 +334,25 @@ enum ServerMessageText {
             text = String(localized: "server.question.product", defaultValue: "Which product do you mean? Name the model or paste its link.")
         case "question.site":
             text = String(localized: "server.question.site", defaultValue: "Where should I look? Name one of the supported sites.")
+        // Phase D: phone calls ({who}: the callee as the user named them, else the number)
+        case "plan.call":
+            text = String(localized: "server.plan.call", defaultValue: "Call \(p.who)")
+        case "objective.call":
+            text = String(localized: "server.objective.call", defaultValue: "Call \(p.who) as your AI assistant and report what was said.")
+        case "step.call":
+            text = String(localized: "server.step.call", defaultValue: "Call \(p.who)")
+        case "approval.call":
+            text = String(localized: "server.approval.call", defaultValue: "Call \(p.who) (\(p.number)) and speak for you as an AI assistant.")
+        case "result.callCompleted":
+            text = String(localized: "server.result.callCompleted", defaultValue: "Called \(p.who); the call reached its goal.")
+        case "result.callAnswered":
+            text = String(localized: "server.result.callAnswered", defaultValue: "Called \(p.who); they answered, but the goal was not reached.")
+        case "result.callTransferred":
+            text = String(localized: "server.result.callTransferred", defaultValue: "Called \(p.who) and put them through to you.")
+        case "question.phoneNumber":
+            text = String(localized: "server.question.phoneNumber", defaultValue: "Which number should I call? Write it with the country code, for example +49 30 1234567.")
+        case "question.callGoal":
+            text = String(localized: "server.question.callGoal", defaultValue: "What should I say or ask on the call?")
         default:
             return nil
         }

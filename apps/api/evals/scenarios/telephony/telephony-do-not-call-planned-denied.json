@@ -1,0 +1,31 @@
+{
+  "id": "telephony-do-not-call-planned-denied",
+  "version": 1,
+  "suite": "telephony",
+  "title": "A planned call to a number on the do-not-call list is denied before anything is dialled",
+  "modes": ["offline"],
+  "given": {
+    "request": "Call +49 30 1234567 and tell them I am late",
+    "language": "en",
+    "account": {
+      "email": "owner@eval.test",
+      "locale": "en",
+      "timeZone": "Europe/Berlin"
+    },
+    "telephony": {
+      "allowedCountries": ["DE"],
+      "doNotCall": ["+49301234567"]
+    }
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "DO_NOT_CALL",
+    "policy": [
+      {
+        "step": 0,
+        "decision": "deny",
+        "reasonsInclude": ["DO_NOT_CALL"]
+      }
+    ]
+  }
+}

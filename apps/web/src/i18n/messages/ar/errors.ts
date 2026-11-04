@@ -130,6 +130,27 @@ const errors: Catalog<typeof source> = {
       'سيتجاوز هذا الشراء ({amount}) حدك الشهري البالغ {limit} (أُنفق {spent} بالفعل).',
     PURCHASE_CURRENCY:
       'السعر بعملة {currency}، لكن حد مشترياتك بالدولار الأمريكي، لذا لن يشتريه JARVIS.',
+    CALL_BUSY: 'كان الخط مشغولًا. لم يُقل أو يُتفق على شيء. يمكنك المحاولة مرة أخرى.',
+    CALL_NO_ANSWER: 'لم يرد أحد. لم يُقل أو يُتفق على شيء. يمكنك المحاولة لاحقًا.',
+    CALL_FAILED: 'تعذّر على مزوّد الاتصالات إتمام المكالمة. لم يُقل أو يُتفق على شيء.',
+    CALL_VOICEMAIL: 'ردّ البريد الصوتي بدلًا من شخص. يمكنك المحاولة لاحقًا.',
+    CALL_HUNG_UP: 'أنهى الطرف الآخر المكالمة قبل تحقيق الهدف. لم يُتفق على شيء.',
+    CALL_DECLINED:
+      'لم يرغب الطرف الآخر في التحدث مع مساعد ذكي. لن يعاود JARVIS الاتصال لهذا الغرض.',
+    CALL_DURATION_LIMIT: 'بلغت المكالمة أقصى مدة لها ({seconds} ثانية) قبل تحقيق الهدف.',
+    RECORDING_CONSENT_DECLINED:
+      'لم يوافق الطرف الآخر على التسجيل الذي اشترطته، فأنهى JARVIS المكالمة بلطف.',
+    CALL_STATE_UNKNOWN:
+      'لا يستطيع JARVIS التأكد مما إذا كانت المكالمة قد أُجريت. تحقّق قبل إعادة المحاولة، إذ سيتحقق JARVIS من مزوّد الاتصالات أولًا.',
+    PHONE_NUMBER_INVALID: '{number} ليس رقم هاتف صالحًا.',
+    NUMBER_NOT_LITERAL: 'لا يتصل JARVIS إلا بالأرقام التي تكتبها بنفسك. اكتب الرقم مع رمز الدولة.',
+    DO_NOT_CALL: 'طلب صاحب الرقم {number} عدم الاتصال به مجددًا، لذا لن يتصل به JARVIS.',
+    CALL_OUTSIDE_HOURS:
+      'لا يجري JARVIS المكالمات إلا بين {start} و{end} ({timeZone}). حاول مرة أخرى حينها.',
+    CALL_LIMIT: 'أجرى JARVIS اليوم {max} مكالمات، وهو الحد الأقصى المسموح به. حاول غدًا.',
+    CALL_DESTINATION_BLOCKED:
+      'لا يتصل JARVIS بهذا الرقم: الأرقام ذات التعرفة المرتفعة والبلدان التي لا يتصل بها هذا الخادم محظورة.',
+    TELEPHONY_NOT_CONFIGURED: 'لم تُعدّ المكالمات الهاتفية على هذا الخادم.',
   },
   api: {
     FILE_TOO_LARGE: 'الحد الأقصى لحجم الملف {limitMb} ميغابايت.',
@@ -176,6 +197,16 @@ const errors: Catalog<typeof source> = {
     CALENDAR_NOT_CONNECTED: 'لا يوجد تقويم متصل.',
     CALENDAR_UNAVAILABLE: 'لم يُجب {provider} في الوقت المناسب.',
     EVIDENCE_NOT_AVAILABLE: 'لا يمكن قراءة ملف الإثبات هذا على هذا الخادم حاليًا.',
+    PHONE_NUMBER_INVALID:
+      'هذا ليس رقم هاتف صالحًا. اكتبه مع رمز الدولة، على سبيل المثال +49 30 1234567.',
+    PHONE_NUMBER_REQUIRED: 'أضف رقم هاتفك أولًا.',
+    PHONE_ALREADY_VERIFIED: 'هذا الرقم مؤكَّد بالفعل.',
+    PHONE_VERIFICATION_INVALID: 'الرمز غير صحيح. المحاولات المتبقية: {attemptsLeft}.',
+    PHONE_VERIFICATION_EXPIRED: 'انتهت صلاحية هذا الرمز. ابدأ مكالمة تحقق جديدة.',
+    PHONE_VERIFICATION_LIMIT: 'يمكنك طلب {max} مكالمات تحقق كحد أقصى في اليوم.',
+    TELEPHONY_NOT_CONFIGURED: 'لم تُعدّ المكالمات الهاتفية على هذا الخادم.',
+    CALL_DESTINATION_BLOCKED: 'لا يتصل JARVIS بأرقام كهذا الرقم.',
+    WEBHOOK_SIGNATURE_INVALID: 'الطلب غير موقَّع من مزوّد الاتصالات.',
   },
   network: 'تعذّر الوصول إلى JARVIS. تحقّق من اتصالك.',
   badResponse: 'أرسل JARVIS ردًا لا يفهمه هذا التطبيق. أعد تحميل الصفحة.',

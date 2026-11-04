@@ -32,6 +32,7 @@ describe('message catalogs', () => {
         'approvals',
         'attachments',
         'auth',
+        'calls',
         'common',
         'composer',
         'connections',

@@ -22,7 +22,8 @@
       "browser": true,
       "booking": true,
       "shopping": true,
-      "purchases": false
+      "purchases": false,
+      "phoneCalls": false
     },
     "version": "0.3.0"
   },

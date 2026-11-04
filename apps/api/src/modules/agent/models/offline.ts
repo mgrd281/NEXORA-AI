@@ -42,7 +42,7 @@ import { latestRecallable, type PriorTurn } from '../conversation-context';
 import { msg, render, t, withoutFinalStop } from '../i18n';
 import { browserIntents } from '../intents/browser';
 import { integrationIntents } from '../intents/integrations';
-import { telephonyIntents } from '../intents/telephony';
+import { callRequestHead, isCallRequest, telephonyIntents } from '../intents/telephony';
 import type { Plan } from '../plan';
 import type { ConnectionState } from '../tools/types';
 
@@ -908,8 +908,13 @@ export function planOffline(request: string, ctx: OfflinePlanContext): OfflinePl
     return turn ? rememberResultPlan(lang, turn) : clarifyPlan(lang, ['previous_result']);
   }
 
-  // 3. Schedules ("every Monday at 9 …"): before anything that would run the task now.
-  if (!REMEMBER.some((re) => re.test(text))) {
+  // 3. Schedules ("every Monday at 9 …"): before anything that would run the task now. A call
+  // request recurs only when its own words say so — never because of what JARVIS is to say or
+  // ask on the call ("… and ask: do you deliver on Sundays?").
+  if (
+    !REMEMBER.some((re) => re.test(text)) &&
+    (!isCallRequest(text) || parseSchedule(callRequestHead(text)) !== null)
+  ) {
     const scheduled = schedulePlan(text, lang, ctx);
     if (scheduled) return scheduled;
   }

@@ -7,6 +7,8 @@ struct SettingsView: View {
     @State private var model = SettingsModel()
     @State private var confirmingSignOut = false
     @State private var isSigningOut = false
+    /// Sliders and steppers save once they settle, not on every step.
+    @State private var pendingSave: Task<Void, Never>?
 
     var body: some View {
         NavigationStack {
@@ -27,6 +29,7 @@ struct SettingsView: View {
                 }
                 Group {
                     assistantSection
+                    phoneSection
                     connectionsSection
                     spendingSection
                     privacySection
@@ -49,6 +52,10 @@ struct SettingsView: View {
             .onChange(of: model.theme) { _, _ in save() }
             .onChange(of: model.speakResponses) { _, _ in save() }
             .onChange(of: model.recognitionLocale) { _, _ in save() }
+            .onChange(of: model.conversationMode) { _, _ in save() }
+            .onChange(of: model.voiceNames) { _, _ in save() }
+            .onChange(of: model.speakingRate) { _, _ in saveSoon() }
+            .onChange(of: model.endOfSpeechSilenceMs) { _, _ in saveSoon() }
             .onChange(of: model.autoApproveEmailToSelf) { _, _ in save() }
             .onChange(of: model.allowExternalModels) { _, _ in save() }
             .onChange(of: model.timeZone) { _, _ in save() }
@@ -171,6 +178,9 @@ struct SettingsView: View {
 
     private var voiceSection: some View {
         Section {
+            Toggle(isOn: $model.conversationMode) {
+                Text("Start voice mode as a conversation")
+            }
             Toggle(isOn: $model.speakResponses) {
                 Text("Speak responses")
             }
@@ -181,11 +191,67 @@ struct SettingsView: View {
             } label: {
                 Text("Recognition language")
             }
+            VStack(alignment: .leading, spacing: MeridianSpace.s2) {
+                LabeledContent {
+                    Text(verbatim: VoiceSettingsText.rate(model.speakingRate))
+                } label: {
+                    Text("Speaking rate")
+                }
+                Slider(value: $model.speakingRate, in: VoiceLimits.speakingRateMin...VoiceLimits.speakingRateMax, step: 0.1)
+                    .accessibilityLabel(Text("Speaking rate"))
+                    .accessibilityValue(Text(verbatim: VoiceSettingsText.rate(model.speakingRate)))
+            }
+            Stepper(
+                value: $model.endOfSpeechSilenceMs,
+                in: VoiceLimits.endOfSpeechSilenceMsMin...VoiceLimits.endOfSpeechSilenceMsMax,
+                step: 200
+            ) {
+                LabeledContent {
+                    Text(verbatim: VoiceSettingsText.pause(model.endOfSpeechSilenceMs))
+                } label: {
+                    Text("Pause that ends what you say")
+                }
+            }
+            NavigationLink {
+                VoicesView(model: model)
+            } label: {
+                Text("Voices")
+            }
         } header: {
             Text("Voice")
         } footer: {
-            Text("After a voice request, JARVIS reads the result aloud. Speech is recognised on this iPhone when the language supports it; otherwise by Apple's speech service.")
+            Text("A conversation listens again after each answer; you can interrupt JARVIS by talking. A longer pause gives you more time before what you said is sent. Speech is recognised on this iPhone when the language supports it; otherwise by Apple's speech service. Approvals are never given by voice.")
         }
+    }
+
+    /// Phase D: the account's phone number, the numbers JARVIS won't call, and its calls.
+    private var phoneSection: some View {
+        Section {
+            NavigationLink(value: PhoneSettingsRoute()) {
+                LabeledContent {
+                    Text(phoneSummary)
+                } label: {
+                    Label("Your phone number", systemImage: "phone")
+                }
+            }
+            NavigationLink(value: DoNotCallRoute()) {
+                Label("Numbers JARVIS won't call", systemImage: "phone.down")
+            }
+            NavigationLink(value: CallsRoute()) {
+                Label("Calls", systemImage: "phone.arrow.up.right")
+            }
+        } header: {
+            Text("Phone")
+        } footer: {
+            Text("JARVIS calls only numbers you write in a request, says first that it is an AI assistant calling for you, and always asks you before each call.")
+        }
+    }
+
+    private var phoneSummary: String {
+        guard let me = app.me, let number = me.phoneNumber else { return String(localized: "Not set") }
+        return me.phoneNumberVerifiedAt != nil
+            ? String(localized: "\(number.bidiIsolated) · verified")
+            : String(localized: "\(number.bidiIsolated) · not verified")
     }
 
     private var autonomySection: some View {
@@ -337,6 +403,15 @@ struct SettingsView: View {
 
     private func save() {
         Task { await model.save(app: app) }
+    }
+
+    private func saveSoon() {
+        pendingSave?.cancel()
+        pendingSave = Task {
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled else { return }
+            await model.save(app: app)
+        }
     }
 
     private func signOut() {

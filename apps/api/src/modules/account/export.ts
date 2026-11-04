@@ -34,6 +34,14 @@
  * EXPORT_FILE_BYTES budget as attachments — attachments first — else
  * `contentOmitted` says why). Calendar and mail content are not stored, so
  * there is none to export (docs/architecture/phase-c.md §3.3).
+ *
+ * Version 5 (Phase D): `profile.phoneNumber` / `phoneNumberVerifiedAt`; `calls` (contract
+ * CallSession — every attempt with its status timeline, outcome and every turn, the callee's
+ * words as recognised); `doNotCall` (contract DoNotCallEntry: masked number and source — the
+ * keyed hash and the sealed number are internal); `phoneVerifications` (status, masked number,
+ * times — never the code); voice sessions with their conversation counters (mode,
+ * conversationId, turns, bargeIns, reconnects, endReason). A consented call recording is an
+ * evidence file (kind 'recording') and embedded like the others.
  */
 import type { Readable } from 'node:stream';
 import type { Trx } from '../../db/pool';
@@ -70,9 +78,18 @@ import { CONNECTION_COLUMNS, toConnection } from '../connections/routes';
 import { MEMORY_COLUMNS, toMemory } from '../memory/routes';
 import { toNotification } from '../notifications/routes';
 import { loadMe } from './me';
+import {
+  CALL_COLUMNS,
+  doNotCallQuery,
+  recordingsOf,
+  toCallSession,
+  toDoNotCallEntry,
+  turnsOf,
+  VERIFICATION_COLUMNS,
+} from '../telephony/mappers';
 
 export const EXPORT_FORMAT = 'jarvis.account-export';
-export const EXPORT_VERSION = 4;
+export const EXPORT_VERSION = 5;
 /** Files embedded in one export at most (raw bytes); larger sets list the rest by download path. */
 export const EXPORT_FILE_BYTES = 20 * 1024 * 1024;
 
@@ -233,6 +250,13 @@ export async function buildAccountExport(
       'task_id',
       'started_at',
       'ended_at',
+      // Phase D
+      'mode',
+      'conversation_id',
+      'turn_count',
+      'barge_in_count',
+      'reconnect_count',
+      'end_reason',
     ])
     .where('user_id', '=', userId)
     .orderBy('started_at')
@@ -337,6 +361,32 @@ export async function buildAccountExport(
     ])
     .where('user_id', '=', userId)
     .orderBy('created_at')
+    .execute();
+
+  // Phase D (version 5)
+  const calls = await trx
+    .selectFrom('call_sessions')
+    .select(CALL_COLUMNS)
+    .where('user_id', '=', userId)
+    .orderBy('created_at')
+    .orderBy('id')
+    .execute();
+  const callIds = calls.map((c) => c.id);
+  const [callTurns, callRecordings] = await Promise.all([
+    turnsOf(trx, callIds),
+    recordingsOf(trx, callIds),
+  ]);
+  const doNotCall = await doNotCallQuery(trx)
+    .where('d.user_id', '=', userId)
+    .orderBy('d.created_at')
+    .orderBy('d.id')
+    .execute();
+  const verifications = await trx
+    .selectFrom('phone_verifications')
+    .select(VERIFICATION_COLUMNS)
+    .where('user_id', '=', userId)
+    .orderBy('created_at')
+    .orderBy('id')
     .execute();
 
   const { preferences, ...profile } = me;
@@ -444,6 +494,13 @@ export async function buildAccountExport(
       taskId: v.task_id,
       startedAt: v.started_at.toISOString(),
       endedAt: iso(v.ended_at),
+      // Phase D: conversation mode and its counters (metadata only; no audio, no transcript).
+      mode: v.mode,
+      conversationId: v.conversation_id,
+      turns: v.turn_count,
+      bargeIns: v.barge_in_count,
+      reconnects: v.reconnect_count,
+      endReason: v.end_reason,
     })),
     scheduledTasks: scheduled.map((row) => ({
       ...toSchedule(row),
@@ -468,6 +525,21 @@ export async function buildAccountExport(
       ...toBrowserSession(b, evidenceBySession.get(b.id) ?? []),
       request: b.request ?? null,
       result: b.result ?? null,
+    })),
+    // Phase D (version 5): calls with every turn, the do-not-call list (masked), verifications.
+    calls: calls.map((c) =>
+      toCallSession(c, callTurns.get(c.id) ?? [], callRecordings.get(c.id) ?? null),
+    ),
+    doNotCall: doNotCall.map(toDoNotCallEntry),
+    phoneVerifications: verifications.map((v) => ({
+      id: v.id,
+      // The number in full: it is the account's own (also in profile.phoneNumber).
+      phoneNumber: v.phone_number,
+      status: v.status,
+      attempts: v.attempts,
+      createdAt: v.created_at.toISOString(),
+      expiresAt: new Date(v.expires_at).toISOString(),
+      verifiedAt: iso(v.verified_at),
     })),
     // File contents are added by embedExportFiles (outside the database transaction).
     evidence: evidence.map((e) => ({

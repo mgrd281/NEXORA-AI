@@ -7,6 +7,7 @@ const tasks = {
     tasks: 'Tasks',
     conversations: 'Conversations',
     scheduled: 'Scheduled',
+    calls: 'Calls',
   },
   filters: {
     legend: 'Show tasks',
@@ -123,6 +124,8 @@ const tasks = {
     bodyBooking: 'JARVIS will book only after you approve the slot and the details it sends.',
     bodyPurchase: 'JARVIS will place the order only after you approve the exact total.',
     bodyForm: 'JARVIS will submit the form only after you approve what it sends.',
+    bodyPhoneCall:
+      'JARVIS will place the call only after you approve whom it calls and exactly what it says.',
   },
   answer: {
     title: 'Answer',
@@ -222,6 +225,14 @@ const tasks = {
       PURCHASE_CURRENCY: 'The price isn’t in US dollars, the currency of your purchase limit.',
       PURCHASE: 'It spends money, so JARVIS always asks first.',
       BINDING_COMMITMENT: 'It’s binding with the site, so JARVIS asks first.',
+      DO_NOT_CALL: 'This number asked not to be called again.',
+      CALL_OUTSIDE_HOURS: 'It’s outside the hours in which JARVIS places calls.',
+      CALL_LIMIT: 'JARVIS has made the most calls allowed for today.',
+      CALL_DESTINATION_BLOCKED: 'JARVIS doesn’t call this kind of number or this country.',
+      TELEPHONY_NOT_CONFIGURED: 'Phone calls aren’t set up on this server.',
+      PHONE_CALL: 'It speaks for you on the phone, so JARVIS always asks first.',
+      CALL_RECORDING: 'The call would be recorded — only if the other person agrees.',
+      CALL_PERSONAL_INFO: 'JARVIS may share personal details you listed.',
     },
   },
   fields: {
@@ -322,6 +333,25 @@ const tasks = {
       ORDER_CONFIRMATION: 'Order confirmed by the shop',
       CART_SNAPSHOT: 'Cart on the shop',
       HANDOVER: 'Handed over to you',
+      CALL_PLACED: 'Call placed by the provider',
+      CALL_ENDED: 'Call ended',
+      AI_DISCLOSED: 'Said it is an AI assistant',
+      RECORDING_CONSENT: 'Recording consent',
+      CALL_TRANSCRIPT: 'What was said',
+      CALL_RECORDING: 'Call recording (with consent)',
+      CALL_TRANSFER: 'Put through to you',
+      DO_NOT_CALL_RECORDED: 'This number won’t be called again',
+    },
+    phaseD: {
+      placed: 'The phone provider accepted the call',
+      ended: '{result} · {duration}',
+      disclosed: 'In line {n} of the call, before anything else',
+      consent:
+        '{consent, select, accepted {They agreed to the recording} declined {They said no to the recording} other {Not asked}}',
+      transcript: '{turns, plural, one {# line} other {# lines}} of the call kept as text',
+      recording: '{duration}, recorded with their consent',
+      transfer: 'Provider status: {status}',
+      doNotCall: 'Added to the do-not-call list: {number}',
     },
     phaseC: {
       providerResponse: '{provider} answered with status {status}',
@@ -361,6 +391,12 @@ const tasks = {
       cart: 'Finish the purchase at the shop',
       unknownOrder: 'The order’s outcome is unknown',
       unconfirmedBooking: 'The booking isn’t confirmed',
+      callRetry: 'The call didn’t reach anyone',
+      callUnknown: 'It’s unclear whether the call was placed',
+      doNotCall: 'This number asked not to be called',
+      callHours: 'Outside the calling hours',
+      callDeclined: 'They didn’t want to talk to an AI',
+      callRecording: 'The recording was refused',
     },
     reconnect:
       'After you reconnect, JARVIS offers to retry this task. Nothing was done in the meantime.',
@@ -389,6 +425,17 @@ const tasks = {
     viewOrders: 'See your orders',
     unconfirmedBooking:
       'The booking was sent, but the site showed no confirmation. Check with the site before trying again; a retry looks the booking up first.',
+    callRetry:
+      'A retry places a new call, checked again against the calling hours, your daily limit and the do-not-call list.',
+    callUnknown:
+      'A retry asks you to confirm that you checked. JARVIS then looks the call up at the provider first and never dials twice for it.',
+    doNotCall:
+      'Someone at this number asked JARVIS not to call again. Remove it from the list only if that was a misunderstanding.',
+    manageDoNotCall: 'Open the do-not-call list',
+    callHours:
+      'JARVIS places calls only in the allowed hours of the callee’s time zone. Retry then.',
+    callDeclined: 'JARVIS won’t call again for this. Call them yourself if you need to.',
+    callRecording: 'Ask again without requiring a recording if the call can go ahead without one.',
   },
   /** Phase C: what the email, calendar, booking and shopping agents found or did. */
   phaseC: {
@@ -623,6 +670,14 @@ const tasks = {
     offersCompared:
       '{count, plural, one {# offer} other {# offers}} compared, each with its source page',
     withinLimit: 'Within your monthly purchase limit ({remaining} left)',
+    callConnected: 'The phone provider placed the call ({callSid})',
+    aiDisclosed: 'JARVIS said first that it is an AI assistant',
+    callEnded: 'Call ended: {result}',
+    goalReached: 'The goal of the call was reached',
+    detailsCollected: '{count, plural, one {# detail} other {# details}} noted from what was said',
+    consentRespected: 'Recording consent respected ({consent})',
+    transcriptStored:
+      '{turns, plural, one {# turn} other {# turns}} of the call kept as its record',
   },
   events: {
     created: 'You asked JARVIS',
@@ -686,6 +741,7 @@ const tasks = {
       book: 'Book {service} on {site}',
       compareProducts: 'Compare offers for {query}',
       buy: 'Buy {product} on {site}',
+      call: 'Call {who}',
     },
     objective: {
       summarize: 'Read {url} and summarize it.',
@@ -707,6 +763,7 @@ const tasks = {
       compareProducts:
         'Compare prices, shipping and delivery times for {query} on the supported shops.',
       buy: 'Order {product} on {site} once you approve the exact total.',
+      call: 'Call {who} as your AI assistant and report what was said.',
     },
     step: {
       fetch: 'Read {host}',
@@ -739,6 +796,7 @@ const tasks = {
       compareOffers: 'Compare the offers',
       prepareCart: 'Fill the cart on {site}',
       checkout: 'Place the order on {site}',
+      call: 'Call {who}',
     },
     approval: {
       email: 'Send the email “{subject}” to {recipients}.',
@@ -755,6 +813,7 @@ const tasks = {
       formSubmission: 'Submit the form on {site}.',
       cart: 'Put the items in a cart on {site} — nothing is bought.',
       purchase: 'Buy for {total} from {merchant}.',
+      call: 'Call {who} ({number}) and speak for you as an AI assistant.',
     },
     result: {
       emailSent: 'Sent “{subject}” to {recipients}.',
@@ -773,6 +832,9 @@ const tasks = {
       formSubmitted: 'Submitted the form on {site}.',
       cartPrepared: 'The cart on {site} is ready — nothing was bought.',
       orderPlaced: 'Ordered from {merchant} (order {orderId}).',
+      callCompleted: 'Called {who}; the call reached its goal.',
+      callAnswered: 'Called {who}; they answered, but the goal was not reached.',
+      callTransferred: 'Called {who} and put them through to you.',
     },
     question: {
       emailContent: 'What should the email say?',
@@ -788,6 +850,9 @@ const tasks = {
       contactDetails: 'Which details should I give the site? For example your phone number.',
       product: 'Which product do you mean? Name the model or paste its link.',
       site: 'Where should I look? Name one of the supported sites.',
+      phoneNumber:
+        'Which number should I call? Write it with the country code, for example +49 30 1234567.',
+      callGoal: 'What should I say or ask on the call?',
     },
   },
 };

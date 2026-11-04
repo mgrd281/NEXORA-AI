@@ -70,7 +70,9 @@ struct TaskDetailView: View {
             }
             Button("Don't retry", role: .cancel) {}
         } message: {
-            Text("JARVIS couldn't confirm whether the last action took effect. For example, an email may already have been sent. Retrying could do it a second time.")
+            Text(model.detail?.hasUnknownCallState == true
+                 ? String(localized: "The phone provider didn't confirm whether the call was placed. Before calling again, JARVIS asks the provider and adopts that call if it exists, so the same call is never placed twice.")
+                 : String(localized: "JARVIS couldn't confirm whether the last action took effect. For example, an email may already have been sent. Retrying could do it a second time."))
         }
     }
 
@@ -168,6 +170,10 @@ struct TaskDetailView: View {
 
         if let sessions = detail.browserSessions, !sessions.isEmpty {
             BrowserSessionsSection(sessions: sessions)
+        }
+
+        if let calls = detail.calls, !calls.isEmpty {
+            CallsSection(calls: calls)
         }
 
         if !detail.evidence.isEmpty {

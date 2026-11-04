@@ -7,6 +7,8 @@ enum PresenceState: Sendable, Equatable {
     case idle
     /// Capturing voice; `level` is the live input level, 0...1.
     case listening(level: Double)
+    /// JARVIS is speaking a reply aloud (only while speech synthesis really plays).
+    case speaking
     /// A task is queued or being planned.
     case planning
     /// A task is executing; `progress` is completed/total steps, nil while unknown.
@@ -30,6 +32,8 @@ struct PresenceOutcome: Sendable, Equatable {
 struct PresenceInputs: Sendable, Equatable {
     var isListening = false
     var audioLevel = 0.0
+    /// Speech synthesis is playing a reply.
+    var isSpeaking = false
     var connection: StreamConnectionState = .idle
     var pendingApprovalCount = 0
     var activeTasks: [TaskSummary] = []
@@ -40,8 +44,13 @@ extension PresenceState {
     /// How long a completed/failed outcome stays visible.
     static let outcomeDisplayDuration: TimeInterval = 6
 
-    /// Priority: listening > reconnecting > awaiting > running > planning > recent outcome > idle.
+    /// Priority: speaking > listening > reconnecting > awaiting > running > planning > recent
+    /// outcome > idle. Speaking wins over listening: in a conversation the microphone stays on
+    /// while JARVIS talks (for barge-in), but what the user perceives is JARVIS speaking.
     static func derive(from inputs: PresenceInputs, now: Date = Date()) -> PresenceState {
+        if inputs.isSpeaking {
+            return .speaking
+        }
         if inputs.isListening {
             return .listening(level: min(1, max(0, inputs.audioLevel)))
         }
@@ -74,7 +83,7 @@ extension PresenceState {
     /// Whether the indicator moves on its own (and so needs a running timeline).
     var isContinuouslyAnimated: Bool {
         switch self {
-        case .planning, .awaiting, .reconnecting: true
+        case .planning, .awaiting, .reconnecting, .speaking: true
         case .running(let progress): progress == nil
         case .idle, .listening, .completed, .failed: false
         }
@@ -87,6 +96,8 @@ extension PresenceState {
             String(localized: "JARVIS is ready")
         case .listening:
             String(localized: "JARVIS is listening")
+        case .speaking:
+            String(localized: "JARVIS is speaking")
         case .planning:
             String(localized: "JARVIS is planning")
         case .running(let progress):
@@ -111,6 +122,7 @@ extension PresenceState {
         switch self {
         case .idle: String(localized: "Ready")
         case .listening: String(localized: "Listening")
+        case .speaking: String(localized: "Speaking")
         case .planning: String(localized: "Planning")
         case .running(let progress):
             if let progress {

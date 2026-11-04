@@ -23,6 +23,7 @@ const skills = {
     STORAGE_NOT_CONFIGURED: 'File storage isn’t set up on this server.',
     PROVIDER_NOT_CONFIGURED: 'No Google or Microsoft connection is set up on this server.',
     BROWSER_UNAVAILABLE: 'The browser agent isn’t running on this server.',
+    TELEPHONY_NOT_CONFIGURED: 'Phone calls aren’t set up on this server.',
   },
   connections: {
     web: 'web access',

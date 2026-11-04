@@ -6671,6 +6671,53 @@
       }
     },
     "/v1/me/phone/verification": {
+      "get": {
+        "operationId": "getPhoneVerification",
+        "summary": "The verification call in progress (or that just failed), if any",
+        "tags": ["account"],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhoneVerificationState"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "operationId": "startPhoneVerification",
         "summary": "Call the account’s phone number and read out a verification code",
@@ -7402,6 +7449,122 @@
             "application/x-www-form-urlencoded": {
               "schema": {
                 "$ref": "#/components/schemas/TwilioDialForm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "TwiML",
+            "content": {
+              "text/xml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or form parameters are invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN — details.reason WEBHOOK_SIGNATURE_INVALID (no or a wrong X-Twilio-Signature, or another account).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — telephony is not configured, or no call / verification matches the id and token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "UNSUPPORTED_MEDIA_TYPE — not application/x-www-form-urlencoded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/telephony/twilio/calls/{callId}/whisper": {
+      "post": {
+        "operationId": "twilioCallWhisper",
+        "summary": "Twilio: the account owner answered a transfer — TwiML telling them who is calling and why",
+        "tags": ["telephony-webhooks"],
+        "description": "Called by Twilio only. Authenticated by X-Twilio-Signature (base64 HMAC-SHA1 of PUBLIC_WEBHOOK_BASE_URL + path + query followed by every form parameter name and value sorted by name, keyed with the account’s auth token) and the call’s URL token — not by a session.",
+        "security": [
+          {
+            "twilioSignature": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "callId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "t",
+            "in": "query",
+            "required": true,
+            "description": "The call’s URL token (random, stored only as a hash): selects the owner of the call.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/TwilioWhisperForm"
               }
             }
           }
@@ -10844,6 +11007,19 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "taskTitle": {
+            "type": "string"
+          },
+          "taskTitleMessage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServerMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -11681,6 +11857,17 @@
             "$ref": "#/components/schemas/DoNotCallSource"
           },
           "callId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "taskId": {
             "anyOf": [
               {
                 "type": "string",
@@ -13125,6 +13312,23 @@
           }
         },
         "required": ["id", "status", "number", "attemptsLeft", "expiresAt", "createdAt"],
+        "additionalProperties": false
+      },
+      "PhoneVerificationState": {
+        "type": "object",
+        "properties": {
+          "verification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PhoneVerification"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["verification"],
         "additionalProperties": false
       },
       "PhoneVerificationStatus": {
@@ -14813,6 +15017,16 @@
             "type": "integer",
             "minimum": 0
           },
+          "language": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Locale"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "objective": {
             "type": ["string", "null"]
           },
@@ -15428,6 +15642,16 @@
           "attachmentCount": {
             "type": "integer",
             "minimum": 0
+          },
+          "language": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Locale"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -15877,6 +16101,55 @@
           }
         },
         "required": ["CallSid", "AccountSid"],
+        "additionalProperties": {}
+      },
+      "TwilioWhisperForm": {
+        "type": "object",
+        "properties": {
+          "CallSid": {
+            "type": "string",
+            "pattern": "^CA[0-9a-f]{32}$"
+          },
+          "AccountSid": {
+            "type": "string",
+            "pattern": "^AC[0-9a-f]{32}$"
+          },
+          "From": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "To": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "CallStatus": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "initiated",
+              "ringing",
+              "in-progress",
+              "completed",
+              "busy",
+              "failed",
+              "no-answer",
+              "canceled"
+            ]
+          },
+          "Direction": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "ApiVersion": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "ParentCallSid": {
+            "type": "string",
+            "pattern": "^CA[0-9a-f]{32}$"
+          }
+        },
+        "required": ["CallSid", "AccountSid", "ParentCallSid"],
         "additionalProperties": {}
       },
       "UntrustedSource": {

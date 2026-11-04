@@ -32,6 +32,7 @@ export interface PresenceProps {
 const DEFAULT_LABEL: Record<PresenceState, PresenceDescriptor['labelKey']> = {
   idle: 'common.presence.idle',
   listening: 'common.presence.listening',
+  speaking: 'common.presence.speaking',
   thinking: 'common.presence.thinking',
   running: 'common.presence.running',
   awaiting: 'common.presence.awaiting',
@@ -123,6 +124,27 @@ function Ring({
         <>
           <circle cx={C} cy={C} r={r} className={styles.listenHalo} />
           <circle {...common} className={styles.listenRing} />
+        </>
+      );
+    case 'speaking':
+      // Bars rise and fall only while speech synthesis plays (reduced motion: still bars).
+      return (
+        <>
+          <circle {...common} className={styles.speakRing} strokeWidth={sw} />
+          <g className={styles.bars}>
+            {[17.5, 24, 30.5].map((x, i) => (
+              <line
+                key={x}
+                x1={x}
+                x2={x}
+                y1={18}
+                y2={30}
+                className={styles.bar}
+                style={{ animationDelay: `${i * -0.28}s` }}
+                strokeWidth={Math.max(sw, 3)}
+              />
+            ))}
+          </g>
         </>
       );
     case 'thinking':

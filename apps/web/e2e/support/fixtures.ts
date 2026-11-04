@@ -30,6 +30,7 @@ import type {
 import { catalogs } from '../../src/i18n/messages';
 import { basePhaseB, derivedId, type PhaseBState } from './phase-b';
 import { basePhaseC, type PhaseCState } from './phase-c';
+import { basePhaseD, type PhaseDState } from './phase-d';
 import { renderServerMessage } from '../../src/i18n/server-message';
 import { createTranslator, stripIsolates } from '../../src/i18n/translate';
 
@@ -232,7 +233,7 @@ const CONTENT: Record<FixtureLocale, LocalizedContent> = {
   },
 };
 
-export interface Fixtures extends PhaseBState, PhaseCState {
+export interface Fixtures extends PhaseBState, PhaseCState, PhaseDState {
   me: Me;
   assistantStatus: AssistantStatus;
   tasks: TaskSummary[];
@@ -275,8 +276,17 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
     theme: options.theme ?? 'system',
     roles: options.admin === false ? ['owner'] : ['owner', 'platform_admin'],
     tenant: { id: IDS.tenant, name: 'Haddad' },
+    phoneNumber: null,
+    phoneNumberVerifiedAt: null,
     preferences: {
-      voice: { speakResponses: false, recognitionLocale: 'auto' },
+      voice: {
+        speakResponses: false,
+        recognitionLocale: 'auto',
+        conversationMode: false,
+        speakingRate: 1,
+        endOfSpeechSilenceMs: 1200,
+        voiceNames: { en: null, de: null, ar: null },
+      },
       autonomy: { autoApproveEmailToSelf: false },
       ai: { allowExternalModels: true },
       notifications: { approvalRequested: true, taskCompleted: true, taskFailed: true },
@@ -681,6 +691,7 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
   return {
     ...basePhaseB({ me, connections, assistantStatus }, locale, now),
     ...basePhaseC(),
+    ...basePhaseD(),
     me,
     assistantStatus,
     tasks,

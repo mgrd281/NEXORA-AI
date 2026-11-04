@@ -99,8 +99,7 @@ export const BLOCKED_NUMBER_TYPES: ReadonlySet<NumberType> = new Set<NumberType>
 ]);
 
 export type DestinationCheck =
-  | { ok: true }
-  | { ok: false; reason: 'invalid' | 'type' | 'country'; country: string | null };
+  { ok: true } | { ok: false; reason: 'invalid' | 'type' | 'country'; country: string | null };
 
 /** Whether this server may call the number: a valid, non-blocked type in an allowed country. */
 export function checkDestination(

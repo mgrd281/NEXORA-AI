@@ -70,6 +70,7 @@ function ShellFrame({ children }: { children: ReactNode }) {
   useSpeakVoiceResults();
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [listening, setListening] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
   const [flash, setFlash] = useState<'completed' | 'failed' | null>(null);
   const flashTimer = useRef<number | undefined>(undefined);
 
@@ -111,6 +112,7 @@ function ShellFrame({ children }: { children: ReactNode }) {
     pendingApprovals,
     flash,
     listening,
+    speaking,
   });
 
   // Keyboard shortcuts.
@@ -148,6 +150,7 @@ function ShellFrame({ children }: { children: ReactNode }) {
       unreadNotifications,
       isAdmin,
       setListening,
+      setSpeaking,
       openShortcuts,
     }),
     [presence, pendingApprovals, unreadNotifications, isAdmin, openShortcuts],

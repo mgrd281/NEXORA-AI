@@ -37,6 +37,7 @@ import {
   ShieldBan,
   ShieldCheck,
   ShoppingBag,
+  Phone,
   ShoppingCart,
   TextCursorInput,
   TimerOff,
@@ -99,6 +100,8 @@ export const TOOL_ICON: Record<ToolId, LucideIcon> = {
   'shop.compare': Scale,
   'shop.prepare_cart': ShoppingCart,
   'shop.checkout': CreditCard,
+  // Phase D
+  'phone.call': Phone,
 };
 
 /** Recipient reasons of an invitation or a draft are not about an email being sent. */

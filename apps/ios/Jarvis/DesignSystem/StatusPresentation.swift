@@ -143,6 +143,7 @@ extension ToolId {
         case .shopCompare: String(localized: "Compare offers")
         case .shopPrepareCart: String(localized: "Fill a cart")
         case .shopCheckout: String(localized: "Place an order")
+        case .phoneCall: String(localized: "Make a phone call")
         case .unknown: String(localized: "Other action")
         }
     }
@@ -273,6 +274,8 @@ extension MissingInfo {
         case .contactDetails: String(localized: "your contact details")
         case .product: String(localized: "which product")
         case .site: String(localized: "which site or shop")
+        case .phoneNumber: String(localized: "the number to call")
+        case .callGoal: String(localized: "what to say or ask on the call")
         case .unknown: String(localized: "more details")
         }
     }
@@ -414,6 +417,8 @@ extension Skill {
             return String(localized: "None of the services this skill can use is set up on this server.")
         case .browserUnavailable:
             return String(localized: "The browser agent isn't running on this server.")
+        case .telephonyNotConfigured:
+            return String(localized: "Phone calls aren't set up on this server.")
         case .unknown:
             return String(localized: "Not available right now.")
         }

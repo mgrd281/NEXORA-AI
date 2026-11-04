@@ -7,7 +7,14 @@ export function applyPatch(me: Me, patch: UpdateMeRequest): Me {
   if (preferences) {
     const merged = { ...me.preferences } as Record<string, object>;
     for (const [group, values] of Object.entries(preferences)) {
-      if (values) merged[group] = { ...merged[group], ...stripUndefined(values) };
+      if (!values) continue;
+      const next = { ...merged[group], ...stripUndefined(values) } as Record<string, unknown>;
+      // Phase D: voice names merge per language (an omitted language keeps its voice).
+      if (group === 'voice' && 'voiceNames' in values && values.voiceNames) {
+        const before = (merged.voice as { voiceNames?: object } | undefined)?.voiceNames;
+        next.voiceNames = { ...before, ...stripUndefined(values.voiceNames as object) };
+      }
+      merged[group] = next;
     }
     next.preferences = merged as Me['preferences'];
   }

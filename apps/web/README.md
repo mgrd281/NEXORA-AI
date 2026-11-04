@@ -98,6 +98,39 @@ preview carries one, otherwise the preview fields (see `phase-c/results.ts`). Un
 `e2e/visual/phase-c.spec.ts` (fixtures in `e2e/support/phase-c.ts`, evidence screenshots captured
 from the local fixture site in `e2e/support/evidence/`).
 
+## Phase D screens (docs/architecture/phase-d.md §3.1, §3.7)
+
+| Feature               | Where                                                                                                                                                                                               | Code                                                                          |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Voice conversation    | Voice overlay (mic button of every composer): “One request” / “Conversation” (default from Settings › Voice), captions, text field, End / microphone                                                | `components/voice/{ConversationSession,useVoiceConversation,display,replies}` |
+| Conversation engine   | Turn-taking state machine over speech seams (no React, no DOM): end of utterance, barge-in + echo guard, sentence streaming, retries, idle end, stop phrases                                        | `components/voice/engine/{controller,text,types,browser}`                     |
+| Presence              | `speaking` state (bars) next to `listening`; the shell Presence follows the overlay (`setListening` / `setSpeaking`)                                                                                | `components/presence/*`, `shell/ShellContext`                                 |
+| Settings › Voice      | Read aloud, conversation mode, recognition language, speaking rate, pause before sending (600–4 000 ms), a voice per language with preview (online marked)                                          | `features/settings/VoiceSection`                                              |
+| `phone_call` approval | Whom, number (readable + country), on whose behalf, caller id, language, purpose, the exact script, what may be shared, duration, hours, recording, voicemail, transfer, cost — approved by a click | `components/approvals/PhoneCallDetails`                                       |
+| Task detail: calls    | Latest attempt in full (status, live captions with speaker labels, outcome, notes, timeline, disclosure + consent, recording player only with consent), earlier attempts in short                   | `features/calls/CallCard`                                                     |
+| Unsuccessful calls    | One next step per reason (retry places a new attempt; unknown outcome asks to acknowledge; do-not-call → Settings › Privacy)                                                                        | `features/tasks/phase-c/NextStep`                                             |
+| Phone number          | Settings › Profile: E.164 input (spaces, `00`, Arabic-Indic digits normalised), verification by call with a code                                                                                    | `features/settings/PhoneNumberRow`                                            |
+| Do-not-call list      | Settings › Privacy: masked numbers, why each is there, removal states the callee’s wish first                                                                                                       | `features/settings/DoNotCallCard`                                             |
+| Task Center › Calls   | `/tasks/calls`: every call, newest first, each opening its task                                                                                                                                     | `features/calls/CallsScreen`                                                  |
+
+Rules specific to these screens: speech never reaches JARVIS — only the requests, as text, and voice
+session metadata (counters, end reason). Approvals are never given by voice: while one waits the
+overlay says so aloud, opens the ApprovalSheet, and “yes” is answered with the same sentence (and
+marked “Not an approval”); a stop phrase (“stop”, “stopp”, “توقف” …, contracts
+`VOICE_LIMITS.stopPhrases`) or Esc ends voice mode, never the task. States are only ever real:
+`thinking` while the task works, `speaking` while synthesis plays, `reconnecting` while the stream is
+down (the task is then polled). Each utterance has one Idempotency-Key for all its retries
+(`VOICE_LIMITS.reconnectDelaysMs`); after the last retry the words wait in the focused text field.
+Barge-in is recognition-based (speech that is not the echo of the sentence being spoken): browser
+speech synthesis is not covered by WebRTC echo cancellation, so a microphone-level trigger would
+interrupt JARVIS with its own voice. What a callee says is recognised speech: shown in its own
+direction, labelled as their words, flagged when it tried to instruct an assistant, never a link or
+an instruction. Phone numbers are one LTR run in every sentence (`server-message.ts` isolates
+`{number}`). Unit tests: `test/voice-conversation.test.ts` (engine, with the fakes of
+`test/support/fake-speech.ts`), `test/phase-d.test.ts`; visual + behaviour specs:
+`e2e/visual/phase-d.spec.ts` (fixtures in `e2e/support/phase-d.ts`; a fake Web Speech API in
+`e2e/support/fake-speech.ts` and a live SSE server in `e2e/support/live-stream.ts`).
+
 ## Visual tests (mock API)
 
 ```bash

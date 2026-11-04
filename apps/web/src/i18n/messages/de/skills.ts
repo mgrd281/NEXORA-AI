@@ -28,6 +28,7 @@ const skills: Catalog<typeof source> = {
     PROVIDER_NOT_CONFIGURED:
       'Auf diesem Server ist keine Verbindung zu Google oder Microsoft eingerichtet.',
     BROWSER_UNAVAILABLE: 'Der Browser-Agent läuft auf diesem Server nicht.',
+    TELEPHONY_NOT_CONFIGURED: 'Anrufe sind auf diesem Server nicht eingerichtet.',
   },
   connections: {
     web: 'Webzugriff',

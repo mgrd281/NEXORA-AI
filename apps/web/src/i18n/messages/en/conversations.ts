@@ -64,6 +64,8 @@ const conversations = {
       contact_details: 'your contact details',
       product: 'which product',
       site: 'which site',
+      phone_number: 'a phone number',
+      call_goal: 'what to say or ask on the call',
     },
   },
   delete: {

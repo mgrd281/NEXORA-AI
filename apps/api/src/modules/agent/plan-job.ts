@@ -143,6 +143,8 @@ export async function finishCancellation(
   trx: Parameters<typeof lockTask>[0],
   ctx: DbContext,
   task: Awaited<ReturnType<typeof lockTask>>,
+  /** Where the cancellation took effect: a checkpoint, or inside a running step (audit only). */
+  at: 'checkpoint' | 'step' = 'checkpoint',
 ): Promise<void> {
   await closePendingApprovals(trx, task.id);
   await cancelOpenSteps(trx, task.id);
@@ -154,7 +156,7 @@ export async function finishCancellation(
     action: 'task.cancelled',
     targetType: 'task',
     targetId: task.id,
-    metadata: { at: 'checkpoint' },
+    metadata: { at },
   });
 }
 

@@ -11,7 +11,9 @@ export type ModelPurpose =
   | 'result_summary'
   // Phase B
   | 'translate'
-  | 'analyze_document';
+  | 'analyze_document'
+  // Phase D: one decision of the model dialog on a phone call (latency-bound, small output)
+  | 'call_dialog';
 export type Effort = 'low' | 'medium' | 'high';
 
 export interface ModelUsage {

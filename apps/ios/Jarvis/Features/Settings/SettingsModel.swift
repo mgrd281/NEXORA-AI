@@ -10,6 +10,13 @@ final class SettingsModel {
     var theme: ThemePreference = .system
     var speakResponses = false
     var recognitionLocale: RecognitionLocale = .auto
+    // Phase D: voice conversation
+    var conversationMode = false
+    /// 0.5…2 (1 = normal).
+    var speakingRate = VoiceLimits.speakingRateDefault
+    /// The pause that ends an utterance, in milliseconds (600…4000).
+    var endOfSpeechSilenceMs = VoiceLimits.endOfSpeechSilenceMsDefault
+    var voiceNames = Preferences.Voice.VoiceNames.defaults
     var autoApproveEmailToSelf = false
     var allowExternalModels = true
     /// An IANA zone from the server's list (`GET /v1/meta/time-zones`).
@@ -29,6 +36,10 @@ final class SettingsModel {
         theme = me.theme == .unknown ? .system : me.theme
         speakResponses = me.preferences.voice.speakResponses
         recognitionLocale = me.preferences.voice.recognitionLocale == .unknown ? .auto : me.preferences.voice.recognitionLocale
+        conversationMode = me.preferences.voice.conversationMode
+        speakingRate = VoiceLimits.clampRate(me.preferences.voice.speakingRate)
+        endOfSpeechSilenceMs = VoiceLimits.clampSilence(me.preferences.voice.endOfSpeechSilenceMs)
+        voiceNames = me.preferences.voice.voiceNames
         autoApproveEmailToSelf = me.preferences.autonomy.autoApproveEmailToSelf
         allowExternalModels = me.preferences.ai.allowExternalModels
         timeZone = me.timeZone
@@ -46,12 +57,16 @@ final class SettingsModel {
             patch.theme = theme
             changed = true
         }
-        if speakResponses != me.preferences.voice.speakResponses
-            || (recognitionLocale != me.preferences.voice.recognitionLocale && recognitionLocale != .unknown) {
-            preferences.voice = PreferencesPatch.Voice(
-                speakResponses: speakResponses != me.preferences.voice.speakResponses ? speakResponses : nil,
-                recognitionLocale: recognitionLocale != me.preferences.voice.recognitionLocale ? recognitionLocale : nil
-            )
+        if let voice = Self.voicePatch(
+            speakResponses: speakResponses,
+            recognitionLocale: recognitionLocale,
+            conversationMode: conversationMode,
+            speakingRate: speakingRate,
+            endOfSpeechSilenceMs: endOfSpeechSilenceMs,
+            voiceNames: voiceNames,
+            against: me.preferences.voice
+        ) {
+            preferences.voice = voice
             changed = true
         }
         if autoApproveEmailToSelf != me.preferences.autonomy.autoApproveEmailToSelf {
@@ -77,6 +92,41 @@ final class SettingsModel {
         guard changed else { return nil }
         if preferences != PreferencesPatch() { patch.preferences = preferences }
         return patch
+    }
+
+    /// Only the voice fields that differ from the server's (nil when none does). A voice per
+    /// language is set, or reset to the system default with an explicit null.
+    nonisolated static func voicePatch(
+        speakResponses: Bool,
+        recognitionLocale: RecognitionLocale,
+        conversationMode: Bool,
+        speakingRate: Double,
+        endOfSpeechSilenceMs: Int,
+        voiceNames: Preferences.Voice.VoiceNames,
+        against stored: Preferences.Voice
+    ) -> PreferencesPatch.Voice? {
+        var patch = PreferencesPatch.Voice()
+        if speakResponses != stored.speakResponses { patch.speakResponses = speakResponses }
+        if recognitionLocale != stored.recognitionLocale, recognitionLocale != .unknown {
+            patch.recognitionLocale = recognitionLocale
+        }
+        if conversationMode != stored.conversationMode { patch.conversationMode = conversationMode }
+        let rate = (VoiceLimits.clampRate(speakingRate) * 10).rounded() / 10
+        if abs(rate - stored.speakingRate) > 0.001 { patch.speakingRate = rate }
+        let silence = VoiceLimits.clampSilence(endOfSpeechSilenceMs)
+        if silence != stored.endOfSpeechSilenceMs { patch.endOfSpeechSilenceMs = silence }
+        var names = PreferencesPatch.Voice.VoiceNames()
+        names.en = nameChange(voiceNames.en, from: stored.voiceNames.en)
+        names.de = nameChange(voiceNames.de, from: stored.voiceNames.de)
+        names.ar = nameChange(voiceNames.ar, from: stored.voiceNames.ar)
+        if names != PreferencesPatch.Voice.VoiceNames() { patch.voiceNames = names }
+        return patch == PreferencesPatch.Voice() ? nil : patch
+    }
+
+    private nonisolated static func nameChange(_ new: String?, from old: String?) -> NullablePatch<String>? {
+        guard new != old else { return nil }
+        if let new, !new.isEmpty { return .set(String(new.prefix(VoiceLimits.maxVoiceNameChars))) }
+        return .remove
     }
 
     func save(app: AppModel) async {

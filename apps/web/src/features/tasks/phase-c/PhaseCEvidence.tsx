@@ -12,8 +12,14 @@ import {
   Hand,
   MailCheck,
   MailSearch,
+  FileAudio,
   PackageCheck,
+  PhoneCall,
+  PhoneForwarded,
+  PhoneOff,
+  ScrollText,
   Server,
+  ShieldCheck,
   ShoppingCart,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -23,7 +29,7 @@ import { CopyButton } from '@/components/ui/CopyButton';
 import { RelativeTime } from '@/components/ui/RelativeTime';
 import { useI18n } from '@/i18n/I18nProvider';
 import { PROVIDER_NAME } from '@/i18n/server-message';
-import { ConnectionProvider } from '@jarvis/contracts';
+import { CallResult, ConnectionProvider } from '@jarvis/contracts';
 import { cx } from '@/lib/cx';
 import { ltrMoney, parseMoneyParam } from '@/lib/money';
 import styles from '../Evidence.module.css';
@@ -45,6 +51,15 @@ export const PHASE_C_EVIDENCE_ICON: Record<PhaseCEvidenceCode, LucideIcon> = {
   ORDER_CONFIRMATION: PackageCheck,
   CART_SNAPSHOT: ShoppingCart,
   HANDOVER: Hand,
+  // Phase D
+  CALL_PLACED: PhoneCall,
+  CALL_ENDED: PhoneOff,
+  AI_DISCLOSED: ShieldCheck,
+  RECORDING_CONSENT: ShieldCheck,
+  CALL_TRANSCRIPT: ScrollText,
+  CALL_RECORDING: FileAudio,
+  CALL_TRANSFER: PhoneForwarded,
+  DO_NOT_CALL_RECORDED: PhoneOff,
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -232,5 +247,69 @@ export function PhaseCEvidence({
         </p>
       );
     }
+    // Phase D: phone calls — ids, counts and enums only (what was said is in the call card).
+    case 'CALL_PLACED':
+      return (
+        <>
+          <p className={styles.detail}>{t('tasks.evidence.phaseD.placed')}</p>
+          {id(t('calls.card.callSid'), str(p.callSid))}
+        </>
+      );
+    case 'CALL_ENDED': {
+      const result = CallResult.safeParse(p.result);
+      return (
+        <p className={styles.detail}>
+          {t('tasks.evidence.phaseD.ended', {
+            result: result.success ? t(`calls.result.${result.data}`) : String(p.result ?? '—'),
+            duration: f.duration(Number(p.seconds ?? 0) * 1000),
+          })}
+        </p>
+      );
+    }
+    case 'AI_DISCLOSED':
+      return (
+        <p className={styles.detail}>
+          {t('tasks.evidence.phaseD.disclosed', { n: Number(p.sequence ?? 0) + 1 })}
+        </p>
+      );
+    case 'RECORDING_CONSENT':
+      return (
+        <p className={styles.detail}>
+          {t('tasks.evidence.phaseD.consent', { consent: String(p.consent ?? 'not_asked') })}
+        </p>
+      );
+    case 'CALL_TRANSCRIPT':
+      return (
+        <p className={styles.detail}>
+          {t('tasks.evidence.phaseD.transcript', { turns: Number(p.turns ?? 0) })}
+        </p>
+      );
+    case 'CALL_RECORDING':
+      return (
+        <>
+          <p className={styles.detail}>
+            {t('tasks.evidence.phaseD.recording', {
+              duration: f.duration(Number(p.seconds ?? 0) * 1000),
+            })}
+          </p>
+          {id(t('tasks.fields.sha256'), str(p.sha256))}
+        </>
+      );
+    case 'CALL_TRANSFER':
+      return (
+        <p className={styles.detail}>
+          {t('tasks.evidence.phaseD.transfer', { status: String(p.status ?? '—') })}
+        </p>
+      );
+    case 'DO_NOT_CALL_RECORDED':
+      return (
+        <p className={styles.detail}>
+          <bdi>
+            {t('tasks.evidence.phaseD.doNotCall', {
+              number: `\u2066${String(p.number ?? '—')}\u2069`,
+            })}
+          </bdi>
+        </p>
+      );
   }
 }

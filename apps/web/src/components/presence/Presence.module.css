@@ -77,6 +77,31 @@
   transform: scale(calc(0.4 + var(--presence-level) * 0.5));
 }
 
+.speakRing {
+  stroke: var(--color-accent);
+}
+
+.bar {
+  stroke: var(--color-accent);
+  stroke-linecap: round;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: presence-speak 0.9s var(--ease-standard) infinite alternate;
+}
+
+.bars .bar:nth-child(2) {
+  transform: scaleY(0.55);
+}
+
+@keyframes presence-speak {
+  from {
+    transform: scaleY(0.3);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
 .warnRing {
   stroke: var(--color-warning);
   stroke-linecap: round;
@@ -120,8 +145,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spin {
+  .spin,
+  .bar {
     animation: none;
+  }
+
+  .bars .bar:nth-child(odd) {
+    transform: scaleY(0.6);
   }
 
   .listenRing,

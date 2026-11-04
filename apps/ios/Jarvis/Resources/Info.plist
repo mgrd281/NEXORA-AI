@@ -48,9 +48,9 @@
 		</dict>
 	</dict>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>JARVIS uses the microphone only while you are speaking a request. Audio is turned into text on your iPhone or by Apple's speech service; JARVIS receives only the text you choose to send.</string>
+	<string>JARVIS uses the microphone only while voice mode is open. Audio is turned into text on your iPhone or by Apple's speech service; JARVIS receives only your requests as text, never audio.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>JARVIS turns your spoken requests into text so you can review them before sending. When your language supports it, recognition happens on your iPhone; otherwise Apple's speech service processes the audio.</string>
+	<string>JARVIS turns what you say into text: for a single request you review it before sending; in a conversation it is sent after a short pause. When your language supports it, recognition happens on your iPhone; otherwise Apple's speech service processes the audio.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

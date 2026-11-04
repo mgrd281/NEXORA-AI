@@ -1,3 +1,24 @@
+.frame {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-block-size: 100%;
+}
+
+.modes {
+  align-self: center;
+}
+
+.loading {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  align-self: center;
+  padding-block: var(--space-8);
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+}
+
 .voice {
   display: flex;
   flex-direction: column;
@@ -87,7 +108,8 @@
 
 .actions {
   position: sticky;
-  inset-block-end: 0;
+  /* Flush with the sheet's bottom edge (the body's own bottom padding is below it). */
+  inset-block-end: calc(var(--space-5) * -1);
   display: flex;
   flex-wrap: wrap;
   align-items: center;

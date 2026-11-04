@@ -20,6 +20,12 @@
  * connection is stored as the OAuth flow would store it (sealed tokens the
  * mock accepts). Side effects then also count orders and reservations at the
  * fixture site and mail the providers sent.
+ *
+ * Phase D: when a pipeline scenario names given.telephony, the mock Twilio REST API + call
+ * simulator (tools/mock-twilio) and the API's own HTTP app (its signature-validated webhook
+ * routes, listening locally and set as PUBLIC_WEBHOOK_BASE_URL) run beside the worker; the
+ * scenario's simulated callee answers the call. Side effects then also count the calls placed
+ * (every create-call request the provider received).
  */
 import {
   DEFAULT_PREFERENCES,
@@ -63,11 +69,14 @@ import {
   startMicrosoftMock,
   type MockProvider,
 } from '../../../../../tools/mock-providers/index.mjs';
+import { startMockTwilio, type MockTwilio } from '../../../../../tools/mock-twilio/index.mjs';
+import { buildApp } from '../../../src/http/app';
+import { registerRoutes } from '../../../src/routes';
 import { missingCapabilities } from '../capabilities';
 import { compare, type Observed, type ObservedStepPolicy } from '../expect';
 import { loadPage } from '../fixtures';
 import { errored, pending, resultOf, type RunResult } from '../result';
-import type { LoadedScenario } from '../scenario';
+import type { CalleeScenario, LoadedScenario } from '../scenario';
 import { defaultEmail, evalConfig, prepare, preferencesOf, type Prepared } from './common';
 
 export const EVAL_APP_URL =
@@ -96,6 +105,8 @@ export interface PipelineEnv {
   fixture: FixtureProcess | null;
   /** Phase C: the mock OAuth providers, when a scenario lists a Google or Microsoft connection. */
   mocks: { google: MockProvider; microsoft: MockProvider } | null;
+  /** Phase D: the mock Twilio + the API's webhook routes, when a scenario places calls. */
+  telephony: MockTwilio | null;
   close(): Promise<void>;
 }
 
@@ -108,6 +119,21 @@ export interface FixtureProcess {
 }
 
 const FIXTURE_SCRIPT = path.resolve(import.meta.dirname, '../../../../../scripts/fixture-site.mjs');
+/** Phase D: the mock Twilio's account (a test double; never a real provider). */
+const TWILIO = {
+  accountSid: `AC${'e7a1'.repeat(8)}`,
+  authToken: 'eval-mock-twilio-auth-token',
+  callerId: '+4930901820',
+};
+
+/** A free local port (for the API's webhook routes the call simulator posts to). */
+async function freePort(): Promise<number> {
+  const server = createServer();
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const port = (server.address() as AddressInfo).port;
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+  return port;
+}
 const MOCK_CLIENT = { clientId: 'eval-client', clientSecret: 'eval-secret' };
 
 async function startFixtureProcess(): Promise<FixtureProcess> {
@@ -212,6 +238,30 @@ export async function startPipeline(scenarios: readonly LoadedScenario[]): Promi
         microsoft: await startMicrosoftMock({ ...MOCK_CLIENT, accounts: [] }),
       }
     : null;
+  const callers = scenarios.filter((x) => x.given.telephony && x.modes.includes('pipeline'));
+  const twilio = callers.length
+    ? await startMockTwilio({
+        accountSid: TWILIO.accountSid,
+        authToken: TWILIO.authToken,
+        numbers: [TWILIO.callerId],
+        stepMs: 2,
+      })
+    : null;
+  const webhookPort = twilio ? await freePort() : 0;
+  const phaseD: Record<string, string> = twilio
+    ? {
+        TWILIO_ACCOUNT_SID: TWILIO.accountSid,
+        TWILIO_AUTH_TOKEN: TWILIO.authToken,
+        TWILIO_FROM_NUMBER: TWILIO.callerId,
+        TWILIO_BASE_URL_OVERRIDE: twilio.url,
+        PUBLIC_WEBHOOK_BASE_URL: `http://127.0.0.1:${webhookPort}`,
+        // Evals run at any hour; the calling-hours rule has its own offline scenarios.
+        CALL_ALLOWED_HOURS: '00:00-23:59',
+        CALL_ALLOWED_COUNTRIES: [
+          ...new Set(callers.flatMap((x) => x.given.telephony!.allowedCountries)),
+        ].join(','),
+      }
+    : {};
   const phaseC: Record<string, string> = {
     ...(fixture
       ? {
@@ -237,11 +287,29 @@ export async function startPipeline(scenarios: readonly LoadedScenario[]): Promi
     STORAGE_DRIVER: 'local',
     STORAGE_LOCAL_DIR: storageDir,
     ...phaseC,
+    ...phaseD,
   });
   const { db } = createDb(EVAL_APP_URL, 5);
   const secrets = new SecretBox(config.SECRET_ENCRYPTION_KEY, config.SECRET_ENCRYPTION_KEY_ID);
   const storage = createLocalStorage(storageDir);
   const services = createAgentServices({ config, db, secrets, storage });
+  // Phase D: the API's HTTP app, for the call simulator's signed webhooks (the user routes are
+  // not used here).
+  const app = twilio
+    ? await buildApp(
+        {
+          config,
+          db,
+          secrets,
+          agent: services,
+          storage,
+          listen: async () => async () => {},
+          modelAdapter: null,
+        },
+        registerRoutes,
+      )
+    : null;
+  if (app) await app.listen({ port: webhookPort, host: '127.0.0.1' });
   const crash: PipelineEnv['crash'] = { afterTool: null };
   const worker: WorkerDeps = {
     config,
@@ -305,7 +373,10 @@ export async function startPipeline(scenarios: readonly LoadedScenario[]): Promi
     crash,
     fixture,
     mocks,
+    telephony: twilio,
     async close() {
+      await twilio?.close();
+      await app?.close();
       browserRunning = false;
       if (beats) clearInterval(beats);
       await browserLoop;
@@ -336,6 +407,8 @@ async function externalSideEffects(env: PipelineEnv, email: string): Promise<num
     const b = await env.fixture.admin('/booking/admin/reservations', 'GET');
     n += Array.isArray(b.reservations) ? b.reservations.length : 0;
   }
+  // Phase D: every create-call request the provider received is a call placed.
+  if (env.telephony) n += env.telephony.createRequests().length;
   if (env.mocks)
     for (const m of [env.mocks.google, env.mocks.microsoft]) {
       try {
@@ -345,6 +418,13 @@ async function externalSideEffects(env: PipelineEnv, email: string): Promise<num
       }
     }
   return n;
+}
+
+/** Phase D: the simulated callee of the mock Twilio for the scenario's calls. */
+function setCallee(env: PipelineEnv, callee: CalleeScenario | undefined): void {
+  env.telephony?.setDefaultScenario(
+    callee ? { outcome: callee.outcome, turns: callee.turns } : { outcome: 'answer', turns: [] },
+  );
 }
 
 /** Phase C: a fresh fixture site and provider mailbox for each scenario. */
@@ -378,6 +458,9 @@ async function createUser(env: PipelineEnv, s: LoadedScenario, email: string): P
         tenant_id: tenantId,
         email,
         display_name: 'Eval Owner',
+        // Phase D: the account's own number, when the scenario gives one.
+        phone_number: s.given.telephony?.ownPhone?.number ?? null,
+        phone_verified_at: s.given.telephony?.ownPhone?.verified ? new Date() : null,
         password_hash: await passwordHash!,
         locale: s.given.account?.locale ?? 'en',
         time_zone: s.given.account?.timeZone ?? 'Europe/Berlin',
@@ -713,6 +796,7 @@ export async function runPipeline(env: PipelineEnv, s: LoadedScenario): Promise<
     const email = s.given.account?.email ?? defaultEmail(s);
     const p = await prepare(s, { site: env.siteOrigin, down: env.downOrigin, email });
     await resetExternal(env);
+    setCallee(env, s.given.telephony?.callee);
     const user = await createUser(env, s, email);
     const files = await storeAttachments(env, user, p);
     const earlierFiles = files.filter((f) => f.earlier).map((f) => f.id);
@@ -779,6 +863,7 @@ export async function runPipeline(env: PipelineEnv, s: LoadedScenario): Promise<
       if (p.expect.pipeline?.acknowledgedRetry) {
         observed.pipeline.afterRetry = null;
         if (d.status === 'FAILED') {
+          if (s.given.telephony?.calleeOnRetry) setCallee(env, s.given.telephony.calleeOnRetry);
           await env.services.tasks.retry(user, created.id, { acknowledgeUnknownOutcome: true });
           await drain(env);
           await decideApprovals(env, user, created.id, 'all');

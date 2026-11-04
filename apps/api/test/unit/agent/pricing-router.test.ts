@@ -99,5 +99,11 @@ describe('model router', () => {
       'claude-sonnet-5-5',
     );
     expect(selectModel(models, 'result_summary').model).toBe('claude-haiku-5-5');
+    // Phase D: one structured decision per callee turn on a call — balanced, low effort, small.
+    expect(selectModel(models, 'call_dialog')).toEqual({
+      model: 'claude-sonnet-5-5',
+      effort: 'low',
+      maxTokens: 1_000,
+    });
   });
 });

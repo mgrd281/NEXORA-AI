@@ -15,13 +15,18 @@
  */
 import type { BrowserContext, Page, Request, Route } from '@playwright/test';
 import {
+  CALL_LIMITS,
+  E164PhoneNumber,
   AdminOverview,
   Approval,
   ATTACHMENT_EXTENSIONS,
   Attachment,
   AssistantStatus,
   Booking,
+  CallSession,
   Connection,
+  DoNotCallEntry,
+  PhoneVerification,
   ConnectionProviderInfo,
   EmailWatch,
   EvidenceArtifact,
@@ -128,6 +133,10 @@ const FixtureSchema = z.object({
   bookings: z.array(Booking),
   evidenceArtifacts: z.array(EvidenceArtifact),
   evidenceFiles: z.record(z.string(), z.string()),
+  // Phase D
+  calls: z.array(CallSession),
+  doNotCall: z.array(DoNotCallEntry),
+  phoneVerification: PhoneVerification.nullable(),
 });
 
 /**
@@ -348,8 +357,35 @@ const DEFAULTS: Partial<Record<RouteName, MockHandler>> = {
   getMe: (_r, s) => ({ body: s.me }),
   updateMe: (req, s) => {
     const patch = req.body as Partial<Fixtures['me']> & { preferences?: Record<string, object> };
+    // Phase D: like the API — a real number of an allowed type; a new number is unverified.
+    if (patch.phoneNumber !== undefined && patch.phoneNumber !== null) {
+      if (
+        !E164PhoneNumber.safeParse(patch.phoneNumber).success ||
+        /^\+49(900|137)/.test(patch.phoneNumber)
+      ) {
+        return apiError(400, 'VALIDATION_FAILED', 'Not a valid phone number', {
+          reason: /^\+49900/.test(patch.phoneNumber)
+            ? 'CALL_DESTINATION_BLOCKED'
+            : 'PHONE_NUMBER_INVALID',
+        });
+      }
+    }
+    if (patch.phoneNumber !== undefined && patch.phoneNumber !== s.me.phoneNumber) {
+      s.me = { ...s.me, phoneNumberVerifiedAt: null };
+      s.phoneVerification = null;
+    }
     const prefs = { ...s.me.preferences } as Record<string, object>;
-    for (const [k, v] of Object.entries(patch.preferences ?? {})) prefs[k] = { ...prefs[k], ...v };
+    for (const [k, v] of Object.entries(patch.preferences ?? {})) {
+      const next = { ...prefs[k], ...v } as Record<string, unknown>;
+      // Like the API: voice names merge per language (an omitted language keeps its voice).
+      if (k === 'voice' && 'voiceNames' in v) {
+        next.voiceNames = {
+          ...(prefs.voice as { voiceNames: object }).voiceNames,
+          ...(v as { voiceNames: object }).voiceNames,
+        };
+      }
+      prefs[k] = next;
+    }
     s.me = { ...s.me, ...patch, preferences: prefs as Fixtures['me']['preferences'] };
     return { body: s.me };
   },
@@ -929,6 +965,107 @@ const DEFAULTS: Partial<Record<RouteName, MockHandler>> = {
     };
   },
 };
+
+/** Every call of the account: the tasks' (current) sessions first, then the rest. */
+function allCalls(s: Fixtures): Fixtures['calls'] {
+  const byId = new Map<string, Fixtures['calls'][number]>();
+  for (const d of Object.values(s.taskDetails)) for (const c of d.calls ?? []) byId.set(c.id, c);
+  for (const c of s.calls) if (!byId.has(c.id)) byId.set(c.id, c);
+  return [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/** The code the mock's verification call "reads out". */
+export const MOCK_VERIFICATION_CODE = '482913';
+
+Object.assign(DEFAULTS, {
+  // ---- Phase D: calls, do-not-call, phone verification
+  listCalls: (req, s) => {
+    const result = req.query.get('result');
+    const items = allCalls(s)
+      .filter((c) => !result || c.result === result)
+      .map(({ turns: _turns, timeline: _timeline, ...summary }) => {
+        // Like the API: each call carries its task's title.
+        const task = s.tasks.find((t) => t.id === summary.taskId);
+        return task
+          ? { ...summary, taskTitle: task.title, taskTitleMessage: task.titleMessage ?? null }
+          : summary;
+      });
+    return { body: page(items) };
+  },
+  getCall: (req, s) => {
+    const found = allCalls(s).find((c) => c.id === req.params.id);
+    return found ? { body: found } : notFound('Call');
+  },
+  listDoNotCall: (_r, s) => ({ body: { items: s.doNotCall } }),
+  deleteDoNotCall: (req, s) => {
+    const before = s.doNotCall.length;
+    s.doNotCall = s.doNotCall.filter((e) => e.id !== req.params.id);
+    return s.doNotCall.length < before ? { status: 204 } : notFound('Do-not-call entry');
+  },
+  getPhoneVerification: (_r, s) => {
+    // Like the API: the latest one while it can be confirmed or shows why it failed.
+    const v = s.phoneVerification;
+    const live =
+      v &&
+      (v.status === 'calling' || v.status === 'pending' || v.status === 'failed') &&
+      Date.parse(v.expiresAt) > Date.now();
+    return { body: { verification: live ? v : null } };
+  },
+  startPhoneVerification: (_r, s) => {
+    if (s.assistantStatus.capabilities.phoneCalls === false) {
+      return apiError(503, 'SERVICE_UNAVAILABLE', 'Telephony is not configured', {
+        reason: 'TELEPHONY_NOT_CONFIGURED',
+      });
+    }
+    if (!s.me.phoneNumber) {
+      return apiError(409, 'CONFLICT', 'Add a phone number first', {
+        reason: 'PHONE_NUMBER_REQUIRED',
+      });
+    }
+    if (s.me.phoneNumberVerifiedAt) {
+      return apiError(409, 'CONFLICT', 'This number is verified already', {
+        reason: 'PHONE_ALREADY_VERIFIED',
+      });
+    }
+    const nowMs = Date.now();
+    const n = s.me.phoneNumber;
+    const verification: PhoneVerification = {
+      id: crypto.randomUUID(),
+      status: 'calling',
+      number: `${n.slice(0, 3)} ${n.slice(3, 6)} ••• •• ${n.slice(-2)}`,
+      attemptsLeft: CALL_LIMITS.verificationMaxAttempts,
+      expiresAt: new Date(nowMs + CALL_LIMITS.verificationTtlMinutes * 60_000).toISOString(),
+      createdAt: new Date(nowMs).toISOString(),
+    };
+    s.phoneVerification = verification;
+    return { status: 201, body: verification };
+  },
+  confirmPhoneVerification: (req, s) => {
+    const v = s.phoneVerification;
+    if (!v || v.status === 'verified') {
+      return apiError(400, 'VALIDATION_FAILED', 'No verification is running', {
+        reason: 'PHONE_VERIFICATION_INVALID',
+        attemptsLeft: 0,
+      });
+    }
+    if (v.status === 'expired' || v.attemptsLeft <= 0) {
+      return apiError(400, 'VALIDATION_FAILED', 'The code has expired', {
+        reason: 'PHONE_VERIFICATION_EXPIRED',
+      });
+    }
+    if ((req.body as { code: string }).code !== MOCK_VERIFICATION_CODE) {
+      const attemptsLeft = v.attemptsLeft - 1;
+      s.phoneVerification = { ...v, attemptsLeft, status: attemptsLeft > 0 ? v.status : 'expired' };
+      return apiError(400, 'VALIDATION_FAILED', 'The code is not correct', {
+        reason: 'PHONE_VERIFICATION_INVALID',
+        attemptsLeft,
+      });
+    }
+    s.phoneVerification = { ...v, status: 'verified' };
+    s.me = { ...s.me, phoneNumberVerifiedAt: new Date().toISOString() };
+    return { body: s.me };
+  },
+} satisfies Partial<Record<RouteName, MockHandler>>);
 
 /** The default handlers, e.g. to wrap one in an override (delay, failure). */
 export const DEFAULT_HANDLERS: Readonly<Partial<Record<RouteName, MockHandler>>> = DEFAULTS;

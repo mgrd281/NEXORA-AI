@@ -1,0 +1,168 @@
+{
+  "items": [
+    {
+      "id": "e5f6a7b8-c9d0-4e1f-8a2b-4c5d6e7f8092",
+      "taskId": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6f",
+      "stepId": "c3d4e5f6-a7b8-4c9d-8e0f-2a3b4c5d6e7f",
+      "attempt": 1,
+      "to": "+4930123456700",
+      "toDisplay": "+49 30 123456700",
+      "calleeName": "Praxis Dr. Weber",
+      "language": "de",
+      "purpose": "availability",
+      "status": "ended",
+      "result": "busy",
+      "outcome": {
+        "result": "busy",
+        "goalReached": false,
+        "details": {
+          "date": null,
+          "times": [],
+          "appointment": null,
+          "reply": null,
+          "answers": []
+        },
+        "notes": [],
+        "summaryMessage": null
+      },
+      "provider": "twilio",
+      "providerCallSid": "CA00000000000000000000000000000busy",
+      "answeredBy": null,
+      "aiDisclosedAt": null,
+      "recording": {
+        "mode": "off",
+        "consent": "not_asked",
+        "consentAt": null,
+        "artifactId": null
+      },
+      "transfer": {
+        "status": "none",
+        "at": null
+      },
+      "durationSeconds": 0,
+      "maxDurationSeconds": 300,
+      "costEstimate": {
+        "amountMicro": 250000,
+        "currency": "USD"
+      },
+      "price": null,
+      "failureReason": "CALL_BUSY",
+      "dialedAt": "2026-11-04T09:19:59.000Z",
+      "answeredAt": null,
+      "endedAt": "2026-11-04T09:20:01.000Z",
+      "createdAt": "2026-11-04T09:19:58.000Z",
+      "updatedAt": "2026-11-04T09:20:02.000Z",
+      "taskTitle": "Call the dentist",
+      "taskTitleMessage": null
+    },
+    {
+      "id": "e5f6a7b8-c9d0-4e1f-8a2b-4c5d6e7f8093",
+      "taskId": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      "stepId": "c3d4e5f6-a7b8-4c9d-8e0f-2a3b4c5d6e7f",
+      "attempt": 1,
+      "to": "+4930123456700",
+      "toDisplay": "+49 30 123456700",
+      "calleeName": "Praxis Dr. Weber",
+      "language": "de",
+      "purpose": "availability",
+      "status": "unknown",
+      "result": null,
+      "outcome": null,
+      "provider": "twilio",
+      "providerCallSid": null,
+      "answeredBy": null,
+      "aiDisclosedAt": null,
+      "recording": {
+        "mode": "off",
+        "consent": "not_asked",
+        "consentAt": null,
+        "artifactId": null
+      },
+      "transfer": {
+        "status": "none",
+        "at": null
+      },
+      "durationSeconds": null,
+      "maxDurationSeconds": 300,
+      "costEstimate": {
+        "amountMicro": 250000,
+        "currency": "USD"
+      },
+      "price": null,
+      "failureReason": "CALL_STATE_UNKNOWN",
+      "dialedAt": null,
+      "answeredAt": null,
+      "endedAt": null,
+      "createdAt": "2026-11-04T09:19:58.000Z",
+      "updatedAt": "2026-11-04T09:20:10.000Z"
+    },
+    {
+      "id": "e5f6a7b8-c9d0-4e1f-8a2b-4c5d6e7f8091",
+      "taskId": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      "stepId": "c3d4e5f6-a7b8-4c9d-8e0f-2a3b4c5d6e7f",
+      "attempt": 1,
+      "to": "+4930123456700",
+      "toDisplay": "+49 30 123456700",
+      "calleeName": "Praxis Dr. Weber",
+      "language": "de",
+      "purpose": "availability",
+      "status": "ended",
+      "result": "completed",
+      "outcome": {
+        "result": "completed",
+        "goalReached": true,
+        "details": {
+          "date": "2026-11-10",
+          "times": [
+            "09:30",
+            "11:00"
+          ],
+          "appointment": null,
+          "reply": null,
+          "answers": []
+        },
+        "notes": [
+          "INJECTION_FLAGGED",
+          "LOW_CONFIDENCE"
+        ],
+        "summaryMessage": {
+          "key": "result.callCompleted",
+          "params": {
+            "who": "Praxis Dr. Weber"
+          }
+        }
+      },
+      "provider": "twilio",
+      "providerCallSid": "CA0123456789abcdef0123456789abcdef",
+      "answeredBy": "human",
+      "aiDisclosedAt": "2026-11-04T09:20:05.000Z",
+      "recording": {
+        "mode": "off",
+        "consent": "not_asked",
+        "consentAt": null,
+        "artifactId": null
+      },
+      "transfer": {
+        "status": "none",
+        "at": null
+      },
+      "durationSeconds": 32,
+      "maxDurationSeconds": 300,
+      "costEstimate": {
+        "amountMicro": 250000,
+        "currency": "USD"
+      },
+      "price": {
+        "amountMicro": 13000,
+        "currency": "USD"
+      },
+      "failureReason": null,
+      "dialedAt": "2026-11-04T09:19:59.000Z",
+      "answeredAt": "2026-11-04T09:20:04.000Z",
+      "endedAt": "2026-11-04T09:20:36.000Z",
+      "createdAt": "2026-11-04T09:19:58.000Z",
+      "updatedAt": "2026-11-04T09:20:37.000Z"
+    }
+  ],
+  "nextCursor": "eyJjcmVhdGVkQXQiOiIyMDI2LTExLTA0In0"
+}

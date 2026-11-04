@@ -68,6 +68,15 @@ export const qk = {
     list: ['bookings', 'list'] as const,
     detail: (id: string) => ['bookings', 'detail', id] as const,
   },
+  // Phase D
+  calls: {
+    all: ['calls'] as const,
+    list: ['calls', 'list'] as const,
+    detail: (id: string) => ['calls', 'detail', id] as const,
+  },
+  doNotCall: ['doNotCall'] as const,
+  /** GET /v1/me/phone/verification: the verification to resume, if any. */
+  phoneVerification: ['phoneVerification'] as const,
 };
 
 export type QueryKey = readonly unknown[];

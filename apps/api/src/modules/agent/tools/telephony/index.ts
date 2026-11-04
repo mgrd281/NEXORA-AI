@@ -22,5 +22,6 @@
  * Its id is a contracts ToolId owned by the phone-calling skill (skills/registry.ts).
  */
 import type { AnyTool } from '../types';
+import { phoneCallTool } from './phone-call';
 
-export const telephonyTools: readonly AnyTool[] = [];
+export const telephonyTools: readonly AnyTool[] = [phoneCallTool];

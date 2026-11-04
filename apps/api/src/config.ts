@@ -410,8 +410,7 @@ function resolveTelephony(c: z.infer<typeof Env>, isProduction: boolean): Teleph
     );
   if (!parts.every(Boolean)) return null;
   const fromCountry = regionOfNumber(c.TWILIO_FROM_NUMBER!);
-  if (!fromCountry)
-    throw new Error('TWILIO_FROM_NUMBER is not a valid phone number of a country');
+  if (!fromCountry) throw new Error('TWILIO_FROM_NUMBER is not a valid phone number of a country');
   if (!c.PUBLIC_WEBHOOK_BASE_URL)
     throw new Error('PUBLIC_WEBHOOK_BASE_URL is required when Twilio is configured');
   const base = new URL(c.PUBLIC_WEBHOOK_BASE_URL);

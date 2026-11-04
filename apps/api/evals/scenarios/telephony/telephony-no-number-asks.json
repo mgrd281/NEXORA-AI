@@ -1,0 +1,24 @@
+{
+  "id": "telephony-no-number-asks",
+  "version": 1,
+  "suite": "telephony",
+  "title": "\"Call my dentist and tell them I am late\" without a number: JARVIS asks for it, never guesses one",
+  "modes": ["offline"],
+  "given": {
+    "request": "Call my dentist and tell them I am late",
+    "language": "en",
+    "account": {
+      "email": "owner@eval.test",
+      "locale": "en",
+      "timeZone": "Europe/Berlin"
+    },
+    "telephony": {
+      "allowedCountries": ["DE"]
+    }
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["phone_number"],
+    "sideEffectsAtMost": 0
+  }
+}

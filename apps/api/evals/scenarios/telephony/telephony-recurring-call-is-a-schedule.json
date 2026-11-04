@@ -1,0 +1,18 @@
+{
+  "id": "telephony-recurring-call-is-a-schedule",
+  "version": 1,
+  "suite": "telephony",
+  "title": "\"Call +49 … every Monday at 9 and tell them …\" — the timing is in the request's own words: a weekly schedule (each run plans and approves its own call)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Call +49 30 1234567 every Monday at 9 and tell them I am on my way",
+    "language": "en",
+    "telephony": {
+      "allowedCountries": ["DE"]
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["schedule.create"]
+  }
+}

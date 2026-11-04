@@ -19,6 +19,10 @@
  * 5. Phase C: nested enums (approval email mode / via, calendar action, provider kind and
  *    revocation, calendar event and source status, comparison site status) mirror their
  *    contract enums; every EvidenceCode has a localized title (EvidenceText).
+ * 6. Phase D: the call and voice enums, the nested phone-call dialog mode, transfer status and
+ *    voice-session outcome mirror the contracts; every Phase D route has an endpoint; the
+ *    `VOICE_LIMITS` (incl. every stop phrase) and the `CALL_LIMITS` the app uses are mirrored
+ *    exactly in VoiceLimits.swift / Calls.swift.
  *
  * Enums whose contract values include `unknown` (OrderStatus, BookingStatus: the outcome is
  * unknown) use `unrecognized` as the lenient fallback instead, so the two never collide.
@@ -90,6 +94,21 @@ const mirrors: Record<string, readonly string[]> = {
   BookingStatus: contracts.BookingStatus.options,
   ReliabilitySignalCode: contracts.ReliabilitySignalCode.options,
   AttendeeResponse: contracts.AttendeeResponse.options,
+  // Phase D
+  CallPurpose: contracts.CallPurpose.options,
+  CallStatus: contracts.CallStatus.options,
+  CallResult: contracts.CallResult.options,
+  CallSpeaker: contracts.CallSpeaker.options,
+  CallTurnKind: contracts.CallTurnKind.options,
+  RecordingMode: contracts.RecordingMode.options,
+  RecordingConsent: contracts.RecordingConsent.options,
+  AnsweredBy: contracts.AnsweredBy.options,
+  VoicemailAction: contracts.VoicemailAction.options,
+  CallNoteCode: contracts.CallNoteCode.options,
+  DoNotCallSource: contracts.DoNotCallSource.options,
+  PhoneVerificationStatus: contracts.PhoneVerificationStatus.options,
+  VoiceSessionMode: contracts.VoiceSessionMode.options,
+  VoiceEndReason: contracts.VoiceEndReason.options,
 };
 
 /** The lenient fallback case: `unknown`, or `unrecognized` when `unknown` is a contract value. */
@@ -199,6 +218,45 @@ const nested: [string, string, string, readonly string[]][] = [
     ),
   ],
 ];
+// Phase D
+nested.push(
+  [
+    'Jarvis/Core/Models/Approvals.swift',
+    'struct PhoneCallAction:',
+    'Dialog',
+    enumOf(approvalKind('phone_call').dialog),
+  ],
+  [
+    'Jarvis/Core/Models/Calls.swift',
+    'struct Transfer:',
+    'Status',
+    enumOf(shapeOf(shapeOf(contracts.CallSession).transfer).status),
+  ],
+);
+/** Nested enums whose Swift mirror is send-only (no lenient fallback case). */
+const sendOnly: [string, string, string, readonly string[]][] = [
+  [
+    'Jarvis/Core/Models/Library.swift',
+    'struct VoiceSessionEndRequest:',
+    'Outcome',
+    enumOf(shapeOf(contracts.VoiceSessionEnd).outcome),
+  ],
+];
+for (const [file, anchor, name, expected] of sendOnly) {
+  const actual = nestedRawValues(file, anchor, name);
+  if (!actual) {
+    problems.push(`${file}: enum ${name} after ${anchor} not found`);
+    continue;
+  }
+  const missing = expected.filter((v) => !actual.includes(v));
+  const extra = actual.filter((v) => !expected.includes(v));
+  if (missing.length || extra.length) {
+    problems.push(
+      `${file}: ${anchor} ${name} missing ${JSON.stringify(missing)}, extra ${JSON.stringify(extra)}`,
+    );
+  }
+}
+
 for (const [file, anchor, name, expected] of nested) {
   const actual = nestedRawValues(file, anchor, name);
   if (!actual) {
@@ -369,6 +427,17 @@ const phaseCRoutes = new Set([
   'getEvidence',
   'downloadEvidence',
 ]);
+// Phase D: every new user route (the provider's webhooks are server-to-server).
+for (const name of [
+  'listCalls',
+  'getCall',
+  'listDoNotCall',
+  'deleteDoNotCall',
+  'startPhoneVerification',
+  'confirmPhoneVerification',
+]) {
+  phaseCRoutes.add(name);
+}
 for (const name of phaseCRoutes) {
   if (!(name in contracts.routes)) problems.push(`check-contract-copy.ts: ${name} is not a route`);
 }
@@ -377,6 +446,50 @@ for (const [name, route] of routeTable) {
   if (!calls.some((c) => c.method === route.method && c.path === route.path)) {
     problems.push(
       `APIClient+Endpoints.swift: no endpoint for ${name} (${route.method} ${route.path})`,
+    );
+  }
+}
+
+/* 6. Phase D limits ------------------------------------------------------------ */
+
+const voiceLimitsSwift = read('Jarvis/Core/Models/VoiceLimits.swift');
+const callsSwift = read('Jarvis/Core/Models/Calls.swift');
+/** `static let name = <number>` (underscores allowed) in a Swift source. */
+function swiftNumber(source: string, name: string): number | null {
+  const m = new RegExp(`static let ${name}(?::\\s*\\w+)? = ([0-9_.]+)`).exec(source);
+  return m ? Number(m[1].replaceAll('_', '')) : null;
+}
+const V = contracts.VOICE_LIMITS;
+const C = contracts.CALL_LIMITS;
+const numbers: [string, string, number][] = [
+  [voiceLimitsSwift, 'endOfSpeechSilenceMsDefault', V.endOfSpeechSilenceMs.default],
+  [voiceLimitsSwift, 'endOfSpeechSilenceMsMin', V.endOfSpeechSilenceMs.min],
+  [voiceLimitsSwift, 'endOfSpeechSilenceMsMax', V.endOfSpeechSilenceMs.max],
+  [voiceLimitsSwift, 'speakingRateDefault', V.speakingRate.default],
+  [voiceLimitsSwift, 'speakingRateMin', V.speakingRate.min],
+  [voiceLimitsSwift, 'speakingRateMax', V.speakingRate.max],
+  [voiceLimitsSwift, 'idleEndSeconds', V.idleEndSeconds],
+  [voiceLimitsSwift, 'maxSpokenChunkChars', V.maxSpokenChunkChars],
+  [voiceLimitsSwift, 'maxVoiceNameChars', V.maxVoiceNameChars],
+  [callsSwift, 'minConfidence', C.minConfidence],
+  [callsSwift, 'verificationCodeLength', C.verificationCodeLength],
+  [callsSwift, 'turnsInTaskDetail', C.turnsInTaskDetail],
+];
+for (const [source, name, expected] of numbers) {
+  const actual = swiftNumber(source, name);
+  if (actual !== expected) problems.push(`limits: ${name} is ${actual} in Swift, ${expected} in the contracts`);
+}
+const delays = /static let reconnectDelaysMs = \[([^\]]*)\]/.exec(voiceLimitsSwift)?.[1];
+const swiftDelays = (delays ?? '').split(',').map((d) => Number(d.trim().replaceAll('_', '')));
+if (JSON.stringify(swiftDelays) !== JSON.stringify(V.reconnectDelaysMs)) {
+  problems.push(`limits: reconnectDelaysMs ${JSON.stringify(swiftDelays)} ≠ ${JSON.stringify(V.reconnectDelaysMs)}`);
+}
+for (const locale of LOCALES) {
+  const line = new RegExp(`\\.${locale}: \\[([^\\]]*)\\]`).exec(voiceLimitsSwift)?.[1] ?? '';
+  const phrases = [...line.matchAll(/"([^"]*)"/g)].map((m) => m[1]);
+  if (JSON.stringify(phrases) !== JSON.stringify(V.stopPhrases[locale])) {
+    problems.push(
+      `limits: stop phrases [${locale}] ${JSON.stringify(phrases)} ≠ ${JSON.stringify(V.stopPhrases[locale])}`,
     );
   }
 }
@@ -390,5 +503,6 @@ console.log(
   `✓ ${Object.keys(mirrors).length} enums and ${nested.length} nested enums mirror the contracts; ` +
     `${serverKeys.length} server messages match the API's en/de/ar templates; every TaskErrorReason, ` +
     `PolicyReason, (non-webhook) ApiErrorReason and EvidenceCode has copy; ${calls.length} app endpoints ` +
-    `are contract routes, and every non-webhook Phase B route and every Phase C route has one.`,
+    `are contract routes, and every non-webhook Phase B route and every Phase C and D route has one; ` +
+    `the voice and call limits (incl. ${Object.values(V.stopPhrases).flat().length} stop phrases) match.`,
 );

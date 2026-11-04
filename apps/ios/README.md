@@ -8,6 +8,10 @@ automatic-deletion (retention) settings and a time-zone picker. Phase C adds Goo
 Microsoft connections (connect, reconnect, allow more, disconnect), Home "Upcoming", the
 calendar-event, booking, purchase and form approvals, email drafts, browser-agent
 evidence, comparisons, orders, bookings, reply tracking and the monthly purchase limit.
+Phase D adds a continuous voice conversation (listen → JARVIS answers aloud → listen again,
+with barge-in, captions and text fallback), the phone-call approval, calls on the task screen
+with their status timeline, what was said and the outcome, the Calls list, your phone number
+with verification by call, and the do-not-call list.
 English, German and Arabic (right-to-left), light and dark, Dynamic Type, VoiceOver and
 Reduce Motion are supported throughout. Webhooks and SMTP / web-access connections are
 managed on the web only.
@@ -129,6 +133,9 @@ xcodebuild test -project Jarvis.xcodeproj -scheme Jarvis \
 | `PresenceStateTests` | Mapping of voice, connection, approvals, tasks and recent outcomes to Presence states; animation and VoiceOver labels |
 | `RequestBuildingTests` | URLs, headers (bearer, `Idempotency-Key`, `Content-Type` only with a body), request bodies, API address policy, task state machine |
 | `PhaseCDecodingTests` | Providers and OAuth connections (expired, capabilities, granted scopes), OAuth start / callback results, Home "Upcoming" and calendar events, email watches, orders and bookings (the contract's own `unknown` status vs. a newer value), evidence, browser sessions with handover, the purchase / calendar-event / booking / form approvals and email drafts, skills with connection options, the purchase limit (0 from older servers), the tool-output shapes (free/busy, mail summaries, comparison with reliability signals, prepared cart, booking slots and confirmation), and newer values decoding to `.unknown` / `.unrecognized` (never approvable) |
+| `VoiceConversationTests` | Text rules (normalisation, stop phrases en/de/ar, assent, echo guard and echo prefix, sentence splitting of a growing answer, chunking); the conversation state machine with fake recognizer / synthesizer and a manual clock: end of utterance and final result, the first request then follow-ups with their own keys, sentence-by-sentence speaking, barge-in by words (not by echo) and by loudness on headphones only, approvals never by voice ("yes" isn't a decision), busy, stop phrases, network retries with one key then failure, recognition restarts with the contract's delays, idle end, interruptions, cumulative runs around JARVIS's speech, the voice-session outcome |
+| `PhaseDDecodingTests` | `Me` voice preferences and phone number (defaults from older servers), the `phone_call` approval (and non-approvable newer values), task details with a completed call and scenario 4's busy line, a call with every turn, the calls page, do-not-call entries, phone verification, the conversation voice session, call stream events, newer call values decoding to `.unknown` / `.unrecognized` |
+| `PhaseDLogicTests` | `PATCH /v1/me` phone number (set / explicit null / omitted) and voice preferences (only changed fields, voices reset with null), voice-session bodies with clamped counters, phone-number and code input (E.164, `00`, Arabic-Indic digits), Phase D server sentences and error copy with parameters, a call's failure text, wall-clock times, what the conversation says about a task, status lines, Presence while speaking, call enum presentation |
 | `PhaseCLogicTests` | The OAuth redirect URI policy and callback forwarding (exact host and path, state length, code xor error, repeated parameters refused), the provider page policy, OAuth and purchase-limit request bodies, money parameters ("USD 129.99"), error and server-sentence rendering with providers, capabilities and amounts, links the app opens, step previews, times in the event's own zone and Upcoming day headings |
 
 ## Verification without Xcode
@@ -138,11 +145,12 @@ These run with Node from the repository root and need no Apple tooling:
 ```sh
 # Fixtures parse with the Zod contract schemas, exactly (no stripped keys or defaults);
 # unknown-value fixtures fail only where intended; an older server's payload gets only
-# the contract defaults (63 fixtures, one for every Phase C schema the app decodes)
+# the contract defaults (73 fixtures, one for every Phase C and D schema the app decodes)
 pnpm --filter @jarvis/api exec tsx ../ios/scripts/validate-fixtures.ts
-# Swift enums (and nested Phase C enums) mirror the contract enums; server sentences match
+# Swift enums (and nested enums) mirror the contract enums; server sentences match
 # the API's en/de/ar templates; every task-error, policy, API-error reason and evidence code
-# has copy; every Phase C route has an endpoint
+# has copy; every Phase C and D route has an endpoint; VoiceLimits / CallLimits (incl. the
+# stop phrases) equal the contracts
 pnpm --filter @jarvis/api exec tsx ../ios/scripts/check-contract-copy.ts
 # Every localizable Swift literal has en/de/ar; specifiers, default values and App
 # Shortcut phrases match
@@ -245,3 +253,25 @@ approval wait for you in the app.
   dollars up to $10,000; raising it asks for confirmation and only the limit is sent), the AI
   budget shown separately, and the **Orders** and **Bookings** history. **Reply tracking**
   lists watched threads with **Stop watching**.
+
+## Phase D on iPhone
+
+- **Voice conversation.** The microphone in a composer opens voice mode — one request
+  (dictation) or a conversation, as set in *Settings › Voice* (switchable in the sheet). In a
+  conversation JARVIS listens, sends what you said after the pause you set, speaks the answer
+  sentence by sentence while it arrives, and listens again. Talk over it to interrupt. While an
+  approval waits, the approval sheet opens and JARVIS says that approvals are given on screen
+  only — saying "yes" approves nothing. Everything said is captioned; the text field works at
+  any time; Space toggles the microphone and Esc ends (hardware keyboard); saying "stop",
+  "stopp" or "توقف" ends voice mode (never the task). Speech is recognised on the iPhone when
+  the language supports it, otherwise by Apple's speech service; JARVIS receives only your
+  requests as text. *Settings › Voice* also has the speaking rate, the pause that ends what
+  you say, and a voice per language with a sample.
+- **Phone calls.** A call JARVIS proposes shows the exact number, who it calls and for whom,
+  the language, the words it will say, what it may share, the calling hours, the longest call,
+  recording, voicemail, transfer and the most it may cost: **Approve and call** (by tap only).
+  The task screen shows each attempt with its status timeline, whether JARVIS said it is an AI,
+  what was said (the other person's words marked as recognised), the outcome and evidence; a
+  busy line or no answer fails with the reason and can be retried as a new call.
+  *Settings › Phone*: your number and its verification by a call that reads a code, the
+  numbers JARVIS won't call, and all calls.

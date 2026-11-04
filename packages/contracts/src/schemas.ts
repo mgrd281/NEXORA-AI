@@ -1382,6 +1382,8 @@ export const ApprovalDetails = z.discriminatedUnion('kind', [
     onBehalfOf: z.string(),
     /** The number the callee sees (this server's caller id); null when not configured. */
     callerId: z.string().nullable(),
+    /** The caller id in international format for reading; optional only for older servers. */
+    callerIdDisplay: z.string().nullable().optional(),
     language: Locale,
     purpose: CallPurpose,
     goal: z.string(),
@@ -1487,6 +1489,12 @@ export const TaskSummary = z.object({
   scheduleId: Id.nullable().optional(),
   /** Files attached to the request. */
   attachmentCount: z.number().int().nonnegative().optional(),
+  /**
+   * Phase D. The request's language as the planner detected it (null until planned, or when it
+   * is none of the supported locales): voice mode reads the answer aloud in this language.
+   * Always sent by this API; optional only for older servers and fixtures.
+   */
+  language: Locale.nullable().optional(),
 });
 export type TaskSummary = z.infer<typeof TaskSummary>;
 
@@ -1650,8 +1658,16 @@ export const CallSession = z.object({
 });
 export type CallSession = z.infer<typeof CallSession>;
 
-/** A call in lists (GET /v1/calls): without its turns and status timeline. */
-export const CallSummary = CallSession.omit({ turns: true, timeline: true });
+/**
+ * A call in lists (GET /v1/calls): without its turns and status timeline, with its task's title
+ * (so a list needs no second query). Always sent by this API; optional only for older servers.
+ */
+export const CallSummary = CallSession.omit({ turns: true, timeline: true }).extend({
+  /** The task's title, in the request's language; see taskTitleMessage. */
+  taskTitle: z.string().optional(),
+  /** Set when the server wrote the title (offline planner): render it in the viewer's locale. */
+  taskTitleMessage: ServerMessage.nullable().optional(),
+});
 export type CallSummary = z.infer<typeof CallSummary>;
 
 export const CallListQuery = PageQuery.extend({ result: CallResult.optional() });
@@ -1669,6 +1685,11 @@ export const DoNotCallEntry = z.object({
   source: DoNotCallSource,
   /** The call during which the callee asked (callee_request). */
   callId: Id.nullable(),
+  /**
+   * The task of that call (null once the task was deleted — the entry outlives it). Always sent
+   * by this API; optional only for older servers.
+   */
+  taskId: Id.nullable().optional(),
   createdAt: Timestamp,
 });
 export type DoNotCallEntry = z.infer<typeof DoNotCallEntry>;
@@ -1685,11 +1706,22 @@ export const PhoneVerification = z.object({
 });
 export type PhoneVerification = z.infer<typeof PhoneVerification>;
 
+/**
+ * GET /v1/me/phone/verification: the account's latest verification while it can still be
+ * confirmed or shows why it ended (calling, pending, failed — until its expiry), else null — so a
+ * client that left the screen (or reloaded) can show the code field again.
+ */
+export const PhoneVerificationState = z.object({ verification: PhoneVerification.nullable() });
+export type PhoneVerificationState = z.infer<typeof PhoneVerificationState>;
+
 export const ConfirmPhoneVerificationRequest = z.object({
   code: z
     .string()
     .trim()
-    .regex(new RegExp(`^\\d{${CALL_LIMITS.verificationCodeLength}}$`), 'the digits JARVIS read out'),
+    .regex(
+      new RegExp(`^\\d{${CALL_LIMITS.verificationCodeLength}}$`),
+      'the digits JARVIS read out',
+    ),
 });
 export type ConfirmPhoneVerificationRequest = z.infer<typeof ConfirmPhoneVerificationRequest>;
 

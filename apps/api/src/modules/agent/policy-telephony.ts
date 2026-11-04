@@ -45,10 +45,7 @@ export interface CallPolicyFacts {
   sharesPersonalInfo: boolean;
 }
 
-const deny = (
-  reason: string,
-  params?: Record<string, string | number>,
-): DomainVerdict => ({
+const deny = (reason: string, params?: Record<string, string | number>): DomainVerdict => ({
   deny: { reasons: [reason], code: 'POLICY_DENIED', ...(params ? { params } : {}) },
 });
 

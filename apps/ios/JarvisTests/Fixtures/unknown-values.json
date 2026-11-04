@@ -146,8 +146,8 @@
       "riskLevel": "MEDIUM",
       "summary": "Send an email to owner@example.com with the subject “Summary: Example Domain”.",
       "details": {
-        "kind": "phone_call",
-        "title": "Call the dentist",
+        "kind": "video_call",
+        "title": "Video call with the dentist",
         "startsAt": "2026-11-05T19:00:00.000Z"
       },
       "actionHash": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",

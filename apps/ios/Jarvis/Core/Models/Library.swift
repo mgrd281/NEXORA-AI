@@ -89,26 +89,40 @@ struct StreamEvent: Decodable, Sendable, Equatable, Identifiable {
 struct VoiceSessionStartRequest: Encodable, Sendable, Equatable {
     let locale: String
     let engine: String
+    /// Phase D: one dictated request (the server's default) or a continuous conversation.
+    var mode: VoiceSessionMode? = nil
+    /// Phase D: the conversation a voice conversation continues (follow-ups); must be the caller's.
+    var conversationId: String? = nil
 }
 
-/// `POST /v1/voice-sessions/:id/end`.
+/// `POST /v1/voice-sessions/:id/end`. Counters only — never audio, never transcripts.
 struct VoiceSessionEndRequest: Encodable, Sendable, Equatable {
     enum Outcome: String, Encodable, Sendable {
         case submitted
         case cancelled
         case error
         case noSpeech = "no_speech"
+        /// Phase D: a conversation the user ended after at least one request.
+        case ended
     }
 
     let outcome: Outcome
     let transcriptChars: Int
     let errorCode: String?
+    // Phase D (conversation counters; nil fields are omitted)
+    var turns: Int? = nil
+    var bargeIns: Int? = nil
+    var reconnects: Int? = nil
+    var endReason: VoiceEndReason? = nil
 }
 
 struct VoiceSession: Decodable, Sendable, Equatable {
     let id: String
     let startedAt: Date
     let endedAt: Date?
+    // Phase D (optional: older servers)
+    var mode: VoiceSessionMode? = nil
+    var conversationId: String? = nil
 }
 
 /// `Page(item)` — cursor pagination.

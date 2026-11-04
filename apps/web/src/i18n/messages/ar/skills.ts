@@ -26,6 +26,7 @@ const skills: Catalog<typeof source> = {
     STORAGE_NOT_CONFIGURED: 'تخزين الملفات غير مُعَدّ على هذا الخادم.',
     PROVIDER_NOT_CONFIGURED: 'لا يوجد اتصال بـ Google أو Microsoft مُعدّ على هذا الخادم.',
     BROWSER_UNAVAILABLE: 'وكيل المتصفح لا يعمل على هذا الخادم.',
+    TELEPHONY_NOT_CONFIGURED: 'لم تُعدّ المكالمات الهاتفية على هذا الخادم.',
   },
   connections: {
     web: 'الوصول إلى الويب',

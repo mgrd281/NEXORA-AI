@@ -112,6 +112,14 @@ export const TwilioDialForm = CallParams.extend({
   DialCallDuration: z.string().max(16).optional(),
   DialBridged: z.string().max(8).optional(),
 });
+/**
+ * `<Number url=…>` of a transfer: requested on the account owner's leg after they answer and
+ * before the callee is put through. `CallSid` is the owner's (child) leg; `ParentCallSid` is the
+ * call JARVIS placed.
+ */
+export const TwilioWhisperForm = CallParams.extend({
+  ParentCallSid: TwilioCallSid,
+});
 /** RecordingStatusCallback of a recording started after the callee's consent. */
 export const TwilioRecordingForm = z.looseObject({
   AccountSid: TwilioAccountSid,
@@ -201,6 +209,18 @@ export const telephonyWebhookRoutes = {
     params: CallTarget,
     query: TokenQuery,
     form: TwilioDialForm,
+    responds: 'twiml',
+  },
+  twilioCallWhisper: {
+    method: 'POST',
+    path: '/v1/telephony/twilio/calls/:callId/whisper',
+    summary:
+      'Twilio: the account owner answered a transfer — TwiML telling them who is calling and why',
+    provider: 'twilio',
+    target: 'call',
+    params: CallTarget,
+    query: TokenQuery,
+    form: TwilioWhisperForm,
     responds: 'twiml',
   },
   twilioCallRecording: {

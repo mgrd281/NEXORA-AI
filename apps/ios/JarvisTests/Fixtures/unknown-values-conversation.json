@@ -125,7 +125,7 @@
             "params": {}
           },
           "missing": [
-            "phone_number"
+            "passport_number"
           ]
         },
         "scheduleId": null,

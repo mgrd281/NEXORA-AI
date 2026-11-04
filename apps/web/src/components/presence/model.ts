@@ -5,6 +5,7 @@ import type { MessageKey } from '@/i18n/catalog';
  * Visual states of the Presence ring. Each maps to a real signal — never decoration:
  *   idle         thin neutral ring          nothing running (or queued / offline planner)
  *   listening    ring scaled by mic level   voice capture is active on this device
+ *   speaking     ring with moving bars      JARVIS is speaking (speech synthesis plays) here
  *   thinking     short rotating arc         a task is PLANNING or VERIFYING
  *   running      determinate arc            a task is RUNNING: completed / total steps
  *   awaiting     warning ring with a notch  an approval is pending
@@ -16,6 +17,7 @@ import type { MessageKey } from '@/i18n/catalog';
 export type PresenceState =
   | 'idle'
   | 'listening'
+  | 'speaking'
   | 'thinking'
   | 'running'
   | 'awaiting'
@@ -84,6 +86,8 @@ export interface AssistantPresenceInput {
   flash: 'completed' | 'failed' | null;
   /** Voice capture is active. */
   listening: boolean;
+  /** JARVIS is speaking on this device (voice conversation; synthesis really playing). */
+  speaking?: boolean;
 }
 
 /**
@@ -96,6 +100,7 @@ export function deriveAssistantPresence(input: AssistantPresenceInput): Presence
     return { state: 'reconnecting', labelKey: 'common.presence.reconnecting' };
   if (input.workerHealthy === false)
     return { state: 'offline', labelKey: 'common.presence.unavailable' };
+  if (input.speaking) return { state: 'speaking', labelKey: 'common.presence.speaking' };
   if (input.listening) return { state: 'listening', labelKey: 'common.presence.listening' };
   if (input.pendingApprovals > 0)
     return { state: 'awaiting', labelKey: 'common.presence.awaiting' };

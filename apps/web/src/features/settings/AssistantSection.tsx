@@ -79,6 +79,8 @@ const CAPABILITY_FIX: Record<Capability, string | null> = {
   booking: null,
   shopping: null,
   purchases: '/settings#spending',
+  // Phase D: telephony is a server setting (nothing the user can fix here).
+  phoneCalls: null,
 };
 
 function plannerReason(status: AssistantStatus, budgetUsd: number): MessageKey {

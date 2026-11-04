@@ -2,13 +2,18 @@
   "id": "spec-03-phone-call",
   "version": 1,
   "suite": "spec",
-  "title": "Spec 3 — make a phone call: planned, honest unsupported",
-  "modes": ["offline", "model"],
+  "title": "Spec 3 — make a phone call: moving an appointment by phone is binding — offline says honestly that it needs the model",
+  "modes": ["offline"],
   "given": {
-    "request": "Call my dentist and move my appointment to next week"
+    "request": "Call my dentist and move my appointment to next week",
+    "telephony": {
+      "allowedCountries": ["DE"]
+    }
   },
   "expect": {
     "result": "unsupported",
-    "recipientsExactly": []
+    "errorReason": "OFFLINE_UNSUPPORTED",
+    "recipientsExactly": [],
+    "sideEffectsAtMost": 0
   }
 }

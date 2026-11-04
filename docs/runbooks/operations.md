@@ -68,6 +68,36 @@ sealed with an old key cannot be opened after rotation and must be reconnected.
    ```
 5. The owner reconnects SMTP (Connections → Email); the upsert re-seals with `k2`.
 6. Destroy the old key after all rows show `secret_key_id = 'k2'`.
+7. **Phone numbers (Phase D).** `do_not_call.number_hash` and `call_sessions.callee_number_hash`
+   are HMACs keyed by a key derived (HKDF) from `SECRET_ENCRYPTION_KEY`; after the switch the
+   policy would no longer recognise an existing do-not-call entry. **Before step 3 takes effect**
+   (stop the worker and the API for the minute this takes), re-hash and re-seal with both keys
+   from a checkout of the repository (`pnpm install` done; owner role, which bypasses RLS):
+
+   ```bash
+   cd apps/api && OLD_KEY=<old base64> NEW_KEY=<new base64> NEW_KEY_ID=k2 \
+   DATABASE_OWNER_URL=postgresql://jarvis_owner:…@db:5432/jarvis node --input-type=module -e '
+   import pg from "pg"; import c from "node:crypto";
+   const { OLD_KEY, NEW_KEY, NEW_KEY_ID, DATABASE_OWNER_URL } = process.env;
+   const hkey = (k) => Buffer.from(c.hkdfSync("sha256", Buffer.from(k, "base64"), Buffer.alloc(0), "jarvis/phone-number-hash/v1", 32));
+   const hash = (e164) => c.createHmac("sha256", hkey(NEW_KEY)).update(`e164:${e164}`).digest();
+   const open = (env, aad) => { const d = c.createDecipheriv("aes-256-gcm", Buffer.from(OLD_KEY, "base64"), env.subarray(1, 13));
+     d.setAAD(Buffer.from(aad)); d.setAuthTag(env.subarray(13, 29)); return Buffer.concat([d.update(env.subarray(29)), d.final()]).toString("utf8"); };
+   const seal = (text, aad) => { const iv = c.randomBytes(12); const e = c.createCipheriv("aes-256-gcm", Buffer.from(NEW_KEY, "base64"), iv);
+     e.setAAD(Buffer.from(aad)); const ct = Buffer.concat([e.update(text, "utf8"), e.final()]); return Buffer.concat([Buffer.from([1]), iv, e.getAuthTag(), ct]); };
+   const db = new pg.Client({ connectionString: DATABASE_OWNER_URL }); await db.connect(); await db.query("begin");
+   for (const r of (await db.query("select id, user_id, number_ciphertext from do_not_call")).rows) {
+     const aad = `dnc:${r.user_id}:${r.id}`; const n = open(r.number_ciphertext, aad);
+     await db.query("update do_not_call set number_hash = $1, number_ciphertext = $2, number_key_id = $3 where id = $4", [hash(n), seal(n, aad), NEW_KEY_ID, r.id]); }
+   for (const r of (await db.query("select id, callee_number from call_sessions")).rows)
+     await db.query("update call_sessions set callee_number_hash = $1 where id = $2", [hash(r.callee_number), r.id]);
+   // Verification codes are short-lived: expire the live ones (users start a new verification).
+   await db.query("update phone_verifications set status = $1 where status in ($2, $3)", ["expired", "calling", "pending"]);
+   await db.query("commit"); await db.end(); console.log("phone numbers re-hashed");'
+   ```
+
+   It is one transaction: on any error nothing changes (do not switch keys then). Check afterwards
+   that `select count(*) from do_not_call where number_key_id <> 'k2'` is 0.
 
 Emergency rotation (key leaked): same steps immediately; additionally rotate every SMTP password at
 the providers, because a leaked key plus a database copy reveals them.

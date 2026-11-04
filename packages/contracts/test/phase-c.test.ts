@@ -735,8 +735,8 @@ describe('Phase C route table', () => {
 
   it('includes every Phase C endpoint, all for signed-in users', () => {
     expect(Object.keys(routes)).toEqual(expect.arrayContaining([...PHASE_C]));
-    // + the 6 Phase D routes (test/phase-d.test.ts).
-    expect(all).toHaveLength(35 + 26 + PHASE_C.length + 6);
+    // + the 7 Phase D routes (test/phase-d.test.ts).
+    expect(all).toHaveLength(35 + 26 + PHASE_C.length + 7);
     for (const name of PHASE_C) expect((routes[name] as RouteDef).auth, name).toBe('user');
   });
 

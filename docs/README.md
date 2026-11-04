@@ -18,7 +18,8 @@ across documents: **Built** / **Implemented** = in the code now (with file refer
 | Change the schema                    | [Data model](architecture/data-model.md)                                                                                     |
 | Build Phase B (ownership, contracts) | [Phase B architecture](architecture/phase-b.md)                                                                              |
 | Build Phase C (ownership, contracts) | [Phase C architecture](architecture/phase-c.md)                                                                              |
-| Review security or privacy           | [Threat model](security/threat-model.md), [privacy](security/privacy.md)                                                     |
+| Build Phase D (ownership, contracts) | [Phase D architecture](architecture/phase-d.md)                                                                              |
+| Review security or privacy           | [Threat model](security/threat-model.md), [privacy](security/privacy.md), [telephony](security/telephony.md)                 |
 | Build UI                             | [Design system](design/design-system.md), [screens](design/screens.md), [review process](design/review-process.md)           |
 | Operate it                           | [Operations runbook](runbooks/operations.md), [release checklist](release-checklist.md)                                      |
 | Know the limits                      | [Known limitations](known-limitations.md), [costs](costs.md)                                                                 |
@@ -45,29 +46,35 @@ across documents: **Built** / **Implemented** = in the code now (with file refer
 - [Phase C](architecture/phase-c.md) — frozen contracts and schema (0005), extension points, data
   flows, security notes and the file ownership map for OAuth connections (Google, Microsoft), the
   email agent, calendars and Home "Upcoming", booking, the isolated browser agent and shopping
+- [Phase D](architecture/phase-d.md) — frozen contracts and schema (0008), the telephony webhook
+  route group, extension points, data flows, security notes and the file ownership map for the
+  voice conversation (web, iOS) and the phone agent (Twilio gateway, dialog engine, consent,
+  do-not-call, phone verification, mock Twilio)
 
 ### Architecture decision records
 
-| ADR                                                 | Decision                                                                    |
-| --------------------------------------------------- | --------------------------------------------------------------------------- |
-| [0001](adr/0001-monorepo.md)                        | pnpm monorepo; TypeScript 6.0.3; ESLint 9 pinned                            |
-| [0002](adr/0002-modular-monolith-fastify.md)        | Modular monolith on Fastify 5 + Zod (not NestJS); separate worker process   |
-| [0003](adr/0003-multi-tenancy-rls.md)               | Multi-tenancy via PostgreSQL Row-Level Security                             |
-| [0004](adr/0004-postgres-job-queue.md)              | Durable execution on a PostgreSQL job queue; Temporal migration criteria    |
-| [0005](adr/0005-realtime-sse.md)                    | Realtime via SSE + LISTEN/NOTIFY with Last-Event-ID replay                  |
-| [0006](adr/0006-memory-retrieval.md)                | Memory retrieval: full-text + trigram now, pgvector later                   |
-| [0007](adr/0007-authentication.md)                  | argon2id + opaque sessions; cookie (web) / bearer (native); invitation only |
-| [0008](adr/0008-model-layer.md)                     | Model adapters + deterministic router; Anthropic first; offline planner     |
-| [0009](adr/0009-plan-then-execute-policy-engine.md) | Plan-then-execute, deterministic Policy Engine, hash-bound approvals        |
-| [0010](adr/0010-exactly-once-side-effects.md)       | Exactly-once side effects with idempotency keys; `OUTCOME_UNKNOWN`          |
-| [0011](adr/0011-meridian-design-system.md)          | Meridian design system; tokens as single source; WCAG 2.2 AA                |
-| [0012](adr/0012-web-nextjs.md)                      | Next.js 16 App Router, React Query, same-origin proxy, CSS Modules          |
-| [0013](adr/0013-ios-swiftui.md)                     | iOS in SwiftUI; Android and macOS in Phase 6                                |
-| [0014](adr/0014-secrets-encryption.md)              | AES-256-GCM secret envelopes with owner-bound AAD; rotation                 |
-| [0015](adr/0015-ssrf-protection.md)                 | SSRF protection validated at connect time                                   |
-| [0016](adr/0016-oauth-connections.md)               | OAuth 2.0 connections: code + PKCE, session-bound state, sealed tokens      |
-| [0017](adr/0017-browser-agent-isolation.md)         | Browser agent in a separate, secret-free worker; ephemeral contexts         |
-| [0018](adr/0018-commerce-safety.md)                 | Purchases: limit (off by default), exact approval, exactly-once orders      |
+| ADR                                                 | Decision                                                                      |
+| --------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [0001](adr/0001-monorepo.md)                        | pnpm monorepo; TypeScript 6.0.3; ESLint 9 pinned                              |
+| [0002](adr/0002-modular-monolith-fastify.md)        | Modular monolith on Fastify 5 + Zod (not NestJS); separate worker process     |
+| [0003](adr/0003-multi-tenancy-rls.md)               | Multi-tenancy via PostgreSQL Row-Level Security                               |
+| [0004](adr/0004-postgres-job-queue.md)              | Durable execution on a PostgreSQL job queue; Temporal migration criteria      |
+| [0005](adr/0005-realtime-sse.md)                    | Realtime via SSE + LISTEN/NOTIFY with Last-Event-ID replay                    |
+| [0006](adr/0006-memory-retrieval.md)                | Memory retrieval: full-text + trigram now, pgvector later                     |
+| [0007](adr/0007-authentication.md)                  | argon2id + opaque sessions; cookie (web) / bearer (native); invitation only   |
+| [0008](adr/0008-model-layer.md)                     | Model adapters + deterministic router; Anthropic first; offline planner       |
+| [0009](adr/0009-plan-then-execute-policy-engine.md) | Plan-then-execute, deterministic Policy Engine, hash-bound approvals          |
+| [0010](adr/0010-exactly-once-side-effects.md)       | Exactly-once side effects with idempotency keys; `OUTCOME_UNKNOWN`            |
+| [0011](adr/0011-meridian-design-system.md)          | Meridian design system; tokens as single source; WCAG 2.2 AA                  |
+| [0012](adr/0012-web-nextjs.md)                      | Next.js 16 App Router, React Query, same-origin proxy, CSS Modules            |
+| [0013](adr/0013-ios-swiftui.md)                     | iOS in SwiftUI; Android and macOS in Phase 6                                  |
+| [0014](adr/0014-secrets-encryption.md)              | AES-256-GCM secret envelopes with owner-bound AAD; rotation                   |
+| [0015](adr/0015-ssrf-protection.md)                 | SSRF protection validated at connect time                                     |
+| [0016](adr/0016-oauth-connections.md)               | OAuth 2.0 connections: code + PKCE, session-bound state, sealed tokens        |
+| [0017](adr/0017-browser-agent-isolation.md)         | Browser agent in a separate, secret-free worker; ephemeral contexts           |
+| [0018](adr/0018-commerce-safety.md)                 | Purchases: limit (off by default), exact approval, exactly-once orders        |
+| [0019](adr/0019-voice-conversation.md)              | Voice conversation on device; follow-ups; barge-in; approvals by tap only     |
+| [0020](adr/0020-telephony-gateway.md)               | Twilio over REST; signed webhooks; exactly-once calls; consent and disclosure |
 
 ### Security and privacy
 
@@ -77,6 +84,8 @@ across documents: **Built** / **Implemented** = in the code now (with file refer
   autonomy, spending limits, CRITICAL handling
 - [Privacy](security/privacy.md) — GDPR data inventory, lawful bases, processors, rights, call
   recording stance
+- [Telephony](security/telephony.md) — AI disclosure, consent, recording law (DE/EU), calling
+  hours, destinations, opt-out and do-not-call, data protection of callees
 
 ### Skills
 

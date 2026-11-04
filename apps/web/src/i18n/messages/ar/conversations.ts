@@ -69,6 +69,8 @@ const conversations: Catalog<typeof source> = {
       contact_details: 'بيانات الاتصال الخاصة بك',
       product: 'المنتج المقصود',
       site: 'الموقع المقصود',
+      phone_number: 'رقم هاتف',
+      call_goal: 'ما ينبغي قوله أو السؤال عنه في المكالمة',
     },
   },
   delete: {

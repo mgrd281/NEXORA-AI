@@ -1,0 +1,34 @@
+{
+  "id": "telephony-national-number-with-own-country",
+  "version": 1,
+  "suite": "telephony",
+  "title": "A national number (030 …) is read in the country of the account's own number",
+  "modes": ["offline"],
+  "given": {
+    "request": "Ruf 030 1234567 an und sag ihnen, dass ich später komme",
+    "language": "de",
+    "account": {
+      "email": "owner@eval.test",
+      "locale": "de",
+      "timeZone": "Europe/Berlin"
+    },
+    "telephony": {
+      "allowedCountries": ["DE"],
+      "ownPhone": {
+        "number": "+4915112345678",
+        "verified": false
+      }
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["phone.call"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "require_approval",
+        "reasonsInclude": ["PHONE_CALL"]
+      }
+    ]
+  }
+}

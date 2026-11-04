@@ -32,6 +32,7 @@ import {
   PurchaseDetails,
 } from './PhaseCDetails';
 import { approvalLabelKind, reasonKey } from './labels';
+import { PhoneCallDetails } from './PhoneCallDetails';
 import {
   isUntrustedApproval,
   untrustedSourceFacts,
@@ -331,6 +332,7 @@ function isReviewable(details: Approval['details']): boolean {
     case 'booking':
     case 'purchase':
     case 'form_submission':
+    case 'phone_call':
       return true;
     default:
       return false;
@@ -534,6 +536,8 @@ function ApprovalDetailsView({
       return <PurchaseDetails details={details} />;
     case 'form_submission':
       return <FormSubmissionDetails details={details} />;
+    case 'phone_call':
+      return <PhoneCallDetails details={details} />;
     default:
       return <Banner tone="warning" title={t('approvals.notReviewable')} />;
   }

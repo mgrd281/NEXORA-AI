@@ -123,7 +123,10 @@ function Overlay({
       aria-labelledby={titleId}
       aria-describedby={description ? descId : undefined}
       onCancel={(e) => {
-        // Esc: let React state decide (keeps open/close controlled).
+        // Esc: let React state decide (keeps open/close controlled). A dialog opened inside this
+        // one (e.g. an approval over voice mode) closes only itself: React passes its cancel
+        // event up the component tree, so only the dialog it was fired at reacts.
+        if (e.target !== e.currentTarget) return;
         e.preventDefault();
         onCloseRef.current();
       }}

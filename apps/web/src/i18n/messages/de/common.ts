@@ -99,6 +99,7 @@ const common: Catalog<typeof source> = {
     shopCompare: 'Angebote vergleichen',
     shopPrepareCart: 'Warenkorb füllen',
     shopCheckout: 'Bestellung aufgeben',
+    phoneCall: 'Anrufen',
   },
   /** Phase C: what an OAuth connection lets JARVIS do (ConnectionCapability, camel-cased). */
   capabilities: {
@@ -130,6 +131,7 @@ const common: Catalog<typeof source> = {
     idle: 'Bereit',
     queued: 'In der Warteschlange',
     listening: 'Hört zu …',
+    speaking: 'Spricht …',
     thinking: 'Plant …',
     verifying: 'Prüft die Ergebnisse …',
     running: 'Arbeitet',

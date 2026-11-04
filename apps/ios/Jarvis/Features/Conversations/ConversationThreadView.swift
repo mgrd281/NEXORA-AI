@@ -71,10 +71,18 @@ struct ConversationThreadView: View {
             model.scheduleRefresh(api: app.api)
         }
         .sheet(isPresented: $showingVoice) {
-            VoiceCaptureView(conversationId: model.conversationId, attachmentIds: composer.attachments.readyIds) { _ in
-                composer.sentByVoice()
-                model.scheduleRefresh(api: app.api)
-            }
+            VoiceModeSheet(
+                conversationId: model.conversationId,
+                attachmentIds: composer.attachments.readyIds,
+                onCreated: { _ in
+                    composer.sentByVoice()
+                    model.scheduleRefresh(api: app.api)
+                },
+                onConversationEnded: { _, draft in
+                    if !draft.isEmpty, composer.text.isEmpty { composer.text = draft }
+                    model.scheduleRefresh(api: app.api)
+                }
+            )
         }
         .confirmationDialog(Text("Delete this conversation?"), isPresented: $confirmingDelete, titleVisibility: .visible) {
             Button("Delete conversation", role: .destructive) {

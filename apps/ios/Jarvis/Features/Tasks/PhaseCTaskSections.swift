@@ -523,6 +523,17 @@ struct TaskErrorActions: View {
                 Label("Check your bookings", systemImage: "calendar.badge.checkmark")
             }
             .buttonStyle(.meridianSecondary)
+        // Phase D
+        case "DO_NOT_CALL":
+            NavigationLink(value: DoNotCallRoute()) {
+                Label("Open the do-not-call list", systemImage: "phone.down")
+            }
+            .buttonStyle(.meridianSecondary)
+        case "CALL_STATE_UNKNOWN":
+            NavigationLink(value: CallsRoute()) {
+                Label("Check your calls", systemImage: "phone.arrow.up.right")
+            }
+            .buttonStyle(.meridianSecondary)
         default:
             EmptyView()
         }

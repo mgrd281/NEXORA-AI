@@ -1,8 +1,9 @@
 'use client';
 
 import type { Locale, TaskSummary } from '@jarvis/contracts';
-import { Keyboard, Mic, Square } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import type { VoiceEndReason } from '@jarvis/contracts';
+import { Keyboard, MessagesSquare, Mic, Square } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Presence } from '@/components/presence/Presence';
 import { useOptionalShell } from '@/components/shell/ShellContext';
@@ -11,18 +12,17 @@ import { ErrorBanner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Field';
 import { Sheet } from '@/components/ui/Dialog';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { Spinner } from '@/components/ui/Spinner';
 import { useToast } from '@/components/ui/Toast';
 import { localeFromSpeech, type SpeechLocale } from '@/i18n/config';
 import { useI18n } from '@/i18n/I18nProvider';
 import { api, newIdempotencyKey } from '@/lib/api/client';
 import { useCreateTask, useMe } from '@/lib/api/hooks';
-import {
-  getSpeechRecognition,
-  isVoiceInputSupported,
-  joinTranscript,
-  readResults,
-  type SpeechRecognitionLike,
-} from './speech';
+import { createBrowserRecognizer } from './engine/browser';
+import type { RecognitionHandlers, RecognitionRun, SpeechRecognizer } from './engine/types';
+import { isVoiceInputSupported, joinTranscript } from './speech';
+import { ConversationSession, type ConversationHandle } from './ConversationSession';
 import { useMicLevel } from './useMicLevel';
 import styles from './VoiceMode.module.css';
 
@@ -55,19 +55,25 @@ export interface VoiceModeProps {
   submit?: (body: VoiceRequest) => Promise<TaskSummary>;
   /** The confirmation after sending (default: "Request sent."). */
   sentMessage?: string;
+  /** Phase D: a conversation continues this conversation (the follow-up field of a thread). */
+  conversationId?: string | null;
 }
 
 export interface VoiceRequest {
   request: string;
-  source: 'voice';
+  /** 'text' for what is typed into the conversation's text field (the text fallback). */
+  source: 'voice' | 'text';
   language: Locale;
   voiceSessionId?: string;
 }
 
+type Mode = 'dictation' | 'conversation';
+
 /**
- * Voice mode: real dictation with the browser's Web Speech API, the Presence ring driven by
- * the live microphone level (getUserMedia + AnalyserNode), and the request sent as a task
- * (source 'voice'). Only session metadata reaches the API — never audio or transcript text.
+ * Voice mode: one dictated request (Milestone 1) or a continuous conversation (Phase D,
+ * Preferences.voice.conversationMode; either can be chosen here). Real speech recognition with
+ * the browser's Web Speech API, the Presence ring driven by the live microphone level, and the
+ * requests sent as tasks. Only session metadata reaches the API — never audio.
  */
 export function VoiceMode({
   open,
@@ -76,18 +82,112 @@ export function VoiceMode({
   onCreated,
   submit,
   sentMessage,
+  conversationId = null,
 }: VoiceModeProps) {
   const { t } = useI18n();
+  const me = useMe();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [chosen, setChosen] = useState<Mode | null>(null);
+  // Until the preferences are known the mode is not: nothing listens yet (no wrong session).
+  const preferred: Mode | null = me.data
+    ? me.data.preferences.voice.conversationMode
+      ? 'conversation'
+      : 'dictation'
+    : me.isError
+      ? 'dictation'
+      : null;
+  const mode: Mode | null = chosen ?? preferred;
+  const conversation = useRef<ConversationHandle>(null);
+  const escape = useRef(false);
+  const switching = useRef(false);
+
+  const close = () => {
+    setChosen(null);
+    onClose();
+  };
+  // The conversation ends itself first (End, Esc, the close button), then the overlay closes.
+  const requestClose = () => {
+    if (mode === 'conversation' && conversation.current) {
+      conversation.current.end(escape.current ? 'escape_key' : 'end_button');
+      escape.current = false;
+    } else close();
+  };
+  const ended = (reason: VoiceEndReason, lastTaskId: string | null) => {
+    close();
+    // The thread of what was said: the conversation's newest request (unless already there).
+    if (lastTaskId && reason !== 'switched_to_text' && pathname !== `/tasks/${lastTaskId}`) {
+      router.push(`/tasks/${lastTaskId}`);
+    }
+  };
+
   return (
-    <Sheet open={open} onClose={onClose} title={t('voice.title')} fullScreenOnMobile>
+    <Sheet
+      open={open}
+      onClose={requestClose}
+      title={mode === 'conversation' ? t('voice.conversation.title') : t('voice.title')}
+      fullScreenOnMobile
+    >
       {open && (
-        <VoiceSession
-          onClose={onClose}
-          onTypeInstead={onTypeInstead}
-          onCreated={onCreated}
-          submit={submit}
-          sentMessage={sentMessage}
-        />
+        <div
+          className={styles.frame}
+          onKeyDownCapture={(e) => {
+            if (e.key === 'Escape') {
+              escape.current = true;
+              window.setTimeout(() => (escape.current = false), 0);
+            }
+          }}
+        >
+          {mode === null ? (
+            <p className={styles.loading} role="status">
+              <Spinner size={16} /> {t('common.status.loading')}
+            </p>
+          ) : (
+            <SegmentedControl
+              legend={t('voice.modes.legend')}
+              options={[
+                { value: 'dictation', label: t('voice.modes.dictation'), icon: Mic },
+                {
+                  value: 'conversation',
+                  label: t('voice.modes.conversation'),
+                  icon: MessagesSquare,
+                },
+              ]}
+              value={mode}
+              onChange={(next) => {
+                if (next === mode) return;
+                // Leaving the conversation for one dictated request keeps the overlay open.
+                switching.current = true;
+                conversation.current?.end('end_button');
+                switching.current = false;
+                setChosen(next);
+              }}
+              size="sm"
+              className={styles.modes}
+            />
+          )}
+          {mode === null ? null : mode === 'conversation' ? (
+            <ConversationSession
+              key="conversation"
+              ref={conversation}
+              conversationId={conversationId}
+              submit={submit}
+              onEnded={(reason, lastTaskId) => {
+                if (!switching.current) ended(reason, lastTaskId);
+              }}
+              onTypeInstead={onTypeInstead}
+            />
+          ) : (
+            <VoiceSession
+              key="dictation"
+              onClose={close}
+              onTypeInstead={onTypeInstead}
+              onCreated={onCreated}
+              submit={submit}
+              sentMessage={sentMessage}
+            />
+          )}
+        </div>
       )}
     </Sheet>
   );
@@ -99,7 +199,7 @@ function VoiceSession({
   onCreated,
   submit,
   sentMessage,
-}: Omit<VoiceModeProps, 'open'>) {
+}: Omit<VoiceModeProps, 'open' | 'conversationId'>) {
   const { t, speechLocale } = useI18n();
   const router = useRouter();
   const { toast } = useToast();
@@ -128,7 +228,9 @@ function VoiceSession({
     return () => setShellListening?.(false);
   }, [phase, setShellListening]);
 
-  const recognition = useRef<SpeechRecognitionLike | null>(null);
+  const recognition = useRef<RecognitionRun | null>(null);
+  // The browser's recogniser behind the speech seam (tests replace the Web Speech API).
+  const recognizerRef = useRef<SpeechRecognizer>(createBrowserRecognizer());
   const restartAfterEnd = useRef(false);
   const restart = useRef<() => void>(() => undefined);
   const root = useRef<HTMLDivElement>(null);
@@ -167,54 +269,53 @@ function VoiceSession({
   );
 
   const startRecognition = useCallback(() => {
-    const Ctor = getSpeechRecognition();
-    if (!Ctor) {
+    const recognizer = recognizerRef.current;
+    if (!recognizer.supported) {
       setPhase('unsupported');
       return;
     }
-    const rec = new Ctor();
-    rec.lang = live.current.lang;
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.maxAlternatives = 1;
+    // This run's final text (segments are reported once each, as they become final).
     let lastFinal = '';
-    rec.onresult = (event) => {
-      const { final: f, interim: i } = readResults(event);
-      setFinal(f);
-      setInterim(i);
-      if (f !== lastFinal) {
-        setAnnouncement(f.slice(lastFinal.length).trim());
-        lastFinal = f;
-      }
+    let run: RecognitionRun | null = null;
+    const handlers: RecognitionHandlers = {
+      onResult: (finals, interim) => {
+        if (finals.length > 0) {
+          const added = joinTranscript(...finals);
+          lastFinal = joinTranscript(lastFinal, added);
+          setAnnouncement(added);
+          setFinal(lastFinal);
+        }
+        setInterim(interim);
+      },
+      onError: (code) => {
+        if (code === 'aborted') return;
+        errorCode.current = code;
+        const hasText = joinTranscript(live.current.committed, live.current.final) !== '';
+        if (code === 'no-speech') setPhase(hasText ? 'paused' : 'no-speech');
+        else if (code === 'not-allowed' || code === 'service-not-allowed') setPhase('denied');
+        else if (code === 'audio-capture') setPhase('no-mic');
+        else setPhase('error');
+      },
+      onEnd: () => {
+        if (recognition.current !== run) return;
+        recognition.current = null;
+        setCommitted((c) => joinTranscript(c, lastFinal));
+        setFinal('');
+        setInterim('');
+        if (restartAfterEnd.current) {
+          restartAfterEnd.current = false;
+          restart.current();
+          return;
+        }
+        setPhase((p) => {
+          if (p !== 'listening') return p;
+          return joinTranscript(live.current.committed, lastFinal) !== '' ? 'paused' : 'no-speech';
+        });
+      },
     };
-    rec.onerror = (event) => {
-      if (event.error === 'aborted') return;
-      errorCode.current = event.error;
-      const hasText = joinTranscript(live.current.committed, live.current.final) !== '';
-      if (event.error === 'no-speech') setPhase(hasText ? 'paused' : 'no-speech');
-      else if (event.error === 'not-allowed') setPhase('denied');
-      else if (event.error === 'audio-capture') setPhase('no-mic');
-      else setPhase('error');
-    };
-    rec.onend = () => {
-      if (recognition.current !== rec) return;
-      recognition.current = null;
-      setCommitted((c) => joinTranscript(c, lastFinal));
-      setFinal('');
-      setInterim('');
-      if (restartAfterEnd.current) {
-        restartAfterEnd.current = false;
-        restart.current();
-        return;
-      }
-      setPhase((p) => {
-        if (p !== 'listening') return p;
-        return joinTranscript(live.current.committed, lastFinal) !== '' ? 'paused' : 'no-speech';
-      });
-    };
-    recognition.current = rec;
     try {
-      rec.start();
+      run = recognizer.start(live.current.lang, handlers);
+      recognition.current = run;
       setPhase('listening');
     } catch {
       recognition.current = null;

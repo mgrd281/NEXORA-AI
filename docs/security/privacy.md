@@ -112,10 +112,20 @@ user row; metadata never contains content). Backups age out within the backup re
 5. Is there a retention period and a purge mechanism?
 6. Can the user turn it off without losing the core product?
 
-## Call recording and telephony (Phase 5 stance)
+## Call recording and telephony (Phase 5 stance, superseded in Phase D)
 
-The schema already reserves `call_sessions` with `ai_disclosed`, `recording_consent` and an encrypted
-callee number. The policy for Phase 5:
+> **Phase D** builds the phone agent: the rules now in force are in
+> [telephony](telephony.md) ([ADR-0020](../adr/0020-telephony-gateway.md)). Two points changed
+> from this stance, deliberately: (1) the **turns of a call are kept as text** (JARVIS's lines
+> verbatim, the callee's as recognised) as the evidence of what was said or agreed — disclosed at
+> the start of the call, task data deleted with the task — because an outcome without evidence
+> would break "never claim an outcome without evidence"; audio is still never stored without
+> consent. (2) Callee numbers are stored as the user wrote them (they are already in the request,
+> the step input and the approval); only the do-not-call list, which outlives tasks, keeps a keyed
+> hash and a sealed copy instead. The `telephony` feature flag is unused: telephony is available
+> where Twilio is configured.
+
+The original stance (kept for the record):
 
 - **Disclosure first:** every outbound call starts with a clear statement that an AI assistant is
   calling on behalf of the named user. Calls without disclosure are not placed.

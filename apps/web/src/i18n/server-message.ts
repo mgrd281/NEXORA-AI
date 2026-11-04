@@ -83,6 +83,8 @@ export const TOOL_LABEL: Record<ToolId, MessageKey> = {
   'shop.compare': 'common.tools.shopCompare',
   'shop.prepare_cart': 'common.tools.shopPrepareCart',
   'shop.checkout': 'common.tools.shopCheckout',
+  // Phase D
+  'phone.call': 'common.tools.phoneCall',
 };
 
 /** Phase C: provider names are brands (not translated) — a `{provider}` parameter reads as one. */
@@ -139,6 +141,11 @@ function paramValue(i18n: ServerTextI18n, name: string, value: string | number):
     // "USD 129.99" → "$129.99" / "129,99 $" (same amount, the viewer's notation, kept LTR).
     const money = parseMoneyParam(value);
     if (money) return ltrMoney(money, i18n.f.intlLocale);
+  }
+  // Phase D: a phone number ("+49 30 1234567", masked "+49 30 ••• •• 67") is one left-to-right
+  // run in every sentence; its digit groups would otherwise reorder inside Arabic text.
+  if (name === 'number' && typeof value === 'string' && /^[+\d\s•*()-]+$/.test(value)) {
+    return `\u2066${value}\u2069`;
   }
   return value;
 }

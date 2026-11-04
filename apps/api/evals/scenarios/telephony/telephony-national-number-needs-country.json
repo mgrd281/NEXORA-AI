@@ -1,0 +1,24 @@
+{
+  "id": "telephony-national-number-needs-country",
+  "version": 1,
+  "suite": "telephony",
+  "title": "A national number (030 …) without the account's own number: its country is never guessed — JARVIS asks",
+  "modes": ["offline"],
+  "given": {
+    "request": "Ruf 030 1234567 an und sag ihnen, dass ich später komme",
+    "language": "de",
+    "account": {
+      "email": "owner@eval.test",
+      "locale": "de",
+      "timeZone": "Europe/Berlin"
+    },
+    "telephony": {
+      "allowedCountries": ["DE"]
+    }
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["phone_number"],
+    "sideEffectsAtMost": 0
+  }
+}

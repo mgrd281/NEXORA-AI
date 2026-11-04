@@ -25,6 +25,7 @@ import {
 } from '@jarvis/contracts';
 import { withContext } from '../../../src/db/pool';
 import { assertAllRoutesRegistered } from '../../../src/http/route';
+import { PENDING_ROUTES } from '../../../src/routes';
 import { drainRevocations } from '../../../src/modules/integrations/revocation';
 import { clearUpcomingCache } from '../../../src/modules/integrations/upcoming';
 import { TEST_PASSWORD } from '../helpers';
@@ -66,8 +67,15 @@ const errorOf = (res: { json: <T>() => T }) =>
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000);
 
 describe('route table', () => {
-  it('has a handler for every contract route, as a production boot requires', () => {
-    expect(() => assertAllRoutesRegistered(h.app, { production: true })).not.toThrow();
+  it('has a handler for every Phase C route; a production boot refuses only the pending Phase D ones', () => {
+    // Phase D stage 1 (docs/architecture/phase-d.md §0): the telephony routes are pending.
+    expect(() => assertAllRoutesRegistered(h.app, { pending: PENDING_ROUTES })).not.toThrow();
+    if (PENDING_ROUTES.size === 0)
+      expect(() => assertAllRoutesRegistered(h.app, { production: true })).not.toThrow();
+    else
+      expect(() => assertAllRoutesRegistered(h.app, { production: true })).toThrow(
+        `Routes without handlers: ${[...PENDING_ROUTES].join(', ')}`,
+      );
     const phaseC: RouteName[] = [
       'listConnectionProviders',
       'startOAuthConnection',
@@ -660,7 +668,7 @@ describe('account export v4 and deletion', () => {
       browserSessions: (BrowserSession & { request: unknown; result: unknown })[];
       evidence: (EvidenceArtifact & { content: { data: string } | null })[];
     }>();
-    expect(doc.version).toBe(4);
+    expect(doc.version).toBe(5);
     expect(doc.connections).toHaveLength(1);
     expect(doc.connections[0]).toMatchObject({
       id: s.connection.id,

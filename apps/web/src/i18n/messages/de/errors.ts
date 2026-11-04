@@ -152,6 +152,35 @@ const errors: Catalog<typeof source> = {
       'Dieser Kauf ({amount}) würde dein monatliches Limit von {limit} überschreiten ({spent} schon ausgegeben).',
     PURCHASE_CURRENCY:
       'Der Preis ist in {currency}, dein Kauflimit aber in US-Dollar, daher kauft JARVIS das nicht.',
+    CALL_BUSY:
+      'Die Leitung war besetzt. Es wurde nichts gesagt oder vereinbart. Du kannst es erneut versuchen.',
+    CALL_NO_ANSWER:
+      'Niemand hat abgenommen. Es wurde nichts gesagt oder vereinbart. Du kannst es später erneut versuchen.',
+    CALL_FAILED:
+      'Der Telefonanbieter konnte den Anruf nicht verbinden. Es wurde nichts gesagt oder vereinbart.',
+    CALL_VOICEMAIL:
+      'Statt einer Person hat eine Mailbox abgenommen. Du kannst es später erneut versuchen.',
+    CALL_HUNG_UP:
+      'Die andere Person hat aufgelegt, bevor das Ziel erreicht war. Es wurde nichts vereinbart.',
+    CALL_DECLINED:
+      'Die andere Person wollte nicht mit einem KI-Assistenten sprechen. JARVIS ruft dafür nicht erneut an.',
+    CALL_DURATION_LIMIT:
+      'Der Anruf hat seine Höchstdauer von {seconds, plural, one {# Sekunde} other {# Sekunden}} erreicht, bevor das Ziel erreicht war.',
+    RECORDING_CONSENT_DECLINED:
+      'Die andere Person hat der verlangten Aufzeichnung nicht zugestimmt, deshalb hat JARVIS das Gespräch höflich beendet.',
+    CALL_STATE_UNKNOWN:
+      'JARVIS kann nicht feststellen, ob der Anruf aufgebaut wurde. Prüfe es, bevor du es erneut versuchst – JARVIS fragt zuerst beim Telefonanbieter nach.',
+    PHONE_NUMBER_INVALID: '{number} ist keine gültige Telefonnummer.',
+    NUMBER_NOT_LITERAL:
+      'JARVIS ruft nur Nummern an, die du selbst schreibst. Schreib die Nummer mit Ländervorwahl.',
+    DO_NOT_CALL: '{number} möchte nicht mehr angerufen werden, deshalb ruft JARVIS dort nicht an.',
+    CALL_OUTSIDE_HOURS:
+      'JARVIS ruft nur zwischen {start} und {end} ({timeZone}) an. Versuch es dann erneut.',
+    CALL_LIMIT:
+      'JARVIS hat heute schon {max} Anrufe getätigt, so viele wie erlaubt. Versuch es morgen erneut.',
+    CALL_DESTINATION_BLOCKED:
+      'JARVIS ruft diese Nummer nicht an: Mehrwertnummern und Länder, die dieser Server nicht anruft, sind gesperrt.',
+    TELEPHONY_NOT_CONFIGURED: 'Anrufe sind auf diesem Server nicht eingerichtet.',
   },
   api: {
     FILE_TOO_LARGE: 'Dateien dürfen höchstens {limitMb} MB groß sein.',
@@ -210,6 +239,17 @@ const errors: Catalog<typeof source> = {
     CALENDAR_UNAVAILABLE: '{provider} hat nicht rechtzeitig geantwortet.',
     EVIDENCE_NOT_AVAILABLE:
       'Diese Nachweisdatei kann auf diesem Server gerade nicht gelesen werden.',
+    PHONE_NUMBER_INVALID:
+      'Das ist keine gültige Telefonnummer. Schreib sie mit Ländervorwahl, zum Beispiel +49 30 1234567.',
+    PHONE_NUMBER_REQUIRED: 'Füge zuerst deine Telefonnummer hinzu.',
+    PHONE_ALREADY_VERIFIED: 'Diese Nummer ist bereits bestätigt.',
+    PHONE_VERIFICATION_INVALID:
+      'Der Code stimmt nicht. {attemptsLeft, plural, one {Noch # Versuch} other {Noch # Versuche}}.',
+    PHONE_VERIFICATION_EXPIRED: 'Dieser Code ist abgelaufen. Starte einen neuen Bestätigungsanruf.',
+    PHONE_VERIFICATION_LIMIT: 'Du kannst höchstens {max} Bestätigungsanrufe pro Tag anfordern.',
+    TELEPHONY_NOT_CONFIGURED: 'Anrufe sind auf diesem Server nicht eingerichtet.',
+    CALL_DESTINATION_BLOCKED: 'JARVIS ruft solche Nummern nicht an.',
+    WEBHOOK_SIGNATURE_INVALID: 'Die Anfrage ist nicht vom Telefonanbieter signiert.',
   },
   network: 'JARVIS ist nicht erreichbar. Internetverbindung prüfen.',
   badResponse: 'JARVIS hat eine unerwartete Antwort gesendet. Seite neu laden.',

@@ -20,13 +20,15 @@ apps/ios
 │   │   │                       rendering, conversations, attachments + client checks, skills,
 │   │   │                       schedules/recurrence, time zones; Phase C: Connections (OAuth),
 │   │   │                       Calendar, Email, Commerce (money, evidence, browser sessions,
-│   │   │                       offers, carts, orders, bookings))
+│   │   │                       offers, carts, orders, bookings); Phase D: Calls (call sessions,
+│   │   │                       turns, outcomes, do-not-call, phone verification), VoiceLimits)
 │   │   ├── Networking          APIClient (actor) + typed endpoints, ApiError/NetworkError,
 │   │   │                       SSE line splitter + parser, EventStream (reconnecting SSE)
 │   │   └── Storage             KeychainStore, CredentialStore
 │   ├── DesignSystem            Tokens.swift (generated), Color+Meridian, Typography (Dynamic Type),
 │   │                           Icons (shared icon map), Components, StatusPresentation,
-│   │                           PresenceState (pure mapping) + PresenceView (Canvas/TimelineView)
+│   │                           PresenceState (pure mapping) + PresenceView (Canvas/TimelineView),
+│   │                           PhaseDPresentation (call enums, wall-clock times of a call)
 │   ├── Features
 │   │   ├── Auth                SignInView
 │   │   ├── Home                HomeView, HomeModel, CommandComposer, HomeCopy
@@ -38,7 +40,13 @@ apps/ios
 │   │   │                       RecurrenceText (recurrence phrased from its fields)
 │   │   ├── Approvals           ApprovalCard, ApprovalSheet (+ decision model; email, generic,
 │   │   │                       schedule and memory previews; untrusted-source facts)
-│   │   ├── Voice               VoiceCaptureView/Model, SpeechSession, ResponseSpeaker
+│   │   ├── Voice               VoiceModeSheet; dictation: VoiceCaptureView/Model, SpeechSession,
+│   │   │                       ResponseSpeaker; conversation (Phase D): VoiceText (pure text rules),
+│   │   │                       VoiceConversationController (pure state machine over speech seams),
+│   │   │                       ConversationSpeech (SFSpeechRecognizer / AVSpeechSynthesizer /
+│   │   │                       AVAudioSession adapters), VoiceConversationModel/View
+│   │   ├── Calls               Phase D: call card (timeline, transcript, outcome, evidence),
+│   │   │                       call screen (every turn, live), Calls list
 │   │   ├── Memory              MemoryView, MemoryModel
 │   │   ├── Connections         OAuthFlow (redirect policy, callback forwarding, ASWebAuthentication-
 │   │   │                       Session), ConnectionsModel/View, ConnectResultView (resumable
@@ -48,7 +56,8 @@ apps/ios
 │   │   │                       CalendarText (times in the event's own zone)
 │   │   └── Settings            SettingsView/Model, SessionsView, SkillsView (read-only),
 │   │                           TimeZonePickerView (zones the server accepts), retention,
-│   │                           SpendingView (monthly purchase limit)
+│   │                           SpendingView (monthly purchase limit); Phase D: VoicesView,
+│   │                           PhoneSettingsView (number + verification by call), DoNotCallView
 │   ├── Intents                 AskJarvisIntent + JarvisShortcuts (Siri / Shortcuts)
 │   └── Resources               Info.plist, Localizable/InfoPlist/AppShortcuts.xcstrings, Assets
 ├── JarvisTests                 Swift Testing suites + JSON fixtures
@@ -174,10 +183,82 @@ apps/ios
   server to `.unrecognized`, so the two can never be confused (enforced by
   `scripts/check-contract-copy.ts`).
 
+## Phase D: voice conversation and phone calls
+
+- **Voice conversation (ADR-0019).** `VoiceModeSheet` opens dictation or a conversation
+  (`preferences.voice.conversationMode`; either can be switched in the sheet). The conversation
+  is `VoiceConversationController`, a pure `@MainActor` state machine (a port of the web
+  controller) over five seams: recognizer, synthesizer, clock, permission request and submit —
+  the tests drive it with fakes and a manual clock. Listen → the configured pause
+  (`endOfSpeechSilenceMs`, 600–4000 ms) → the recognizer is asked for its final result
+  (`endAudio`; a 1.5 s grace falls back to what it showed) → the first utterance is
+  `POST /v1/tasks`, later ones follow-ups in the same conversation, each with its own
+  Idempotency-Key kept across retries (`VOICE_LIMITS.reconnectDelaysMs`; then "Couldn't send",
+  words in the text field). The reply is spoken sentence by sentence as `task.answer.delta`
+  arrives (`NLTokenizer(.sentence)`, chunks ≤ 300 characters split at commas), else the result
+  line / question / error the task screen shows (`VoiceConversationModel.replyLine`).
+- **Barge-in.** `AVAudioSession` `.playAndRecord`, mode `.voiceChat`, options `.duckOthers`,
+  `.defaultToSpeaker`, `.allowBluetooth` (named `.allowBluetoothHFP` in newer SDKs). Recognition
+  keeps running while JARVIS speaks; recognised words that aren't the echo of what is being said
+  stop speaking at once (`stopSpeaking(at: .immediate)`), the interrupted caption is marked and
+  `bargeIns` counted. Loudness alone (≥ 0.55 for 300 ms) interrupts only on headphones —
+  AVSpeechSynthesizer's output isn't the voice-processing reference, so on the loudspeaker the
+  text echo guard decides. SFSpeechRecognizer runs are cumulative, so a fresh run starts when
+  JARVIS starts and stops speaking and after a barge-in: its echo never becomes part of a
+  request (`VoiceText.removingEchoPrefix` drops what slipped in).
+- **Honest states.** Listening (live level), Working (only while the task is really queued /
+  planning / running / verifying, from the stream), Speaking (a new Presence state, only while
+  synthesis plays), Waiting for your approval, Reconnecting (stream down or a request retried),
+  Paused (an interruption). Approvals are never given by voice: the approval sheet opens on its
+  own, JARVIS says so, and "yes" is answered with the same sentence (captioned "Not an
+  approval"). Other words while a task works or waits go to the text field ("Not sent").
+- **Interruptions and routes.** Audio-session interruptions (calls, Siri) and the app leaving
+  the foreground pause listening and speaking, keep heard words in the text field and resume
+  when the system says so; unplugging headphones stops speaking; a route or media-services
+  change restarts the audio engine (the run fails and is restarted, counted as a reconnect).
+  Recognition errors restart with the contract's delays, then "Speech recognition stopped
+  working"; runs that end at once back off instead of looping.
+- **Termination and access.** End (toolbar), Esc (hardware keyboard), a stop phrase of the
+  recognition language (`VOICE_LIMITS.stopPhrases`, compared normalised), "Type instead", idle
+  (announced 10 s before `idleEndSeconds`), leaving the sheet. None cancels a task. Space toggles
+  the microphone (not while typing). Every line is captioned (You / JARVIS, typed, interrupted,
+  not sent); VoiceOver hears state changes as announcements (not JARVIS's sentences, which the
+  voice already speaks). Metadata only: `POST /v1/voice-sessions { mode: conversation,
+  conversationId }` and `…/end { outcome, turns, bargeIns, reconnects, endReason,
+  transcriptChars }`.
+- **Settings › Voice:** conversation mode, speaking rate (0.5–2×), the pause that ends what you
+  say, and a voice per language with a sample (`AVSpeechSynthesisVoice` identifiers; a voice
+  this iPhone lacks falls back to the system voice). Only changed fields are sent; a voice is
+  reset with an explicit null.
+- **Phone-call approvals.** `ApprovalDetails.phone_call` shows everything bound to the action
+  hash: the number (readable, exact E.164 and country, always left-to-right), who is called, on
+  whose behalf, the caller id, the call's language, purpose, goal, **the script verbatim** in the
+  call's own writing direction, how JARVIS talks (scripted / model), the date and window, every
+  detail it may share (marked personal), the calling hours of the callee's zone, the longest
+  call, recording, voicemail, transfer (to the masked verified number), binding and the cost
+  bound ("Approve and call"; Decline places no call). Unknown purpose / dialog / recording /
+  voicemail values make it non-approvable here.
+- **Calls on the task screen.** One card per attempt: status or result badge (icon + label),
+  live state, why it didn't reach its goal (the call's own failure reason with its facts),
+  outcome with what was collected (their words, marked as recognised), notes (opt-out,
+  injection ignored, low confidence …), disclosure time, recording consent, transfer, duration,
+  price, the provider's call id, the status timeline, and what was said — JARVIS's lines
+  verbatim; the other person's isolated, tinted and labelled "as recognised", flagged turns
+  warned. `call.turn` / `call.status_changed` refetch it (live captions). A recording is offered
+  only with consent. Scenario 4: a busy line or no answer fails the task with its sentence and
+  the task's Retry places a new attempt; `CALL_STATE_UNKNOWN` needs "Retry anyway" with
+  call-specific copy (JARVIS reconciles with the provider first). `DO_NOT_CALL` links to the
+  list.
+- **Settings › Phone.** The account's number (typed with its country code; Arabic-Indic digits
+  and `00` accepted; the server validates again), Remove (explicit null), verification by a call
+  that reads a code (status from `phone_verification.changed`, tries left, expiry), the
+  do-not-call list (masked; removing one the callee asked for warns first) and Calls (filter by
+  result, paged).
+
 ## Presence
 
 `PresenceState.derive(from:now:)` is a pure function of real inputs, in priority order:
-listening (voice capture active) › reconnecting (stream dropped, data may be stale) ›
+speaking (synthesis playing) › listening (voice capture active) › reconnecting (stream dropped, data may be stale) ›
 awaiting (a pending approval) › running (step progress `completed/total`, indeterminate
 while unknown) › planning (queued/planning) › completed/failed (an outcome observed on
 the stream in the last 6 s, never a replayed old one) › idle. `PresenceView` draws it in a
@@ -200,7 +281,7 @@ single VoiceOver element with a state label.
   the server says `canCancel` / `canRetry`, each behind a confirmation.
 - Siri ("Ask JARVIS") only creates tasks. Approvals always happen in the app.
 
-## Voice
+## Voice (dictation)
 
 `SpeechSession` (deliberately not actor-isolated) runs `AVAudioEngine` →
 `SFSpeechAudioBufferRecognitionRequest` with `requiresOnDeviceRecognition` whenever the
@@ -230,10 +311,13 @@ capturing).
 - Audio never goes to JARVIS; only text the user confirms is sent.
 - Server messages are treated as data: user-facing copy comes from the String Catalog,
   keyed by error/reason codes; unknown keys are hidden rather than shown raw.
-- Swift 6 strict concurrency throughout. The two `@unchecked Sendable` types are
-  `SpeechSession` (mutable state touched only from the main actor; callbacks use only the
-  thread-safe continuation) and a tiny box that hands the recognition request to the
-  real-time audio tap.
+- Swift 6 strict concurrency throughout. The `@unchecked Sendable` types are `SpeechSession`
+  and `ConversationAudioEngine` (mutable state touched only from the main actor; callbacks use
+  only the thread-safe continuation), the boxes that hand the recognition request to the
+  real-time audio tap (the conversation's is lock-protected), and the synthesizer delegate
+  that forwards callbacks through an `AsyncStream`.
+- A call's other party is untrusted: their words are shown isolated and marked, never as
+  instructions; calls are approved by a tap only.
 
 ## Localization and accessibility
 
@@ -253,17 +337,20 @@ capturing).
 
 Verified in this repository's Linux environment (no Xcode, no Swift toolchain):
 
-- All 63 JSON test fixtures parse with the matching Zod schemas from `@jarvis/contracts`
-  and round-trip unchanged; the seven `unknown-values*.json` fixtures are rejected exactly at
+- All 73 JSON test fixtures parse with the matching Zod schemas from `@jarvis/contracts`
+  and round-trip unchanged; the eight `unknown-values*.json` fixtures are rejected exactly at
   their deliberately unknown enum fields and union variants; `me-before-phase-b.json` parses
-  with only the contract defaults for `retention`, `skills` and
-  `spending.monthlyPurchaseLimitUsd` (`scripts/validate-fixtures.ts`).
-- Every Swift enum (40) and nested Phase C enum (8) mirrors its contract enum (plus
-  `unknown`, or `unrecognized` where `unknown` is a contract value); every `ServerMessageKey`
-  renders from a catalog entry whose en/de/ar equal the API's canonical templates; every
-  `TaskErrorReason`, `PolicyReason`, non-webhook `ApiErrorReason` and `EvidenceCode` has copy;
-  every app endpoint is a contract route and every Phase C route has an endpoint
-  (`scripts/check-contract-copy.ts`).
+  with only the contract defaults for `retention`, `skills`,
+  `spending.monthlyPurchaseLimitUsd` and the four Phase D voice preferences
+  (`scripts/validate-fixtures.ts`).
+- Every Swift enum (54) and nested enum (10, plus the send-only voice-session outcome)
+  mirrors its contract enum (plus `unknown`, or `unrecognized` where `unknown` is a contract
+  value: `OrderStatus`, `BookingStatus`, `CallStatus`, `AnsweredBy`); all 118
+  `ServerMessageKey`s render from catalog entries whose en/de/ar equal the API's canonical
+  templates; every `TaskErrorReason`, `PolicyReason`, non-webhook `ApiErrorReason` and
+  `EvidenceCode` has copy; every app endpoint (59) is a contract route and every Phase C and
+  D route has one; `VoiceLimits` and the `CallLimits` the app uses equal `VOICE_LIMITS` /
+  `CALL_LIMITS`, including all 14 stop phrases (`scripts/check-contract-copy.ts`).
 - The String Catalogs are valid JSON with translated en/de/ar values for every key, matching
   format specifiers, and coverage of every localizable literal in the Swift sources
   (`scripts/lint-strings.mjs`).
@@ -272,7 +359,8 @@ Verified in this repository's Linux environment (no Xcode, no Swift toolchain):
   and `scripts/check-swift.mjs` finds balanced delimiters and no
   `try!`/`as!`/`fatalError`/`print` in app code.
 
-**Not verified:** compilation and type-checking, the Swift Testing suites, running the app
+**Not verified:** compilation and type-checking, the Swift Testing suites (Phase D adds
+`VoiceConversationTests`, `PhaseDDecodingTests`, `PhaseDLogicTests`), running the app
 in the Simulator, VoiceOver/Dynamic Type/RTL rendering, speech recognition, Siri phrase
 matching, and XcodeGen project generation. These need a Mac with Xcode 16+; the first
 build may surface compiler errors that static checks cannot catch. Phase C adds: the
@@ -280,7 +368,11 @@ build may surface compiler errors that static checks cannot catch. Phase C adds:
 provider console registration — none exist in this repository's environment), and the
 SwiftUI `WebAuthenticationSession.authenticate(using:callback:preferredBrowserSession:
 additionalHeaderFields:)` signature (iOS 17.4 SDK) as written. View builders were kept at
-ten children or fewer so they don't depend on the variadic `ViewBuilder`.
+ten children or fewer so they don't depend on the variadic `ViewBuilder`. Phase D adds: real
+speech recognition and synthesis in a conversation (end-of-utterance timing, `endAudio` final
+results, echo on the loudspeaker in `.voiceChat` mode, barge-in latency), audio interruptions
+and route changes on a device, VoiceOver announcements while JARVIS speaks, and live calls
+against the server's Twilio adapter.
 
 ## Not in this slice
 

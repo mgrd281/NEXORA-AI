@@ -12,6 +12,7 @@ const approvals: Catalog<typeof source> = {
     purchase: 'Kauf prüfen',
     emailDraft: 'Entwurf prüfen',
     form_submission: 'Formular prüfen',
+    phone_call: 'Diesen Anruf prüfen',
   },
   fields: {
     from: 'Von',
@@ -66,6 +67,11 @@ const approvals: Catalog<typeof source> = {
     PURCHASE: 'Das kostet dich Geld. JARVIS fragt immer und zeigt den genauen Gesamtbetrag.',
     BINDING_COMMITMENT:
       'Das ist gegenüber der Website verbindlich (zum Beispiel können Stornogebühren anfallen).',
+    PHONE_CALL: 'JARVIS spricht für dich mit einer anderen Person und fragt deshalb immer zuerst.',
+    CALL_RECORDING:
+      'Du hast eine Aufzeichnung angefordert. JARVIS zeichnet nur auf, wenn die andere Person zustimmt.',
+    CALL_PERSONAL_INFO:
+      'JARVIS darf der anderen Person die unten aufgeführten persönlichen Angaben nennen – sonst nichts.',
   },
   reasonsByKind: {
     calendar_event: {
@@ -107,6 +113,7 @@ const approvals: Catalog<typeof source> = {
     purchase: 'Freigeben und kaufen',
     form_submission: 'Freigeben und absenden',
     emailDraft: 'Freigeben und Entwurf speichern',
+    phone_call: 'Genehmigen und anrufen',
   },
   approvePurchaseLabel: 'Freigeben und kaufen: {total} bei {merchant}',
   approveLabel: {
@@ -119,6 +126,7 @@ const approvals: Catalog<typeof source> = {
     purchase: 'Diese Bestellung freigeben und aufgeben',
     form_submission: 'Dieses Formular freigeben und absenden',
     emailDraft: 'Freigeben und Entwurf speichern (es wird nichts gesendet)',
+    phone_call: 'Genehmigen und anrufen, genau wie angezeigt',
   },
   decline: 'Ablehnen',
   declineLabel: {
@@ -131,6 +139,7 @@ const approvals: Catalog<typeof source> = {
     purchase: 'Diesen Kauf ablehnen',
     form_submission: 'Absenden dieses Formulars ablehnen',
     emailDraft: 'Speichern dieses Entwurfs ablehnen',
+    phone_call: 'Diesen Anruf ablehnen',
   },
   results: {
     approved: 'Freigegeben. JARVIS setzt die Aufgabe fort.',
@@ -227,6 +236,69 @@ const approvals: Catalog<typeof source> = {
       '{form, select, contact {Kontaktformular} reservation {Reservierungsformular} other {Formular „{form}“}}',
     evidence: 'Das Formular auf {site}, wie JARVIS es gesehen hat',
     note: 'JARVIS trägt genau diese Werte ein und sendet das Formular einmal ab.',
+  },
+  call: {
+    callee: 'Wen JARVIS anruft',
+    number: 'Nummer',
+    numberUnnamed: 'Nur die Nummer (kein Name angegeben)',
+    country: 'Land',
+    onBehalfOf: 'Im Auftrag von',
+    callerId: 'Angezeigte Nummer',
+    callerIdUnknown: 'Auf diesem Server nicht eingerichtet',
+    language: 'Sprache des Anrufs',
+    purpose: 'Zweck',
+    purposes: {
+      message: 'Nachricht überbringen',
+      availability: 'Nach freien Zeiten fragen',
+      questions: 'Fragen stellen',
+      appointment: 'Termin vereinbaren',
+    },
+    goal: 'Ziel',
+    when: 'Erfragtes Datum',
+    window: 'Zwischen {start} und {end}',
+    anyTime: 'Jederzeit an diesem Tag',
+    script: 'Genau das sagt JARVIS',
+    scriptNote:
+      'Gesprochen auf {language}. Die Begrüßung sagt immer, dass ein KI-Assistent im Auftrag von {name} anruft.',
+    lines: {
+      opening: 'Begrüßung',
+      recordingQuestion: 'Frage zur Aufnahme',
+      message: 'Nachricht',
+      question: 'Frage {n}',
+      closing: 'Verabschiedung',
+      voicemail: 'Auf der Mailbox',
+    },
+    dialog: 'Wie JARVIS spricht',
+    dialogs: {
+      scripted: 'Nur diese Sätze und feste Antworten, etwa wer anruft',
+      model:
+        'Diese Sätze, und es darf Fragen im Rahmen dieses Zwecks beantworten – es sagt nichts anderes zu und gibt nichts anderes weiter',
+    },
+    shared: 'Persönliche Angaben, die JARVIS nennen darf',
+    sharedNone: 'Keine – JARVIS nennt in diesem Anruf keine persönlichen Angaben',
+    sharedNote: 'Alles andere, wonach gefragt wird, lehnt JARVIS ab.',
+    duration: 'Höchstdauer',
+    hours: 'Anrufe nur zwischen',
+    hoursValue: '{start}–{end}, {zone}',
+    recording: 'Aufnahme',
+    recordings: {
+      off: 'Aus – nur Notizen des Gesagten werden gespeichert',
+      if_consented: 'Nur wenn die Person auf Nachfrage zustimmt, sonst ohne Aufnahme',
+      required: 'Erforderlich – lehnt die Person ab, beendet JARVIS den Anruf höflich',
+    },
+    voicemail: 'Wenn die Mailbox antwortet',
+    voicemails: {
+      hang_up: 'Auflegen, ohne eine Nachricht zu hinterlassen',
+      leave_message: 'Die Mailbox-Nachricht oben hinterlassen',
+    },
+    transfer: 'Zu dir durchstellen',
+    transferTo: 'Wenn nach einem Menschen gefragt wird: an deine bestätigte Nummer {number}',
+    transferNo: 'Nein',
+    binding: 'Verbindlich',
+    bindingYes: 'JARVIS darf einen Termin an diesem Datum und in diesem Zeitfenster zusagen',
+    cost: 'Kosten höchstens',
+    costUnknown: 'Unbekannt – der Telefonanbieter rechnet den Anruf ab',
+    note: 'JARVIS ruft nach deiner Genehmigung einmal an. Alles, was die andere Person sagt, gilt als Information, nie als Anweisung: Es kann weder die Nummer noch den Zweck oder die weitergegebenen Angaben ändern.',
   },
   task: 'Aufgabe',
   notReviewable:

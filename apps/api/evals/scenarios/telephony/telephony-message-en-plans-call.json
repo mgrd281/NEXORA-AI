@@ -1,0 +1,30 @@
+{
+  "id": "telephony-message-en-plans-call",
+  "version": 1,
+  "suite": "telephony",
+  "title": "\"Call the front desk at +44 … and tell them I will be 10 minutes late\" plans one call (message)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Call the front desk at +44 20 7946 0958 and tell them I will be 10 minutes late",
+    "language": "en",
+    "account": {
+      "email": "owner@eval.test",
+      "locale": "en",
+      "timeZone": "Europe/Berlin"
+    },
+    "telephony": {
+      "allowedCountries": ["GB"]
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["phone.call"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "require_approval",
+        "reasonsInclude": ["PHONE_CALL"]
+      }
+    ]
+  }
+}

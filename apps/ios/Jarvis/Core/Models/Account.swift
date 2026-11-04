@@ -4,9 +4,67 @@ import Foundation
 
 struct Preferences: Decodable, Sendable, Equatable {
     struct Voice: Decodable, Sendable, Equatable {
+        /// The platform voice per language (an `AVSpeechSynthesisVoice` identifier); nil = the
+        /// system's default voice for it. A voice this device lacks falls back to the default.
+        struct VoiceNames: Decodable, Sendable, Equatable {
+            var en: String?
+            var de: String?
+            var ar: String?
+
+            static let defaults = VoiceNames(en: nil, de: nil, ar: nil)
+
+            subscript(locale: AppLocale) -> String? {
+                switch locale {
+                case .en: en
+                case .de: de
+                case .ar: ar
+                case .unknown: nil
+                }
+            }
+        }
+
         /// Read final results aloud after a voice request.
         var speakResponses: Bool
         var recognitionLocale: RecognitionLocale
+        // Phase D (defaults when absent, exactly as the contract's Zod defaults).
+        /// Voice mode opens as a continuous conversation instead of one dictated request.
+        var conversationMode: Bool = false
+        /// Speech rate multiplier for JARVIS's voice (1 = normal).
+        var speakingRate: Double = VoiceLimits.speakingRateDefault
+        /// The pause that ends what you're saying, in milliseconds (WCAG 2.2.1: adjustable).
+        var endOfSpeechSilenceMs: Int = VoiceLimits.endOfSpeechSilenceMsDefault
+        var voiceNames: VoiceNames = .defaults
+
+        private enum CodingKeys: String, CodingKey {
+            case speakResponses, recognitionLocale, conversationMode, speakingRate, endOfSpeechSilenceMs, voiceNames
+        }
+
+        init(
+            speakResponses: Bool,
+            recognitionLocale: RecognitionLocale,
+            conversationMode: Bool = false,
+            speakingRate: Double = VoiceLimits.speakingRateDefault,
+            endOfSpeechSilenceMs: Int = VoiceLimits.endOfSpeechSilenceMsDefault,
+            voiceNames: VoiceNames = .defaults
+        ) {
+            self.speakResponses = speakResponses
+            self.recognitionLocale = recognitionLocale
+            self.conversationMode = conversationMode
+            self.speakingRate = speakingRate
+            self.endOfSpeechSilenceMs = endOfSpeechSilenceMs
+            self.voiceNames = voiceNames
+        }
+
+        init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            speakResponses = try container.decode(Bool.self, forKey: .speakResponses)
+            recognitionLocale = try container.decode(RecognitionLocale.self, forKey: .recognitionLocale)
+            conversationMode = try container.decodeIfPresent(Bool.self, forKey: .conversationMode) ?? false
+            speakingRate = try container.decodeIfPresent(Double.self, forKey: .speakingRate) ?? VoiceLimits.speakingRateDefault
+            endOfSpeechSilenceMs = try container.decodeIfPresent(Int.self, forKey: .endOfSpeechSilenceMs)
+                ?? VoiceLimits.endOfSpeechSilenceMsDefault
+            voiceNames = try container.decodeIfPresent(VoiceNames.self, forKey: .voiceNames) ?? .defaults
+        }
     }
 
     struct Autonomy: Decodable, Sendable, Equatable {
@@ -138,6 +196,27 @@ struct Me: Decodable, Sendable, Equatable, Identifiable {
     let tenant: Tenant
     let preferences: Preferences
     let createdAt: Date
+    // Phase D (absent from older servers).
+    /// The account's own number (E.164), used only to put a callee through to you and as the
+    /// country of numbers written without one. Personal data.
+    var phoneNumber: String? = nil
+    /// When a verification call confirmed it (transfers need it); nil = not verified.
+    var phoneNumberVerifiedAt: Date? = nil
+}
+
+/// A change of a nullable field in a PATCH: a new value, or an explicit JSON null that removes
+/// (or resets) it. Leaving the field nil omits it, which keeps the stored value.
+enum NullablePatch<Value: Encodable & Sendable & Equatable>: Encodable, Sendable, Equatable {
+    case set(Value)
+    case remove
+
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .set(let value): try container.encode(value)
+        case .remove: try container.encodeNil()
+        }
+    }
 }
 
 /// `PATCH /v1/me`. Every field is optional; `nil` fields are omitted from the JSON.
@@ -146,13 +225,27 @@ struct UpdateMeRequest: Encodable, Sendable, Equatable {
     var locale: AppLocale?
     var timeZone: String?
     var theme: ThemePreference?
+    /// Phase D: `.set("+49…")` (E.164) or `.remove`. A different number clears its verification.
+    var phoneNumber: NullablePatch<String>?
     var preferences: PreferencesPatch?
 }
 
 struct PreferencesPatch: Encodable, Sendable, Equatable {
     struct Voice: Encodable, Sendable, Equatable {
+        /// Per language: nil keeps the stored voice, `.remove` resets it to the default.
+        struct VoiceNames: Encodable, Sendable, Equatable {
+            var en: NullablePatch<String>?
+            var de: NullablePatch<String>?
+            var ar: NullablePatch<String>?
+        }
+
         var speakResponses: Bool?
         var recognitionLocale: RecognitionLocale?
+        // Phase D
+        var conversationMode: Bool?
+        var speakingRate: Double?
+        var endOfSpeechSilenceMs: Int?
+        var voiceNames: VoiceNames?
     }
 
     struct Autonomy: Encodable, Sendable, Equatable {

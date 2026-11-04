@@ -3,6 +3,7 @@ import admin from './admin';
 import approvals from './approvals';
 import attachments from './attachments';
 import auth from './auth';
+import calls from './calls';
 import common from './common';
 import composer from './composer';
 import connections from './connections';
@@ -39,6 +40,7 @@ const de: Messages = {
   schedules,
   skills,
   webhooks,
+  calls,
 };
 
 export default de;

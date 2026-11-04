@@ -53,11 +53,23 @@ struct HomeView: View {
                 }
             }
             .sheet(isPresented: $showingVoice) {
-                VoiceCaptureView(attachmentIds: composer.attachments.readyIds) { created in
-                    composer.sentByVoice()
-                    path.append(TaskRoute(id: created.id))
-                    model.scheduleRefresh(api: app.api)
-                }
+                VoiceModeSheet(
+                    attachmentIds: composer.attachments.readyIds,
+                    onCreated: { created in
+                        composer.sentByVoice()
+                        path.append(TaskRoute(id: created.id))
+                        model.scheduleRefresh(api: app.api)
+                    },
+                    onConversationEnded: { conversationId, draft in
+                        // A conversation that sent something continues in its thread.
+                        if let conversationId {
+                            composer.sentByVoice()
+                            path.append(ConversationRoute(id: conversationId))
+                        }
+                        if !draft.isEmpty, composer.text.isEmpty { composer.text = draft }
+                        model.scheduleRefresh(api: app.api)
+                    }
+                )
             }
         }
     }

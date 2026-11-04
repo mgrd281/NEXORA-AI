@@ -1,0 +1,84 @@
+{
+  "id": "f6a7b8c9-d0e1-4f2a-9b3c-5d6e7f809102",
+  "taskId": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+  "taskTitle": "Praxis Dr. Weber anrufen",
+  "taskTitleMessage": {
+    "key": "plan.call",
+    "params": {
+      "who": "Praxis Dr. Weber"
+    }
+  },
+  "stepId": "c3d4e5f6-a7b8-4c9d-8e0f-2a3b4c5d6e7f",
+  "toolId": "phone.call",
+  "status": "PENDING",
+  "riskLevel": "MEDIUM",
+  "summary": "Praxis Dr. Weber (+4930123456700) anrufen und als KI-Assistent für dich sprechen.",
+  "summaryMessage": {
+    "key": "approval.call",
+    "params": {
+      "who": "Praxis Dr. Weber",
+      "number": "+4930123456700"
+    }
+  },
+  "details": {
+    "kind": "phone_call",
+    "to": "+4930123456700",
+    "toDisplay": "+49 30 123456700",
+    "country": "DE",
+    "calleeName": "Praxis Dr. Weber",
+    "onBehalfOf": "Ada Lovelace",
+    "callerId": "+4930555000111",
+    "language": "de",
+    "purpose": "availability",
+    "goal": "Ask whether there is an appointment free on Tuesday morning",
+    "script": {
+      "opening": "Guten Tag, hier ist JARVIS, ein KI-Assistent, der im Auftrag von Ada Lovelace anruft. Ich rufe an, um zu fragen, ob Sie am Dienstag, dem 10. November, einen Termin frei haben. Ich mache mir für Ada Lovelace Notizen zu unserem Gespräch.",
+      "recordingQuestion": null,
+      "message": null,
+      "questions": [
+        "Welche Uhrzeiten hätten Sie am Dienstag, dem 10. November, zwischen 9 und 12 Uhr frei?"
+      ],
+      "closing": "Vielen Dank, ich gebe das an Ada Lovelace weiter. Auf Wiederhören.",
+      "voicemailMessage": null
+    },
+    "dialog": "scripted",
+    "date": "2026-11-10",
+    "window": {
+      "start": "09:00",
+      "end": "12:00"
+    },
+    "shareInfo": [
+      {
+        "label": "Name",
+        "value": "Ada Lovelace"
+      }
+    ],
+    "maxDurationSeconds": 300,
+    "allowedHours": {
+      "start": "08:00",
+      "end": "20:00",
+      "timeZone": "Europe/Berlin"
+    },
+    "recording": "off",
+    "voicemail": "hang_up",
+    "transfer": {
+      "allowed": true,
+      "to": "+49 30 ••• •• 89"
+    },
+    "binding": false,
+    "costEstimate": {
+      "amountMicro": 250000,
+      "currency": "USD"
+    }
+  },
+  "actionHash": "9f2b5c1d7e8a4b3c6d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e",
+  "reasons": [
+    "RISK_MEDIUM",
+    "PHONE_CALL",
+    "CALL_PERSONAL_INFO"
+  ],
+  "expiresAt": "2026-11-04T10:15:00.000Z",
+  "decidedAt": null,
+  "decisionNote": null,
+  "createdAt": "2026-11-04T09:15:00.000Z"
+}

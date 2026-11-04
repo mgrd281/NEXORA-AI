@@ -152,7 +152,7 @@ describe('POST /v1/account/export', () => {
     const doc = res.json<Record<string, unknown>>();
     expect(doc).toMatchObject({
       format: 'jarvis.account-export',
-      version: 4,
+      version: 5,
       profile: { id: c.user.userId, email: c.user.email },
       preferences: DEFAULT_PREFERENCES,
     });
@@ -285,7 +285,7 @@ describe('POST /v1/account/export', () => {
       version: number;
       tasks: { id: string; steps: Record<string, unknown>[] }[];
     }>();
-    expect(doc.version).toBe(4);
+    expect(doc.version).toBe(5);
     const step = doc.tasks.find((t) => t.id === taskId)!.steps[0]!;
     expect(step).toMatchObject({
       id: stepId,

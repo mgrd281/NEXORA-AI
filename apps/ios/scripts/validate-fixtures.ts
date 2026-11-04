@@ -15,6 +15,10 @@
  * - Phase C adds a fixture for every new schema the app decodes (providers, OAuth start and
  *   callback, calendars, email watches, orders, bookings, evidence, browser sessions, the four
  *   new approval kinds and email drafts) and newer-server variants of each new enum family.
+ * - Phase D adds the phone-call approval, task details with a completed and a busy call
+ *   (scenario 4), a call with every turn, the calls page, the do-not-call list, a phone
+ *   verification, a conversation voice session, a call stream event, the new voice preferences
+ *   and phone number on Me, and newer-server values of every call enum.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -23,6 +27,7 @@ import { isDeepStrictEqual } from 'node:util';
 import {
   ApiErrorBody,
   Approval,
+  CallSession,
   Attachment,
   Booking,
   BookingConfirmation,
@@ -39,12 +44,14 @@ import {
   OAuthCallbackResult,
   OAuthStartResponse,
   Order,
+  PhoneVerification,
   PreparedCart,
   ScheduleDetail,
   SchedulePreview,
   ShoppingComparison,
   StreamEvent,
   TaskDetail,
+  VoiceSession,
   routes,
 } from '../../../packages/contracts/src/index.ts';
 
@@ -118,6 +125,16 @@ const valid: Record<string, Schema> = {
   'prepared-cart.json': PreparedCart,
   'booking-slots.json': BookingSlots,
   'booking-confirmation.json': BookingConfirmation,
+  // Phase D
+  'approval-phone-call.json': Approval,
+  'task-detail-call.json': TaskDetail,
+  'task-detail-call-busy.json': TaskDetail,
+  'call-session.json': CallSession,
+  'calls-page.json': routes.listCalls.response,
+  'do-not-call.json': routes.listDoNotCall.response,
+  'phone-verification.json': PhoneVerification,
+  'voice-session.json': VoiceSession,
+  'stream-event-call.json': StreamEvent,
 };
 
 /** Fixtures with values newer than this build, and the only paths allowed to fail. */
@@ -193,6 +210,24 @@ const unknownValues: Record<string, { schema: Schema; paths: string[] }> = {
       'browserSessions.0.stopReason',
     ],
   },
+  // Phase D
+  'unknown-values-phase-d.json': {
+    schema: CallSession,
+    paths: [
+      'purpose',
+      'status',
+      'result',
+      'outcome.result',
+      'outcome.notes.1',
+      'answeredBy',
+      'recording.mode',
+      'recording.consent',
+      'transfer.status',
+      'timeline.1.status',
+      'turns.0.speaker',
+      'turns.1.kind',
+    ],
+  },
 };
 
 /** Payloads of a server before Phase B: parse, with exactly these contract defaults applied. */
@@ -204,6 +239,11 @@ const olderServer: Record<string, { schema: Schema; defaults: Record<string, unk
       'preferences.skills': { disabled: [] },
       // Phase C: purchases are off unless the user sets a limit.
       'preferences.spending.monthlyPurchaseLimitUsd': 0,
+      // Phase D: voice mode opens as dictation; normal rate, pause and system voices.
+      'preferences.voice.conversationMode': false,
+      'preferences.voice.speakingRate': 1,
+      'preferences.voice.endOfSpeechSilenceMs': 1200,
+      'preferences.voice.voiceNames': { en: null, de: null, ar: null },
     },
   },
 };

@@ -67,6 +67,8 @@ const conversations: Catalog<typeof source> = {
       contact_details: 'deine Kontaktdaten',
       product: 'welches Produkt',
       site: 'welche Website',
+      phone_number: 'eine Telefonnummer',
+      call_goal: 'was ich am Telefon sagen oder fragen soll',
     },
   },
   delete: {

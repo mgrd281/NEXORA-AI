@@ -154,6 +154,7 @@ extension EvidenceArtifactKind {
         case .screenshot: String(localized: "Screenshot")
         case .extract: String(localized: "Extracted data")
         case .ics: String(localized: "Calendar file")
+        case .recording: String(localized: "Call recording")
         case .unknown: String(localized: "Evidence file")
         }
     }
@@ -163,6 +164,7 @@ extension EvidenceArtifactKind {
         case .screenshot: "photo"
         case .extract: "curlybraces"
         case .ics: "calendar"
+        case .recording: "waveform"
         case .unknown: "doc"
         }
     }
@@ -412,6 +414,15 @@ enum EvidenceText {
         case "ORDER_CONFIRMATION": String(localized: "Order confirmed by the shop")
         case "CART_SNAPSHOT": String(localized: "Cart on the shop")
         case "HANDOVER": String(localized: "Handed over to you")
+        // Phase D
+        case "CALL_PLACED": String(localized: "Call placed by the provider")
+        case "CALL_ENDED": String(localized: "Call ended")
+        case "AI_DISCLOSED": String(localized: "Said it is an AI assistant")
+        case "RECORDING_CONSENT": String(localized: "Recording consent")
+        case "CALL_TRANSCRIPT": String(localized: "What was said")
+        case "CALL_RECORDING": String(localized: "Call recording (with consent)")
+        case "CALL_TRANSFER": String(localized: "Put through to you")
+        case "DO_NOT_CALL_RECORDED": String(localized: "This number won't be called again")
         default: nil
         }
     }

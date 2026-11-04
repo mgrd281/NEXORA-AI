@@ -57,7 +57,9 @@ export function profilePhoneNumber(raw: string): string {
     throw new AppError('VALIDATION_FAILED', 'JARVIS does not use numbers of this type', {
       reason: 'CALL_DESTINATION_BLOCKED',
       country: parsed.country ?? '',
-      issues: [{ path: 'phoneNumber', message: 'Premium-rate and similar numbers are not allowed' }],
+      issues: [
+        { path: 'phoneNumber', message: 'Premium-rate and similar numbers are not allowed' },
+      ],
     });
   return parsed.e164;
 }

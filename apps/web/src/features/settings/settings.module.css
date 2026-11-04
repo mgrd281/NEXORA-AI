@@ -1053,3 +1053,149 @@
   font: var(--text-label);
   color: var(--color-text-primary);
 }
+
+/* ------------------------------------------------------------- voice (Phase D) */
+
+.range {
+  inline-size: 100%;
+  max-inline-size: calc(var(--space-16) * 6);
+  min-block-size: var(--space-8);
+  accent-color: var(--color-accent);
+}
+
+/* The thumb moves toward the reading direction's end in RTL too. */
+:global([dir='rtl']) .range {
+  direction: rtl;
+}
+
+.voices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.voiceRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+}
+
+.voiceSelect {
+  max-inline-size: calc(var(--space-16) * 6);
+}
+
+.preview {
+  margin-block-end: 0;
+}
+
+.voiceStatus {
+  grid-column: 1 / -1;
+}
+
+.voiceRow:has(.voiceSelect + p) .preview {
+  align-self: start;
+  margin-block-start: calc(var(--space-6) - 2px);
+}
+
+/* ------------------------------------------------------------- phone number (Phase D) */
+
+.phoneForm {
+  max-inline-size: calc(var(--space-16) * 6);
+}
+
+.phoneInput {
+  text-align: start;
+}
+
+:global([dir='rtl']) .phoneInput {
+  /* An LTR number in an RTL form starts at the form's start edge. */
+  text-align: right;
+}
+
+.phoneActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.verification {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+
+.verificationHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.codeForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.codeInput {
+  max-inline-size: calc(var(--space-16) * 2.5);
+  letter-spacing: 0.3em;
+  font-variant-numeric: tabular-nums;
+}
+
+.codeActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* ------------------------------------------------------------- do-not-call (Phase D) */
+
+.dncList {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.dncItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+}
+
+.dncItem + .dncItem {
+  border-block-start: 1px solid var(--color-border);
+}
+
+.dncText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dncNumber {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-body-strong);
+  color: var(--color-text-primary);
+}
+
+.dncNumber > svg {
+  flex: none;
+  color: var(--color-text-secondary);
+}

@@ -214,6 +214,70 @@ enum ApprovalDetails: Decodable, Sendable, Equatable {
         var untrusted: UntrustedSource? = nil
     }
 
+    /// `phone.call` (Phase D): who is called, from which number, in which language, for what,
+    /// exactly what JARVIS will say and ask, which personal details it may share, for how long,
+    /// when, and whether it records. Approved by a tap only — never by voice.
+    struct PhoneCallAction: Decodable, Sendable, Equatable {
+        /// `scripted`: only the script's lines and fixed clarifications; `model`: JARVIS may also
+        /// answer within the purpose and the details below.
+        enum Dialog: String, Codable, Sendable {
+            case scripted
+            case model
+            case unknown
+
+            init(from decoder: any Decoder) throws {
+                self = try LenientEnum.decode(decoder, fallback: .unknown)
+            }
+        }
+
+        /// The calling window in the callee's time zone.
+        struct AllowedHours: Decodable, Sendable, Equatable {
+            let start: String
+            let end: String
+            let timeZone: String
+        }
+
+        /// Putting the callee through to the account's own verified number (masked).
+        struct Transfer: Decodable, Sendable, Equatable {
+            let allowed: Bool
+            let to: String?
+        }
+
+        /// E.164, exactly as dialled.
+        let to: String
+        /// The same number in international format for reading.
+        let toDisplay: String
+        /// ISO 3166-1 alpha-2 of the number; nil when unknown.
+        let country: String?
+        let calleeName: String?
+        /// The name JARVIS says it calls for.
+        let onBehalfOf: String
+        /// The number the callee sees; nil when not configured.
+        let callerId: String?
+        /// The caller id in international format for reading (absent from older servers).
+        var callerIdDisplay: String? = nil
+        let language: AppLocale
+        let purpose: CallPurpose
+        let goal: String
+        /// Exactly what JARVIS will say and ask, in the call's language.
+        let script: CallScript
+        let dialog: Dialog
+        /// YYYY-MM-DD (callee's zone).
+        let date: String?
+        let window: LocalTimeWindow?
+        let shareInfo: [CallShareItem]
+        let maxDurationSeconds: Int
+        let allowedHours: AllowedHours
+        let recording: RecordingMode
+        let voicemail: VoicemailAction
+        let transfer: Transfer
+        /// May create a binding commitment (purpose `appointment`).
+        let binding: Bool
+        /// Upper bound of the provider's price; nil = unknown.
+        let costEstimate: Money?
+        var untrusted: UntrustedSource? = nil
+    }
+
     case email(Email)
     case generic(Generic)
     case schedule(ScheduleAction)
@@ -222,6 +286,7 @@ enum ApprovalDetails: Decodable, Sendable, Equatable {
     case booking(BookingAction)
     case purchase(PurchaseAction)
     case formSubmission(FormSubmissionAction)
+    case phoneCall(PhoneCallAction)
     case unknown(kind: String)
 
     private enum CodingKeys: String, CodingKey {
@@ -248,6 +313,8 @@ enum ApprovalDetails: Decodable, Sendable, Equatable {
             self = .purchase(try PurchaseAction(from: decoder))
         case "form_submission":
             self = .formSubmission(try FormSubmissionAction(from: decoder))
+        case "phone_call":
+            self = .phoneCall(try PhoneCallAction(from: decoder))
         default:
             self = .unknown(kind: kind)
         }
@@ -264,6 +331,7 @@ enum ApprovalDetails: Decodable, Sendable, Equatable {
         case .booking(let booking): booking.untrusted
         case .purchase(let purchase): purchase.untrusted
         case .formSubmission(let form): form.untrusted
+        case .phoneCall(let call): call.untrusted
         case .unknown: nil
         }
     }
@@ -274,7 +342,7 @@ enum ApprovalDetails: Decodable, Sendable, Equatable {
         case .booking(let booking): booking.evidenceArtifactId
         case .purchase(let purchase): purchase.evidenceArtifactId
         case .formSubmission(let form): form.evidenceArtifactId
-        case .email, .generic, .schedule, .memory, .calendarEvent, .unknown: nil
+        case .email, .generic, .schedule, .memory, .calendarEvent, .phoneCall, .unknown: nil
         }
     }
 }
@@ -325,6 +393,10 @@ struct Approval: Decodable, Sendable, Equatable, Identifiable {
         case .booking: true
         case .purchase(let purchase): !purchase.items.isEmpty
         case .formSubmission: true
+        case .phoneCall(let call):
+            // Every value that changes what happens on the call must be known to this build.
+            call.purpose != .unknown && call.dialog != .unknown && call.recording != .unknown
+                && call.voicemail != .unknown && call.language != .unknown
         }
     }
 

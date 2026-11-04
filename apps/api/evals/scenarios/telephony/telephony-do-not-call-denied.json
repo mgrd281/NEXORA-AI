@@ -1,0 +1,25 @@
+{
+  "id": "telephony-do-not-call-denied",
+  "version": 1,
+  "suite": "telephony",
+  "title": "Telephony — a number that asked not to be called again is refused (DO_NOT_CALL)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Ruf +49 30 12345678 an und frag, ob Dienstag ein Termin frei ist",
+    "account": { "email": "owner@eval.test", "locale": "de", "timeZone": "Europe/Berlin" },
+    "telephony": { "allowedCountries": ["DE"], "doNotCall": ["+493012345678"] },
+    "syntheticSteps": [
+      {
+        "toolId": "phone.call",
+        "risk": "MEDIUM",
+        "sideEffect": "external",
+        "call": { "to": "+493012345678" }
+      }
+    ]
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "DO_NOT_CALL",
+    "policy": [{ "step": 0, "decision": "deny", "reasonsInclude": ["DO_NOT_CALL"] }]
+  }
+}
