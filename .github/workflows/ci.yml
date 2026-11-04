@@ -38,11 +38,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@v4 # version from package.json "packageManager" (pnpm@10.28.0)
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v5 # version from package.json "packageManager" (pnpm@10.28.0)
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -75,11 +75,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -111,11 +111,11 @@ jobs:
           --health-timeout 5s
           --health-retries 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -154,11 +154,11 @@ jobs:
       EVAL_DATABASE_URL: postgresql://jarvis_app:jarvis_app_dev@localhost:5432/jarvis_test_evals
       EVAL_DATABASE_OWNER_URL: postgresql://jarvis_owner:jarvis_owner_dev@localhost:5432/jarvis_test_evals
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -186,7 +186,7 @@ jobs:
           done
       - name: Upload eval reports
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: eval-reports
           path: apps/api/evals/reports/
@@ -201,18 +201,18 @@ jobs:
       # The web app proxies /api to this origin (same value the e2e job runs the API on).
       API_ORIGIN: http://127.0.0.1:4000
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - name: Install
         run: pnpm install --frozen-lockfile
       - name: Next.js build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: apps/web/.next/cache
           key: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
@@ -223,7 +223,7 @@ jobs:
       - name: Web build (next build)
         run: pnpm --filter @jarvis/web build
       - name: Upload build output
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-output
           # Common ancestor is apps/, so the artifact holds api/dist and web/.next.
@@ -276,18 +276,18 @@ jobs:
       E2E_MAILBOX_URL: http://127.0.0.1:2580
       E2E_MAILBOX_SMTP_PORT: '2525'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - name: Install
         run: pnpm install --frozen-lockfile
       - name: Download build output
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: build-output
           path: apps
@@ -349,7 +349,7 @@ jobs:
         run: pnpm --filter @jarvis/web e2e:real
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: apps/web/playwright-report
@@ -357,7 +357,7 @@ jobs:
           retention-days: 14
       - name: Upload test results
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results
           path: apps/web/test-results
@@ -365,7 +365,7 @@ jobs:
           retention-days: 14
       - name: Upload service logs
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-service-logs
           path: e2e-logs
@@ -392,7 +392,7 @@ jobs:
       DATABASE_URL: postgresql://jarvis_app:jarvis_app_dev@localhost:5432/jarvis
       DATABASE_OWNER_URL: postgresql://jarvis_owner:jarvis_owner_dev@localhost:5432/jarvis
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: docker-compose.yml is valid
@@ -473,21 +473,21 @@ jobs:
       contents: read
       pull-requests: read # gitleaks lists the commits of a pull request
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
       - name: Secret scan (gitleaks)
         # Pinned by version tag: the commit SHA could not be verified offline (README follow-up).
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Required only for repositories owned by an organization.
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
           # The token is read-only; findings go to the job log, summary and a SARIF artifact.
           GITLEAKS_ENABLE_COMMENTS: 'false'
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
       - name: Dependency audit (production, blocking at high)
