@@ -32,7 +32,8 @@ targets:
     settings:
       base:
         PRODUCT_NAME: Jarvis
-        PRODUCT_BUNDLE_IDENTIFIER: ai.jarvis.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.mgrdegh.jarvis
+        DEVELOPMENT_TEAM: 3227J7CBXY
         INFOPLIST_FILE: Jarvis/Resources/Info.plist
         GENERATE_INFOPLIST_FILE: NO
         MARKETING_VERSION: "0.1.0"
@@ -59,7 +60,7 @@ targets:
       - target: Jarvis
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: ai.jarvis.app.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.mgrdegh.jarvis.tests
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Jarvis.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Jarvis"
         BUNDLE_LOADER: "$(TEST_HOST)"
