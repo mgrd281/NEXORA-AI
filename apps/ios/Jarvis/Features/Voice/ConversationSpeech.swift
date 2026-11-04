@@ -7,9 +7,11 @@ import Speech
 // one shared audio session configured for talking over each other, and the system's
 // interruptions and route changes. Audio never leaves the device through JARVIS.
 
-/// The shared audio session of a conversation: play and record at once, voice-chat mode (the
-/// system's voice processing), other audio ducked, the loudspeaker by default (not the
-/// earpiece), Bluetooth headsets allowed.
+/// The shared audio session of a conversation: play and record at once, default mode, other
+/// audio ducked, the loudspeaker by default (not the earpiece), Bluetooth headsets allowed.
+/// Not `.voiceChat`: its voice processing treats AVSpeechSynthesizer's output as "other audio"
+/// and ducks it until it is inaudible on a real iPhone. JARVIS hearing its own voice is handled
+/// in the controller (recently spoken text is ignored), not by echo cancellation.
 enum ConversationAudioSession {
     /// Configures and activates the session (idempotent).
     static func activate() throws {
@@ -17,8 +19,8 @@ enum ConversationAudioSession {
         // `.allowBluetooth` (HFP) keeps building with the iOS 18 SDK; newer SDKs call it
         // `.allowBluetoothHFP`.
         let options: AVAudioSession.CategoryOptions = [.duckOthers, .defaultToSpeaker, .allowBluetooth]
-        if session.category != .playAndRecord || session.mode != .voiceChat || session.categoryOptions != options {
-            try session.setCategory(.playAndRecord, mode: .voiceChat, options: options)
+        if session.category != .playAndRecord || session.mode != .default || session.categoryOptions != options {
+            try session.setCategory(.playAndRecord, mode: .default, options: options)
         }
         try session.setActive(true, options: [])
     }
