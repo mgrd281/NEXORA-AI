@@ -91,10 +91,12 @@ const errors: Catalog<typeof source> = {
     DOCUMENT_TOO_MANY_PAGES: 'Das Dokument hat mehr als {max} Seiten.',
     STORAGE_UNAVAILABLE: 'Der Dateispeicher ist gerade nicht erreichbar.',
     UNSUPPORTED_LANGUAGE: 'In {language} kann JARVIS nicht übersetzen.',
-    NOTHING_TO_RECALL: 'In diesem Gespräch gibt es kein früheres Ergebnis, das sich verwenden lässt.',
+    NOTHING_TO_RECALL:
+      'In diesem Gespräch gibt es kein früheres Ergebnis, das sich verwenden lässt.',
     SCHEDULE_LIMIT_REACHED: 'Du hast bereits {max} Zeitpläne, mehr sind nicht möglich.',
     INVALID_RECURRENCE: 'Die Wiederholungsregel des Zeitplans ist ungültig.',
-    SKILL_DISABLED: 'Dafür ist die Fähigkeit „{skill}“ nötig, die in den Einstellungen ausgeschaltet ist.',
+    SKILL_DISABLED:
+      'Dafür ist die Fähigkeit „{skill}“ nötig, die in den Einstellungen ausgeschaltet ist.',
     UNTRUSTED_MEMORY:
       'JARVIS speichert das nicht im Gedächtnis: Es stammt aus Inhalten, die versucht haben, KI-Assistenten Anweisungen zu geben.',
   },
@@ -106,7 +108,8 @@ const errors: Catalog<typeof source> = {
     TOO_MANY_ATTACHMENTS: 'An eine Anfrage lassen sich höchstens {max} Dateien anhängen.',
     ATTACHMENT_NOT_FOUND:
       'Eine der Dateien existiert nicht mehr. Entferne sie und hänge sie erneut an.',
-    ATTACHMENT_EXPIRED: 'Eine der Dateien ist abgelaufen, bevor sie gesendet wurde. Hänge sie erneut an.',
+    ATTACHMENT_EXPIRED:
+      'Eine der Dateien ist abgelaufen, bevor sie gesendet wurde. Hänge sie erneut an.',
     ATTACHMENT_IN_OTHER_CONVERSATION:
       'Eine der Dateien gehört zu einem anderen Gespräch. Hänge sie hier erneut an.',
     STORAGE_NOT_CONFIGURED: 'Datei-Uploads sind auf diesem Server nicht eingerichtet.',
@@ -129,7 +132,8 @@ const errors: Catalog<typeof source> = {
     WEBHOOK_URL_INSECURE: 'Webhook-Adressen müssen mit https:// beginnen.',
     WEBHOOK_URL_BLOCKED:
       '{host} liegt in einem privaten oder lokalen Netzwerk, daher sendet JARVIS nicht dorthin.',
-    WEBHOOK_DISABLED: 'Dieser Endpunkt ist ausgeschaltet. Schalte ihn ein, um einen Test zu senden.',
+    WEBHOOK_DISABLED:
+      'Dieser Endpunkt ist ausgeschaltet. Schalte ihn ein, um einen Test zu senden.',
     SKILL_NOT_TOGGLEABLE:
       'Diese Fähigkeit gehört zur Grundfunktion von JARVIS und lässt sich nicht ausschalten.',
     SKILL_PLANNED: 'Diese Fähigkeit ist noch nicht verfügbar.',

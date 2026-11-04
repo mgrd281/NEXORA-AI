@@ -73,7 +73,8 @@ import {
   restatesTitle,
   savedMemory,
   shortHash,
-  writtenSummary,
+  writtenResult,
+  type WrittenKind,
 } from './model';
 import { PlanSection } from './PlanSection';
 import { useTaskActions } from './TaskActions';
@@ -173,7 +174,12 @@ function TaskDetailView({
   const conversation = useConversation(task.conversationId);
   const thread = threadOf(conversation.data);
   const groups = thread ? groupTurns(thread.turns) : [];
-  const { earlier, later } = splitAround(groups, task.id);
+  const { earlier, current, later } = splitAround(groups, task.id);
+  // JARVIS's message for this task: the whole answer / summary (step outputs are previews).
+  const fullText =
+    current?.reply?.kind === 'answer' && current.reply.textMessage === null
+      ? current.reply.text
+      : null;
   const asked = isQuestion(task);
   const missing = task.question?.missing ?? [];
   const canFollowUp = thread ? thread.canFollowUp : isTerminal(task.status);
@@ -189,7 +195,9 @@ function TaskDetailView({
       <Page
         width="wide"
         title={<bdi>{title}</bdi>}
-        description={<HeaderMeta task={task} statusRef={statusRef} />}
+        description={
+          <HeaderMeta task={task} statusRef={statusRef} answered={asked && later.length > 0} />
+        }
         actions={
           headerCancel || actions.next ? (
             <>
@@ -243,7 +251,7 @@ function TaskDetailView({
             )}
             <StatusBanner task={task} />
             <AnswerSection task={task} streamed={stream.text} />
-            {!asked && <ResultSection task={task} />}
+            {!asked && <ResultSection task={task} fullText={fullText} />}
             <ConversationContinuation
               conversationId={task.conversationId}
               currentTaskId={task.id}
@@ -308,17 +316,20 @@ function TaskDetailView({
 function HeaderMeta({
   task,
   statusRef,
+  answered,
 }: {
   task: TaskDetail;
   statusRef: RefObject<HTMLSpanElement | null>;
+  /** A question this task asked was answered by a later request. */
+  answered: boolean;
 }) {
   const { t } = useI18n();
-  const status = taskStateLabel(t, task);
+  const status = taskStateLabel(t, task, answered);
   return (
     <span className={styles.headerMeta}>
       {/* Focus lands here after Cancel / Retry; the status is announced when it changes. */}
       <span ref={statusRef} tabIndex={-1} className={styles.statusFocus}>
-        <TaskStatusPill status={task.status} outcome={task.outcome} />
+        <TaskStatusPill status={task.status} outcome={task.outcome} answered={answered} />
         <span className="visually-hidden" role="status" aria-live="polite">
           {status}
         </span>
@@ -454,9 +465,7 @@ function ApprovalPanel({
           <h2 id={`approval-${approval.id}`} className={styles.approvalTitle}>
             {t('tasks.approvalPanel.title')}
           </h2>
-          <p className={styles.approvalBody}>
-            {t(APPROVAL_BODY[approval.details.kind])}
-          </p>
+          <p className={styles.approvalBody}>{t(APPROVAL_BODY[approval.details.kind])}</p>
         </div>
       </div>
       {/* For email the fields below say exactly what the one-sentence summary says. */}
@@ -558,7 +567,13 @@ function AnswerSection({ task, streamed }: { task: TaskDetail; streamed: string 
  * disclosure (open on desktop, collapsed on phones): what was read, its fingerprint, the mail
  * server's acceptance.
  */
-function ResultSection({ task }: { task: TaskDetail }) {
+const WRITTEN_TITLE: Record<WrittenKind, { title: MessageKey; copy: MessageKey }> = {
+  summary: { title: 'tasks.result.summary', copy: 'tasks.result.copySummary' },
+  answer: { title: 'tasks.result.answer', copy: 'tasks.result.copyAnswer' },
+  translation: { title: 'tasks.result.translation', copy: 'tasks.result.copyTranslation' },
+};
+
+function ResultSection({ task, fullText }: { task: TaskDetail; fullText: string | null }) {
   const i18n = useI18n();
   const { t, f } = i18n;
   const wide = useMediaQuery(WIDE_QUERY);
@@ -572,7 +587,8 @@ function ResultSection({ task }: { task: TaskDetail }) {
   if (!show) return null;
 
   // While a step still waits (e.g. for approval) the summary is reviewed in the approval sheet.
-  const summary = isTerminal(task.status) ? writtenSummary(task.steps) : null;
+  const written = isTerminal(task.status) ? writtenResult(task.steps) : null;
+  const summary = written ? (fullText ?? written.text) : null;
   const delivery = emailDelivery(task);
   // Said in the interface language from the step's output (the server writes the request's).
   const remembered = delivery ? null : savedMemory(task.steps);
@@ -589,8 +605,8 @@ function ResultSection({ task }: { task: TaskDetail }) {
         {summary && (
           <div className={styles.deliverable}>
             <div className={styles.deliverableHead}>
-              <h3 className={styles.subTitle}>{t('tasks.result.summary')}</h3>
-              <CopyButton value={summary} label={t('tasks.result.copySummary')} />
+              <h3 className={styles.subTitle}>{t(WRITTEN_TITLE[written!.kind].title)}</h3>
+              <CopyButton value={summary} label={t(WRITTEN_TITLE[written!.kind].copy)} />
             </div>
             {/* Long-form text in the page's language: it follows its own direction. */}
             <div className={styles.deliverableText} dir="auto">

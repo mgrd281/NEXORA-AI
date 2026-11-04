@@ -46,7 +46,18 @@ export function retentionPeriod(t: TranslateFn, days: number | null): string {
  * How long JARVIS keeps memories or finished tasks (preferences.retention). Saves on change;
  * while saving it shows the new value, and returns to the stored one if the server refuses.
  */
-export function RetentionSelect({ me, field }: { me: Me; field: Field }) {
+export function RetentionSelect({
+  me,
+  field,
+  hint,
+  fieldClassName,
+}: {
+  me: Me;
+  field: Field;
+  /** The hint for the value shown (default: the general rule). */
+  hint?: (days: number | null) => string;
+  fieldClassName?: string;
+}) {
   const { t } = useI18n();
   const saver = useSaveMe();
   const shown = saver.variables ? applyPatch(me, saver.variables) : me;
@@ -55,7 +66,8 @@ export function RetentionSelect({ me, field }: { me: Me; field: Field }) {
     <div>
       <Select
         label={t(LABEL[field].label)}
-        hint={t(LABEL[field].hint)}
+        hint={hint ? hint(value) : t(LABEL[field].hint)}
+        fieldClassName={fieldClassName}
         value={value === null ? 'forever' : String(value)}
         onChange={(e) => {
           if (saver.pending) return;

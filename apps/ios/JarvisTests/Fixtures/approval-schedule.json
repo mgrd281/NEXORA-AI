@@ -1,0 +1,59 @@
+{
+  "id": "5f1a2b3c-4d5e-4f7a-8b9c-adbecfd0e1fb",
+  "taskId": "ab5a3c4d-6e7f-4a81-9c2d-3e4f5a6b7c83",
+  "taskTitle": "Schedule: Weekly AI Act summary",
+  "stepId": "7b3c4d5e-6f7a-4b9c-8dbe-cfd0e1f2031d",
+  "toolId": "schedule.create",
+  "status": "PENDING",
+  "riskLevel": "MEDIUM",
+  "summary": "Create the schedule “Weekly AI Act summary”.",
+  "details": {
+    "kind": "schedule",
+    "title": "Weekly AI Act summary",
+    "request": "Summarize https://artificialintelligenceact.eu and email it to me",
+    "recurrence": {
+      "frequency": "weekly",
+      "interval": 1,
+      "byWeekday": [
+        "MO"
+      ],
+      "time": "09:00",
+      "timeZone": "Europe/Berlin"
+    },
+    "rrule": "DTSTART;TZID=Europe/Berlin:20261109T090000\nRRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO;BYHOUR=9;BYMINUTE=0;BYSECOND=0",
+    "nextOccurrences": [
+      "2026-11-09T08:00:00.000Z",
+      "2026-11-16T08:00:00.000Z",
+      "2026-11-23T08:00:00.000Z"
+    ],
+    "untrusted": {
+      "host": "example.net",
+      "excludedSentences": 2,
+      "signals": [
+        "ignore_previous_instructions"
+      ]
+    }
+  },
+  "actionHash": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+  "reasons": [
+    "RISK_MEDIUM",
+    "FUTURE_RUNS",
+    "UNTRUSTED_CONTENT"
+  ],
+  "expiresAt": "2026-11-04T15:04:09.000Z",
+  "decidedAt": null,
+  "decisionNote": null,
+  "createdAt": "2026-11-03T15:04:09+00:00",
+  "taskTitleMessage": {
+    "key": "plan.schedule",
+    "params": {
+      "title": "Weekly AI Act summary"
+    }
+  },
+  "summaryMessage": {
+    "key": "approval.schedule",
+    "params": {
+      "title": "Weekly AI Act summary"
+    }
+  }
+}

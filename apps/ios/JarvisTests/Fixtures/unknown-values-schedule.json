@@ -1,0 +1,39 @@
+{
+  "id": "1b7c8d9e-0f1a-4b3c-8d5e-6f7a8b9cadb7",
+  "title": "Weekly AI Act summary",
+  "request": "Summarize https://artificialintelligenceact.eu and email it to me",
+  "language": "en",
+  "recurrence": {
+    "frequency": "weekly",
+    "interval": 1,
+    "byWeekday": [
+      "MO",
+      "XX"
+    ],
+    "time": "09:00",
+    "timeZone": "Europe/Berlin"
+  },
+  "rrule": "DTSTART;TZID=Europe/Berlin:20261102T090000\nRRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TH;BYHOUR=9;BYMINUTE=0;BYSECOND=0",
+  "status": "archived",
+  "pausedReason": "maintenance",
+  "nextRunAt": "2026-11-05T08:00:00.000Z",
+  "lastRunAt": "2026-11-02T08:00:00.000Z",
+  "lastTaskId": "ab5a3c4d-6e7f-4a81-9c2d-3e4f5a6b7c83",
+  "conversationId": "6d1e2f3a-4b5c-4d6e-8f70-81a2b3c4d5e6",
+  "runCount": 1,
+  "consecutiveFailures": 0,
+  "createdBy": "import",
+  "createdAt": "2026-11-01T18:30:00.000Z",
+  "updatedAt": "2026-11-02T08:00:01.000Z",
+  "upcoming": [],
+  "runs": [
+    {
+      "id": "4e0f1a2b-3c4d-4e6f-9a8b-9cadbecfd0ea",
+      "occurrenceAt": "2026-10-29T08:00:00.000Z",
+      "status": "deferred",
+      "reason": "QUIET_HOURS",
+      "task": null,
+      "createdAt": "2026-10-29T08:00:02.000Z"
+    }
+  ]
+}

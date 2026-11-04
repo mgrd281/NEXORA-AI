@@ -277,7 +277,6 @@
   background: var(--color-surface);
 }
 
-.retentionRule {
-  font: var(--text-callout);
-  color: var(--color-text-secondary);
+.retentionField {
+  max-inline-size: 22rem;
 }

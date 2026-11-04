@@ -1,11 +1,11 @@
 # Skill: task-scheduling
 
-| Field   | Value                                                                                                                    |
-| ------- | ------------------------------------------------------------------------------------------------------------------------ |
-| id      | `task-scheduling`                                                                                                        |
-| version | 0.0.1 (draft)                                                                                                            |
-| status  | Planned — Phase 2. The `scheduled_tasks` table (`rrule`, `time_zone`, `next_run_at`) exists but is unused in Milestone 1 |
-| tools   | planned: `schedule.create`, `schedule.list`, `schedule.update`, `schedule.delete`                                        |
+| Field   | Value                                                                                                                                                                                                                              |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id      | `task-scheduling`                                                                                                                                                                                                                  |
+| version | 0.1.0 (registry: `apps/api/src/modules/agent/skills/registry.ts`)                                                                                                                                                                  |
+| status  | Implemented (Phase B) — schedules API and screens (daily / weekly / monthly at a local time), exactly-once runs, `schedule.create` for JARVIS-proposed schedules (MEDIUM, always approved); switchable (governs `schedule.create`) |
+| tools   | `schedule.create` (owned); schedules API `GET/POST/PATCH/DELETE /v1/schedules…`, pause/resume, preview                                                                                                                             |
 
 ## Description
 

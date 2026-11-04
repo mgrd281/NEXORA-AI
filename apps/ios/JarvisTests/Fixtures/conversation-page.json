@@ -1,0 +1,105 @@
+{
+  "items": [
+    {
+      "id": "2b0f6c1e-8a4d-4f3b-9c2e-5d7a1b3c4e60",
+      "title": "Summarize Quarterly report – Q3.pdf",
+      "titleMessage": {
+        "key": "plan.summarizeDocument",
+        "params": {
+          "name": "Quarterly report – Q3.pdf"
+        }
+      },
+      "taskCount": 3,
+      "lastTask": {
+        "id": "9a4f2b3c-5d6e-4f70-8b1c-2d3e4f5a6b72",
+        "title": "Question about your request",
+        "titleMessage": {
+          "key": "plan.clarify",
+          "params": {}
+        },
+        "request": "email me",
+        "status": "COMPLETED",
+        "riskLevel": "LOW",
+        "source": "voice",
+        "progress": {
+          "completed": 1,
+          "total": 1
+        },
+        "pendingApprovalId": null,
+        "pendingApproval": null,
+        "resultSummary": "What should the email say?",
+        "resultSummaryMessage": {
+          "key": "question.emailContent",
+          "params": {}
+        },
+        "error": null,
+        "createdAt": "2026-11-04T09:05:00.000Z",
+        "updatedAt": "2026-11-04T09:05:03.000Z",
+        "completedAt": "2026-11-04T09:05:03.000Z",
+        "conversationId": "2b0f6c1e-8a4d-4f3b-9c2e-5d7a1b3c4e60",
+        "outcome": "question",
+        "question": {
+          "text": "What should the email say?",
+          "message": {
+            "key": "question.emailContent",
+            "params": {}
+          },
+          "missing": [
+            "email_content"
+          ]
+        },
+        "scheduleId": null,
+        "attachmentCount": 0
+      },
+      "hasActiveTask": false,
+      "scheduleId": null,
+      "createdAt": "2026-11-04T09:00:00.000Z",
+      "updatedAt": "2026-11-04T09:05:03.000Z"
+    },
+    {
+      "id": "6d1e2f3a-4b5c-4d6e-8f70-81a2b3c4d5e6",
+      "title": "Weekly AI Act summary",
+      "titleMessage": null,
+      "taskCount": 1,
+      "lastTask": {
+        "id": "ab5a3c4d-6e7f-4a81-9c2d-3e4f5a6b7c83",
+        "title": "Summarize artificialintelligenceact.eu and email it to you",
+        "titleMessage": {
+          "key": "plan.summarizeEmail",
+          "params": {
+            "host": "artificialintelligenceact.eu"
+          }
+        },
+        "request": "Summarize https://artificialintelligenceact.eu and email it to me",
+        "status": "AWAITING_APPROVAL",
+        "riskLevel": "MEDIUM",
+        "source": "schedule",
+        "progress": {
+          "completed": 2,
+          "total": 3
+        },
+        "pendingApprovalId": "5f1a2b3c-4d5e-4f7a-8b9c-adbecfd0e1fb",
+        "pendingApproval": {
+          "id": "5f1a2b3c-4d5e-4f7a-8b9c-adbecfd0e1fb",
+          "untrustedSource": false
+        },
+        "resultSummary": null,
+        "resultSummaryMessage": null,
+        "error": null,
+        "createdAt": "2026-11-04T09:00:00.000Z",
+        "updatedAt": "2026-11-04T09:00:20.000Z",
+        "completedAt": null,
+        "conversationId": "6d1e2f3a-4b5c-4d6e-8f70-81a2b3c4d5e6",
+        "outcome": null,
+        "question": null,
+        "scheduleId": "1b7c8d9e-0f1a-4b3c-8d5e-6f7a8b9cadb7",
+        "attachmentCount": 0
+      },
+      "hasActiveTask": true,
+      "scheduleId": "1b7c8d9e-0f1a-4b3c-8d5e-6f7a8b9cadb7",
+      "createdAt": "2026-11-02T08:00:01.000Z",
+      "updatedAt": "2026-11-02T08:00:09.000Z"
+    }
+  ],
+  "nextCursor": null
+}

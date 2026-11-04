@@ -17,8 +17,21 @@
  * the first instance), so COUNT counts the series from there and the stored
  * RRULE is meaningful to any RFC 5545 consumer.
  */
-import { RRule, type Options as RRuleOptions } from 'rrule';
+import * as rruleModule from 'rrule';
+import type { RRule as RRuleInstance, Options as RRuleOptions } from 'rrule';
 import type { Recurrence, Weekday } from '@jarvis/contracts';
+
+/**
+ * rrule ships CommonJS as "main" with no "exports" map. Under plain Node ESM
+ * (the production bundle keeps it external; tsx in development) Node cannot
+ * detect its named exports, so only `default` (module.exports) exists; tools
+ * that read its "module" field (Vitest) see the ES build with named exports
+ * and no default. Take RRule from whichever shape is present.
+ */
+const { RRule } =
+  (rruleModule as unknown as { default?: typeof rruleModule }).default?.RRule !== undefined
+    ? (rruleModule as unknown as { default: typeof rruleModule }).default
+    : rruleModule;
 
 const DAY_MS = 86_400_000;
 const WEEKDAYS: readonly Weekday[] = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
@@ -154,7 +167,7 @@ function untilFloating(until: string): Date {
   return new Date(Date.UTC(y!, m! - 1, d!, 23, 59, 59));
 }
 
-function buildRule(r: Recurrence, dtstart: Date): RRule {
+function buildRule(r: Recurrence, dtstart: Date): RRuleInstance {
   const { hour, minute } = timeOf(r);
   const options: Partial<RRuleOptions> = {
     freq: RRULE_FREQ[r.frequency],

@@ -40,14 +40,17 @@ export function MemoryScreen({ initialQuery = '' }: { initialQuery?: string }) {
             write={(v) => ({ preferences: { memory: { enabled: v } } })}
           />
           <SettingRow>
-            <RetentionSelect me={me.data} field="memoryDays" />
-            {me.data.preferences.retention.memoryDays !== null && (
-              <p className={styles.retentionRule}>
-                {t('memory.retentionRule', {
-                  period: retentionPeriod(t, me.data.preferences.retention.memoryDays),
-                })}
-              </p>
-            )}
+            {/* One line under the choice: the rule as it applies now. */}
+            <RetentionSelect
+              me={me.data}
+              field="memoryDays"
+              fieldClassName={styles.retentionField}
+              hint={(days) =>
+                days === null
+                  ? t('memory.retentionKept')
+                  : t('memory.retentionRule', { period: retentionPeriod(t, days) })
+              }
+            />
           </SettingRow>
         </SettingsCard>
       ) : me.isError ? (

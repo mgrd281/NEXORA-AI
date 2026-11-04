@@ -25,8 +25,7 @@ const webhooks: Catalog<typeof source> = {
     user: 'أوقفتها بنفسك.',
     failures: 'أُوقفت بعد {count} عمليات تسليم فاشلة متتالية.',
   },
-  events:
-    '{count, plural, zero {لا أحداث} one {حدث واحد} two {حدثان} few {# أحداث} many {# حدثًا} other {# حدث}}',
+  allEvents: 'كل الأحداث',
   lastDelivery: 'آخر تسليم {time}',
   noDeliveries: 'لا توجد عمليات تسليم بعد',
   failing:
@@ -38,6 +37,7 @@ const webhooks: Catalog<typeof source> = {
     deliveries: 'سجل التسليم',
     hideDeliveries: 'إخفاء سجل التسليم',
     rotate: 'سر جديد…',
+    edit: 'تعديل',
     delete: 'حذف…',
   },
   actionFor: '{action} ({host})',
@@ -47,9 +47,11 @@ const webhooks: Catalog<typeof source> = {
     turnedOn: 'شُغّلت نقطة النهاية.',
     turnedOff: 'أُوقفت نقطة النهاية.',
     deleted: 'حُذفت نقطة النهاية.',
+    saved: 'حُفظت نقطة النهاية.',
   },
   form: {
     title: 'إضافة نقطة نهاية ويب هوك',
+    editTitle: 'تعديل نقطة نهاية الويب هوك',
     url: 'عنوان نقطة النهاية',
     urlPlaceholder: 'https://example.com/jarvis/webhooks',
     urlHint: 'يجب أن يبدأ بـ https:// وأن يكون متاحًا من الإنترنت.',
@@ -61,6 +63,7 @@ const webhooks: Catalog<typeof source> = {
     selectAll: 'تحديد الكل',
     selectNone: 'مسح التحديد',
     create: 'إضافة نقطة النهاية',
+    save: 'حفظ التغييرات',
   },
   eventTypes: {
     taskCreated: 'إنشاء مهمة',

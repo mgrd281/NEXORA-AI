@@ -84,6 +84,19 @@ const Env = z.object({
   SENTRY_ENVIRONMENT: z.string().min(1).optional(),
   /** GET /metrics (Prometheus) is served only when this is set; send it as a bearer token. */
   METRICS_TOKEN: z.string().min(24).optional(),
+  /**
+   * Worker only: port of its own GET /metrics listener (same token). Unset: the
+   * worker records job, tool, model and webhook metrics but nothing serves them.
+   */
+  WORKER_METRICS_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+  /** Interface of that listener; 0.0.0.0 in containers. */
+  WORKER_METRICS_HOST: z.string().min(1).default('127.0.0.1'),
+
+  /**
+   * How often the worker turns due schedules into runs (ms). The default suits
+   * production; end-to-end tests shorten it.
+   */
+  SCHEDULER_TICK_MS: z.coerce.number().int().min(1000).max(300_000).default(15_000),
 });
 
 export type StorageDriver = 'none' | 'local' | 's3';

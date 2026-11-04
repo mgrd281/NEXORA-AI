@@ -274,6 +274,24 @@ function mediaTypeOf(name: string): AttachmentMediaType | null {
   return null;
 }
 
+/** What checkWebhookUrl refuses (https only; private and local addresses). */
+function refuseWebhookUrl(value: string): MockResponse | null {
+  const url = new URL(value);
+  if (url.protocol !== 'https:') {
+    return apiError(422, 'FETCH_BLOCKED', 'https only', { reason: 'WEBHOOK_URL_INSECURE' });
+  }
+  if (
+    /^(localhost|127\.|10\.|192\.168\.)/.test(url.hostname) ||
+    url.hostname.endsWith('.internal')
+  ) {
+    return apiError(422, 'FETCH_BLOCKED', 'Private address', {
+      reason: 'WEBHOOK_URL_BLOCKED',
+      host: url.host,
+    });
+  }
+  return null;
+}
+
 function scheduleDetail(s: Fixtures, schedule: Schedule) {
   return {
     ...schedule,
@@ -656,19 +674,8 @@ const DEFAULTS: Partial<Record<RouteName, MockHandler>> = {
         max: WEBHOOK_LIMITS.maxEndpointsPerUser,
       });
     }
-    const url = new URL(body.url);
-    if (url.protocol !== 'https:') {
-      return apiError(422, 'FETCH_BLOCKED', 'https only', { reason: 'WEBHOOK_URL_INSECURE' });
-    }
-    if (
-      /^(localhost|127\.|10\.|192\.168\.)/.test(url.hostname) ||
-      url.hostname.endsWith('.internal')
-    ) {
-      return apiError(422, 'FETCH_BLOCKED', 'Private address', {
-        reason: 'WEBHOOK_URL_BLOCKED',
-        host: url.host,
-      });
-    }
+    const refused = refuseWebhookUrl(body.url);
+    if (refused) return refused;
     const nowIso = new Date().toISOString();
     const secret = `whsec_${Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64')}`;
     const endpoint: Fixtures['webhooks'][number] = {
@@ -693,10 +700,20 @@ const DEFAULTS: Partial<Record<RouteName, MockHandler>> = {
   updateWebhook: (req, s) => {
     const endpoint = s.webhooks.find((e) => e.id === req.params.id);
     if (!endpoint) return notFound('Webhook endpoint');
-    const body = req.body as { enabled?: boolean; url?: string; description?: string | null };
+    const body = req.body as {
+      enabled?: boolean;
+      url?: string;
+      description?: string | null;
+      eventTypes?: Fixtures['webhooks'][number]['eventTypes'];
+    };
+    if (body.url) {
+      const refused = refuseWebhookUrl(body.url);
+      if (refused) return refused;
+    }
     const next: Fixtures['webhooks'][number] = {
       ...endpoint,
       ...(body.url ? { url: body.url } : {}),
+      ...(body.eventTypes ? { eventTypes: body.eventTypes } : {}),
       ...(body.description !== undefined ? { description: body.description } : {}),
       ...(body.enabled === false ? { status: 'disabled', disabledReason: 'user' } : {}),
       ...(body.enabled === true

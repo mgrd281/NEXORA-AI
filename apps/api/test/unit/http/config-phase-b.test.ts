@@ -44,5 +44,17 @@ describe('Phase B configuration', () => {
     expect(c.SENTRY_DSN).toBeUndefined();
     expect(c.METRICS_TOKEN).toBeUndefined();
     expect(() => loadConfig({ ...BASE, METRICS_TOKEN: 'short' })).toThrow(/METRICS_TOKEN/);
+    expect(c.WORKER_METRICS_PORT).toBeUndefined();
+    expect(c.WORKER_METRICS_HOST).toBe('127.0.0.1');
+    expect(loadConfig({ ...BASE, WORKER_METRICS_PORT: '9464' }).WORKER_METRICS_PORT).toBe(9464);
+    expect(() => loadConfig({ ...BASE, WORKER_METRICS_PORT: '70000' })).toThrow(
+      /WORKER_METRICS_PORT/,
+    );
+  });
+
+  it('ticks the scheduler every 15 s unless shortened (never below 1 s)', () => {
+    expect(loadConfig(BASE).SCHEDULER_TICK_MS).toBe(15_000);
+    expect(loadConfig({ ...BASE, SCHEDULER_TICK_MS: '2000' }).SCHEDULER_TICK_MS).toBe(2000);
+    expect(() => loadConfig({ ...BASE, SCHEDULER_TICK_MS: '10' })).toThrow(/SCHEDULER_TICK_MS/);
   });
 });

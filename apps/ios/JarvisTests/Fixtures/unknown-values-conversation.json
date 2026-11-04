@@ -1,0 +1,139 @@
+{
+  "id": "2b0f6c1e-8a4d-4f3b-9c2e-5d7a1b3c4e60",
+  "title": "Summarize Quarterly report – Q3.pdf",
+  "titleMessage": {
+    "key": "plan.summarizeDocument",
+    "params": {
+      "name": "Quarterly report – Q3.pdf"
+    }
+  },
+  "taskCount": 3,
+  "lastTask": {
+    "id": "9a4f2b3c-5d6e-4f70-8b1c-2d3e4f5a6b72",
+    "title": "Question about your request",
+    "titleMessage": {
+      "key": "plan.clarify",
+      "params": {}
+    },
+    "request": "email me",
+    "status": "COMPLETED",
+    "riskLevel": "LOW",
+    "source": "voice",
+    "progress": {
+      "completed": 1,
+      "total": 1
+    },
+    "pendingApprovalId": null,
+    "pendingApproval": null,
+    "resultSummary": "What should the email say?",
+    "resultSummaryMessage": {
+      "key": "question.emailContent",
+      "params": {}
+    },
+    "error": null,
+    "createdAt": "2026-11-04T09:05:00.000Z",
+    "updatedAt": "2026-11-04T09:05:03.000Z",
+    "completedAt": "2026-11-04T09:05:03.000Z",
+    "conversationId": "2b0f6c1e-8a4d-4f3b-9c2e-5d7a1b3c4e60",
+    "outcome": "question",
+    "question": {
+      "text": "What should the email say?",
+      "message": {
+        "key": "question.emailContent",
+        "params": {}
+      },
+      "missing": [
+        "email_content"
+      ]
+    },
+    "scheduleId": null,
+    "attachmentCount": 0
+  },
+  "hasActiveTask": false,
+  "scheduleId": null,
+  "createdAt": "2026-11-04T09:00:00.000Z",
+  "updatedAt": "2026-11-04T09:05:03.000Z",
+  "turns": [
+    {
+      "type": "system_note",
+      "note": {
+        "text": "Imported from another device"
+      }
+    },
+    {
+      "type": "user_message",
+      "message": {
+        "id": "b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d51",
+        "role": "user",
+        "kind": "voice_note",
+        "text": "Summarize this",
+        "textMessage": null,
+        "language": "fr",
+        "taskId": "8f3e1a2b-4c5d-4e6f-9a0b-1c2d3e4f5a61",
+        "attachments": [
+          {
+            "id": "f5a6b7c8-d9e0-4f1a-8b3c-4d5e6f7a8b95",
+            "filename": "Quarterly report – Q3.pdf",
+            "mediaType": "image/png",
+            "sizeBytes": 482113,
+            "sha256": "b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c",
+            "conversationId": "2b0f6c1e-8a4d-4f3b-9c2e-5d7a1b3c4e60",
+            "pageCount": 12,
+            "textChars": 31877,
+            "downloadPath": "/v1/attachments/f5a6b7c8-d9e0-4f1a-8b3c-4d5e6f7a8b95/content",
+            "expiresAt": null,
+            "createdAt": "2026-11-04T08:59:30.000Z"
+          }
+        ],
+        "createdAt": "2026-11-04T09:00:00.000Z"
+      }
+    },
+    {
+      "type": "task",
+      "task": {
+        "id": "9a4f2b3c-5d6e-4f70-8b1c-2d3e4f5a6b72",
+        "title": "Question about your request",
+        "titleMessage": {
+          "key": "plan.clarify",
+          "params": {}
+        },
+        "request": "email me",
+        "status": "COMPLETED",
+        "riskLevel": "LOW",
+        "source": "voice",
+        "progress": {
+          "completed": 1,
+          "total": 1
+        },
+        "pendingApprovalId": null,
+        "pendingApproval": null,
+        "resultSummary": "What should the email say?",
+        "resultSummaryMessage": {
+          "key": "question.emailContent",
+          "params": {}
+        },
+        "error": null,
+        "createdAt": "2026-11-04T09:05:00.000Z",
+        "updatedAt": "2026-11-04T09:05:03.000Z",
+        "completedAt": "2026-11-04T09:05:03.000Z",
+        "conversationId": "2b0f6c1e-8a4d-4f3b-9c2e-5d7a1b3c4e60",
+        "outcome": "artifact",
+        "question": {
+          "text": "What should the email say?",
+          "message": {
+            "key": "question.emailContent",
+            "params": {}
+          },
+          "missing": [
+            "phone_number"
+          ]
+        },
+        "scheduleId": null,
+        "attachmentCount": 0
+      }
+    }
+  ],
+  "earlierCursor": null,
+  "canFollowUp": false,
+  "activeTaskId": null
+}

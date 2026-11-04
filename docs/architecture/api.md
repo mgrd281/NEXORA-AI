@@ -62,31 +62,55 @@ Every error uses `ApiErrorBody`:
 `details.issues: [{ path, message }]`; a retry that needs acknowledgement carries
 `details.requiresAcknowledgement: true`.
 
-| Code                   | HTTP | Meaning                                                                                 |
-| ---------------------- | ---- | --------------------------------------------------------------------------------------- |
-| `VALIDATION_FAILED`    | 400  | Path, query or body invalid (also oversized bodies, malformed cursors)                  |
-| `UNAUTHENTICATED`      | 401  | No valid session                                                                        |
-| `BUDGET_EXCEEDED`      | 402  | Monthly AI budget exhausted or zero                                                     |
-| `FORBIDDEN`            | 403  | Not allowed (role, CSRF Origin, wrong confirmation password)                            |
-| `POLICY_DENIED`        | 403  | Policy Engine denied the action                                                         |
-| `NOT_FOUND`            | 404  | Unknown route or resource (including other users' resources — RLS makes them invisible) |
-| `CONFLICT`             | 409  | Concurrent modification or identical request in progress                                |
-| `INVALID_STATE`        | 409  | Operation not allowed in the current state (e.g. retry a running task)                  |
-| `APPROVAL_EXPIRED`     | 409  | Approval expired before the decision                                                    |
-| `APPROVAL_MISMATCH`    | 409  | `actionHash` differs from the action that is pending                                    |
-| `CONNECTION_REQUIRED`  | 409  | A required connection is missing or inactive                                            |
-| `OUTCOME_UNKNOWN`      | 409  | A side effect may or may not have happened                                              |
-| `IDEMPOTENCY_MISMATCH` | 422  | `Idempotency-Key` reused for a different request                                        |
-| `CONNECTION_FAILED`    | 422  | A connection could not be verified (SMTP host, TLS, credentials)                        |
-| `PLANNER_UNSUPPORTED`  | 422  | The offline planner cannot handle this request                                          |
-| `FETCH_BLOCKED`        | 422  | URL refused (private address, scheme, credentials in URL)                               |
-| `RATE_LIMITED`         | 429  | Too many requests or too many open event streams                                        |
-| `INTERNAL`             | 500  | Unexpected server error                                                                 |
-| `MODEL_ERROR`          | 502  | Model provider failure or refusal                                                       |
-| `TOOL_FAILED`          | 502  | A tool failed                                                                           |
-| `VERIFICATION_FAILED`  | 502  | A completed step did not pass verification                                              |
-| `MODEL_NOT_CONFIGURED` | 503  | A step needs a model and none is configured                                             |
-| `TOOL_TIMEOUT`         | 504  | A tool did not finish in time                                                           |
+| Code                     | HTTP | Meaning                                                                                 |
+| ------------------------ | ---- | --------------------------------------------------------------------------------------- |
+| `VALIDATION_FAILED`      | 400  | Path, query or body invalid (also oversized bodies, malformed cursors)                  |
+| `UNAUTHENTICATED`        | 401  | No valid session                                                                        |
+| `BUDGET_EXCEEDED`        | 402  | Monthly AI budget exhausted or zero                                                     |
+| `FORBIDDEN`              | 403  | Not allowed (role, CSRF Origin, wrong confirmation password)                            |
+| `POLICY_DENIED`          | 403  | Policy Engine denied the action                                                         |
+| `NOT_FOUND`              | 404  | Unknown route or resource (including other users' resources — RLS makes them invisible) |
+| `CONFLICT`               | 409  | Concurrent modification or identical request in progress                                |
+| `INVALID_STATE`          | 409  | Operation not allowed in the current state (e.g. retry a running task)                  |
+| `APPROVAL_EXPIRED`       | 409  | Approval expired before the decision                                                    |
+| `APPROVAL_MISMATCH`      | 409  | `actionHash` differs from the action that is pending                                    |
+| `CONNECTION_REQUIRED`    | 409  | A required connection is missing or inactive                                            |
+| `OUTCOME_UNKNOWN`        | 409  | A side effect may or may not have happened                                              |
+| `IDEMPOTENCY_MISMATCH`   | 422  | `Idempotency-Key` reused for a different request                                        |
+| `CONNECTION_FAILED`      | 422  | A connection could not be verified (SMTP host, TLS, credentials)                        |
+| `PLANNER_UNSUPPORTED`    | 422  | The offline planner cannot handle this request                                          |
+| `FETCH_BLOCKED`          | 422  | URL refused (private address, scheme, credentials in URL)                               |
+| `RATE_LIMITED`           | 429  | Too many requests or too many open event streams                                        |
+| `INTERNAL`               | 500  | Unexpected server error                                                                 |
+| `MODEL_ERROR`            | 502  | Model provider failure or refusal                                                       |
+| `TOOL_FAILED`            | 502  | A tool failed                                                                           |
+| `VERIFICATION_FAILED`    | 502  | A completed step did not pass verification                                              |
+| `MODEL_NOT_CONFIGURED`   | 503  | A step needs a model and none is configured                                             |
+| `TOOL_TIMEOUT`           | 504  | A tool did not finish in time                                                           |
+| `PAYLOAD_TOO_LARGE`      | 413  | An upload exceeds `ATTACHMENT_LIMITS.maxBytes` (Phase B)                                |
+| `UNSUPPORTED_MEDIA_TYPE` | 415  | An upload's content is not an accepted type, or not what its extension says (Phase B)   |
+| `SERVICE_UNAVAILABLE`    | 503  | File storage is not configured or not reachable (Phase B)                               |
+
+### Phase B error reasons
+
+Phase B errors carry a machine-readable `details.reason` (`ApiErrorReason` in
+`packages/contracts/src/enums.ts`) that clients localise; `message` stays English developer text.
+
+| Reason                                                                                   | Code                     | HTTP | Extra `details`                                  |
+| ---------------------------------------------------------------------------------------- | ------------------------ | ---- | ------------------------------------------------ |
+| `FILE_EMPTY`, `UNKNOWN_TIME_ZONE`, `INVALID_RECURRENCE`, `RECURRENCE_HAS_NO_OCCURRENCES` | `VALIDATION_FAILED`      | 400  | `issues`                                         |
+| `ATTACHMENT_NOT_FOUND`, `ATTACHMENT_EXPIRED`, `ATTACHMENT_IN_OTHER_CONVERSATION`         | `VALIDATION_FAILED`      | 400  | `id` (the attachment)                            |
+| `TOO_MANY_ATTACHMENTS`                                                                   | `VALIDATION_FAILED`      | 400  | `max`                                            |
+| `FILE_TOO_LARGE`                                                                         | `PAYLOAD_TOO_LARGE`      | 413  | `limitBytes`                                     |
+| `UNSUPPORTED_FILE_TYPE`, `FILE_CONTENT_MISMATCH`                                         | `UNSUPPORTED_MEDIA_TYPE` | 415  | —                                                |
+| `STORAGE_NOT_CONFIGURED`, `STORAGE_UNAVAILABLE`                                          | `SERVICE_UNAVAILABLE`    | 503  | —                                                |
+| `CONVERSATION_BUSY`, `CONVERSATION_ACTIVE_TASK`                                          | `INVALID_STATE`          | 409  | `taskId` (the active task)                       |
+| `SCHEDULE_COMPLETED`, `WEBHOOK_DISABLED`, `SKILL_PLANNED`, `SKILL_NOT_TOGGLEABLE`        | `INVALID_STATE`          | 409  | —                                                |
+| `SCHEDULE_LIMIT_REACHED`, `WEBHOOK_LIMIT_REACHED`                                        | `CONFLICT`               | 409  | `max`                                            |
+| `WEBHOOK_URL_INVALID`, `WEBHOOK_URL_INSECURE`, `WEBHOOK_URL_BLOCKED`                     | `FETCH_BLOCKED`          | 422  | `host`; `cause: 'HOST_NOT_FOUND'` when DNS fails |
+
+A non-multipart body sent to `POST /v1/attachments` is a plain `415` without a reason. Uploads are
+rate-limited to 20 per minute, webhook test sends to 5 and secret rotations to 10 per minute.
 
 Task and step failures are not HTTP errors: they appear as `TaskError { code, message, retryable }` on
 `TaskSummary.error` / `TaskStep.error`, using the same codes. `retryable` means a retry is safe

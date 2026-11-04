@@ -99,7 +99,12 @@ export function ScheduledScreen() {
             icon={CalendarClock}
             message={t('schedules.empty')}
             action={
-              <Button variant="primary" icon={Plus} onClick={() => setEditing('new')} disabled={!me.data}>
+              <Button
+                variant="primary"
+                icon={Plus}
+                onClick={() => setEditing('new')}
+                disabled={!me.data}
+              >
                 {t('schedules.new')}
               </Button>
             }
@@ -224,8 +229,10 @@ function ScheduleCard({ schedule, onEdit }: { schedule: Schedule; onEdit: () => 
         </dl>
         <figure className={styles.request}>
           <figcaption className={styles.requestLabel}>{t('schedules.request')}</figcaption>
-          <blockquote className={styles.requestText} dir="auto">
-            {schedule.request}
+          {/* The quote keeps the interface's direction (its bar on the start edge, next to the
+              text); only the request itself is isolated, like every other user text. */}
+          <blockquote className={styles.requestText}>
+            <bdi>{schedule.request}</bdi>
           </blockquote>
         </figure>
         {schedule.createdBy === 'agent' && (
@@ -289,7 +296,10 @@ function ScheduleCard({ schedule, onEdit }: { schedule: Schedule; onEdit: () => 
             size="sm"
             icon={Pencil}
             onClick={onEdit}
-            aria-label={t('schedules.actionFor', { action: t('schedules.actions.edit'), title: titleText })}
+            aria-label={t('schedules.actionFor', {
+              action: t('schedules.actions.edit'),
+              title: titleText,
+            })}
           >
             {t('schedules.actions.edit')}
           </Button>
@@ -298,7 +308,10 @@ function ScheduleCard({ schedule, onEdit }: { schedule: Schedule; onEdit: () => 
             variant="danger"
             icon={Trash}
             onClick={() => setConfirmDelete(true)}
-            aria-label={t('schedules.actionFor', { action: t('schedules.actions.delete'), title: titleText })}
+            aria-label={t('schedules.actionFor', {
+              action: t('schedules.actions.delete'),
+              title: titleText,
+            })}
           >
             {t('schedules.actions.delete')}
           </Button>
@@ -413,8 +426,8 @@ function RunRow({ run, zone }: { run: ScheduleRun; zone: string }) {
       {run.task ? (
         <span className={styles.runTask}>
           <TaskStatusPill status={run.task.status} outcome={run.task.outcome} />
-          <Link href={`/tasks/${run.task.id}`} className={styles.runLink}>
-            <span dir="auto">{taskTitle(i18n, run.task)}</span>
+          <Link href={`/tasks/${run.task.id}`} className={styles.runLink} dir="auto">
+            {taskTitle(i18n, run.task)}
           </Link>
         </span>
       ) : (
@@ -436,4 +449,3 @@ function RunRow({ run, zone }: { run: ScheduleRun; zone: string }) {
     </li>
   );
 }
-

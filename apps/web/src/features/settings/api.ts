@@ -35,6 +35,8 @@ export function useSaveMe() {
         void queryClient.invalidateQueries({ queryKey: qk.assistantStatus });
         void queryClient.invalidateQueries({ queryKey: qk.usage });
         void queryClient.invalidateQueries({ queryKey: qk.home });
+        // Memory and external models decide whether some skills can run.
+        void queryClient.invalidateQueries({ queryKey: qk.skills });
       }
       setShowSaved(true);
       timer.current = window.setTimeout(() => setShowSaved(false), SAVED_MS);

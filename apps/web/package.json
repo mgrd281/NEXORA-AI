@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "e2e": "playwright test",
-    "e2e:visual": "playwright test e2e/visual"
+    "e2e:visual": "playwright test e2e/visual",
+    "e2e:real": "playwright test e2e/real --workers=1"
   },
   "dependencies": {
     "@jarvis/contracts": "workspace:*",

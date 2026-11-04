@@ -11,6 +11,7 @@ import {
   Clock,
   KeyRound,
   Lock,
+  Pencil,
   Plus,
   Send,
   ShieldCheck,
@@ -152,7 +153,8 @@ export function DeveloperSection() {
         )}
       </div>
       {adding && (
-        <AddEndpointDialog
+        <EndpointDialog
+          endpoint={null}
           onClose={() => setAdding(false)}
           onCreated={(value) => {
             setAdding(false);
@@ -185,12 +187,13 @@ function EndpointItem({
   endpoint: WebhookEndpoint;
   onSecret: (secret: string) => void;
 }) {
-  const { t } = useI18n();
+  const { t, f } = useI18n();
   const { toast } = useToast();
   const host = hostOf(endpoint.url);
   const deliveriesId = useId();
   const [logOpen, setLogOpen] = useState(false);
   const [confirm, setConfirm] = useState<'rotate' | 'delete' | null>(null);
+  const [editing, setEditing] = useState(false);
   const update = useUpdateWebhook(endpoint.id);
   const test = useTestWebhook(endpoint.id);
   const rotate = useRotateWebhookSecret(endpoint.id);
@@ -198,9 +201,8 @@ function EndpointItem({
   const active = endpoint.status === 'active';
   const failedOff = endpoint.status === 'disabled' && endpoint.disabledReason === 'failures';
   const status = ENDPOINT_STATUS[endpoint.status];
-  const shownEnabled = update.isPending && update.variables?.enabled !== undefined
-    ? update.variables.enabled
-    : active;
+  const shownEnabled =
+    update.isPending && update.variables?.enabled !== undefined ? update.variables.enabled : active;
   const error = update.error ?? test.error;
 
   return (
@@ -223,8 +225,8 @@ function EndpointItem({
         />
       </div>
 
-      {endpoint.status === 'disabled' && (
-        failedOff ? (
+      {endpoint.status === 'disabled' &&
+        (failedOff ? (
           <Banner
             tone="warning"
             title={t('webhooks.disabledReason.failures', {
@@ -233,14 +235,19 @@ function EndpointItem({
           />
         ) : (
           <p className={styles.note}>{t('webhooks.disabledReason.user')}</p>
-        )
-      )}
+        ))}
 
       <dl className={styles.endpointMeta}>
-        <div>
+        <div className={styles.eventList}>
           <dt className="visually-hidden">{t('webhooks.form.eventsLegend')}</dt>
-          <dd title={endpoint.eventTypes.map((e) => t(eventTypeKey(e))).join(', ')}>
-            {t('webhooks.events', { count: endpoint.eventTypes.length })}
+          <dd>
+            {endpoint.eventTypes.length === EVENT_TYPES.length
+              ? t('webhooks.allEvents')
+              : f.list(
+                  EVENT_TYPES.filter((e) => endpoint.eventTypes.includes(e)).map((e) =>
+                    t(eventTypeKey(e)),
+                  ),
+                )}
           </dd>
         </div>
         <div>
@@ -332,6 +339,15 @@ function EndpointItem({
           <Button
             size="sm"
             variant="ghost"
+            icon={Pencil}
+            aria-label={t('webhooks.actionFor', { action: t('webhooks.actions.edit'), host })}
+            onClick={() => setEditing(true)}
+          >
+            {t('webhooks.actions.edit')}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
             icon={KeyRound}
             aria-label={t('webhooks.actionFor', { action: t('webhooks.actions.rotate'), host })}
             onClick={() => setConfirm('rotate')}
@@ -355,6 +371,8 @@ function EndpointItem({
           <DeliveryLog endpointId={endpoint.id} host={host} />
         </div>
       )}
+
+      {editing && <EndpointDialog endpoint={endpoint} onClose={() => setEditing(false)} />}
 
       <Dialog
         open={confirm === 'rotate'}
@@ -486,7 +504,7 @@ function DeliveryLog({ endpointId, host }: { endpointId: string; host: string })
 }
 
 function DeliveryRow({ delivery: d }: { delivery: WebhookDelivery }) {
-  const { t } = useI18n();
+  const { t, f } = useI18n();
   const status = DELIVERY_STATUS[d.status];
   return (
     <li className={styles.delivery}>
@@ -511,7 +529,7 @@ function DeliveryRow({ delivery: d }: { delivery: WebhookDelivery }) {
         {d.durationMs !== null && (
           <>
             <span aria-hidden="true"> · </span>
-            <span className="tabular ltr">{d.durationMs} ms</span>
+            <span className="tabular ltr">{f.number(d.durationMs)} ms</span>
           </>
         )}
         {d.status === 'pending' && d.nextAttemptAt && (
@@ -532,8 +550,7 @@ function DeliveryRow({ delivery: d }: { delivery: WebhookDelivery }) {
         </p>
       )}
       <p className={styles.deliveryId}>
-        <span>{t('webhooks.deliveries.webhookId')}</span>{' '}
-        <code className="ltr">{d.webhookId}</code>
+        <span>{t('webhooks.deliveries.webhookId')}</span> <code className="ltr">{d.webhookId}</code>
       </p>
     </li>
   );
@@ -541,32 +558,42 @@ function DeliveryRow({ delivery: d }: { delivery: WebhookDelivery }) {
 
 /* ------------------------------------------------------------------ dialogs */
 
-function AddEndpointDialog({
+/**
+ * Add an endpoint (its secret is then shown once) or edit one: its URL (checked again by the
+ * server), description and events. Editing never changes or reveals the secret.
+ */
+function EndpointDialog({
+  endpoint,
   onClose,
   onCreated,
 }: {
+  /** The endpoint to edit; null adds a new one. */
+  endpoint: WebhookEndpoint | null;
   onClose: () => void;
-  onCreated: (secret: string) => void;
+  onCreated?: (secret: string) => void;
 }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const create = useCreateWebhook();
+  const update = useUpdateWebhook(endpoint?.id ?? 'new');
+  const mutation = endpoint ? update : create;
   const urlRef = useRef<HTMLInputElement>(null);
   const eventsHintId = useId();
-  const [url, setUrl] = useState('');
-  const [description, setDescription] = useState('');
-  const [events, setEvents] = useState<WebhookEventType[]>([
-    'task.completed',
-    'task.failed',
-    'approval.requested',
-  ]);
+  const idPrefix = useId();
+  const [url, setUrl] = useState(endpoint?.url ?? '');
+  const [description, setDescription] = useState(endpoint?.description ?? '');
+  const [events, setEvents] = useState<WebhookEventType[]>(
+    endpoint?.eventTypes ?? ['task.completed', 'task.failed', 'approval.requested'],
+  );
   const [submitted, setSubmitted] = useState(false);
   const urlError = !isPlausibleWebhookUrl(url) ? t('webhooks.form.urlInvalid') : null;
   const eventsError = events.length === 0 ? t('webhooks.form.eventsRequired') : null;
 
   const toggle = (type: WebhookEventType) =>
     setEvents((list) =>
-      list.includes(type) ? list.filter((e) => e !== type) : EVENT_TYPES.filter((e) => list.includes(e) || e === type),
+      list.includes(type)
+        ? list.filter((e) => e !== type)
+        : EVENT_TYPES.filter((e) => list.includes(e) || e === type),
     );
 
   const submit = (e: FormEvent) => {
@@ -576,7 +603,19 @@ function AddEndpointDialog({
       urlRef.current?.focus();
       return;
     }
-    if (eventsError || create.isPending) return;
+    if (eventsError || mutation.isPending) return;
+    if (endpoint) {
+      update.mutate(
+        { url: url.trim(), eventTypes: events, description: description.trim() || null },
+        {
+          onSuccess: () => {
+            toast({ message: t('webhooks.toasts.saved') });
+            onClose();
+          },
+        },
+      );
+      return;
+    }
     create.mutate(
       {
         url: url.trim(),
@@ -586,35 +625,36 @@ function AddEndpointDialog({
       {
         onSuccess: ({ secret }) => {
           toast({ message: t('webhooks.toasts.created') });
-          onCreated(secret);
+          onCreated?.(secret);
         },
       },
     );
   };
 
+  const formId = `${idPrefix}-webhook-form`;
   return (
     <Dialog
       open
       onClose={() => {
-        if (!create.isPending) onClose();
+        if (!mutation.isPending) onClose();
       }}
-      title={t('webhooks.form.title')}
+      title={endpoint ? t('webhooks.form.editTitle') : t('webhooks.form.title')}
       initialFocusRef={urlRef}
-      dismissible={!create.isPending}
-      busy={create.isPending}
+      dismissible={!mutation.isPending}
+      busy={mutation.isPending}
       footer={
         <>
-          <Button onClick={onClose} disabled={create.isPending}>
+          <Button onClick={onClose} disabled={mutation.isPending}>
             {t('common.actions.cancel')}
           </Button>
-          <Button type="submit" form="webhook-form" variant="primary" loading={create.isPending}>
-            {t('webhooks.form.create')}
+          <Button type="submit" form={formId} variant="primary" loading={mutation.isPending}>
+            {endpoint ? t('webhooks.form.save') : t('webhooks.form.create')}
           </Button>
         </>
       }
     >
-      <form id="webhook-form" className={styles.form} onSubmit={submit} noValidate>
-        {create.isError && <ErrorBanner error={create.error} />}
+      <form id={formId} className={styles.form} onSubmit={submit} noValidate>
+        {mutation.isError && <ErrorBanner error={mutation.error} />}
         <TextField
           ref={urlRef}
           type="url"
@@ -653,7 +693,7 @@ function AddEndpointDialog({
           </div>
           <div className={styles.eventGrid}>
             {EVENT_TYPES.map((type) => {
-              const id = `event-${type}`;
+              const id = `${idPrefix}-event-${type}`;
               return (
                 <div key={type} className={styles.event}>
                   <input

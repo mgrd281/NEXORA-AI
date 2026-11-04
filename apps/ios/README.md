@@ -2,8 +2,11 @@
 
 Native SwiftUI client for the JARVIS API: sign in, ask in text or by voice, follow tasks
 live, review and approve exactly what JARVIS will do, manage memory, sessions and
-preferences. English, German and Arabic (right-to-left), light and dark, Dynamic Type,
-VoiceOver and Reduce Motion are supported throughout.
+preferences. Phase B adds conversations with follow-ups, clarifying questions, attached
+documents (PDF, Word, text, Markdown, CSV), schedules, a read-only skills catalog,
+automatic-deletion (retention) settings and a time-zone picker. English, German and Arabic
+(right-to-left), light and dark, Dynamic Type, VoiceOver and Reduce Motion are supported
+throughout. Webhooks are managed on the web only.
 
 > **Build status: not yet compiled.** This code was written in an environment without
 > Xcode or a Swift toolchain. It has been checked structurally (see
@@ -81,6 +84,8 @@ xcodebuild test -project Jarvis.xcodeproj -scheme Jarvis \
 | Suite | Covers |
 | --- | --- |
 | `ModelDecodingTests` | Real JSON fixtures shaped like the contracts: `TaskDetail` (steps, approvals, events, evidence), `HomeSnapshot`, `ApiErrorBody`, `Me`, `LoginResponse`, pages, stream events; timestamp forms; unknown enum values decoding to `.unknown` |
+| `PhaseBDecodingTests` | Conversations (thread turns, history page), clarifying questions, attachments, skills, schedules (detail, runs, preview), time zones, schedule and memory approvals with untrusted-source facts, conversation stream events, `ApiErrorReason` copy, preferences from an older server (defaults), and values from a newer server decoding to `.unknown` |
+| `PhaseBLogicTests` | Follow-up, retention, schedule and skill request bodies; client-side file checks (size, extension, content sniffing, file-name sanitising); the multipart upload body; thread page merging; server-sentence and error-reason rendering with fallbacks; recurrence wording; the schedule editor |
 | `SSEParserTests` | Server framing, multi-line `data`, comments/heartbeats, ids and resume position, `retry`, CR/LF/CRLF, BOM, UTF-8, reconnect back-off |
 | `PresenceStateTests` | Mapping of voice, connection, approvals, tasks and recent outcomes to Presence states; animation and VoiceOver labels |
 | `RequestBuildingTests` | URLs, headers (bearer, `Idempotency-Key`, `Content-Type` only with a body), request bodies, API address policy, task state machine |
@@ -90,12 +95,19 @@ xcodebuild test -project Jarvis.xcodeproj -scheme Jarvis \
 These run with Node from the repository root and need no Apple tooling:
 
 ```sh
-# Fixtures parse with the Zod contract schemas, exactly (no stripped keys or defaults)
+# Fixtures parse with the Zod contract schemas, exactly (no stripped keys or defaults);
+# unknown-value fixtures fail only where intended; an older server's payload gets only
+# the contract defaults
 pnpm --filter @jarvis/api exec tsx ../ios/scripts/validate-fixtures.ts
-# Every localizable Swift literal has en/de/ar; specifiers and App Shortcut phrases match
+# Swift enums mirror the contract enums; server sentences match the API's en/de/ar
+# templates; every task-error, policy and API-error reason has copy
+pnpm --filter @jarvis/api exec tsx ../ios/scripts/check-contract-copy.ts
+# Every localizable Swift literal has en/de/ar; specifiers, default values and App
+# Shortcut phrases match
 node apps/ios/scripts/lint-strings.mjs
-# Balanced delimiters, no try!/as!/fatalError/print in app code
-node apps/ios/scripts/check-swift.mjs
+# Balanced delimiters, no try!/as!/fatalError/print in app code; with --tree-sitter, a
+# full syntax parse (tree-sitter-swift installed outside the repository, see the script)
+node apps/ios/scripts/check-swift.mjs [--tree-sitter <node_modules dir>]
 # Regenerate the app icon (1024×1024 PNG, no dependencies)
 node apps/ios/scripts/make-app-icon.mjs
 ```
@@ -117,3 +129,34 @@ use).
 "Ask JARVIS" (also "Frag JARVIS", "اسأل JARVIS") creates a task with your signed-in
 session and tells you its title and status. It never approves anything — actions that need
 approval wait for you in the app.
+
+## Phase B on iPhone
+
+- **Conversations** (tab): history with search, a schedule badge and an in-progress
+  indicator; the thread shows each request, its task (live) and JARVIS's answer, result or
+  question. The composer at the bottom sends a follow-up (`POST /v1/conversations/:id/messages`)
+  with text, voice or files; while a task of the conversation is still active it is disabled
+  and says which task to wait for. A finished task's screen has **Follow up**, which opens
+  its conversation with the composer ready.
+- **Clarifying questions**: a completed task with `outcome: "question"` reads "Needs your
+  answer" (never "Completed"); the question is shown in the app's language when the server
+  composed it, with what is missing, and **Reply** (plus **Attach the file** when a document
+  is missing).
+- **Attachments**: the paper clip opens the Files picker (PDF, DOCX, TXT, MD, CSV). Each file
+  is checked on the device first (10 MB, at most 5 per request, extension and content must
+  agree), uploaded with progress, and can be removed (deleted on the server) or retried.
+  Sending waits until uploads finish. Attached files open in Quick Look (download with the
+  signed-in session; only the owner can) and can be shared from there. When the server
+  reports uploads as unavailable, the button is disabled and says so.
+- **Schedules** (Tasks › Schedules, or Settings): list with status and next run in the
+  schedule's own zone, pause/resume/delete, detail with upcoming runs and run history linking
+  to tasks, and an editor (daily, weekly on chosen days, monthly on one day or the last day;
+  interval, time, zone from the server's list) with the server's live preview of the next
+  runs. Rules the editor can't represent exactly (several days of a month, values from a
+  newer server) are kept: only the name and request can change here, and the screen says to
+  change the timing on the web. Creating your own schedule is always offered (below the
+  per-account cap); the scheduling skill only governs whether JARVIS proposes schedules from
+  requests, as on the web.
+- **Settings**: Skills (read-only catalog with real availability and the reason when a skill
+  can't run; switching happens on the web), automatic deletion of memories and task history,
+  and the account time zone (only zones the server accepts).

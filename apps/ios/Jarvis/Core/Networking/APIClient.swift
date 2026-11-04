@@ -147,7 +147,7 @@ actor APIClient {
             idempotencyKey: idempotencyKey,
             language: AppLocale.current.rawValue
         )
-        let data = try await execute(
+        let (data, _) = try await execute(
             request,
             authenticated: authenticated,
             signOutOnUnauthorized: signOutOnUnauthorized
@@ -171,14 +171,11 @@ actor APIClient {
         )
         request.setValue("*/*", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 120
-        var response: HTTPURLResponse?
-        let data = try await execute(request, authenticated: true, signOutOnUnauthorized: true) {
-            let result = try await self.transfer(request)
-            response = result.1
-            return result
+        let finalRequest = request
+        let (data, response) = try await execute(finalRequest, authenticated: true, signOutOnUnauthorized: true) {
+            try await self.transfer(finalRequest)
         }
-        guard let response else { throw NetworkError.invalidResponse("No response for \(path)") }
-        return (data, response)
+        return (data: data, response: response)
     }
 
     /// Uploads one file as multipart/form-data (an `upload` route) and decodes the JSON
@@ -212,9 +209,10 @@ actor APIClient {
         )
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 120
+        let finalRequest = request
         let delegate = UploadProgressDelegate(onProgress: onProgress)
-        let data = try await execute(request, authenticated: true, signOutOnUnauthorized: true) {
-            try await self.transferUpload(request, body: body, delegate: delegate)
+        let (data, _) = try await execute(finalRequest, authenticated: true, signOutOnUnauthorized: true) {
+            try await self.transferUpload(finalRequest, body: body, delegate: delegate)
         }
         return try decodeSuccess(data, as: Response.self)
     }
@@ -237,16 +235,16 @@ actor APIClient {
         }
     }
 
-    /// Runs a transfer and returns the body of a 2xx response; anything else becomes an
-    /// `ApiError`. A 401 on an authenticated request clears the stored credential.
+    /// Runs a transfer and returns a 2xx response; anything else becomes an `ApiError`.
+    /// A 401 on an authenticated request clears the stored credential.
     private func execute(
         _ request: URLRequest,
         authenticated: Bool,
         signOutOnUnauthorized: Bool,
         transfer: () async throws -> (Data, HTTPURLResponse)
-    ) async throws -> Data {
+    ) async throws -> (Data, HTTPURLResponse) {
         let (data, http) = try await transfer()
-        if (200..<300).contains(http.statusCode) { return data }
+        if (200..<300).contains(http.statusCode) { return (data, http) }
 
         let apiError = ApiError.from(data: data, httpStatus: http.statusCode, decoder: decoder)
         if http.statusCode == 401, authenticated {

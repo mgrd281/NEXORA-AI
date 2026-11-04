@@ -93,7 +93,9 @@ const errors: Catalog<typeof source> = {
   },
   api: {
     FILE_TOO_LARGE: 'الحد الأقصى لحجم الملف {limitMb} ميغابايت.',
-    UNSUPPORTED_FILE_TYPE: 'يقرأ JARVIS ملفات PDF وWord (.docx) والنصوص وMarkdown وCSV.',
+    // \u2066…\u2069 keeps “Word (.docx)” in order inside the right-to-left sentence.
+    UNSUPPORTED_FILE_TYPE:
+      'يقرأ JARVIS ملفات PDF و\u2066Word (.docx)\u2069 والنصوص وMarkdown وCSV.',
     FILE_CONTENT_MISMATCH: 'محتوى الملف لا يطابق نوعه.',
     FILE_EMPTY: 'الملف فارغ.',
     TOO_MANY_ATTACHMENTS: 'يمكنك إرفاق {max} ملفات كحد أقصى بالطلب الواحد.',
@@ -112,7 +114,8 @@ const errors: Catalog<typeof source> = {
     UNKNOWN_TIME_ZONE: 'لا يعرف الخادم هذه المنطقة الزمنية. اختر منطقة أخرى.',
     SCHEDULE_COMPLETED: 'لم يتبقَّ لهذا الجدول أي تنفيذ، لذا لا يمكن استئنافه.',
     WEBHOOK_LIMIT_REACHED: 'الحد الأقصى {max} نقاط نهاية للويب هوك.',
-    WEBHOOK_URL_INVALID: 'أدخل عنوانًا كاملًا يبدأ بـ https:// دون اسم مستخدم أو كلمة مرور أو جزء يبدأ بـ #.',
+    WEBHOOK_URL_INVALID:
+      'أدخل عنوانًا كاملًا يبدأ بـ https:// دون اسم مستخدم أو كلمة مرور أو جزء يبدأ بـ #.',
     WEBHOOK_URL_INSECURE: 'يجب أن تبدأ عناوين الويب هوك بـ https://.',
     WEBHOOK_URL_BLOCKED: '{host} موجود على شبكة خاصة أو محلية، لذلك لن يرسل JARVIS إليه.',
     WEBHOOK_DISABLED: 'نقطة النهاية هذه متوقفة. شغّلها لإرسال اختبار.',

@@ -109,12 +109,13 @@ const schedules: Catalog<typeof source> = {
     save: 'Änderungen speichern',
   },
   recurrence: {
-    daily: '{count, plural, one {Täglich um {time}} other {Alle # Tage um {time}}}',
-    weekly: '{count, plural, one {Jeden {days} um {time}} other {Alle # Wochen am {days} um {time}}}',
+    daily: '{count, plural, one {Täglich um {time} Uhr} other {Alle # Tage um {time} Uhr}}',
+    weekly:
+      '{count, plural, one {Jeden {days} um {time} Uhr} other {Alle # Wochen am {days} um {time} Uhr}}',
     workdays:
-      '{count, plural, one {Montag bis Freitag um {time}} other {Alle # Wochen, Montag bis Freitag, um {time}}}',
+      '{count, plural, one {Montag bis Freitag um {time} Uhr} other {Alle # Wochen, Montag bis Freitag, um {time} Uhr}}',
     monthly:
-      '{count, plural, one {Monatlich am {days} um {time}} other {Alle # Monate am {days} um {time}}}',
+      '{count, plural, one {Monatlich am {days} um {time} Uhr} other {Alle # Monate am {days} um {time} Uhr}}',
     ordinal: {
       one: '{n}.',
       two: '{n}.',
@@ -123,7 +124,7 @@ const schedules: Catalog<typeof source> = {
     },
     lastDay: 'letzten Tag',
     until: '{phrase}, bis {date}',
-    count: '{phrase}, {count, plural, one {einmal} other {# Mal}} insgesamt',
+    count: '{phrase}, insgesamt {count, plural, one {einmal} other {# Mal}}',
   },
 };
 

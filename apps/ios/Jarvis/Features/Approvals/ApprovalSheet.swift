@@ -98,11 +98,11 @@ struct ApprovalSheet: View {
                     ToneBadge(label: approval.status.label, systemImage: "info.circle", tone: .neutral)
                 }
             }
-            Text(approval.summary)
+            Text(approval.displaySummary)
                 .meridianFont(.title2)
                 .foregroundStyle(MeridianColor.textPrimary)
                 .accessibilityAddTraits(.isHeader)
-            Text("Part of “\(approval.taskTitle)”")
+            Text("Part of “\(approval.displayTaskTitle.bidiIsolated)”")
                 .meridianFont(.callout)
                 .foregroundStyle(MeridianColor.textSecondary)
             if approval.isExpired() {
@@ -117,9 +117,16 @@ struct ApprovalSheet: View {
 
     @ViewBuilder
     private var details: some View {
+        if let untrusted = approval.details.untrusted {
+            UntrustedSourceNote(source: untrusted)
+        }
         switch approval.details {
         case .email(let email):
             EmailPreview(email: email)
+        case .schedule(let action):
+            ScheduleActionPreview(action: action)
+        case .memory(let action):
+            MemoryActionPreview(action: action)
         case .generic(let action):
             Card {
                 Text(action.toolId.label)
@@ -139,6 +146,9 @@ struct ApprovalSheet: View {
                 }
             }
         case .unknown:
+            EmptyView()
+        }
+        if !approval.isReviewable {
             NoteView(
                 text: String(localized: "This version of the app can't show this kind of action, so it can't be approved here. Update the app or review it on the web."),
                 systemImage: "exclamationmark.triangle",
@@ -222,11 +232,11 @@ private struct EmailPreview: View {
 
     var body: some View {
         Card {
-            row(label: String(localized: "From"), value: email.from)
+            DetailRow(label: String(localized: "From"), value: email.from)
             Divider().overlay(MeridianColor.border)
-            row(label: String(localized: "To"), value: email.to.joined(separator: ", "))
+            DetailRow(label: String(localized: "To"), value: email.to.joined(separator: ", "))
             Divider().overlay(MeridianColor.border)
-            row(label: String(localized: "Subject"), value: email.subject)
+            DetailRow(label: String(localized: "Subject"), value: email.subject)
             Divider().overlay(MeridianColor.border)
             VStack(alignment: .leading, spacing: MeridianSpace.s2) {
                 Text("Message")
@@ -241,16 +251,114 @@ private struct EmailPreview: View {
             .accessibilityElement(children: .combine)
         }
     }
+}
 
-    private func row(label: String, value: String) -> some View {
+/// A schedule JARVIS will create: the exact request each run carries out, when it runs (in
+/// the schedule's zone) and the stored rule. Nothing about the runs is approved in advance.
+private struct ScheduleActionPreview: View {
+    let action: ApprovalDetails.ScheduleAction
+
+    var body: some View {
+        Card {
+            DetailRow(label: String(localized: "Name"), value: action.title)
+            Divider().overlay(MeridianColor.border)
+            DetailRow(label: String(localized: "Each run asks"), value: action.request)
+            Divider().overlay(MeridianColor.border)
+            DetailRow(label: String(localized: "Repeats"), value: RecurrenceText.describe(action.recurrence))
+            Divider().overlay(MeridianColor.border)
+            DetailRow(label: String(localized: "Time zone"), value: RecurrenceText.zoneName(action.recurrence.timeZone))
+            if !action.nextOccurrences.isEmpty {
+                Divider().overlay(MeridianColor.border)
+                VStack(alignment: .leading, spacing: MeridianSpace.s1) {
+                    Text("Next runs")
+                        .meridianFont(.label)
+                        .foregroundStyle(MeridianColor.textSecondary)
+                    ForEach(action.nextOccurrences, id: \.self) { date in
+                        Text(RecurrenceText.occurrence(date, zone: action.recurrence.timeZone))
+                            .meridianFont(.body)
+                            .foregroundStyle(MeridianColor.textPrimary)
+                    }
+                }
+                .accessibilityElement(children: .combine)
+            }
+            Divider().overlay(MeridianColor.border)
+            DetailRow(label: String(localized: "Rule (RFC 5545)"), value: action.rrule, monospaced: true)
+        }
+        NoteView(text: String(localized: "Nothing is approved in advance: every run is planned and checked on its own, and anything that needs your approval will ask you then."))
+    }
+}
+
+/// Text from an earlier result that JARVIS would keep in memory, exactly as it will be saved.
+private struct MemoryActionPreview: View {
+    let action: ApprovalDetails.MemoryAction
+
+    var body: some View {
+        Card {
+            DetailRow(label: String(localized: "Will be saved"), value: action.content)
+            Divider().overlay(MeridianColor.border)
+            DetailRow(label: String(localized: "Kind"), value: action.memoryKind.label)
+            if action.sourceTaskId != nil {
+                Divider().overlay(MeridianColor.border)
+                DetailRow(label: String(localized: "Taken from"), value: String(localized: "The result of an earlier task"))
+            }
+        }
+        NoteView(text: String(localized: "JARVIS keeps exactly this text. You can delete it in Memory later."))
+    }
+}
+
+/// Facts about content flagged as a suspected prompt injection (never the text itself).
+private struct UntrustedSourceNote: View {
+    let source: UntrustedSource
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MeridianSpace.s2) {
+            Label {
+                Text(headline)
+            } icon: {
+                Image(systemName: "exclamationmark.triangle")
+                    .accessibilityHidden(true)
+            }
+            .meridianFont(.bodyStrong)
+            .foregroundStyle(MeridianColor.danger)
+            if let excluded = source.excludedSentences, excluded > 0 {
+                Text("JARVIS left that text out of the summary.")
+                    .meridianFont(.callout)
+                    .foregroundStyle(MeridianColor.textPrimary)
+            }
+            Text("Check the details carefully before you approve.")
+                .meridianFont(.callout)
+                .foregroundStyle(MeridianColor.textPrimary)
+        }
+        .padding(MeridianSpace.s4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(MeridianColor.dangerSoft, in: RoundedRectangle(cornerRadius: MeridianRadius.lg, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+
+    private var headline: String {
+        if let host = source.host, !host.isEmpty {
+            return String(localized: "Text on \(host.bidiIsolated) tried to give instructions to AI assistants.")
+        }
+        return String(localized: "A source used for this tried to give instructions to AI assistants.")
+    }
+}
+
+/// A labelled value in an approval preview; values are selectable so they can be checked.
+private struct DetailRow: View {
+    let label: String
+    let value: String
+    var monospaced = false
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
                 .meridianFont(.label)
                 .foregroundStyle(MeridianColor.textSecondary)
             Text(value)
-                .meridianFont(.body)
+                .meridianFont(monospaced ? .mono : .body)
                 .foregroundStyle(MeridianColor.textPrimary)
                 .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)

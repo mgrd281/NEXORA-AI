@@ -88,7 +88,9 @@ export type MemoryKind = z.infer<typeof MemoryKind>;
 
 /**
  * In-app notification kinds. `data` carries localisation parameters only.
- *   schedule_failed   { scheduleTitle }  a scheduled run could not be created, or its task failed
+ *   schedule_failed   { scheduleTitle, taskTitle?, errorCode? }  a scheduled run could not be
+ *                     created (scheduleTitle only), or its task failed (with the task's title and
+ *                     error code); it replaces task_failed for that task (one notification, not two)
  *   schedule_paused   { scheduleTitle, reason: 'failures' | 'budget' }  paused automatically
  *   webhook_disabled  { endpointHost }   disabled after repeated failed deliveries
  */
@@ -275,6 +277,11 @@ export type SchedulePauseReason = z.infer<typeof SchedulePauseReason>;
 export const ScheduleRunStatus = z.enum(['created', 'skipped', 'failed']);
 export type ScheduleRunStatus = z.infer<typeof ScheduleRunStatus>;
 
+/**
+ * Why a run created no task (schedule_runs.reason; also WebhookScheduleData.reason). A
+ * schedule.failed webhook for a pause after repeated failed runs carries reason null, with
+ * status 'paused' and consecutiveFailures ≥ SCHEDULE_LIMITS.failuresBeforePause.
+ */
 export const ScheduleRunReason = z.enum(['BUDGET_EXHAUSTED', 'SCHEDULE_PAUSED', 'CREATE_FAILED']);
 export type ScheduleRunReason = z.infer<typeof ScheduleRunReason>;
 

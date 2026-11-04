@@ -85,6 +85,7 @@ const common: Catalog<typeof source> = {
   },
   outcome: {
     question: 'بانتظار إجابتك',
+    answered: 'تمت الإجابة',
   },
   source: {
     text: 'مكتوبة',

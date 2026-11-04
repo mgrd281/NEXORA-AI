@@ -278,7 +278,12 @@ export async function recordAttempt(
       await appendEvent(trx, ctx, {
         taskId: null,
         type: 'webhook.endpoint_changed',
-        data: { endpointId: endpoint.id, status: 'disabled', disabledReason: 'failures' },
+        data: {
+          endpointId: endpoint.id,
+          change: 'disabled',
+          status: 'disabled',
+          disabledReason: 'failures',
+        },
       });
       await audit(trx, {
         tenantId: ctx.tenantId,

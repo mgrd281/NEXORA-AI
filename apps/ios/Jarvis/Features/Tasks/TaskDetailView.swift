@@ -7,9 +7,11 @@ struct TaskDetailView: View {
     @State private var confirmingCancel = false
     @State private var confirmingRetry = false
     @State private var confirmingUnknownOutcomeRetry = false
+    private let showsConversationLink: Bool
 
-    init(taskId: String) {
+    init(taskId: String, showsConversationLink: Bool = true) {
         _model = State(initialValue: TaskDetailModel(taskId: taskId))
+        self.showsConversationLink = showsConversationLink
     }
 
     var body: some View {
@@ -86,6 +88,9 @@ struct TaskDetailView: View {
                 .meridianFont(.body)
                 .foregroundStyle(MeridianColor.textPrimary)
                 .textSelection(.enabled)
+            if let attachments = detail.attachments, !attachments.isEmpty {
+                AttachedFilesView(attachments: attachments)
+            }
         }
 
         if let approval = detail.pendingApproval, approval.status == .pending {
@@ -94,7 +99,15 @@ struct TaskDetailView: View {
             }
         }
 
-        if let answer = model.answer {
+        if detail.needsAnswer, let question = detail.question {
+            QuestionCard(question: question) {
+                NavigationLink(value: ConversationRoute(id: detail.conversationId, answering: true)) {
+                    Label("Reply", systemImage: MeridianIcon.question)
+                }
+                .buttonStyle(.meridianPrimary)
+                .accessibilityHint(Text("Opens the conversation with the reply field ready"))
+            }
+        } else if let answer = model.answer {
             Card {
                 Text("Answer")
                     .meridianFont(.label)
@@ -104,7 +117,7 @@ struct TaskDetailView: View {
                     .foregroundStyle(MeridianColor.textPrimary)
                     .textSelection(.enabled)
             }
-        } else if let result = detail.resultSummary, !result.isEmpty {
+        } else if let result = detail.displayResult, !result.isEmpty {
             Card {
                 Text("Result")
                     .meridianFont(.label)
@@ -121,6 +134,8 @@ struct TaskDetailView: View {
         }
 
         actions(detail)
+
+        links(detail)
 
         if !detail.steps.isEmpty {
             VStack(alignment: .leading, spacing: MeridianSpace.s3) {
@@ -158,7 +173,7 @@ struct TaskDetailView: View {
 
     private func header(_ detail: TaskDetail) -> some View {
         VStack(alignment: .leading, spacing: MeridianSpace.s3) {
-            Text(detail.title)
+            Text(detail.displayTitle)
                 .meridianFont(.title1)
                 .foregroundStyle(MeridianColor.textPrimary)
                 .accessibilityAddTraits(.isHeader)
@@ -182,7 +197,7 @@ struct TaskDetailView: View {
 
     @ViewBuilder
     private func headerBadges(_ detail: TaskDetail) -> some View {
-        StatusBadge(status: detail.status)
+        StatusBadge(status: detail.status, outcome: detail.outcome)
         RiskBadge(level: detail.riskLevel)
     }
 
@@ -195,12 +210,10 @@ struct TaskDetailView: View {
             }
             .meridianFont(.bodyStrong)
             .foregroundStyle(MeridianColor.danger)
-            if !error.message.isEmpty {
-                Text(error.message)
-                    .meridianFont(.callout)
-                    .foregroundStyle(MeridianColor.textPrimary)
-                    .textSelection(.enabled)
-            }
+            Text(TaskErrorText.describe(error))
+                .meridianFont(.callout)
+                .foregroundStyle(MeridianColor.textPrimary)
+                .textSelection(.enabled)
             if unknownOutcome {
                 Text("JARVIS can't tell whether this action took effect. Check before retrying, so it isn't done twice.")
                     .meridianFont(.callout)
@@ -245,6 +258,35 @@ struct TaskDetailView: View {
                     }
                     .buttonStyle(.meridianDestructive)
                     .disabled(model.isPerformingAction)
+                }
+            }
+        }
+    }
+
+    /// Where this task belongs: its conversation (follow-ups happen there) and its schedule.
+    @ViewBuilder
+    private func links(_ detail: TaskDetail) -> some View {
+        if showsConversationLink || detail.scheduleId != nil {
+            VStack(spacing: MeridianSpace.s2) {
+                if showsConversationLink, detail.status.isTerminal, !detail.needsAnswer {
+                    NavigationLink(value: ConversationRoute(id: detail.conversationId, answering: true)) {
+                        Label("Follow up", systemImage: "arrowshape.turn.up.left")
+                    }
+                    .buttonStyle(.meridianPrimary)
+                    .accessibilityHint(Text("Opens the conversation with the reply field ready"))
+                }
+                if showsConversationLink {
+                    NavigationLink(value: ConversationRoute(id: detail.conversationId)) {
+                        Label("Open conversation", systemImage: MeridianIcon.conversations)
+                    }
+                    .buttonStyle(.meridianSecondary)
+                    .accessibilityHint(Text("Shows this request with its follow-ups, where you can send another"))
+                }
+                if let scheduleId = detail.scheduleId {
+                    NavigationLink(value: ScheduleRoute(id: scheduleId)) {
+                        Label("Open schedule", systemImage: MeridianIcon.schedules)
+                    }
+                    .buttonStyle(.meridianSecondary)
                 }
             }
         }
@@ -322,7 +364,7 @@ private struct StepCard: View {
                     .foregroundStyle(MeridianColor.textTertiary)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: MeridianSpace.s1) {
-                    Text(step.title)
+                    Text(step.displayTitle)
                         .meridianFont(.bodyStrong)
                         .foregroundStyle(MeridianColor.textPrimary)
                     Text(step.toolId.label)
@@ -335,7 +377,7 @@ private struct StepCard: View {
                 VStack(alignment: .leading, spacing: MeridianSpace.s2) { badges }
             }
             if let error = step.error {
-                Text(error.message.isEmpty ? ErrorText.title(for: error.code) : error.message)
+                Text(TaskErrorText.describe(error))
                     .meridianFont(.callout)
                     .foregroundStyle(MeridianColor.danger)
             }

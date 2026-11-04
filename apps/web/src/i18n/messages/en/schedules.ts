@@ -3,7 +3,8 @@ const schedules = {
     'Requests JARVIS runs for you on a schedule. Every run is planned and checked like a new request, and anything that needs your approval still asks you.',
   new: 'New schedule',
   listLabel: 'Schedules',
-  empty: 'Nothing is scheduled yet. Schedule a request to have JARVIS run it every day, week or month.',
+  empty:
+    'Nothing is scheduled yet. Schedule a request to have JARVIS run it every day, week or month.',
   loading: 'Loading schedules…',
   loadError: 'Couldn’t load your schedules.',
   limit: '{count} of {max} schedules',
@@ -106,7 +107,8 @@ const schedules = {
   /** Recurrence phrased from its fields (no server prose). {time} is the local time of day. */
   recurrence: {
     daily: '{count, plural, one {Every day at {time}} other {Every # days at {time}}}',
-    weekly: '{count, plural, one {Every {days} at {time}} other {Every # weeks on {days} at {time}}}',
+    weekly:
+      '{count, plural, one {Every {days} at {time}} other {Every # weeks on {days} at {time}}}',
     workdays:
       '{count, plural, one {Monday to Friday at {time}} other {Every # weeks, Monday to Friday, at {time}}}',
     monthly:

@@ -1,0 +1,39 @@
+{
+  "id": "9d9745d4-f75d-4db4-a69b-6b302d688e3a",
+  "email": "owner@example.com",
+  "displayName": "Ada Lovelace",
+  "locale": "de",
+  "timeZone": "Europe/Berlin",
+  "theme": "dark",
+  "roles": [
+    "owner"
+  ],
+  "tenant": {
+    "id": "0df850ac-f847-4cce-a044-6b113947ac91",
+    "name": "Personal"
+  },
+  "preferences": {
+    "voice": {
+      "speakResponses": true,
+      "recognitionLocale": "de-DE"
+    },
+    "autonomy": {
+      "autoApproveEmailToSelf": false
+    },
+    "ai": {
+      "allowExternalModels": true
+    },
+    "notifications": {
+      "approvalRequested": true,
+      "taskCompleted": true,
+      "taskFailed": false
+    },
+    "spending": {
+      "monthlyAiBudgetUsd": 20
+    },
+    "memory": {
+      "enabled": true
+    }
+  },
+  "createdAt": "2026-10-01T08:00:00.000Z"
+}

@@ -431,7 +431,7 @@ extension Schedule {
             switch pausedReason {
             case .user: return String(localized: "Paused by you.")
             case .failures:
-                return String(localized: "Paused after several failed runs in a row (failed runs: \(consecutiveFailures.formatted())).")
+                return String(localized: "Paused after \(consecutiveFailures.formatted()) failed runs in a row.")
             case .budget: return String(localized: "Paused because this month's AI budget is used up.")
             case .unknown, .none: return String(localized: "Paused.")
             }
@@ -479,5 +479,40 @@ extension ScheduleRunReason {
         case .createFailed: String(localized: "The task couldn't be created.")
         case .unknown: String(localized: "It didn't run.")
         }
+    }
+}
+
+extension ScheduleFrequency {
+    var label: String {
+        switch self {
+        case .daily: String(localized: "Daily")
+        case .weekly: String(localized: "Weekly")
+        case .monthly: String(localized: "Monthly")
+        case .unknown: String(localized: "Other")
+        }
+    }
+}
+
+extension RetentionSetting {
+    var label: String {
+        switch self {
+        case .forever: String(localized: "Until I delete them")
+        case .days(let days): Self.period(days: days)
+        }
+    }
+
+    /// "30 days", "1 year" in the app's language (plural forms by the formatter).
+    static func period(days: Int) -> String {
+        let formatter = DateComponentsFormatter()
+        formatter.unitsStyle = .full
+        var components = DateComponents()
+        if days % 365 == 0 {
+            formatter.allowedUnits = [.year]
+            components.year = days / 365
+        } else {
+            formatter.allowedUnits = [.day]
+            components.day = days
+        }
+        return formatter.string(from: components) ?? days.formatted()
     }
 }

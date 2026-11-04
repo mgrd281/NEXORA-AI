@@ -1,0 +1,9 @@
+{
+  "rrule": "DTSTART;TZID=Europe/Berlin:20261105T090000\nRRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=TH;BYHOUR=9;BYMINUTE=0;BYSECOND=0",
+  "occurrences": [
+    "2026-11-05T08:00:00.000Z",
+    "2026-11-19T08:00:00.000Z",
+    "2026-12-03T08:00:00.000Z"
+  ],
+  "timeZone": "Europe/Berlin"
+}

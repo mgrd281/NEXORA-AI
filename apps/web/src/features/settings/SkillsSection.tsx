@@ -78,7 +78,11 @@ export function SkillsSection() {
   const built = items.filter((s) => s.status !== 'planned');
   const planned = items.filter((s) => s.status === 'planned');
   return (
-    <SettingsSection id="skills" title={t('settings.sections.skills')} description={t('skills.description')}>
+    <SettingsSection
+      id="skills"
+      title={t('settings.sections.skills')}
+      description={t('skills.description')}
+    >
       {skills.isPending ? (
         <div className={styles.skeletonCard} aria-busy="true">
           <span className="visually-hidden" role="status">
@@ -125,9 +129,7 @@ export function SkillsSection() {
                     </span>
                     <span className={styles.plannedText}>
                       <span className={styles.plannedName}>{t(skillNameKey(skill.id))}</span>
-                      <span className={styles.rowText}>
-                        {t(`skills.descriptions.${skill.id}`)}
-                      </span>
+                      <span className={styles.rowText}>{t(`skills.descriptions.${skill.id}`)}</span>
                     </span>
                     <StatusPill
                       tone="neutral"
@@ -152,7 +154,8 @@ function SkillRow({ skill }: { skill: Skill }) {
   const queryClient = useQueryClient();
   const name = t(skillNameKey(skill.id));
   const save = useMutation<Skill, ApiError, boolean>({
-    mutationFn: (enabled) => api.call('updateSkill', { params: { id: skill.id }, body: { enabled } }),
+    mutationFn: (enabled) =>
+      api.call('updateSkill', { params: { id: skill.id }, body: { enabled } }),
     onSuccess: (next) => {
       queryClient.setQueryData<{ items: Skill[] }>(qk.skills, (prev) =>
         prev ? { items: prev.items.map((s) => (s.id === next.id ? next : s)) } : prev,
@@ -161,23 +164,26 @@ function SkillRow({ skill }: { skill: Skill }) {
       void queryClient.invalidateQueries({ queryKey: qk.assistantStatus });
       void queryClient.invalidateQueries({ queryKey: qk.skills });
       if (next.id === 'personal-memory') void queryClient.invalidateQueries({ queryKey: qk.me });
-      toast({ message: next.enabled ? t('skills.turnedOn', { name }) : t('skills.turnedOff', { name }) });
+      toast({
+        message: next.enabled ? t('skills.turnedOn', { name }) : t('skills.turnedOff', { name }),
+      });
     },
   });
 
-  const reason =
-    skill.unavailableReason && skill.unavailableReason !== 'DISABLED_BY_USER'
-      ? skill.unavailableReason === 'CONNECTION_REQUIRED'
-        ? t('skills.reasons.CONNECTION_REQUIRED', {
-            connections: f.list(skill.requiredConnections.map((c) => t(`skills.connections.${c}`))),
-          })
-        : t(`skills.reasons.${skill.unavailableReason}`)
-      : null;
+  // Why it can't run now — including "turned off", which says what that means for requests.
+  const reason = skill.unavailableReason
+    ? skill.unavailableReason === 'CONNECTION_REQUIRED'
+      ? t('skills.reasons.CONNECTION_REQUIRED', {
+          connections: f.list(skill.requiredConnections.map((c) => t(`skills.connections.${c}`))),
+        })
+      : t(`skills.reasons.${skill.unavailableReason}`)
+    : null;
   const description = (
     <>
       <span className={styles.skillDescription}>{t(`skills.descriptions.${skill.id}`)}</span>
       <span className={styles.skillRisk}>{t(`skills.risk.${skill.maxRisk}`)}</span>
-      {skill.modelUse === 'required' && (
+      {/* The model need, unless the reason line already says it is missing right now. */}
+      {skill.modelUse === 'required' && skill.unavailableReason !== 'MODEL_REQUIRED' && (
         <span className={styles.skillRisk}>{t('skills.model.required')}</span>
       )}
       {skill.id === 'personal-memory' && (
@@ -249,7 +255,10 @@ function SkillRow({ skill }: { skill: Skill }) {
           }}
         />
       </div>
-      <SaveStatus state={save.isPending ? 'saving' : save.isError ? 'error' : 'idle'} error={save.error} />
+      <SaveStatus
+        state={save.isPending ? 'saving' : save.isError ? 'error' : 'idle'}
+        error={save.error}
+      />
     </SettingRow>
   );
 }

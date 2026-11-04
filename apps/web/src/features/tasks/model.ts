@@ -902,6 +902,43 @@ export function writtenSummary(
   return str(step?.output?.summary)?.trim() ?? null;
 }
 
+export type WrittenKind = 'summary' | 'answer' | 'translation';
+
+/**
+ * The text JARVIS wrote as the task's deliverable: the last successful summary (of a page or a
+ * document), answer about a document, or translation. Step outputs are previews (cut at about
+ * 1,200 characters); the conversation's JARVIS message has the whole text.
+ */
+export function writtenResult(
+  steps: readonly Pick<TaskStep, 'toolId' | 'status' | 'output' | 'inputPreview'>[],
+): { text: string; kind: WrittenKind } | null {
+  const step = [...steps]
+    .reverse()
+    .find(
+      (s) =>
+        s.status === 'SUCCEEDED' &&
+        (s.toolId === 'text.summarize' ||
+          s.toolId === 'document.analyze' ||
+          s.toolId === 'text.translate'),
+    );
+  if (!step) return null;
+  const out = step.output ?? {};
+  const text =
+    step.toolId === 'text.summarize'
+      ? str(out.summary)
+      : step.toolId === 'text.translate'
+        ? str(out.translation)
+        : str(out.result);
+  if (!text?.trim()) return null;
+  const kind: WrittenKind =
+    step.toolId === 'text.translate'
+      ? 'translation'
+      : step.toolId === 'document.analyze' && step.inputPreview?.mode === 'answer'
+        ? 'answer'
+        : 'summary';
+  return { text: text.trim(), kind };
+}
+
 /** What JARVIS saved to memory: the successful memory step's content. */
 export function savedMemory(steps: readonly Pick<TaskStep, 'toolId' | 'status' | 'output'>[]) {
   const step = [...steps]

@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { SkeletonRow } from '@/components/ui/Skeleton';
 import { useI18n } from '@/i18n/I18nProvider';
+import { answeredQuestions } from '@/features/conversations/model';
 import { useApprovals } from '@/lib/api/hooks';
 import { useTaskList } from './api';
 import {
@@ -104,6 +105,8 @@ function TaskList({ filter }: { filter: TaskFilter }) {
   const [focusIndex, setFocusIndex] = useState<number | null>(null);
 
   const tasks = list.data?.pages.flatMap((p) => p.items) ?? [];
+  // Questions a later request already answered read "Answered" (when that request is loaded).
+  const answered = answeredQuestions(tasks);
 
   // After a decision, the Review button disappears once the list refreshes: focus the task.
   useEffect(() => {
@@ -193,7 +196,12 @@ function TaskList({ filter }: { filter: TaskFilter }) {
           aria-label={t('tasks.list.label', { filter: filterName })}
         >
           {tasks.map((task) => (
-            <TaskRow key={task.id} task={task} onReviewApproval={onReview} />
+            <TaskRow
+              key={task.id}
+              task={task}
+              onReviewApproval={onReview}
+              answered={answered.has(task.id)}
+            />
           ))}
         </ul>
       </Card>

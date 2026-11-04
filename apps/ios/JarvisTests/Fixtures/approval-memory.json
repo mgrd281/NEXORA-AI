@@ -1,0 +1,36 @@
+{
+  "id": "6a2b3c4d-5e6f-4a8b-9cad-becfd0e1f20c",
+  "taskId": "9a4f2b3c-5d6e-4f70-8b1c-2d3e4f5a6b72",
+  "taskTitle": "Remember the result of “Summarize Quarterly report – Q3.pdf”",
+  "stepId": "7b3c4d5e-6f7a-4b9c-8dbe-cfd0e1f2031d",
+  "toolId": "memory.save",
+  "status": "PENDING",
+  "riskLevel": "LOW",
+  "summary": "Save to memory: “Revenue grew 12 % in Q3”.",
+  "details": {
+    "kind": "memory",
+    "content": "Revenue grew 12 % in Q3",
+    "memoryKind": "fact",
+    "sourceTaskId": "8f3e1a2b-4c5d-4e6f-9a0b-1c2d3e4f5a61"
+  },
+  "actionHash": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+  "reasons": [
+    "MEMORY_FROM_CONTENT"
+  ],
+  "expiresAt": "2026-11-04T15:04:09.000Z",
+  "decidedAt": null,
+  "decisionNote": null,
+  "createdAt": "2026-11-03T15:04:09+00:00",
+  "taskTitleMessage": {
+    "key": "plan.rememberResult",
+    "params": {
+      "title": "Summarize Quarterly report – Q3.pdf"
+    }
+  },
+  "summaryMessage": {
+    "key": "approval.memory",
+    "params": {
+      "text": "Revenue grew 12 % in Q3"
+    }
+  }
+}

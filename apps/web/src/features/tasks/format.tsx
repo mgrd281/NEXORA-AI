@@ -65,7 +65,8 @@ export function useByteFormat() {
         new Intl.NumberFormat(f.intlLocale, {
           style: 'unit',
           unit,
-          unitDisplay: 'short',
+          // "15 bytes" (CLDR's short form is "15 byte"); "1.3 MB" for the larger units.
+          unitDisplay: i === 0 ? 'long' : 'short',
           maximumFractionDigits: i < 2 ? 0 : 1,
         }),
     );

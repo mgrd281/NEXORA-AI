@@ -19,30 +19,43 @@ engineering and security agree on a capability before it ships.
 4. Every skill defines verification criteria; "done" without evidence is not done.
 5. Every skill states its cost profile and stays within the user's monthly AI budget.
 
-## How skills exist in Milestone 1
+## How skills exist at runtime (Phase B)
 
-There is **no runtime skill registry** in Milestone 1: the planner receives the catalog of available
-tools and composes them directly ([agent runtime](../architecture/agent-runtime.md#3-planning)).
-These documents are the specification layer. A machine-readable skill manifest (planner guidance,
-examples, allowed tools, evaluation set) is planned for Phase 2; it will be loaded by the planner,
-and it will still have no influence on policy.
+Skills are a **static, versioned registry compiled into the server**:
+`apps/api/src/modules/agent/skills/registry.ts` holds the 12 `SkillDefinition`s (id, version,
+status, owned and used tools, input/output schemas, permissions, max risk, required connections,
+model use, cost limit per run, execution policy, verification, error handling, whether the user may
+switch it off). Every tool belongs to exactly one skill (`skillOfTool`, checked when the module
+loads and by a unit test). `GET /v1/skills` reports each skill's real availability for the signed-in
+user (`PLANNED`, `DISABLED_BY_USER`, `CONNECTION_REQUIRED`, `MODEL_REQUIRED`, `MEMORY_DISABLED`,
+`STORAGE_NOT_CONFIGURED`); `PATCH /v1/skills/:id` switches an implemented, switchable skill on or
+off (a user preference; personal-memory mirrors `memory.enabled`).
+
+The Policy Engine uses skills only to **restrict**: a disabled skill's tools are hidden from the
+planner and denied (`SKILL_DISABLED`), a run over the skill's cost limit needs approval
+(`SKILL_COST_LIMIT`). No skill input can turn a deny into an allow, lower a risk or skip an approval
+(unit-tested in `test/unit/agent/skills-policy.test.ts`).
+
+**Third-party skill code is not loadable.** There is no plugin directory, no dynamic import, and no
+manifest read from the database or the network: a new skill is a reviewed code change to the
+registry and its tools, shipped with the server.
 
 ## Catalog
 
-| Skill                                         | Status                                                                               | Tools                                                                       | Max risk                                                  | Phase |
-| --------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- | --------------------------------------------------------- | ----- |
-| [web-research](web-research.md)               | Partially implemented — Milestone 1 (in progress): read and summarise one page       | `web.fetch`, `text.summarize`                                               | LOW                                                       | 1 → 2 |
-| [email-management](email-management.md)       | Partially implemented — Milestone 1 (in progress): send via SMTP                     | `email.send`                                                                | HIGH                                                      | 1 → 4 |
-| [calendar-management](calendar-management.md) | Planned                                                                              | `calendar.*` (planned)                                                      | HIGH                                                      | 4     |
-| [appointment-booking](appointment-booking.md) | Planned                                                                              | `browser.*`, `calendar.*`, `phone.call` (planned)                           | HIGH                                                      | 4–5   |
-| [phone-calling](phone-calling.md)             | Planned                                                                              | `phone.call` (planned)                                                      | HIGH                                                      | 5     |
-| [shopping-assistant](shopping-assistant.md)   | Planned                                                                              | `web.fetch`, `browser.*` (planned), `commerce.purchase` (planned, CRITICAL) | CRITICAL (purchase denied until CRITICAL handling exists) | 4+    |
-| [document-analysis](document-analysis.md)     | Planned                                                                              | `document.extract` (planned), `text.summarize`                              | LOW                                                       | 2     |
-| [task-scheduling](task-scheduling.md)         | Planned                                                                              | `schedule.create` (planned)                                                 | MEDIUM                                                    | 2     |
-| [personal-memory](personal-memory.md)         | Implemented — Milestone 1 (in progress)                                              | `memory.save`; Memory API                                                   | LOW                                                       | 1     |
-| [device-automation](device-automation.md)     | Planned                                                                              | App Intents / Shortcuts bridge (planned)                                    | MEDIUM                                                    | 3, 6  |
-| [translation](translation.md)                 | Planned as a dedicated skill; questions answered by `assistant.answer` in model mode | `assistant.answer`; `text.translate` (planned)                              | LOW                                                       | 2     |
-| [workflow-planning](workflow-planning.md)     | Implemented — Milestone 1 (in progress)                                              | Planner, `validatePlan`, Policy Engine                                      | — (meta)                                                  | 1     |
+| Skill                                         | Status (Phase B)                                                | Tools                                                                       | Max risk                                                  | Switchable               |
+| --------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------ |
+| [web-research](web-research.md)               | Implemented: read and summarise a page the user names           | `web.fetch`, `text.summarize`                                               | LOW                                                       | yes                      |
+| [email-management](email-management.md)       | Implemented: send via SMTP (needs the email connection)         | `email.send`                                                                | HIGH                                                      | yes                      |
+| [calendar-management](calendar-management.md) | Planned                                                         | `calendar.*` (planned)                                                      | HIGH                                                      | —                        |
+| [appointment-booking](appointment-booking.md) | Planned                                                         | `browser.*`, `calendar.*`, `phone.call` (planned)                           | HIGH                                                      | —                        |
+| [phone-calling](phone-calling.md)             | Planned                                                         | `phone.call` (planned)                                                      | HIGH                                                      | —                        |
+| [shopping-assistant](shopping-assistant.md)   | Planned                                                         | `web.fetch`, `browser.*` (planned), `commerce.purchase` (planned, CRITICAL) | CRITICAL (purchase denied until CRITICAL handling exists) | —                        |
+| [document-analysis](document-analysis.md)     | Implemented: PDF, DOCX, TXT, MD, CSV uploads; summary or answer | `document.analyze`                                                          | LOW                                                       | yes                      |
+| [task-scheduling](task-scheduling.md)         | Implemented: schedules (CRUD) and JARVIS-proposed schedules     | `schedule.create`                                                           | MEDIUM                                                    | yes                      |
+| [personal-memory](personal-memory.md)         | Implemented                                                     | `memory.save`; Memory API                                                   | LOW                                                       | yes (= `memory.enabled`) |
+| [device-automation](device-automation.md)     | Planned                                                         | App Intents / Shortcuts bridge (planned)                                    | MEDIUM                                                    | —                        |
+| [translation](translation.md)                 | Implemented (needs an AI model; offline: honestly unsupported)  | `text.translate`                                                            | LOW                                                       | yes                      |
+| [workflow-planning](workflow-planning.md)     | Implemented (core)                                              | `assistant.answer`, `assistant.clarify`, `conversation.recall`; planner     | LOW                                                       | no (core)                |
 
 ## Document template
 

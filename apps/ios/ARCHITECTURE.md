@@ -11,11 +11,14 @@ apps/ios
 ├── project.yml                 XcodeGen spec (app + JarvisTests, iOS 18, Swift 6)
 ├── Config/                     Debug/Release xcconfig (JARVIS_API_BASE_URL), optional Local.xcconfig
 ├── Jarvis
-│   ├── App                     JarvisApp (@main), RootView/TabView, AppModel, LiveEvents,
-│   │                           AppConfiguration (API address policy), ErrorText (localized error copy)
+│   ├── App                     JarvisApp (@main), RootView/TabView, AppModel, LiveEvents, Navigation
+│   │                           (routes + shared destinations), AppConfiguration (API address policy),
+│   │                           ErrorText (code, ApiErrorReason and TaskErrorReason copy)
 │   ├── Core
 │   │   ├── Models              Codable mirrors of packages/contracts (enums with .unknown,
-│   │   │                       JSONValue, ISO 8601 decoding, task state machine)
+│   │   │                       JSONValue, ISO 8601 decoding, task state machine, ServerMessage
+│   │   │                       rendering, conversations, attachments + client checks, skills,
+│   │   │                       schedules/recurrence, time zones)
 │   │   ├── Networking          APIClient (actor) + typed endpoints, ApiError/NetworkError,
 │   │   │                       SSE line splitter + parser, EventStream (reconnecting SSE)
 │   │   └── Storage             KeychainStore, CredentialStore
@@ -26,14 +29,22 @@ apps/ios
 │   │   ├── Auth                SignInView
 │   │   ├── Home                HomeView, HomeModel, CommandComposer, HomeCopy
 │   │   ├── Tasks               TaskListView/Model, TaskDetailView/Model, TaskRow, TaskEventText
-│   │   ├── Approvals           ApprovalCard, ApprovalSheet (+ decision model)
+│   │   ├── Conversations       ConversationListView/Model, ConversationThreadView/Model, QuestionCard
+│   │   ├── Attachments         AttachmentDraft (pick, check, upload with progress), tray, attach
+│   │   │                       buttons, AttachedFilesView (download → Quick Look/share)
+│   │   ├── Schedules           SchedulesView/Model, ScheduleDetailView, ScheduleEditorView,
+│   │   │                       RecurrenceText (recurrence phrased from its fields)
+│   │   ├── Approvals           ApprovalCard, ApprovalSheet (+ decision model; email, generic,
+│   │   │                       schedule and memory previews; untrusted-source facts)
 │   │   ├── Voice               VoiceCaptureView/Model, SpeechSession, ResponseSpeaker
 │   │   ├── Memory              MemoryView, MemoryModel
-│   │   └── Settings            SettingsView/Model, SessionsView
+│   │   └── Settings            SettingsView/Model, SessionsView, SkillsView (read-only),
+│   │                           TimeZonePickerView (zones the server accepts), retention
 │   ├── Intents                 AskJarvisIntent + JarvisShortcuts (Siri / Shortcuts)
 │   └── Resources               Info.plist, Localizable/InfoPlist/AppShortcuts.xcstrings, Assets
 ├── JarvisTests                 Swift Testing suites + JSON fixtures
-└── scripts                     validate-fixtures.ts, lint-strings.mjs, check-swift.mjs, make-app-icon.mjs
+└── scripts                     validate-fixtures.ts, check-contract-copy.ts, lint-strings.mjs,
+                                check-swift.mjs, make-app-icon.mjs
 ```
 
 ## Data flow
@@ -64,6 +75,36 @@ apps/ios
 - **Updates are refetches, not local guesses.** A task event schedules a debounced
   reload of the affected screen; only `task.answer.delta` text is appended locally, and
   it is replaced by the stored answer on the next load.
+
+## Phase B: conversations, questions, files, schedules
+
+- **Navigation.** Each tab's `NavigationStack` registers every destination once with
+  `jarvisDestinations()` (task, conversation, schedule, schedules list), so a task links to
+  its conversation and a conversation to its schedule from any tab. Home and Tasks use a
+  type-erased `NavigationPath`.
+- **Follow-ups.** The thread model keeps every turn loaded so far and merges a refetched
+  newest page by task (each task keeps its position, its turns come from the freshest page),
+  so loading earlier pages and live refreshes never drop or duplicate turns. A follow-up uses
+  one idempotency key per (conversation, text, files); `409 CONVERSATION_BUSY` is explained
+  from `error.details.reason`, and the composer is disabled while `canFollowUp` is false.
+- **Clarifying questions** are completed tasks with `outcome: "question"`: the badge says
+  "Needs your answer", and answering is a follow-up in the same conversation.
+- **Attachments.** Files are read from the Files picker (security-scoped, size checked before
+  reading), checked like the server checks them (extension list, PDF magic, DOCX zip naming
+  `word/document.xml`, UTF-8 text without NUL), uploaded as one multipart part named `file`
+  with a per-task progress delegate, and named by id in the request. The server stays
+  authoritative (it sniffs again). Downloads go to a per-file temporary folder with complete
+  file protection and are deleted when Quick Look closes. File names are user content and are
+  shown bidi-isolated.
+- **Schedules.** Recurrences are phrased on the device from their fields (no server prose):
+  plural forms come from `DateComponentsFormatter`, weekday names from the calendar, times are
+  formatted in the schedule's own zone. The editor shows the server's preview
+  (`POST /v1/schedules/preview`) of the next runs; nothing is saved until Create/Save.
+- **Server sentences.** `ServerMessage { key, params }` (titles, objectives, step titles,
+  approval summaries, result lines, questions, also `titleMessage` inside events) render in
+  the app's language from catalog keys `server.<key>`; an unknown key or a missing parameter
+  falls back to the server's text. Task and step errors show the `TaskErrorReason` sentence
+  (with parameters), else the code's sentence — never the server's English `message`.
 
 ## Presence
 
@@ -145,13 +186,19 @@ capturing).
 Verified in this repository's Linux environment (no Xcode, no Swift toolchain):
 
 - All JSON test fixtures parse with the matching Zod schemas from `@jarvis/contracts`
-  and round-trip unchanged; `unknown-values.json` is rejected exactly at its 12
-  deliberately unknown enum fields (`scripts/validate-fixtures.ts`).
+  and round-trip unchanged; the four `unknown-values*.json` fixtures are rejected exactly at
+  their deliberately unknown enum fields and union variants; `me-before-phase-b.json` parses
+  with only the contract defaults for `retention` and `skills` (`scripts/validate-fixtures.ts`).
+- Every Swift enum mirrors its contract enum (plus `unknown`); every `ServerMessageKey`
+  renders from a catalog entry whose en/de/ar equal the API's canonical templates; every
+  `TaskErrorReason`, `PolicyReason` and non-webhook `ApiErrorReason` has copy
+  (`scripts/check-contract-copy.ts`).
 - The String Catalogs are valid JSON with translated en/de/ar values for every key, matching
   format specifiers, and coverage of every localizable literal in the Swift sources
   (`scripts/lint-strings.mjs`).
-- Every Swift file parses with the tree-sitter Swift grammar (0.7.1, run ad hoc outside the
-  repository), and `scripts/check-swift.mjs` finds balanced delimiters and no
+- Every Swift file parses with the tree-sitter Swift grammar 0.7.1
+  (`scripts/check-swift.mjs --tree-sitter <dir>`, grammar installed outside the repository),
+  and `scripts/check-swift.mjs` finds balanced delimiters and no
   `try!`/`as!`/`fatalError`/`print` in app code.
 
 **Not verified:** compilation and type-checking, the Swift Testing suites, running the app
@@ -162,4 +209,7 @@ build may surface compiler errors that static checks cannot catch.
 ## Not in this slice
 
 Push notifications, an in-app notifications list, connecting services (done on the web;
-the app lists connections read-only), offline caching, and an iPad layout.
+the app lists connections read-only), webhook management and switching skills on or off
+(both on the web; the app shows the skills catalog read-only), editing a schedule's end
+(`until`/`count`) or several days of the month (kept as they are; changed on the web),
+offline caching, and an iPad layout.

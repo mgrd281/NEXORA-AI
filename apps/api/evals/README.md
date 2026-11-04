@@ -30,7 +30,6 @@ src/runners/model.ts     model planner: Anthropic adapter (key) or scripted plan
 src/runners/pipeline.ts  AgentServices + worker runOnce on the eval database
 src/runners/common.ts    planner input, agent context, policy pass with taint simulation
 src/report.ts            JSON/Markdown reports, baseline, regression gate
-src/interop.mjs          rrule ESM interop for tsx (see docs/evals.md "Known issues")
 scenarios/<suite>/*.json one scenario per file, named <id>.json
 fixtures/                pages/, documents/ (PDF/DOCX as JSON specs), injection/ corpora
 reports/baseline.*       committed baseline (everything else in reports/ is gitignored)

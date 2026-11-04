@@ -160,7 +160,10 @@ function DraftChip({ item, draft }: { item: DraftItem; draft: AttachmentDraft })
       data-status={item.status}
     >
       <span className={styles.chipIcon}>
-        <Icon icon={item.status === 'error' ? CircleAlert : kind ? KIND_ICON[kind] : FileText} size={16} />
+        <Icon
+          icon={item.status === 'error' ? CircleAlert : kind ? KIND_ICON[kind] : FileText}
+          size={16}
+        />
       </span>
       <span className={styles.chipText}>
         <span className={styles.chipName} dir="auto" title={item.name}>
@@ -168,7 +171,9 @@ function DraftChip({ item, draft }: { item: DraftItem; draft: AttachmentDraft })
         </span>
         <span className={styles.chipMeta}>
           {item.status === 'uploading' ? (
-            <span className="tabular">{t('attachments.uploadingProgress', { percent: f.number(percent) })}</span>
+            <span className="tabular">
+              {t('attachments.uploadingProgress', { percent: f.number(percent) })}
+            </span>
           ) : item.status === 'error' ? (
             <span className={styles.chipErrorText}>{error}</span>
           ) : (
@@ -206,7 +211,7 @@ function DraftChip({ item, draft }: { item: DraftItem; draft: AttachmentDraft })
 
 /**
  * Files attached to a request, each a download link (the API serves it to its owner only).
- * `compact` drops the size line (thread turns).
+ * `compact` drops the size line (thread turns); the full list says who can download them.
  */
 export function AttachmentList({
   attachments,
@@ -220,7 +225,7 @@ export function AttachmentList({
   const { t } = useI18n();
   const bytes = useByteFormat();
   if (attachments.length === 0) return null;
-  return (
+  const list = (
     // eslint-disable-next-line jsx-a11y/no-redundant-roles -- list-style: none drops it in Safari
     <ul className={cx(styles.list, className)} role="list" aria-label={t('attachments.filesLabel')}>
       {attachments.map((a) => {
@@ -260,5 +265,12 @@ export function AttachmentList({
         );
       })}
     </ul>
+  );
+  if (compact) return list;
+  return (
+    <div className={styles.listBlock}>
+      {list}
+      <p className={styles.ownerNote}>{t('attachments.ownerOnly')}</p>
+    </div>
   );
 }

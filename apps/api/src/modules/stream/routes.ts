@@ -22,6 +22,7 @@ import { EVENTS_PATH, StreamEvent } from '@jarvis/contracts';
 import { withContext, type DbContext } from '../../db/pool';
 import { sessionToken } from '../../http/app';
 import { AppError } from '../../lib/errors';
+import { metrics } from '../../observability';
 import type { AppDeps } from '../../services';
 import { resolveSession } from '../auth/sessions';
 import { EVENTS_CHANNEL } from '../events/events';
@@ -187,6 +188,7 @@ export function registerStreamRoutes(
     function cleanup() {
       if (closed) return;
       closed = true;
+      metrics.sseStreams(-1);
       clearInterval(heartbeat);
       clearTimeout(expiry);
       heartbeat = expiry = undefined;
@@ -206,6 +208,7 @@ export function registerStreamRoutes(
     // check for that too; nothing is allocated for it.
     addTo(bySession, stream.sessionId, stream);
     addTo(byUser, stream.userId, stream);
+    metrics.sseStreams(1); // the matching -1 is in cleanup (runs once)
     res.on('close', cleanup);
     res.on('error', cleanup);
     if (res.destroyed || res.socket?.destroyed) {

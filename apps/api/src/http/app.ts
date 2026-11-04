@@ -10,6 +10,7 @@ import { resolveSession, SESSION_COOKIE, touchSession } from '../modules/auth/se
 import {
   captureException,
   logMixin,
+  pathOnly,
   registerHttpInstrumentation,
   registerMetricsRoute,
   routeLabel,
@@ -83,6 +84,17 @@ export async function buildApp(
                 '*.secret',
               ],
               censor: '[redacted]',
+            },
+            serializers: {
+              // Fastify's default logs req.url with its query string, which carries search
+              // text (?q=) and cursors: log the path only.
+              req: (req) => ({
+                method: req.method,
+                url: pathOnly(req.url),
+                hostname: req.hostname,
+                remoteAddress: req.ip,
+                remotePort: req.socket?.remotePort,
+              }),
             },
             // trace_id / span_id on every line while tracing is configured (log correlation).
             ...(tracingConfigured(config) ? { mixin: logMixin } : {}),

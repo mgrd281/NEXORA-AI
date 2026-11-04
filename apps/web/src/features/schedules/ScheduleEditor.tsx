@@ -119,7 +119,12 @@ export function ScheduleEditor({
           <Button onClick={onClose} disabled={mutation.isPending}>
             {t('common.actions.cancel')}
           </Button>
-          <Button type="submit" form="schedule-editor" variant="primary" loading={mutation.isPending}>
+          <Button
+            type="submit"
+            form="schedule-editor"
+            variant="primary"
+            loading={mutation.isPending}
+          >
             {schedule ? t('schedules.editor.save') : t('schedules.editor.create')}
           </Button>
         </>
@@ -167,7 +172,6 @@ export function ScheduleEditor({
             />
             <Select
               label={t('schedules.editor.interval')}
-              size="sm"
               value={String(recurrence.interval ?? 1)}
               onChange={(e) => setRecurrence({ ...recurrence, interval: Number(e.target.value) })}
               fieldClassName={styles.interval}
@@ -181,7 +185,10 @@ export function ScheduleEditor({
           </div>
 
           {recurrence.frequency === 'weekly' && (
-            <fieldset className={styles.dayPicker} aria-describedby={submitted && errors.days ? daysLegendId : undefined}>
+            <fieldset
+              className={styles.dayPicker}
+              aria-describedby={submitted && errors.days ? daysLegendId : undefined}
+            >
               <legend className={styles.legend}>{t('schedules.editor.daysLegend')}</legend>
               <div className={styles.weekdays}>
                 {WEEKDAYS.map((day) => {
@@ -192,10 +199,11 @@ export function ScheduleEditor({
                       type="button"
                       className={cx(styles.dayToggle, on && styles.dayOn)}
                       aria-pressed={on}
-                      aria-label={longNames[day]}
                       onClick={() => toggleWeekday(day)}
                     >
-                      {shortNames[day]}
+                      {/* Named by the full weekday (read aloud), shown short. */}
+                      <span aria-hidden="true">{shortNames[day]}</span>
+                      <span className="visually-hidden">{longNames[day]}</span>
                     </button>
                   );
                 })}
@@ -209,7 +217,10 @@ export function ScheduleEditor({
           )}
 
           {recurrence.frequency === 'monthly' && (
-            <fieldset className={styles.dayPicker} aria-describedby={submitted && errors.days ? daysLegendId : undefined}>
+            <fieldset
+              className={styles.dayPicker}
+              aria-describedby={submitted && errors.days ? daysLegendId : undefined}
+            >
               <legend className={styles.legend}>{t('schedules.editor.dayOfMonth')}</legend>
               <div className={styles.monthDays}>
                 {MONTH_DAYS.map((day) => {
@@ -228,7 +239,11 @@ export function ScheduleEditor({
                 })}
                 <button
                   type="button"
-                  className={cx(styles.dayToggle, styles.lastDay, monthDays.includes(-1) && styles.dayOn)}
+                  className={cx(
+                    styles.dayToggle,
+                    styles.lastDay,
+                    monthDays.includes(-1) && styles.dayOn,
+                  )}
                   aria-pressed={monthDays.includes(-1)}
                   onClick={() => toggleMonthDay(-1)}
                 >

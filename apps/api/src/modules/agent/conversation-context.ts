@@ -12,6 +12,7 @@
 import {
   CONVERSATION_LIMITS,
   MissingInfo,
+  ServerMessage,
   type TaskOutcome,
   type TaskStatus,
   type ToolId,
@@ -27,6 +28,8 @@ export interface PriorTurn {
   status: TaskStatus;
   outcome: TaskOutcome | null;
   title: string;
+  /** The title as a server sentence when the server composed it (clients localize it). */
+  titleMessage?: ServerMessage;
   /** Answer / summary / translation / question / result line, ≤ contextCharsPerTurn. */
   resultText: string | null;
   /** Some step feeding the result was flagged as suspected prompt injection. */
@@ -105,6 +108,7 @@ export async function loadConversationContext(
       'status',
       'outcome',
       'title',
+      'title_message',
       'answer',
       'question',
       'result_summary',
@@ -163,8 +167,10 @@ export async function loadConversationContext(
       t.outcome === 'question' && t.question && typeof t.question === 'object'
         ? MissingInfo.array().safeParse((t.question as { missing?: unknown }).missing)
         : null;
+    const titleMessage = t.title_message ? ServerMessage.safeParse(t.title_message) : null;
     turns.push({
       ...(asked?.success ? { missing: asked.data } : {}),
+      ...(titleMessage?.success ? { titleMessage: titleMessage.data } : {}),
       taskId: t.id,
       request: t.request,
       status: t.status,

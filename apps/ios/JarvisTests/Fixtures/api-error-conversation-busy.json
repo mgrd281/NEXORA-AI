@@ -1,0 +1,11 @@
+{
+  "error": {
+    "code": "INVALID_STATE",
+    "message": "A task in this conversation is still active",
+    "requestId": "req-7f3a",
+    "details": {
+      "reason": "CONVERSATION_BUSY",
+      "taskId": "ab5a3c4d-6e7f-4a81-9c2d-3e4f5a6b7c83"
+    }
+  }
+}

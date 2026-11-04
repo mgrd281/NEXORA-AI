@@ -63,15 +63,22 @@ export function EvidenceList({
   return (
     <ul className={cx(styles.list, compact && styles.compact, className)}>
       {items.map((item, i) => (
-        <EvidenceItem key={`${item.kind}-${item.at}-${i}`} evidence={item} />
+        <EvidenceItem
+          key={`${item.kind}-${item.at}-${i}`}
+          evidence={item}
+          // document.analyze records the file it read, then that file's hash.
+          ofFile={items[i - 1]?.code === 'DOCUMENT_EXTRACTED'}
+        />
       ))}
     </ul>
   );
 }
 
 /** The headline of a piece of evidence: what it proves, in the interface language. */
-function evidenceTitle(view: EvidenceView, kind: Evidence['kind']): MessageKey {
+function evidenceTitle(view: EvidenceView, kind: Evidence['kind'], ofFile: boolean): MessageKey {
   switch (view.kind) {
+    case 'content_hash':
+      return ofFile ? 'tasks.evidence.fileHash' : 'tasks.evidence.content_hash';
     case 'extractive':
       return 'tasks.evidence.extractive';
     case 'memory_record':
@@ -101,7 +108,7 @@ const VIEW_ICON: Partial<Record<EvidenceView['kind'], LucideIcon>> = {
   question: MessageCircleQuestionMark,
 };
 
-function EvidenceItem({ evidence }: { evidence: Evidence }) {
+function EvidenceItem({ evidence, ofFile }: { evidence: Evidence; ofFile: boolean }) {
   const { t } = useI18n();
   const view = parseEvidence(evidence);
   return (
@@ -111,7 +118,7 @@ function EvidenceItem({ evidence }: { evidence: Evidence }) {
       </span>
       <div className={styles.body}>
         <div className={styles.head}>
-          <p className={styles.title}>{t(evidenceTitle(view, evidence.kind))}</p>
+          <p className={styles.title}>{t(evidenceTitle(view, evidence.kind, ofFile))}</p>
           <ExactTime value={evidence.at} timeOnly className={styles.at} />
         </div>
         <EvidenceBody view={view} />

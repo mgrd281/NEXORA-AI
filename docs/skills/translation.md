@@ -1,11 +1,11 @@
 # Skill: translation
 
-| Field   | Value                                                                                                                                                                                                                                                                   |
-| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id      | `translation`                                                                                                                                                                                                                                                           |
-| version | 0.0.1 (draft)                                                                                                                                                                                                                                                           |
-| status  | Planned as a dedicated skill — Phase 2. In Milestone 1, model mode answers short translation requests through `assistant.answer`, and `text.summarize` writes summaries in the request language; there is no document/page translation tool and nothing in offline mode |
-| tools   | existing: `assistant.answer`, `text.summarize`; planned: `text.translate`                                                                                                                                                                                               |
+| Field   | Value                                                                                                                                                                                                             |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id      | `translation`                                                                                                                                                                                                     |
+| version | 0.1.0 (registry: `apps/api/src/modules/agent/skills/registry.ts`)                                                                                                                                                 |
+| status  | Implemented (Phase B) — `text.translate` (model only; structured output; numbers and links verified); without a model the request is refused honestly (`PLANNER_UNSUPPORTED` / `OFFLINE_UNSUPPORTED`); switchable |
+| tools   | `text.translate` (owned, model only)                                                                                                                                                                              |
 
 ## Description
 

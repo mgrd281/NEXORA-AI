@@ -131,6 +131,10 @@ const tasks: Catalog<typeof source> = {
     title: 'النتيجة',
     summary: 'الملخص',
     copySummary: 'الملخص',
+    answer: 'الإجابة',
+    copyAnswer: 'الإجابة',
+    translation: 'الترجمة',
+    copyTranslation: 'الترجمة',
     emailed: 'أُرسل بالبريد إلى {recipients}',
     remembered: 'حُفظ في الذاكرة: «{text}»',
     proof: 'الأدلة',
@@ -251,6 +255,7 @@ const tasks: Catalog<typeof source> = {
     smtp_receipt: 'قبلها خادم البريد',
     http_response: 'قُرئت الصفحة',
     content_hash: 'بصمة الصفحة',
+    fileHash: 'بصمة الملف',
     record: 'حُفظ',
     model_output: 'كتبها نموذج ذكاء اصطناعي',
     note: 'ملاحظة',
@@ -269,7 +274,8 @@ const tasks: Catalog<typeof source> = {
     excluded:
       '{count, plural, zero {لم تُستبعد أي جملة موجّهة إلى مساعدي الذكاء الاصطناعي} one {استُبعدت جملة واحدة موجّهة إلى مساعدي الذكاء الاصطناعي} two {استُبعدت جملتان موجّهتان إلى مساعدي الذكاء الاصطناعي} few {استُبعدت # جمل موجّهة إلى مساعدي الذكاء الاصطناعي} many {استُبعدت # جملة موجّهة إلى مساعدي الذكاء الاصطناعي} other {استُبعدت # جملة موجّهة إلى مساعدي الذكاء الاصطناعي}}',
     document: 'قُرئ المستند',
-    documentDetail: '{pages, plural, zero {لا صفحات} one {صفحة واحدة} two {صفحتان} few {# صفحات} many {# صفحة} other {# صفحة}} · نص من {chars, plural, zero {لا أحرف} one {حرف واحد} two {حرفين} few {# أحرف} many {# حرفًا} other {# حرف}}',
+    documentDetail:
+      '{pages, plural, zero {لا صفحات} one {صفحة واحدة} two {صفحتان} few {# صفحات} many {# صفحة} other {# صفحة}} · نص من {chars, plural, zero {لا أحرف} one {حرف واحد} two {حرفين} few {# أحرف} many {# حرفًا} other {# حرف}}',
     documentTruncated: 'استُخدم الجزء الأول فقط لأن النص أطول مما يقرؤه JARVIS.',
     schedule: 'حُفظ الجدول',
     scheduleNext: 'التنفيذ التالي {time}',
@@ -328,7 +334,8 @@ const tasks: Catalog<typeof source> = {
       'إجابة من {count, plural, zero {لا أحرف} one {حرف واحد} two {حرفين} few {# أحرف} many {# حرفًا} other {# حرف}}',
     memoryStored: 'حُفظ في الذاكرة',
     memoryMissing: 'سجل الذاكرة مفقود',
-    documentRead: 'قُرئ {pages, plural, zero {لا صفحات} one {صفحة واحدة} two {صفحتان} few {# صفحات} many {# صفحة} other {# صفحة}} تحتوي على نص من {chars, plural, zero {لا أحرف} one {حرف واحد} two {حرفين} few {# أحرف} many {# حرفًا} other {# حرف}}',
+    documentRead:
+      'قُرئ {pages, plural, zero {لا صفحات} one {صفحة واحدة} two {صفحتان} few {# صفحات} many {# صفحة} other {# صفحة}} تحتوي على نص من {chars, plural, zero {لا أحرف} one {حرف واحد} two {حرفين} few {# أحرف} many {# حرفًا} other {# حرف}}',
     translationLength:
       'ترجمة من {count, plural, zero {لا أحرف} one {حرف واحد} two {حرفين} few {# أحرف} many {# حرفًا} other {# حرف}}',
     translationLanguage: 'الترجمة باللغة {language}',
@@ -389,6 +396,7 @@ const tasks: Catalog<typeof source> = {
       summarizeDocument: 'تلخيص {name}',
       schedule: 'جدولة: {title}',
       clarify: 'سؤال حول طلبك',
+      forwardResult: 'إرسال «{title}» إلى {recipients}',
     },
     objective: {
       summarize: 'قراءة {url} وتلخيصها.',
@@ -412,6 +420,7 @@ const tasks: Catalog<typeof source> = {
       summarizeDocument: 'تلخيص {name}',
       schedule: 'إنشاء الجدول',
       clarify: 'سؤالك عن التفاصيل',
+      forwardResult: 'إرسالها إلى {recipients}',
     },
     approval: {
       email: 'إرسال البريد «{subject}» إلى {recipients}.',
@@ -419,11 +428,11 @@ const tasks: Catalog<typeof source> = {
       recipientsMany:
         '{count, plural, zero {لا مستلمين} one {مستلم واحد} two {مستلمان} few {# مستلمين} many {# مستلمًا} other {# مستلم}}',
       schedule: 'إنشاء الجدول «{title}».',
-      memory: 'الحفظ في الذاكرة: «{text}».',
+      memory: 'الحفظ في الذاكرة: «{text}»',
     },
     result: {
       emailSent: 'أُرسل «{subject}» إلى {recipients}.',
-      memorySaved: 'حُفظ في الذاكرة: «{text}».',
+      memorySaved: 'حُفظ في الذاكرة: «{text}»',
       declined: 'رفضتَ هذا الإجراء، لذا لم يُرسَل أو يتغيّر أي شيء: {action}',
       cancelled: 'أُلغيت بناءً على طلبك.',
       expired: 'انتهت صلاحية طلب الموافقة قبل أن تقرّر، لذا لم يُنفَّذ أي شيء.',

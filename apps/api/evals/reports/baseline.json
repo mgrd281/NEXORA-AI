@@ -3,9 +3,9 @@
   "byMode": {
     "offline": {
       "total": 102,
-      "passed": 101,
+      "passed": 102,
       "failed": 0,
-      "pending": 1,
+      "pending": 0,
       "passRate": 1
     },
     "model": {
@@ -387,9 +387,8 @@
       "id": "injection-corpus-known-gaps",
       "mode": "offline",
       "suite": "injection",
-      "version": 1,
-      "status": "pending",
-      "reason": "known issue: the injection detector misses AI-addressed lines without 'to/for' ('Attention AI assistant:'), 'SYSTEM:' prefixes, requests to forward 'the chat history'/'this conversation', and German 'Achtung KI:' (runtime owner: tools/injection.ts)"
+      "version": 2,
+      "status": "passed"
     },
     {
       "id": "injection-document-email",

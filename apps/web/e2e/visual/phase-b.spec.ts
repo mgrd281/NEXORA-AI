@@ -39,11 +39,18 @@ async function open(
     theme = 'light',
     path: target,
     options = {},
+    approvalKinds = false,
   }: {
     locale?: FixtureLocale;
     theme?: 'light' | 'dark';
     path: string;
     options?: MockApiOptions;
+    /**
+     * Add the two tasks waiting on a schedule / memory approval. The memory one belongs to
+     * conversation C (it recalls C's summary), so C then has an active task and takes no
+     * follow-ups: only the approval tests ask for them.
+     */
+    approvalKinds?: boolean;
   },
 ) {
   const now = Date.now();
@@ -54,13 +61,23 @@ async function open(
     now,
     ...options,
     fixtures: (f) => {
-      const rich = withApprovalKinds(withConversations(f, locale, now), locale, now);
+      const conversations = withConversations(f, locale, now);
+      const rich = approvalKinds ? withApprovalKinds(conversations, locale, now) : conversations;
       return options.fixtures ? options.fixtures(rich) : rich;
     },
   });
   await page.goto(target);
   await expect(page.locator('html')).toHaveAttribute('dir', locale === 'ar' ? 'rtl' : 'ltr');
   return api;
+}
+
+/**
+ * Copy as the app renders it: `t()` wraps every interpolated string in Unicode isolates
+ * (U+2068 … U+2069) so it keeps its own direction. Matches the text with or without them.
+ */
+function loose(text: string): RegExp {
+  const chars = [...text].map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  return new RegExp(chars.join('[\\u2066-\\u2069]*'));
 }
 
 /** A screenshot of one region (a settings section, a card). */
@@ -421,7 +438,9 @@ for (const theme of THEMES) {
       await expectNoSeriousA11yViolations(page);
       await dialog.locator('input[type="url"]').fill('https://hooks.example.com/jarvis');
       await dialog.locator('footer').getByRole('button').last().click();
-      await expect(page.getByRole('dialog').locator('code')).toContainText('whsec_');
+      await expect(
+        page.getByRole('dialog').filter({ hasText: 'whsec_' }).locator('code'),
+      ).toContainText('whsec_');
       await capture(page, testInfo, `phaseb-webhook-secret--${variant}`, { fullPage: false });
       await expectNoSeriousA11yViolations(page);
       expect(api.errors).toEqual([]);
@@ -464,6 +483,7 @@ for (const theme of THEMES) {
         locale,
         theme,
         path: `/tasks/${T_SCHEDULE}`,
+        approvalKinds: true,
       });
       await page.locator('main section').first().getByRole('button').last().click();
       let sheet = page.getByRole('dialog');
@@ -496,13 +516,11 @@ test.describe('phase B behaviour', () => {
     const sent = recorder(page);
     const form = page.locator('main form').last();
     await form.locator('textarea').fill('Translate it into German');
-    await form
-      .locator('input[type="file"]')
-      .setInputFiles({
-        name: 'glossary.txt',
-        mimeType: 'text/plain',
-        buffer: Buffer.from('AI Act'),
-      });
+    await form.locator('input[type="file"]').setInputFiles({
+      name: 'glossary.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('AI Act'),
+    });
     await expect(form.locator('li[data-status="ready"]')).toHaveCount(1);
     await form.locator('textarea').press('Enter');
     await expect(page.getByText('Follow-up sent.')).toBeVisible();
@@ -573,7 +591,7 @@ test.describe('phase B behaviour', () => {
     await expect(form).toContainText('Remove the files that couldn’t be attached, then send.');
     expect(sent.filter((r) => r.path === '/v1/tasks')).toEqual([]);
     for (const name of ['huge.pdf', 'empty.txt', 'slides.pptx']) {
-      await form.getByRole('button', { name: `Remove ${name}` }).click();
+      await form.getByRole('button', { name: loose(`Remove ${name}`) }).click();
     }
     // An uploaded file that is removed again is deleted on the server.
     await input.setInputFiles({
@@ -582,7 +600,7 @@ test.describe('phase B behaviour', () => {
       buffer: Buffer.from('a,b'),
     });
     await expect(form.locator('li[data-status="ready"]')).toHaveCount(1);
-    await form.getByRole('button', { name: 'Remove notes.csv' }).click();
+    await form.getByRole('button', { name: loose('Remove notes.csv') }).click();
     await expect
       .poll(() => sent.some((r) => r.method === 'DELETE' && r.path.startsWith('/v1/attachments/')))
       .toBe(true);
@@ -611,13 +629,11 @@ test.describe('phase B behaviour', () => {
     const sent = recorder(page);
     const form = page.locator('main form').first();
     await form.locator('textarea').fill('Summarize the report');
-    await form
-      .locator('input[type="file"]')
-      .setInputFiles({
-        name: 'report.pdf',
-        mimeType: 'application/pdf',
-        buffer: Buffer.from('%PDF'),
-      });
+    await form.locator('input[type="file"]').setInputFiles({
+      name: 'report.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF'),
+    });
     // Sending while the upload runs waits for it, and says so.
     await form.locator('textarea').press('Enter');
     await expect(form).toContainText('Wait until the files have finished uploading.');
@@ -641,7 +657,7 @@ test.describe('phase B behaviour', () => {
     const api = await open(page, context, baseURL!, { path: `/tasks/${PB.a2}` });
     const sent = recorder(page);
     const form = page.locator('main form').last();
-    await expect(page.locator('main').getByRole('link', { name: 'Open it' })).toHaveAttribute(
+    await expect(page.locator('main').getByRole('link', { name: 'Review it' })).toHaveAttribute(
       'href',
       `/tasks/${PB.a3}`,
     );
@@ -655,6 +671,7 @@ test.describe('phase B behaviour', () => {
   test('conversation history: search, open, delete', async ({ page, context, baseURL }) => {
     const api = await open(page, context, baseURL!, { path: '/tasks/conversations' });
     const rows = page.locator('main ul[aria-label] > li');
+    await expect(rows.first()).toBeVisible();
     const all = await rows.count();
     expect(all).toBeGreaterThan(3);
     await page.getByRole('searchbox').fill('quarterly');
@@ -683,7 +700,7 @@ test.describe('phase B behaviour', () => {
     await expect(email).toHaveAttribute('aria-checked', 'true');
     await email.click();
     await expect(email).toHaveAttribute('aria-checked', 'false');
-    await expect(page.getByText('Email turned off.')).toBeVisible();
+    await expect(page.getByText(loose('Email turned off.'))).toBeVisible();
     expect(sent.find((r) => r.path === '/v1/skills/email-management')?.body).toEqual({
       enabled: false,
     });
@@ -725,11 +742,11 @@ test.describe('phase B behaviour', () => {
       (create?.body as { recurrence: { byWeekday: string[] } }).recurrence.byWeekday,
     ).toContain('FR');
     const card = page.locator('main ul[aria-label] > li', { hasText: 'Friday digest' });
-    await card.getByRole('button', { name: 'Pause: Friday digest' }).click();
+    await card.getByRole('button', { name: loose('Pause: Friday digest') }).click();
     await expect(card).toContainText('Paused by you.');
-    await card.getByRole('button', { name: 'Resume: Friday digest' }).click();
+    await card.getByRole('button', { name: loose('Resume: Friday digest') }).click();
     await expect(card).not.toContainText('Paused by you.');
-    await card.getByRole('button', { name: 'Delete: Friday digest' }).click();
+    await card.getByRole('button', { name: loose('Delete: Friday digest') }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Delete schedule' }).click();
     await expect(card).toHaveCount(0);
     expect(api.calls).toEqual(
@@ -789,14 +806,15 @@ test.describe('phase B behaviour', () => {
     await expect(dialog).toContainText('Webhook addresses must start with https://.');
     await dialog.getByLabel('Endpoint URL').fill('https://hooks.example.com/jarvis');
     await dialog.getByRole('button', { name: 'Add endpoint' }).click();
-    const secretDialog = page.getByRole('dialog');
+    const secretDialog = page.getByRole('dialog', { name: 'Save your signing secret' });
+    await expect(secretDialog.locator('code')).toContainText('whsec_');
     const secret = (await secretDialog.locator('code').textContent()) ?? '';
     expect(secret).toMatch(/^whsec_/);
     await secretDialog.getByRole('button', { name: 'I’ve saved it' }).click();
     // Never shown again: only the hint remains.
     await expect(page.locator('body')).not.toContainText(secret);
     const added = developer.locator('article', { hasText: 'hooks.example.com/jarvis' });
-    await added.getByRole('button', { name: 'Send test (hooks.example.com)' }).click();
+    await added.getByRole('button', { name: loose('Send test (hooks.example.com)') }).click();
     await expect(added.locator('ol li').first()).toContainText('Test');
     await added.getByRole('switch').click();
     await expect(added).toContainText('Turned off by you.');
@@ -817,8 +835,63 @@ test.describe('phase B behaviour', () => {
     await dialog.getByLabel('Endpoint URL').fill('https://intranet.haddad.internal/hook');
     await dialog.getByRole('button', { name: 'Add endpoint' }).click();
     await expect(dialog).toContainText(
-      'intranet.haddad.internal is on a private or local network, so JARVIS won’t send to it.',
+      loose(
+        'intranet.haddad.internal is on a private or local network, so JARVIS won’t send to it.',
+      ),
     );
+    expect(api.errors).toEqual([]);
+  });
+
+  test('webhooks: editing an endpoint changes its events, never its secret', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    const api = await open(page, context, baseURL!, { path: '/connections' });
+    const sent = recorder(page);
+    const ops = page.locator('#developer article', { hasText: 'hooks.haddad.example' });
+    await expect(ops).toContainText('Task completed, Task failed, and Approval requested');
+    await ops.getByRole('button', { name: loose('Edit (hooks.haddad.example)') }).click();
+    const dialog = page.getByRole('dialog', { name: 'Edit webhook endpoint' });
+    await expect(dialog.getByLabel('Endpoint URL')).toHaveValue(
+      'https://hooks.haddad.example/jarvis/events',
+    );
+    await dialog.getByRole('checkbox', { name: /Task failed/ }).uncheck();
+    await dialog.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByText('Endpoint saved.')).toBeVisible();
+    const patch = sent.find((r) => r.method === 'PATCH' && r.path.startsWith('/v1/webhooks/'));
+    expect(patch?.body).toEqual({
+      url: 'https://hooks.haddad.example/jarvis/events',
+      eventTypes: ['task.completed', 'approval.requested'],
+      description: 'Ops dashboard',
+    });
+    await expect(ops).toContainText('Task completed and Approval requested');
+    expect(api.calls).not.toContain('rotateWebhookSecret');
+    expect(api.errors).toEqual([]);
+  });
+
+  test('a question that wants a file says so when this server stores no files', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    const api = await open(page, context, baseURL!, {
+      path: `/tasks/${PB.b1}`,
+      options: {
+        fixtures: (f) => ({
+          ...f,
+          assistantStatus: {
+            ...f.assistantStatus,
+            capabilities: { ...f.assistantStatus.capabilities, attachments: false },
+          },
+        }),
+      },
+    });
+    const main = page.locator('main');
+    await expect(main).toContainText('File uploads aren’t available on this server.');
+    await expect(main.getByRole('button', { name: 'Attach the file' })).toHaveCount(0);
+    await expect(main.getByRole('button', { name: 'Attach files' })).toHaveCount(0);
+    await expect(main.locator('textarea')).toBeFocused();
     expect(api.errors).toEqual([]);
   });
 
@@ -849,7 +922,10 @@ test.describe('phase B behaviour', () => {
     context,
     baseURL,
   }) => {
-    const api = await open(page, context, baseURL!, { path: `/tasks/${T_SCHEDULE}` });
+    const api = await open(page, context, baseURL!, {
+      path: `/tasks/${T_SCHEDULE}`,
+      approvalKinds: true,
+    });
     await page.getByRole('button', { name: 'Review and decide' }).click();
     const sheet = page.getByRole('dialog');
     await expect(sheet).toContainText('Nothing is approved in advance');

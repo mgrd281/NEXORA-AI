@@ -68,6 +68,29 @@ export function isQuestion(task: Pick<TaskSummary, 'status' | 'outcome'>): boole
   return task.status === 'COMPLETED' && task.outcome === 'question';
 }
 
+/**
+ * Ids of the question tasks a later request of the same conversation answered, among `tasks`
+ * (any order). A list only knows the tasks it loaded: lists sorted newest first load every newer
+ * task before an older one, so a question with a newer request in its conversation is found.
+ */
+export function answeredQuestions(
+  tasks: readonly Pick<TaskSummary, 'id' | 'status' | 'outcome' | 'conversationId' | 'createdAt'>[],
+): Set<string> {
+  const newest = new Map<string, string>();
+  for (const task of tasks) {
+    if (!task.conversationId) continue;
+    const seen = newest.get(task.conversationId);
+    if (!seen || task.createdAt > seen) newest.set(task.conversationId, task.createdAt);
+  }
+  const answered = new Set<string>();
+  for (const task of tasks) {
+    if (!isQuestion(task) || !task.conversationId) continue;
+    const latest = newest.get(task.conversationId);
+    if (latest && latest > task.createdAt) answered.add(task.id);
+  }
+  return answered;
+}
+
 /** A task that is still in progress (blocks follow-ups in its conversation). */
 export function isActive(task: Pick<TaskSummary, 'status'>): boolean {
   return !isTerminal(task.status);
@@ -89,5 +112,7 @@ export function messageText(
   message: Pick<ConversationMessage, 'text' | 'textMessage'>,
 ): { text: string; localized: boolean } {
   const rendered = renderServerMessage(i18n, message.textMessage);
-  return rendered !== null ? { text: rendered, localized: true } : { text: message.text, localized: false };
+  return rendered !== null
+    ? { text: rendered, localized: true }
+    : { text: message.text, localized: false };
 }

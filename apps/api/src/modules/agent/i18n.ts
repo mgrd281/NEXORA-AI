@@ -145,6 +145,11 @@ const MESSAGES = {
     de: 'Rückfrage zu deiner Anfrage',
     ar: 'سؤال حول طلبك',
   },
+  'plan.forwardResult': {
+    en: 'Send “{title}” to {recipients}',
+    de: '„{title}“ an {recipients} senden',
+    ar: 'إرسال «{title}» إلى {recipients}',
+  },
   // Phase B — offline plan objectives
   'objective.emailResult': {
     en: 'Send the earlier result to {email}.',
@@ -196,6 +201,11 @@ const MESSAGES = {
     en: 'Ask you for details',
     de: 'Bei dir nachfragen',
     ar: 'سؤالك عن التفاصيل',
+  },
+  'step.forwardResult': {
+    en: 'Send it to {recipients}',
+    de: 'An {recipients} senden',
+    ar: 'إرسالها إلى {recipients}',
   },
   // Phase B — approval summaries
   'approval.schedule': {

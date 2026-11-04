@@ -40,7 +40,41 @@ contracts tests and (for the schema) a new migration — never by editing `0004`
 add internal code freely. A new `ServerMessageKey`, `TaskErrorReason`, `ApiErrorReason`, enum value,
 route or column is a contract change: propose it, do not add it silently.
 
-**Known red until stage 2 lands (expected, each with an owner):**
+**Stage 3 (integration) decisions.** Every contract request from stage 2 was resolved as follows;
+the rest of this document is updated to match.
+
+| Request (from)                                                                                                   | Decision                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ToolIds `conversation.recall`, `assistant.clarify` (architect)                                                   | Confirmed.                                                                                                                                                                                                                                                                                                     |
+| Literalness over earlier **user requests** of the conversation (architect)                                       | Confirmed (§3.1): recipients, URLs and schedule requests may come from any user request of the conversation, never from results, notes or pages.                                                                                                                                                               |
+| `MEMORY_FROM_CONTENT` approval / `UNTRUSTED_MEMORY` deny for "remember that" (architect)                         | Confirmed (§3.4).                                                                                                                                                                                                                                                                                              |
+| `409 CONVERSATION_BUSY` while any task of the conversation is active (architect)                                 | Confirmed, including `AWAITING_APPROVAL`.                                                                                                                                                                                                                                                                      |
+| `STORAGE_DRIVER` defaults to `none` in production, `local` refused (architect)                                   | Confirmed; uploads are honestly unavailable until S3 is configured.                                                                                                                                                                                                                                            |
+| Webhook management web-only (architect)                                                                          | Confirmed.                                                                                                                                                                                                                                                                                                     |
+| `ServerMessageKey` `plan.forwardResult` `{ title, recipients }`, `step.forwardResult` `{ recipients }` (runtime) | Added (additive) with en/de/ar templates in `agent/i18n.ts`, the web catalogs and the iOS catalog; the offline "send it to &lt;address&gt;" plan uses them instead of the approval sentence.                                                                                                                   |
+| `WORKER_METRICS_PORT` / `WORKER_METRICS_HOST` (runtime, observability)                                           | Added to `config.ts` and `.env.example`; `worker.ts` calls `initTelemetry(config, 'worker', { metricsPort, metricsHost })` (no `db`: the queue gauges come from the API).                                                                                                                                      |
+| `schedule_failed` data `{ scheduleTitle, taskTitle?, errorCode? }`, replacing `task_failed` (runtime)            | Confirmed; contract doc comment amended. Clients render `scheduleTitle` and ignore the rest.                                                                                                                                                                                                                   |
+| `ScheduleRunReason` `FAILURES` (runtime)                                                                         | Declined for Phase B: a `schedule.failed` webhook for a failure pause carries `reason: null` with `status: 'paused'` and `consecutiveFailures ≥ failuresBeforePause`, which identifies it; documented on the enum.                                                                                             |
+| `PriorTurn.missing?`, `PlanValidationContext.request` optional (runtime)                                         | Noted; both additive.                                                                                                                                                                                                                                                                                          |
+| Export v3 embeds file bytes (HTTP)                                                                               | Accepted: §3.3 updated (base64 within `EXPORT_FILE_BYTES` = 20 MiB per export, else `contentOmitted`).                                                                                                                                                                                                         |
+| HTTP owns `http/route.ts` and `tasks/mappers.ts` (HTTP)                                                          | Confirmed (as §2 already said).                                                                                                                                                                                                                                                                                |
+| Error code per `ApiErrorReason` (HTTP)                                                                           | Accepted as implemented; documented in [api.md](api.md#phase-b-error-reasons). No `UPLOAD_NOT_MULTIPART` reason: a non-multipart upload is a plain `415`.                                                                                                                                                      |
+| Zip-bomb ratio grace for entries ≤ 100 KiB (HTTP)                                                                | Accepted (§3.3); the runtime re-checks with the same `inspectZip` rule before mammoth.                                                                                                                                                                                                                         |
+| `webhook.endpoint_changed` carries `change` (HTTP)                                                               | Accepted; doc comment in `schemas.ts` amended, and the delivery job's automatic disable now sends `change: 'disabled'` too.                                                                                                                                                                                    |
+| Schedule semantics (HTTP)                                                                                        | Accepted (§3.5): `run_count` counts runs that created a task; a new recurrence on a completed schedule starts a new active series (counted against the cap); a paused schedule stays paused when its recurrence changes; pausing a paused one is a no-op; pausing a completed one is `409 SCHEDULE_COMPLETED`. |
+| `scheduleOccurrencesAfter(row, after, limit)` (HTTP)                                                             | Accepted; listed in §4.                                                                                                                                                                                                                                                                                        |
+| `Telemetry.ready`, `initTelemetry` `opts` (observability)                                                        | Accepted; §3.10 updated.                                                                                                                                                                                                                                                                                       |
+| Scenario schema extensions (observability)                                                                       | Accepted; §3.11 points to `docs/evals.md`.                                                                                                                                                                                                                                                                     |
+| `capabilities.schedules` meaning (iOS)                                                                           | It means "JARVIS may propose schedules" (task-scheduling skill on). Creating, editing and pausing your own schedules is a direct action and always available (web and iOS both offer it); existing schedules keep running until paused.                                                                        |
+
+Also fixed during integration: `schedules/recurrence.ts` imported `{ RRule }` from the CommonJS
+`rrule` package, which fails under Node ESM (tsx, and the production bundle that keeps `rrule`
+external) — it now takes `RRule` from whichever module shape is present and the eval runner's
+interop hook is gone; the injection detector's known gaps (eval `injection-corpus-known-gaps`) are
+closed; `/metrics` reports open SSE streams; request logs carry the path without the query string;
+the scheduler tick is configurable (`SCHEDULER_TICK_MS`, default 15 s) for end-to-end tests.
+
+**Known red until stage 2 lands (historical — all closed in stage 3):**
 
 | Symptom                                                                                       | Cause                                                                                              | Owner   |
 | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------- |
@@ -376,7 +410,13 @@ fasse das Dokument zusammen / لخص المستند" with an attachment → one 
 
 **Retention and export.** Unattached uploads are deleted after `expires_at` (§3.6); attached ones
 with their conversation, by task-history retention, or explicitly. Export v3 (H) lists attachment
-metadata (with `downloadPath`), not the bytes — the files stay downloadable while the account exists.
+metadata (with `downloadPath`) and embeds each file (base64) while the export stays within
+`EXPORT_FILE_BYTES` (20 MiB in all); beyond that, or when storage is missing or unreadable, a file
+carries `contentOmitted` (`EXPORT_SIZE_LIMIT` · `STORAGE_NOT_CONFIGURED` · `NOT_AVAILABLE`) and
+stays downloadable while the account exists. **Zip-bomb ratio:** the 100:1 bound applies to entries
+above 100 KiB uncompressed (`ZIP_RATIO_GRACE_BYTES`, Apache POI's grace rule; small XML parts
+legitimately exceed it and cannot amplify); the 50 MiB total bound covers everything. Upload and the
+runtime use the same `inspectZip` (`attachments/sniff.ts`).
 
 **Encryption at rest.** S3: every PUT sets `ServerSideEncryption` (`S3_SSE`, default `AES256`;
 `aws:kms` with `S3_SSE_KMS_KEY_ID`) and `ChecksumSHA256`; the bucket must block public access and
@@ -556,7 +596,12 @@ active from the next occurrence after now (`409 SCHEDULE_COMPLETED` if none), fa
 update recomputes rrule and next run (active only); delete cascades runs (`tasks.schedule_id`
 becomes NULL). Every change: event `schedule.changed`, audit `schedule.*` (metadata: frequency,
 no request text). Preview: `occurrencesAfter(now)`; `ScheduleDetail.upcoming` / `runs` per
-`SCHEDULE_LIMITS`. User-created schedules need no approval (the user is acting directly); each run
+`SCHEDULE_LIMITS`. Stored schedules use `scheduleOccurrencesAfter(row, after, limit)`, which reads
+DTSTART from the stored RRULE so `count` stays anchored even when the first run moved by a DST gap.
+Semantics (stage 3): `run_count` counts runs that created a task; a new recurrence on a completed
+schedule starts a new active series (counted against the cap); a paused schedule stays paused when
+its recurrence changes; pausing a paused schedule is a no-op and pausing a completed one is `409
+SCHEDULE_COMPLETED`. The worker's tick interval is `SCHEDULER_TICK_MS` (default 15 s). User-created schedules need no approval (the user is acting directly); each run
 still goes through planning, policy and approvals.
 
 **Clients.** Schedules screen (list with status/next run in the schedule's zone, pause/resume,
@@ -687,9 +732,14 @@ export interface Telemetry {
   tracing: boolean;
   errors: boolean;
   metrics: boolean;
+  ready: Promise<void>; // never rejects: a part that fails to start stays off and is reported on stderr
   shutdown(): Promise<void>;
 }
-export function initTelemetry(config: Config, service: 'api' | 'worker'): Telemetry; // first call in server.ts / worker.ts; idempotent
+export function initTelemetry(
+  config: Config,
+  service: 'api' | 'worker',
+  opts?: { metricsPort?: number; metricsHost?: string; db?: Db }, // worker: WORKER_METRICS_PORT/HOST
+): Telemetry; // first call in server.ts / worker.ts; idempotent
 // observability/tracing.ts
 export type SpanName =
   | 'job'
@@ -830,6 +880,11 @@ export const Scenario = z.object({
 });
 ```
 
+The implemented schema adds optional extensions (`requires`, `knownIssue`, `given.connectionStatus`,
+`given.approve`, `given.faults`, `given.model`, `given.corpus`, `given.syntheticSteps`,
+`conversation[].missing`, `attachments[].earlier`, `expect.policy[].reasonsExclude`,
+`expect.schedule`, `expect.pipeline`), documented in [docs/evals.md](../evals.md).
+
 Suites: planning correctness, policy decisions, injection resistance, recipient/URL literalness,
 clarifying questions, follow-ups, document analysis, schedules, and **spec**: (1) send an email —
 literal recipient, MEDIUM approval; (2) compare products — planned skill: offline
@@ -861,7 +916,7 @@ Everything one owner calls in another owner's code. Types-only pieces are alread
 | `createStorage(config: Config): ObjectStorage \| null`                                                                                 | `storage/index.ts` (H)                                   | O (`server.ts`), R (`worker.ts`)                         |
 | `toAttachment(row: AttachmentRow): Attachment`                                                                                         | `attachments/mappers.ts` (H)                             | H (task detail, conversations, export)                   |
 | `insertSchedule`, `lockDueSchedule`, `advanceSchedule`, `recordScheduleRunResult`, `pauseSchedule`, `toSchedule`                       | `schedules/service.ts` (H)                               | R                                                        |
-| `normalizeRecurrence`, `toRRuleString`, `occurrencesAfter`                                                                             | `schedules/recurrence.ts` (H)                            | R (`schedule.create` approval details, scheduler)        |
+| `normalizeRecurrence`, `toRRuleString`, `occurrencesAfter`, `scheduleOccurrencesAfter`                                                 | `schedules/recurrence.ts` (H)                            | R (`schedule.create` approval details, scheduler)        |
 | `emitWebhookEvent`, `WebhookEventInput`                                                                                                | `webhooks/emit.ts` (H)                                   | R                                                        |
 | `checkWebhookUrl(url, config): Promise<URL>` (throws `AppError FETCH_BLOCKED` with `details.reason`)                                   | `webhooks/url.ts` (H)                                    | R (per attempt)                                          |
 | `signWebhook`, `webhookHeaders`, `verifyWebhook`, `generateWebhookSecret`, `webhookSecretHint`, `webhookSecretAad`, `webhookMessageId` | `webhooks/signing.ts` (frozen)                           | H, R, O (evals)                                          |
@@ -1025,6 +1080,8 @@ All optional, in `apps/api/src/config.ts` (Frozen) and `.env.example`:
 | `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`                          | —                                       | tracing off when unset                                        |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT`                                          | —                                       | error reporting off when unset                                |
 | `METRICS_TOKEN`                                                             | —                                       | ≥ 24 chars; `/metrics` absent when unset                      |
+| `WORKER_METRICS_PORT`, `WORKER_METRICS_HOST`                                | —, `127.0.0.1`                          | the worker's own `/metrics` listener (stage 3)                |
+| `SCHEDULER_TICK_MS`                                                         | `15000`                                 | due schedules → runs; 1 000–300 000 (stage 3)                 |
 
 `Config.storageDriver` and `Config.webhookAllowInsecureHosts` are the resolved values.
 

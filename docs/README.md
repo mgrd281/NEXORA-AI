@@ -97,6 +97,10 @@ across documents: **Built** / **Implemented** = in the code now (with file refer
   backups, SLOs
 - [Release checklist](release-checklist.md) — Milestone 1 → private alpha → closed beta → public
 - [Costs](costs.md) — model prices, per-task and infrastructure estimates
+- [Observability](runbooks/observability.md) — tracing (OTLP), error reporting (Sentry), Prometheus
+  metrics for the API and the worker, alerts, privacy guarantees, overhead
+- [Agent evaluations](evals.md) — scenario suites, offline / model / pipeline runners, reports,
+  baseline and the CI gate
 - [Known limitations](known-limitations.md)
 
 ## Conventions for these docs

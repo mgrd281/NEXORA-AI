@@ -17,6 +17,15 @@ struct MemoryView: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 }
+                if let days = app.me?.preferences.retention.memoryDays {
+                    let period = RetentionSetting.period(days: days)
+                    NoteView(
+                        text: String(localized: "Memories that haven't changed for \(period) are deleted automatically, once a day. Change this in Settings."),
+                        systemImage: "clock.arrow.circlepath"
+                    )
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                }
                 if let error = model.errorMessage {
                     InlineErrorView(message: error) {
                         Task { await model.reload(api: app.api) }

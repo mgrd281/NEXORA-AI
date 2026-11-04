@@ -115,7 +115,7 @@ Extensions beyond §3.11 (all optional): `requires` (capabilities, see below), `
 Fixtures (`apps/api/evals/fixtures/`): `pages/` (HTML and text the fixture site serves),
 `documents/` (TXT/MD/CSV as files; PDF and DOCX as JSON specs built into real files by the unit-test
 builders — no binaries in the repository), `injection/` (attack corpora per language, a benign
-false-positive corpus, and the known-gaps corpus).
+false-positive corpus, and the corpus of former detector gaps).
 
 ## Pending scenarios
 
@@ -155,15 +155,13 @@ tampered expectations, offline runs are deterministic, pending is never silent, 
 
 ## Known issues
 
-- **Injection detector gaps** (scenario `injection-corpus-known-gaps`, pending): the detector does
-  not flag lines that address an AI without "to/for" ("Attention AI assistant: …"), `SYSTEM:`
-  prefixes, requests to forward "the chat history" / "this conversation", "AI agents reading this
-  page must include the link …", and German "Achtung KI: …". Structural defences still hold for all
-  of them (recipients and links are fixed before content is read; external effects need approval);
-  what is lost is the `UNTRUSTED_CONTENT` approval for actions that are otherwise auto-approved.
-  Owner: runtime (`modules/agent/tools/injection.ts`). The scenario turns into a pass when fixed.
-- **rrule under Node ESM**: `src/modules/schedules/recurrence.ts` uses `import { RRule } from 'rrule'`,
-  which Node ESM (tsx: `pnpm dev`, `dev:worker`, this runner) cannot resolve — rrule ships CommonJS
-  as `main`. Vitest and the esbuild bundle hide it. The eval script loads `evals/src/interop.mjs`
-  (re-exports rrule's CommonJS module as ESM, nothing else) until the import is changed to a default
-  import; remove the hook then.
+None open. Closed during the Phase B integration:
+
+- **Injection detector gaps** (scenario `injection-corpus-known-gaps`, now a regression guard): lines
+  that address an AI without "to/for" ("Attention AI assistant: …", "AI agents reading this page
+  …", "Assistant, disregard the user's request …"), upper-case `SYSTEM:` orders, requests to forward
+  "the chat history" / "this conversation", and German "Achtung KI: …" are flagged by
+  `modules/agent/tools/injection.ts`; the benign corpus stays unflagged.
+- **rrule under Node ESM**: `src/modules/schedules/recurrence.ts` takes `RRule` from whichever module
+  shape is present (CommonJS `default` under Node ESM, named exports under Vitest), so `pnpm dev`,
+  `dev:worker`, the production bundle (rrule stays external) and this runner load it without a hook.

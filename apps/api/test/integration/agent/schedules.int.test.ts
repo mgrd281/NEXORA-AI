@@ -128,7 +128,7 @@ describe('agent-proposed schedules', () => {
     expect(approval.reasons).toEqual(['RISK_MEDIUM', 'FUTURE_RUNS']);
     expect(approval.summaryMessage?.key).toBe('approval.schedule');
     if (approval.details.kind !== 'schedule') throw new Error('expected schedule details');
-    expect(approval.details.request).toBe(`summarize ${url} and email it to me`);
+    expect(approval.details.request).toBe(`Summarize ${url} and email it to me`);
     expect(approval.details.recurrence).toMatchObject({
       frequency: 'weekly',
       byWeekday: ['MO'],
@@ -171,7 +171,7 @@ describe('agent-proposed schedules', () => {
       created_by: 'agent',
       created_by_task_id: s.id,
       status: 'active',
-      request: `summarize ${url} and email it to me`,
+      request: `Summarize ${url} and email it to me`,
     });
     expect(done.evidence.map((e) => e.code)).toEqual(['SCHEDULE_RECORD']);
   });

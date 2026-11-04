@@ -251,31 +251,46 @@
   color: var(--color-text-primary);
 }
 
+/* Every run reads the same way: when, then what happened (one line, the title cut short). */
 .run {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: var(--space-1) var(--space-3);
+  gap: 2px var(--space-3);
   min-width: 0;
 }
 
+@media (min-width: 640px) {
+  .run {
+    grid-template-columns: 10rem minmax(0, 1fr);
+  }
+}
+
 .runTime {
-  min-inline-size: 9rem;
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
 
 .runTask {
-  display: inline-flex;
-  flex-wrap: wrap;
+  display: flex;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
 }
 
+.runTask > :first-child {
+  flex: none;
+}
+
 .runLink {
+  display: block;
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: match-parent;
+  text-align: -webkit-match-parent;
+  unicode-bidi: isolate;
 }
 
 /* ------------------------------------------------------------- editor */
@@ -335,10 +350,26 @@
   color: var(--color-danger);
 }
 
+/* One row of seven where the names fit; long names (Arabic) wrap into a second row rather than
+   being cut off. */
 .weekdays {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(max(3.5rem, calc((100% - 6 * var(--space-1)) / 7)), 1fr)
+  );
   gap: var(--space-1);
+}
+
+.weekdays .dayToggle {
+  white-space: nowrap;
+}
+
+:lang(ar) .weekdays {
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(max(4.5rem, calc((100% - 6 * var(--space-1)) / 7)), 1fr)
+  );
 }
 
 .monthDays {

@@ -8,7 +8,8 @@ const skills: Catalog<typeof source> = {
   loadError: 'Die Fähigkeiten konnten nicht geladen werden.',
   listLabel: 'Fähigkeiten',
   plannedTitle: 'Später geplant',
-  plannedDescription: 'Im Produktplan beschrieben, aber noch nicht gebaut. Sie können nicht laufen.',
+  plannedDescription:
+    'Im Produktplan beschrieben, aber noch nicht gebaut. Sie können nicht laufen.',
   status: {
     on: 'An',
     off: 'Aus',

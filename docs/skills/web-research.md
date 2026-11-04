@@ -1,11 +1,11 @@
 # Skill: web-research
 
-| Field   | Value                                                                                                                                                     |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id      | `web-research`                                                                                                                                            |
-| version | 0.1.0                                                                                                                                                     |
-| status  | Partially implemented — Milestone 1 (in progress): read and summarise a page the user names. Multi-source search and follow-up reading: planned (Phase 2) |
-| tools   | `web.fetch` (1.0.0), `text.summarize` (1.0.0); planned: `web.search`                                                                                      |
+| Field   | Value                                                                                                                                                                       |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id      | `web-research`                                                                                                                                                              |
+| version | 0.2.0 (registry: `apps/api/src/modules/agent/skills/registry.ts`)                                                                                                           |
+| status  | Implemented — read and summarise a page the user names (`web.fetch`, `text.summarize`); switchable in Settings › Skills. Multi-source search and follow-up reading: planned |
+| tools   | `web.fetch` (1.0.0), `text.summarize` (1.0.0); planned: `web.search`                                                                                                        |
 
 ## Description
 

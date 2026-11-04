@@ -1,11 +1,11 @@
 # Skill: workflow-planning
 
-| Field   | Value                                                                                                                    |
-| ------- | ------------------------------------------------------------------------------------------------------------------------ |
-| id      | `workflow-planning`                                                                                                      |
-| version | 0.1.0                                                                                                                    |
-| status  | Implemented — Milestone 1 (in progress): model planner, offline rules planner, `validatePlan`, Policy Engine             |
-| tools   | meta-skill: composes the registry tools (`web.fetch`, `text.summarize`, `email.send`, `memory.save`, `assistant.answer`) |
+| Field   | Value                                                                                                                                                                                                     |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id      | `workflow-planning`                                                                                                                                                                                       |
+| version | 0.2.0 (registry: `apps/api/src/modules/agent/skills/registry.ts`)                                                                                                                                         |
+| status  | Implemented — model planner, offline rules planner, `validatePlan`, Policy Engine; Phase B: follow-ups (`conversation.recall`), clarifying questions (`assistant.clarify`); core (cannot be switched off) |
+| tools   | meta-skill: composes the registry tools (`web.fetch`, `text.summarize`, `email.send`, `memory.save`, `assistant.answer`)                                                                                  |
 
 ## Description
 

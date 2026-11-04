@@ -426,12 +426,15 @@ function emailResultPlan(
   to: string,
 ): OfflinePlanResult {
   const self = to.toLowerCase() === ctx.ownEmail.toLowerCase();
-  // There is no "forward to <address>" title key yet: the approval sentence names the recipient.
-  const external = msg('approval.email', { subject: turn.title, recipients: to });
   return {
     ok: true,
     plan: {
-      ...titled(lang, self ? msg('plan.emailResult', { title: turn.title }) : external),
+      ...titled(
+        lang,
+        self
+          ? msg('plan.emailResult', { title: turn.titleMessage ?? turn.title })
+          : msg('plan.forwardResult', { title: turn.titleMessage ?? turn.title, recipients: to }),
+      ),
       ...objective(lang, msg('objective.emailResult', { email: to })),
       steps: [
         {
@@ -443,7 +446,10 @@ function emailResultPlan(
         {
           key: 's2',
           toolId: 'email.send',
-          ...stepTitled(lang, self ? msg('step.emailResult') : external),
+          ...stepTitled(
+            lang,
+            self ? msg('step.emailResult') : msg('step.forwardResult', { recipients: to }),
+          ),
           input: {
             to: [to],
             subject: t(lang, 'email.resultSubject', { title: '{{s1.title}}' }),
@@ -459,7 +465,7 @@ function rememberResultPlan(lang: Locale, turn: PriorTurn): OfflinePlanResult {
   return {
     ok: true,
     plan: {
-      ...titled(lang, msg('plan.rememberResult', { title: turn.title })),
+      ...titled(lang, msg('plan.rememberResult', { title: turn.titleMessage ?? turn.title })),
       ...objective(lang, msg('objective.rememberResult')),
       steps: [
         {
@@ -716,7 +722,12 @@ function schedulePlan(
   });
   if (!inner.ok || clarifyMissing(inner)) return inner;
   if (inner.plan.steps.some((s) => s.toolId === 'schedule.create')) return unsupported();
-  const title = truncate(parsed.rest, 80);
+  // The remainder of the user's sentence starts mid-sentence ("summarize …"): give it a
+  // capital when it begins with an ordinary lower-case word (never a link or an address).
+  const request = /^\p{Ll}\p{L}*\s/u.test(parsed.rest)
+    ? parsed.rest.charAt(0).toLocaleUpperCase(lang) + parsed.rest.slice(1)
+    : parsed.rest;
+  const title = truncate(request, 80);
   return {
     ok: true,
     plan: {
@@ -729,7 +740,7 @@ function schedulePlan(
           ...stepTitled(lang, msg('step.schedule')),
           input: {
             title,
-            request: parsed.rest,
+            request,
             recurrence: { ...parsed.recurrence, timeZone: ctx.timeZone ?? 'UTC' },
           },
         },

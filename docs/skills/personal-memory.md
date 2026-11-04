@@ -1,11 +1,11 @@
 # Skill: personal-memory
 
-| Field   | Value                                                                                                                                                                                        |
-| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id      | `personal-memory`                                                                                                                                                                            |
-| version | 0.1.0                                                                                                                                                                                        |
-| status  | Implemented — Milestone 1 (in progress): `memory.save`, Memory API, retrieval for planning and answers. Semantic (pgvector) retrieval: planned ([ADR-0006](../adr/0006-memory-retrieval.md)) |
-| tools   | `memory.save` (1.0.0); API: `GET/POST/PATCH/DELETE /v1/memories`                                                                                                                             |
+| Field   | Value                                                                                                                                                                                                                                                                 |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id      | `personal-memory`                                                                                                                                                                                                                                                     |
+| version | 0.2.0 (registry: `apps/api/src/modules/agent/skills/registry.ts`)                                                                                                                                                                                                     |
+| status  | Implemented — `memory.save`, Memory API, retrieval for planning and answers, retention (30/90/365 days or forever), "remember that" after a result (approval of the exact text). Semantic (pgvector) retrieval: planned ([ADR-0006](../adr/0006-memory-retrieval.md)) |
+| tools   | `memory.save` (1.0.0); API: `GET/POST/PATCH/DELETE /v1/memories`                                                                                                                                                                                                      |
 
 ## Description
 

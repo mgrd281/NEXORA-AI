@@ -83,6 +83,10 @@ describe('extractive summary', () => {
       'والجملة الثانية.',
     ]);
     expect(splitSentences('Erster Satz. Zweiter Satz!')).toEqual(['Erster Satz.', 'Zweiter Satz!']);
+    // Decimals, domains and initialisms do not end a sentence (a cut there changes the fact).
+    expect(
+      splitSentences('The arrays produced 4.82 GWh, up from 4.08 in 2025. See example.com now.'),
+    ).toEqual(['The arrays produced 4.82 GWh, up from 4.08 in 2025.', 'See example.com now.']);
   });
 
   it('falls back to the beginning of the text when no sentence qualifies', () => {

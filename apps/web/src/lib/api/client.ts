@@ -208,10 +208,21 @@ async function toApiError(res: Response): Promise<ApiError> {
 }
 
 let redirecting = false;
+/** A deliberate sign-out is under way: a 401 from a request still in flight is expected. */
+let signingOut = false;
+
+/**
+ * Marks a sign-out in progress (true) or failed (false). While it runs, 401 answers of other
+ * requests do not send the browser to "/sign-in?…&reason=expired": the sign-out navigates to
+ * /sign-in itself, and "your session ended" would misstate what happened.
+ */
+export function setSigningOut(value: boolean): void {
+  signingOut = value;
+}
 
 /** Sends the browser to /sign-in, remembering where it was. Runs at most once per page. */
 export function redirectToSignIn(): void {
-  if (typeof window === 'undefined' || redirecting) return;
+  if (typeof window === 'undefined' || redirecting || signingOut) return;
   // Signed-out pages (sign-in, the dev component gallery) handle 401s themselves.
   if (
     window.location.pathname.startsWith('/sign-in') ||

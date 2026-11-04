@@ -29,7 +29,8 @@ struct PickedFile: Sendable, Equatable {
            Int64(size) > AttachmentPolicy.maxBytes {
             return .failure(.tooLarge)
         }
-        guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else {
+        // Read fully (not memory-mapped): access to the security-scoped file ends on return.
+        guard let data = try? Data(contentsOf: url) else {
             return .failure(.unreadable)
         }
         switch AttachmentPolicy.check(filename: name, data: data) {

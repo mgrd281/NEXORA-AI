@@ -58,6 +58,8 @@ final class VoiceCaptureModel {
     let localeIdentifier: String
     /// When set, the transcript is sent as a follow-up in this conversation.
     let conversationId: String?
+    /// Uploaded files the composer had attached; they go with the request.
+    let attachmentIds: [String]
 
     @ObservationIgnored private var session: SpeechSession?
     @ObservationIgnored private var autoStop: Task<Void, Never>?
@@ -71,9 +73,10 @@ final class VoiceCaptureModel {
     /// Longest single dictation before capture stops on its own.
     static let maxDuration: Duration = .seconds(60)
 
-    init(localeIdentifier: String, conversationId: String? = nil) {
+    init(localeIdentifier: String, conversationId: String? = nil, attachmentIds: [String] = []) {
         self.localeIdentifier = localeIdentifier
         self.conversationId = conversationId
+        self.attachmentIds = attachmentIds
     }
 
     var languageName: String {
@@ -238,6 +241,7 @@ final class VoiceCaptureModel {
                 language: requestLanguage,
                 voiceSessionId: voiceSessionId,
                 recognitionLocale: localeIdentifier,
+                attachmentIds: attachmentIds,
                 conversationId: conversationId,
                 idempotencyKey: submissionKey
             )

@@ -26,6 +26,19 @@ const SIGNALS: Signal[] = [
     pattern:
       /\b(?:ignore|disregard|forget|override|bypass)\s+(?:all\s+|any\s+|the\s+|your\s+|of\s+)*(?:(?:previous|prior|above|earlier|preceding|original|existing|system)\s+(?:instructions?|prompts?|directions|rules|guidelines|messages)|instructions?|prompts?)\b/i,
   },
+  {
+    // "disregard the user's request", "ignore what the user asked"
+    id: 'ignore_user_request',
+    pattern:
+      /\b(?:ignore|disregard|forget|override)\s+(?:the\s+|your\s+)?(?:user['’]?s?|owner['’]?s?)\s+(?:request|instructions?|question|task|prompt|wishes)\b|\b(?:ignore|disregard)\s+what\s+the\s+user\s+(?:asked|wants|said)\b/i,
+  },
+  {
+    // An upper-case "SYSTEM:" / "ADMIN:" line followed by an order (case-sensitive
+    // prefix, so product specs such as "System: Windows 11" stay unflagged).
+    id: 'fake_system_message',
+    pattern:
+      /\b(?:SYSTEM|SYSTEM MESSAGE|ADMIN|DEVELOPER|OPERATOR)\s*:\s*(?:[Ii]gnore|[Dd]isregard|[Ff]orget|[Ff]orward|[Ss]end|[Ee]-?mail|[Rr]eply|[Rr]espond|[Yy]ou|[Dd]o\s+not|[Dd]on['’]t|[Aa]lways|[Nn]ever|[Ii]nclude|[Oo]utput|[Pp]rint|[Rr]eveal|[Ss]top)\b/,
+  },
   { id: 'system_prompt_reference', pattern: /\bsystem[\s_-]?prompt\b|\bdeveloper\s+message\b/i },
   {
     id: 'role_reassignment',
@@ -36,7 +49,7 @@ const SIGNALS: Signal[] = [
   {
     id: 'instructions_to_ai',
     pattern: new RegExp(
-      String.raw`\b(?:attention|note|message|instructions?|reminder)\s+(?:to|for)\s+(?:the\s+|all\s+|any\s+)?${AI}\b|\b(?:dear|hey|hello)\s+${AI}\b`,
+      String.raw`\b(?:attention|note|message|instructions?|reminder)\s+(?:to|for)\s+(?:the\s+|all\s+|any\s+)?${AI}\b|\b(?:dear|hey|hello)\s+${AI}\b|\b(?:attention|note|warning|notice|important)\s*[,:!-]?\s*(?:all\s+|any\s+)?${AI}\s*[:,!]|\b${AI}\s+(?:that\s+(?:are\s+)?|who\s+(?:are\s+)?)?(?:reading|processing|summari[sz]ing|parsing|crawling|visiting|scraping|browsing)\s+(?:this|these)\b|(?:^|[.!?:;]\s*)${AI}\s*,\s*(?:ignore|disregard|forget|do|don['’]t|send|reply|respond|stop|you|please|include|forward)\b`,
       'i',
     ),
   },
@@ -49,6 +62,12 @@ const SIGNALS: Signal[] = [
     id: 'exfiltration_request',
     pattern:
       /\b(?:send|e-?mail|forward|upload|leak|exfiltrate|reveal|transmit)\b[^.\n]{0,40}?\b(?:your|the\s+user['’]?s?|all|their|my)\s+(?:memories|memory|passwords?|credentials|api\s*keys?|secrets?|tokens?|contacts|conversations?|chat\s+history|system\s+prompt)\b/i,
+  },
+  {
+    // "forward this conversation to …", "send the chat history to …"
+    id: 'exfiltration_request',
+    pattern:
+      /\b(?:send|e-?mail|forward|upload|leak|exfiltrate|reveal|transmit|copy)\b[^.\n]{0,20}?\b(?:this|the|our)\s+(?:conversation|chat|chat\s+(?:history|log|transcript)|conversation\s+history|system\s+prompt|memories)\b[^.\n]{0,40}?\b(?:to|an)\b/i,
   },
   {
     id: 'prompt_markup',
@@ -69,7 +88,12 @@ const SIGNALS: Signal[] = [
   {
     id: 'instructions_to_ai_de',
     pattern:
-      /\b(?:an\s+die|an\s+den|liebe[rs]?|hinweis\s+für\s+(?:die|den))\s+(?:ki|k\.i\.|ki-assistent\w*|sprachmodell|assistent\w*|chatbot)\b/i,
+      /\b(?:an\s+die|an\s+den|liebe[rs]?|hinweis\s+für\s+(?:die|den))\s+(?:ki|k\.i\.|ki-assistent\w*|sprachmodell|assistent\w*|chatbot)\b|\b(?:achtung|hinweis|wichtig|nachricht|anweisung)\s*[,:!-]?\s*(?:an\s+(?:die|den|alle)\s+)?(?:ki|k\.i\.|ki-assistent\w*|ki-agent\w*|sprachmodell\w*|chatbot\w*)\s*[:,!]/i,
+  },
+  {
+    id: 'exfiltration_request_de',
+    pattern:
+      /\b(?:sende|sendet|schick\w*|leite\w*|übermittle\w*|verrate\w*)\b[^.\n]{0,30}?\b(?:den|die|deine[nr]?|ihre[nr]?|meine[nr]?|alle)\s+(?:chatverlauf|gesprächsverlauf|verlauf|unterhaltung|erinnerungen|passw(?:ö|oe)rter|zugangsdaten|kontakte|system-?prompt)\b/i,
   },
   // Arabic (no \b — JS word boundaries do not apply to Arabic script)
   {

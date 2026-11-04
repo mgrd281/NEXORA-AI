@@ -40,6 +40,38 @@ NEXT_DIST_DIR=.next-foundation pnpm --filter @jarvis/web build
   `t()` wraps every interpolated string in FSI…PDI; URLs, emails, hashes go in `.ltr` spans.
 - Icons only via `<Icon icon={…} />` (lucide), `mirror` for directional ones.
 
+## Phase B screens (docs/architecture/phase-b.md)
+
+| Feature                         | Where                                                                                                                    | Code                                           |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| Conversation thread + follow-up | Task detail: earlier requests above, “Since then” + follow-up field below the result                                     | `features/conversations/{Thread,model,api}`    |
+| Conversation history            | Task Center › Conversations (`/tasks/conversations?q=`)                                                                  | `features/conversations/ConversationsScreen`   |
+| Clarifying questions            | Task detail question panel (answer field inline, attach button for `document`); “Needs your answer” / “Answered” chips   | `Thread.tsx` `QuestionPanel`, `TaskStatusPill` |
+| Attachments                     | Both composers (button, drag-and-drop, paste; progress; checks before upload), chips on tasks/turns, owner-only download | `features/attachments/*`                       |
+| Skills                          | Settings › Skills (real availability, switches for toggleable skills only)                                               | `features/settings/SkillsSection`              |
+| Schedules                       | Task Center › Scheduled (`/tasks/scheduled`): cards, run history, editor with server preview                             | `features/schedules/*`                         |
+| Retention                       | Settings › Privacy (both), Memory (memories)                                                                             | `features/settings/RetentionControls`          |
+| Time zones                      | Every zone picker offers exactly `GET /v1/meta/time-zones`                                                               | `features/settings/{TimeZoneSelect,timeZones}` |
+| Webhooks                        | Connections › Developer (`/connections#developer`)                                                                       | `features/webhooks/*`                          |
+
+**Why conversation history lives in the Task Center, not the sidebar.** Every request already
+starts a conversation, and every task page shows its conversation (earlier turns above, later
+turns and the follow-up field below), so the thread needs no screen of its own. History is a
+second way to look at the same work, so it is a view of the Task Center next to Tasks and
+Scheduled: the primary navigation keeps its five destinations (and phones keep a five-item tab
+bar), and “Tasks” stays the one place for everything JARVIS did or will do. A history row opens
+the conversation's newest task, i.e. the thread with its follow-up field.
+
+Rules specific to these screens: a clarifying question is never shown as a failure or as
+“Completed” (accent tone, “Needs your answer”; “Answered” once a later request in the same
+conversation exists); file names, schedule requests and endpoint descriptions are user text
+(`<UserText>` / `dir="auto"`); recurrences are phrased on the client from their fields
+(`schedules/recurrence.ts`), occurrences come from the server (`previewSchedule`,
+`ScheduleDetail.upcoming`) and are shown in the schedule's own zone; a webhook secret is held
+only in the dialog's state and never cached or re-shown. Unit tests: `test/{conversations,
+attachments,schedules}.test.ts`; visual + behaviour specs: `e2e/visual/phase-b.spec.ts`
+(fixtures in `e2e/support/phase-b.ts`, validated against the contracts by `mock-api.ts`).
+
 ## Visual tests (mock API)
 
 ```bash
@@ -48,5 +80,20 @@ PLAYWRIGHT_BASE_URL=http://localhost:3000 pnpm --filter @jarvis/web e2e:visual
 ```
 
 `e2e/support/mock-api.ts` serves contract-validated fixtures (`e2e/support/fixtures.ts`) for every
-`/api/v1/**` route; screenshots land in `test-results/screenshots/`. `e2e/real/*` runs against the
-real API when `E2E_EMAIL` / `E2E_PASSWORD` are set.
+`/api/v1/**` route; screenshots land in `test-results/screenshots/`.
+
+## End-to-end tests (real stack)
+
+`e2e/real/*` runs against the real API, worker, a fixture website and the dev mailbox when
+`E2E_EMAIL` / `E2E_PASSWORD` are set (see the header of each spec for the environment):
+
+```bash
+PLAYWRIGHT_BASE_URL=http://localhost:3000 pnpm --filter @jarvis/web e2e:real   # --workers=1
+```
+
+The specs share one account and one mailbox, so they run one file at a time (`--workers=1`).
+`vertical-slice.spec.ts` covers Milestone 1 (plan → approval → verified email → history);
+`phase-b.spec.ts` covers a follow-up ("email it to me"), a clarifying question and its answer, a
+PDF upload with document summary and owner-only download, a schedule that fires exactly once, a
+signed metadata-only webhook to a local receiver (`WEBHOOK_ALLOW_INSECURE_HOSTS`), a disabled
+skill refused with the localized reason (en/de/ar) and the retention preference.

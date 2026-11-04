@@ -60,18 +60,21 @@ export function TaskRow({
   task,
   href = `/tasks/${task.id}`,
   onReviewApproval,
+  answered = false,
   className,
 }: {
   task: TaskSummary;
   href?: string;
   onReviewApproval?: (approvalId: string, task: TaskSummary) => void;
+  /** A question a later request of its conversation answered (see answeredQuestions). */
+  answered?: boolean;
   className?: string;
 }) {
   const i18n = useI18n();
   const { t, f } = i18n;
   const now = useNow();
   const title = taskTitle(i18n, task);
-  const status = taskStateLabel(t, task);
+  const status = taskStateLabel(t, task, answered);
   const updated = now === 0 ? f.dateTime(task.updatedAt) : f.relative(task.updatedAt, now);
   const showProgress = task.status === 'RUNNING' && task.progress.total > 0;
   const approvalId = task.pendingApprovalId;
@@ -94,7 +97,7 @@ export function TaskRow({
         </span>
       </div>
       <div className={styles.meta}>
-        <TaskStatusPill status={task.status} outcome={task.outcome} />
+        <TaskStatusPill status={task.status} outcome={task.outcome} answered={answered} />
         {(task.attachmentCount ?? 0) > 0 && (
           <span className={styles.files}>
             <Icon icon={Paperclip} size={16} />

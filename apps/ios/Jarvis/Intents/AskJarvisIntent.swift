@@ -50,9 +50,9 @@ struct AskJarvisIntent: AppIntent {
             )
             let status = task.status.label
             if task.status == .awaitingApproval || task.pendingApprovalId != nil {
-                return .result(dialog: IntentDialog("“\(task.title)” needs your approval. Open JARVIS to review it."))
+                return .result(dialog: IntentDialog("“\(task.displayTitle)” needs your approval. Open JARVIS to review it."))
             }
-            return .result(dialog: IntentDialog("Created “\(task.title)”. Status: \(status). Follow it in the JARVIS app."))
+            return .result(dialog: IntentDialog("Created “\(task.displayTitle)”. Status: \(status). Follow it in the JARVIS app."))
         } catch let error as ApiError where error.code == .unauthenticated {
             return .result(dialog: IntentDialog("Your JARVIS session has ended. Sign in again in the app."))
         } catch {

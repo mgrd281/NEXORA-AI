@@ -53,7 +53,10 @@ const escapeData = (s: string) => s.replace(/<\/(document|focus)/gi, '<\\/$1');
 /* Extractive summary (offline)                                        */
 /* ------------------------------------------------------------------ */
 
-const SENTENCE = /[^.!?؟。\n]+(?:[.!?؟。]+["'”’»)\]]*|$)/g;
+// A full stop, ! or ? directly followed by a letter or digit does not end a sentence
+// ("4.82 gigawatt-hours", "example.com", "U.S."): otherwise a summary would quote
+// "The arrays produced 4." — a different, wrong fact.
+const SENTENCE = /(?:[^.!?؟。\n]|[.!?؟](?=[\p{L}\p{N}]))+(?:[.!?؟。]+["'”’»)\]]*|$)/gu;
 
 export function splitSentences(text: string): string[] {
   const out: string[] = [];

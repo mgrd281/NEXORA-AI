@@ -241,10 +241,45 @@ no external side effect was involved.
 - Levers in place: tiered models, low effort for summaries, byte-stable cached system prompts,
   text capped at 20 000 chars per fetched page.
 
-## 13. Evaluation framework (plan)
+## 12b. Phase B additions
 
-Nothing below runs against a live model yet (no API key in this environment). Deterministic parts are
-covered by unit and integration tests today.
+Specified in [phase-b.md](phase-b.md); implemented in `apps/api/src/modules/agent/**`:
+
+- **Follow-ups** — `TaskService.followUp` creates a new task in the same conversation (409
+  `CONVERSATION_BUSY` while one is active). `loadConversationContext` hands the planner ≤ 6 earlier
+  turns (≤ 2 000 characters per result, 8 000 in total) with results framed as untrusted;
+  `validatePlan` takes recipients, links and schedule requests only from the user's own requests of
+  the conversation. `conversation.recall` reuses an earlier result and carries its injection flag.
+- **Clarifying questions** — `assistant.clarify` must be the only step; the task completes with
+  `outcome: 'question'`, a localisable `question` and one JARVIS message; answering is a follow-up.
+- **Documents** — `document.analyze` (worker only): pdf.js legacy (no eval, no fonts, page cap),
+  mammoth after the zip-bomb re-check, strict UTF-8; SHA-256 checked; injection detector; summary
+  (model or extractive) or answer (model).
+- **Skills** — static registry (`skills/registry.ts`); policy rules `SKILL_DISABLED`,
+  `SKILL_COST_LIMIT`, `MEMORY_FROM_CONTENT`, `UNTRUSTED_MEMORY`, `FUTURE_RUNS`
+  ([permission model](../security/permission-model.md#evaluation-order)).
+- **Schedules** — the worker's scheduler tick (`SCHEDULER_TICK_MS`, default 15 s) enqueues one
+  `schedule.run` per occurrence; the run is one transaction (unique `(schedule_id, occurrence_at)`),
+  creates a normal task (`source 'schedule'`) that plans, checks policy and asks for approval like
+  any other; three failed runs pause the schedule and notify.
+- **Retention** — `retention.sweep` per user (memories, finished tasks, empty conversations,
+  expired uploads, old webhook deliveries) in batches of 500; stored files are deleted through the
+  `storage_deletions` outbox drained every 30 s.
+- **Translation** — `text.translate` (model only, structured output, numbers and links verified).
+- **Webhooks** — emitted inside the state change's transaction (one delivery per endpoint and
+  event), delivered by `webhook.deliver` with Standard Webhooks signatures, SSRF checks on every
+  attempt, retries per `WEBHOOK_LIMITS`, endpoint disabled after 5 failed deliveries.
+- **Telemetry** — spans `job`, `tool.execute`, `model.call` (token counts, never content),
+  `scheduler.tick`, `retention.sweep`, `webhook.deliver`, `document.extract`, `storage.op`
+  ([observability runbook](../runbooks/observability.md)).
+
+## 13. Evaluation framework
+
+The framework now exists: `apps/api/evals` (`pnpm --filter @jarvis/api eval`), with versioned
+scenarios in nine suites run offline (deterministic, CI gate), against the scripted or real model,
+and through the full worker pipeline — see [docs/evals.md](../evals.md). The table below is the
+longer-term plan for live-model suites. Nothing below runs against a live model yet (no API key in
+this environment).
 
 | Suite                    | Contents                                                                                                                                                   | Metric                                                            | Gate                                                   |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------ |

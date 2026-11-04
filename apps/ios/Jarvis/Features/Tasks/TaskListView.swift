@@ -3,7 +3,7 @@ import SwiftUI
 struct TaskListView: View {
     @Environment(AppModel.self) private var app
     @State private var model = TaskListModel()
-    @State private var path: [TaskRoute] = []
+    @State private var path = NavigationPath()
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -55,9 +55,14 @@ struct TaskListView: View {
                 }
             }
             .navigationTitle(Text("Tasks"))
-            .navigationDestination(for: TaskRoute.self) { route in
-                TaskDetailView(taskId: route.id)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    NavigationLink(value: SchedulesRoute()) {
+                        Label("Schedules", systemImage: MeridianIcon.schedules)
+                    }
+                }
             }
+            .jarvisDestinations()
             .refreshable { await reload() }
             .task { await initialLoad() }
             .task { await followEvents() }

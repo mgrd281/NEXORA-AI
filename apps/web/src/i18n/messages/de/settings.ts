@@ -104,7 +104,8 @@ const settings: Catalog<typeof source> = {
       email: 'E-Mail verbinden',
       memory: 'Gedächtnis einschalten',
       generalQuestions: 'Braucht ein KI-Modell',
-      attachments: 'Braucht Dateispeicher auf diesem Server und die eingeschaltete Dokument-Fähigkeit',
+      attachments:
+        'Braucht Dateispeicher auf diesem Server und die eingeschaltete Dokument-Fähigkeit',
       translation: 'Braucht ein KI-Modell',
       schedules: 'Zeitplan-Fähigkeit einschalten',
     },
@@ -196,13 +197,13 @@ const settings: Catalog<typeof source> = {
     },
     exportTitle: 'Deine Daten exportieren',
     exportDescription:
-      'Lade alles, was JARVIS über dich speichert, als eine JSON-Datei herunter: Profil, Einstellungen, Aufgaben, Freigaben, Erinnerungen, Mitteilungen und Verbindungen. Passwörter und Schlüssel sind nie enthalten.',
+      'Lade alles, was JARVIS über dich speichert, als eine JSON-Datei herunter: Profil, Einstellungen, Gespräche und Aufgaben, Freigaben, Erinnerungen, Zeitpläne, Mitteilungen, Verbindungen und Webhooks. Angehängte Dateien sind enthalten, insgesamt bis zu 20 MB; weitere werden aufgelistet und bleiben herunterladbar. Passwörter, Schlüssel und Signaturgeheimnisse von Webhooks sind nie enthalten.',
     exportButton: 'Meine Daten exportieren',
     exporting: 'Export wird vorbereitet …',
     exported: '{file} heruntergeladen',
     deleteTitle: 'Konto löschen',
     deleteDescription:
-      'Löscht dein Konto und alles darin endgültig: Aufgaben, Erinnerungen, Verbindungen und gespeicherte Passwörter.',
+      'Löscht dein Konto und alles darin endgültig: Gespräche, Aufgaben, angehängte Dateien, Erinnerungen, Zeitpläne, Verbindungen, Webhooks und gespeicherte Passwörter.',
     deleteButton: 'Konto löschen …',
     deleteDialog: {
       title: 'Dein Konto löschen?',

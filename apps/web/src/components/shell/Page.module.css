@@ -32,8 +32,11 @@
   gap: var(--space-4);
 }
 
+/* Grows to fill the row, and shrinks (its description wrapping) so the actions stay on the
+   title row while there is room; on narrow screens the actions wrap below. */
 .heading {
   display: flex;
+  flex: 1 1 28rem;
   align-items: center;
   gap: var(--space-3);
   min-width: 0;

@@ -66,7 +66,7 @@ final class TaskListModel {
     func handle(_ event: StreamEvent, api: APIClient) {
         switch event.type {
         case .taskCreated, .taskStatusChanged, .taskRetried, .approvalRequested, .approvalDecided,
-             .stepSucceeded, .stepFailed, .planReady:
+             .stepSucceeded, .stepFailed, .planReady, .conversationMessage, .conversationChanged:
             scheduleRefresh(api: api)
         default:
             return

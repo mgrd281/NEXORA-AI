@@ -1,13 +1,14 @@
 import SwiftUI
 
 /// One task in a list: title, status, progress and the most relevant detail line.
+/// Server-written titles, results and errors are shown in the app's language.
 struct TaskRow: View {
     let task: TaskSummary
 
     var body: some View {
         HStack(alignment: .top, spacing: MeridianSpace.s3) {
             VStack(alignment: .leading, spacing: MeridianSpace.s2) {
-                Text(task.title)
+                Text(task.displayTitle)
                     .meridianFont(.bodyStrong)
                     .foregroundStyle(MeridianColor.textPrimary)
                     .multilineTextAlignment(.leading)
@@ -38,11 +39,31 @@ struct TaskRow: View {
 
     @ViewBuilder
     private var badges: some View {
-        StatusBadge(status: task.status)
+        StatusBadge(status: task.status, outcome: task.outcome)
         if task.status == .running || task.status == .verifying, task.progress.total > 0 {
             Text("Step \(task.progress.completed.formatted()) of \(task.progress.total.formatted())")
                 .meridianFont(.caption)
                 .foregroundStyle(MeridianColor.textSecondary)
+        }
+        if let files = task.attachmentCount, files > 0 {
+            Label {
+                Text("Files: \(files.formatted())")
+            } icon: {
+                Image(systemName: MeridianIcon.attachment)
+                    .accessibilityHidden(true)
+            }
+            .meridianFont(.caption)
+            .foregroundStyle(MeridianColor.textSecondary)
+        }
+        if task.source == .schedule {
+            Label {
+                Text("Scheduled")
+            } icon: {
+                Image(systemName: MeridianIcon.schedules)
+                    .accessibilityHidden(true)
+            }
+            .meridianFont(.caption)
+            .foregroundStyle(MeridianColor.textSecondary)
         }
         Text(MeridianFormat.relative(task.updatedAt))
             .meridianFont(.caption)
@@ -50,8 +71,9 @@ struct TaskRow: View {
     }
 
     private var detail: String? {
-        if let error = task.error { return error.message.isEmpty ? ErrorText.title(for: error.code) : error.message }
-        if let result = task.resultSummary, !result.isEmpty { return result }
+        if let error = task.error { return TaskErrorText.describe(error) }
+        if task.needsAnswer, let question = task.question { return question.displayText }
+        if let result = task.displayResult, !result.isEmpty { return result }
         if task.status.isActive { return task.request }
         return nil
     }

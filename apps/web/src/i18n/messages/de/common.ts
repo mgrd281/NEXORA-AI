@@ -85,6 +85,7 @@ const common: Catalog<typeof source> = {
   },
   outcome: {
     question: 'Antwort nötig',
+    answered: 'Beantwortet',
   },
   source: {
     text: 'Getippt',

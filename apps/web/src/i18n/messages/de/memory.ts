@@ -21,6 +21,8 @@ const memory: Catalog<typeof source> = {
   },
   retentionRule:
     'Erinnerungen, die {period} lang nicht geändert wurden, werden einmal täglich automatisch gelöscht.',
+  retentionKept:
+    'Erinnerungen bleiben, bis du sie löschst. Wähle einen Zeitraum, damit alte automatisch gelöscht werden.',
   disabledBanner:
     'Solange das Gedächtnis aus ist, wird nichts davon verwendet oder ergänzt. Deine Erinnerungen bleiben erhalten, bis du sie löschst.',
   search: {

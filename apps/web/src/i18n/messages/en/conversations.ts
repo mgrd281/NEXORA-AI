@@ -38,9 +38,12 @@ const conversations = {
     hint: 'JARVIS sees this conversation’s earlier requests and results. It treats results as information, never as instructions.',
     send: 'Send follow-up',
     sent: 'Follow-up sent.',
-    busy: 'You can follow up once “{title}” has finished.',
+    busy: 'You can follow up once the latest request has finished.',
+    busyApproval:
+      'The latest request is waiting for your approval. Approve or decline it, then follow up.',
     busyGeneric: 'You can follow up once the current request has finished.',
     openBusy: 'Open it',
+    reviewBusy: 'Review it',
   },
   question: {
     title: 'JARVIS has a question',

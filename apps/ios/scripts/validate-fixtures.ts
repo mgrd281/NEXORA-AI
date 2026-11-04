@@ -4,59 +4,140 @@
  *
  *   pnpm --filter @jarvis/api exec tsx ../ios/scripts/validate-fixtures.ts
  *
- * Each fixture must parse with its schema AND round-trip unchanged (no unknown keys
- * stripped, no defaults filled in). `unknown-values.json` must FAIL, and only on the
- * fields that carry deliberately unknown enum values — it proves the app tolerates
- * values newer than this build.
+ * - Each fixture in `valid` must parse with its schema AND round-trip unchanged (no
+ *   unknown keys stripped, no defaults filled in).
+ * - Each fixture in `unknownValues` must FAIL, and only at the paths that carry
+ *   deliberately unknown enum values or union variants: it proves the app tolerates
+ *   values newer than this build (the Swift tests decode them to `.unknown`).
+ * - Each fixture in `olderServer` is a payload of a server before Phase B: it must parse,
+ *   and the only differences after parsing are the listed contract defaults (the Swift
+ *   tests check the app applies the same defaults).
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
-import type { z } from 'zod';
 import {
   ApiErrorBody,
   Approval,
+  Attachment,
+  ConversationDetail,
   HomeSnapshot,
   LoginResponse,
   Me,
+  ScheduleDetail,
+  SchedulePreview,
   StreamEvent,
   TaskDetail,
   routes,
 } from '../../../packages/contracts/src/index.ts';
 
+/** The part of a Zod schema this script uses (typed here: `zod` is not a dependency of apps/ios). */
+interface Schema {
+  safeParse(
+    data: unknown,
+  ):
+    | { success: true; data: unknown }
+    | { success: false; error: { issues: { path: PropertyKey[]; message: string }[] } };
+}
+
 const dir = join(dirname(fileURLToPath(import.meta.url)), '../JarvisTests/Fixtures');
 
-const valid: Record<string, z.ZodType> = {
+const valid: Record<string, Schema> = {
   'task-detail.json': TaskDetail,
+  'task-detail-question.json': TaskDetail,
   'home-snapshot.json': HomeSnapshot,
   'api-error.json': ApiErrorBody,
+  'api-error-conversation-busy.json': ApiErrorBody,
+  'api-error-file-too-large.json': ApiErrorBody,
   'task-page.json': routes.listTasks.response,
   'me.json': Me,
   'login-response.json': LoginResponse,
   'approval-generic.json': Approval,
+  'approval-schedule.json': Approval,
+  'approval-memory.json': Approval,
   'memories-page.json': routes.listMemories.response,
   'connections.json': routes.listConnections.response,
   'sessions.json': routes.listSessions.response,
   'stream-event.json': StreamEvent,
   'stream-event-ephemeral.json': StreamEvent,
+  'stream-event-conversation.json': StreamEvent,
+  // Phase B
+  'conversation-page.json': routes.listConversations.response,
+  'conversation-detail.json': ConversationDetail,
+  'attachment.json': Attachment,
+  'skills.json': routes.listSkills.response,
+  'schedules.json': routes.listSchedules.response,
+  'schedule-detail.json': ScheduleDetail,
+  'schedule-preview.json': SchedulePreview,
+  'time-zones.json': routes.listTimeZones.response,
 };
 
-/** Paths that must be the only failures in unknown-values.json. */
-const expectedUnknownPaths = new Set([
-  'status',
-  'riskLevel',
-  'source',
-  'planner.mode',
-  'error.code',
-  'steps.0.status',
-  'steps.0.toolId',
-  'steps.0.policy.decision',
-  'steps.0.evidence.0.kind',
-  'approvals.0.status',
-  'approvals.0.details.kind',
-  'events.0.type',
-]);
+/** Fixtures with values newer than this build, and the only paths allowed to fail. */
+const unknownValues: Record<string, { schema: Schema; paths: string[] }> = {
+  'unknown-values.json': {
+    schema: TaskDetail,
+    paths: [
+      'status',
+      'riskLevel',
+      'source',
+      'planner.mode',
+      'error.code',
+      'steps.0.status',
+      'steps.0.toolId',
+      'steps.0.policy.decision',
+      'steps.0.evidence.0.kind',
+      'approvals.0.status',
+      'approvals.0.details.kind',
+      'events.0.type',
+    ],
+  },
+  'unknown-values-conversation.json': {
+    schema: ConversationDetail,
+    paths: [
+      'turns.0.type',
+      'turns.1.message.kind',
+      'turns.1.message.language',
+      'turns.1.message.attachments.0.mediaType',
+      'turns.2.task.outcome',
+      'turns.2.task.question.missing.0',
+    ],
+  },
+  'unknown-values-schedule.json': {
+    schema: ScheduleDetail,
+    paths: [
+      'recurrence.byWeekday.1',
+      'status',
+      'pausedReason',
+      'createdBy',
+      'runs.0.status',
+      'runs.0.reason',
+    ],
+  },
+  'unknown-values-skills.json': {
+    schema: routes.listSkills.response,
+    paths: [
+      'items.0.id',
+      'items.0.status',
+      'items.0.unavailableReason',
+      'items.0.tools.0',
+      'items.0.maxRisk',
+      'items.0.requiredConnections.0',
+      'items.0.modelUse',
+    ],
+  },
+};
+
+/** Payloads of a server before Phase B: parse, with exactly these contract defaults applied. */
+const olderServer: Record<string, { schema: Schema; defaults: Record<string, unknown> }> = {
+  'me-before-phase-b.json': {
+    schema: Me,
+    defaults: {
+      'preferences.retention': { memoryDays: null, taskHistoryDays: null },
+      'preferences.skills': { disabled: [] },
+    },
+  },
+};
 
 let failures = 0;
 const fail = (msg: string) => {
@@ -64,25 +145,80 @@ const fail = (msg: string) => {
   console.error(`✗ ${msg}`);
 };
 
+/** Dotted paths where `after` differs from `before` (added or changed keys). */
+function changedPaths(before: unknown, after: unknown, prefix = ''): string[] {
+  if (isDeepStrictEqual(before, after)) return [];
+  if (
+    before &&
+    after &&
+    typeof before === 'object' &&
+    typeof after === 'object' &&
+    !Array.isArray(before) &&
+    !Array.isArray(after)
+  ) {
+    const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+    return [...keys].flatMap((k) =>
+      changedPaths(
+        (before as Record<string, unknown>)[k],
+        (after as Record<string, unknown>)[k],
+        prefix ? `${prefix}.${k}` : k,
+      ),
+    );
+  }
+  return [prefix];
+}
+
 const files = readdirSync(dir).filter((f) => f.endsWith('.json'));
 for (const file of files) {
   const data: unknown = JSON.parse(readFileSync(join(dir, file), 'utf8'));
-  if (file === 'unknown-values.json') {
-    const r = TaskDetail.safeParse(data);
+
+  const unknown = unknownValues[file];
+  if (unknown) {
+    const r = unknown.schema.safeParse(data);
     if (r.success) {
       fail(`${file}: expected to violate the contract, but it parsed`);
       continue;
     }
     const paths = new Set(r.error.issues.map((i) => i.path.join('.')));
-    const unexpected = [...paths].filter((p) => !expectedUnknownPaths.has(p));
-    const missing = [...expectedUnknownPaths].filter((p) => !paths.has(p));
+    const unexpected = [...paths].filter((p) => !unknown.paths.includes(p));
+    const missing = unknown.paths.filter((p) => !paths.has(p));
     if (unexpected.length || missing.length) {
-      fail(`${file}: unexpected issue paths ${JSON.stringify(unexpected)}, missing ${JSON.stringify(missing)}`);
+      fail(
+        `${file}: unexpected issue paths ${JSON.stringify(unexpected)}, missing ${JSON.stringify(missing)}`,
+      );
     } else {
-      console.log(`✓ ${file}: rejected by TaskDetail only at the ${paths.size} unknown-value fields`);
+      console.log(`✓ ${file}: rejected only at the ${paths.size} unknown-value fields`);
     }
     continue;
   }
+
+  const older = olderServer[file];
+  if (older) {
+    const r = older.schema.safeParse(data);
+    if (!r.success) {
+      fail(`${file}: ${r.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`);
+      continue;
+    }
+    const changed = changedPaths(data, r.data);
+    const expected = Object.keys(older.defaults);
+    const wrong = expected.filter((path) => {
+      const value = path
+        .split('.')
+        .reduce<unknown>((o, k) => (o as Record<string, unknown>)?.[k], r.data);
+      return !isDeepStrictEqual(value, older.defaults[path]);
+    });
+    if (!isDeepStrictEqual(changed.sort(), [...expected].sort()) || wrong.length) {
+      fail(
+        `${file}: parsing changed ${JSON.stringify(changed)}; expected only the defaults ${JSON.stringify(expected)}`,
+      );
+    } else {
+      console.log(
+        `✓ ${file}: an older server's payload parses, with only the defaults ${expected.join(', ')}`,
+      );
+    }
+    continue;
+  }
+
   const schema = valid[file];
   if (!schema) {
     fail(`${file}: no schema mapped — add it to validate-fixtures.ts`);
@@ -100,7 +236,11 @@ for (const file of files) {
   console.log(`✓ ${file}`);
 }
 
-for (const file of Object.keys(valid)) {
+for (const file of [
+  ...Object.keys(valid),
+  ...Object.keys(unknownValues),
+  ...Object.keys(olderServer),
+]) {
   if (!files.includes(file)) fail(`${file}: mapped but missing on disk`);
 }
 

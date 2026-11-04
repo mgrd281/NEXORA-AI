@@ -83,6 +83,7 @@ const common = {
   /** A completed task that ended with a clarifying question (TaskOutcome 'question'). */
   outcome: {
     question: 'Needs your answer',
+    answered: 'Answered',
   },
   source: {
     text: 'Typed',

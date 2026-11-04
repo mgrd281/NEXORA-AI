@@ -11,17 +11,24 @@ struct ApprovalCard: View {
                 Image(systemName: MeridianIcon.status(.awaitingApproval))
                     .foregroundStyle(MeridianColor.warning)
                     .accessibilityHidden(true)
-                Text(approval.taskTitle)
+                Text(approval.displayTaskTitle)
                     .meridianFont(.label)
                     .foregroundStyle(MeridianColor.textSecondary)
                     .lineLimit(2)
                 Spacer(minLength: 0)
                 RiskBadge(level: approval.riskLevel)
             }
-            Text(approval.summary)
+            Text(approval.displaySummary)
                 .meridianFont(.bodyStrong)
                 .foregroundStyle(MeridianColor.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
+            if approval.details.untrusted != nil {
+                ToneBadge(
+                    label: String(localized: "Untrusted source"),
+                    systemImage: "exclamationmark.triangle",
+                    tone: .danger
+                )
+            }
             if approval.isExpired() {
                 Text("This request has expired.")
                     .meridianFont(.caption)

@@ -90,7 +90,9 @@ enum ErrorText {
             }
             return String(localized: "Something went wrong on our side. Try again later.")
         case .unknown:
-            return fallback.isEmpty
+            // A code from a newer server: its message is English developer text, so it is
+            // shown only to English readers.
+            return fallback.isEmpty || AppLocale.current != .en
                 ? String(localized: "Something went wrong. Please try again.")
                 : fallback
         }
@@ -157,7 +159,7 @@ enum ApiErrorReasonText {
         case "CONVERSATION_ACTIVE_TASK":
             text = String(localized: "error.api.CONVERSATION_ACTIVE_TASK", defaultValue: "A task in this conversation is still running. Wait until it finishes or cancel it, then delete the conversation.")
         case "SCHEDULE_LIMIT_REACHED":
-            text = String(localized: "error.api.SCHEDULE_LIMIT_REACHED", defaultValue: "You have reached the maximum number of schedules (\(p.max)). Delete one to add another.")
+            text = String(localized: "error.api.SCHEDULE_LIMIT_REACHED", defaultValue: "You can have up to \(p.max) schedules. Delete one to add another.")
         case "INVALID_RECURRENCE":
             text = String(localized: "error.api.INVALID_RECURRENCE", defaultValue: "This repeat rule isn't valid.")
         case "RECURRENCE_HAS_NO_OCCURRENCES":
@@ -302,7 +304,7 @@ enum TaskErrorText {
         case "NOTHING_TO_RECALL":
             text = String(localized: "error.reason.NOTHING_TO_RECALL", defaultValue: "There's no earlier result in this conversation to use.")
         case "SCHEDULE_LIMIT_REACHED":
-            text = String(localized: "error.reason.SCHEDULE_LIMIT_REACHED", defaultValue: "You have reached the maximum number of schedules (\(p.max)).")
+            text = String(localized: "error.reason.SCHEDULE_LIMIT_REACHED", defaultValue: "You already have \(p.max) schedules, the most you can have.")
         case "INVALID_RECURRENCE":
             text = String(localized: "error.reason.INVALID_RECURRENCE", defaultValue: "The schedule's repeat rule isn't valid.")
         case "SKILL_DISABLED":

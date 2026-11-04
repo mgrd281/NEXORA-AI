@@ -41,6 +41,7 @@ import { useI18n } from '@/i18n/I18nProvider';
 import type { MessageKey } from '@/i18n/catalog';
 import { serverText } from '@/i18n/server-message';
 import { stripIsolates } from '@/i18n/translate';
+import { answeredQuestions } from '@/features/conversations/model';
 import { useHome, useMe } from '@/lib/api/hooks';
 import { cx } from '@/lib/cx';
 import { useNow } from '@/lib/hooks/useNow';
@@ -495,6 +496,7 @@ function TaskSection({
   viewAll: { href: string; section: string } | null;
 }) {
   if (tasks.length === 0) return null;
+  const answered = answeredQuestions(tasks);
   return (
     <Section
       title={<SectionTitle title={title} count={tasks.length} />}
@@ -503,7 +505,7 @@ function TaskSection({
       <Card padding="none">
         <ul className={styles.taskList}>
           {tasks.map((task) => (
-            <TaskRow key={task.id} task={task} />
+            <TaskRow key={task.id} task={task} answered={answered.has(task.id)} />
           ))}
         </ul>
       </Card>

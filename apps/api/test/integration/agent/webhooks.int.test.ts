@@ -339,7 +339,7 @@ describe('delivery', () => {
         .execute(),
     );
     expect(changed.map((c) => c.data)).toEqual([
-      { endpointId: ep.id, status: 'disabled', disabledReason: 'failures' },
+      { endpointId: ep.id, change: 'disabled', status: 'disabled', disabledReason: 'failures' },
     ]);
     // A disabled endpoint gets nothing more.
     await h.services.tasks.create(user, { request: 'tell me one more joke', source: 'text' }, {});

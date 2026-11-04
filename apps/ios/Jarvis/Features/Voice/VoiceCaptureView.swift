@@ -10,10 +10,13 @@ struct VoiceCaptureView: View {
     @State private var model: VoiceCaptureModel? = nil
     /// When set, the request is sent as a follow-up in this conversation.
     let conversationId: String?
+    /// Files already uploaded in the composer; sent with the spoken request.
+    let attachmentIds: [String]
     let onCreated: (TaskSummary) -> Void
 
-    init(conversationId: String? = nil, onCreated: @escaping (TaskSummary) -> Void) {
+    init(conversationId: String? = nil, attachmentIds: [String] = [], onCreated: @escaping (TaskSummary) -> Void) {
         self.conversationId = conversationId
+        self.attachmentIds = attachmentIds
         self.onCreated = onCreated
     }
 
@@ -44,7 +47,11 @@ struct VoiceCaptureView: View {
         .onAppear {
             if model == nil {
                 let identifier = (app.me?.preferences.voice.recognitionLocale ?? .auto).resolvedIdentifier()
-                model = VoiceCaptureModel(localeIdentifier: identifier, conversationId: conversationId)
+                model = VoiceCaptureModel(
+                    localeIdentifier: identifier,
+                    conversationId: conversationId,
+                    attachmentIds: attachmentIds
+                )
             }
         }
         .onDisappear {

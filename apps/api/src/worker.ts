@@ -60,7 +60,7 @@ export const SWEEP_MS = 60_000;
 export const STUCK_GRACE_MS = 5 * 60_000;
 /** Periodic sweeps look at users whose task jobs changed this recently (the first sweep: all). */
 export const SWEEP_LOOKBACK_MS = 60 * 60_000;
-/** Phase B: due schedules are turned into schedule.run jobs this often. */
+/** Phase B: due schedules are turned into schedule.run jobs this often (SCHEDULER_TICK_MS overrides). */
 export const SCHEDULER_MS = 15_000;
 /** Phase B: queued storage deletions are drained this often. */
 export const STORAGE_DRAIN_MS = 30_000;
@@ -244,7 +244,13 @@ function consoleLogger(): RuntimeLogger {
 export async function startWorker(): Promise<void> {
   const config = loadConfig();
   // First: tracing, error reporting and metrics (each only when configured; no-ops otherwise).
-  const telemetry = initTelemetry(config, 'worker');
+  // First: tracing, error reporting and metrics (each only when configured; no-ops
+  // otherwise). The worker serves its own /metrics (job, tool, model and webhook series)
+  // when WORKER_METRICS_PORT is set; the queue gauges come from the API's /metrics.
+  const telemetry = initTelemetry(config, 'worker', {
+    metricsPort: config.WORKER_METRICS_PORT,
+    metricsHost: config.WORKER_METRICS_HOST,
+  });
   await telemetry.ready;
   const log = consoleLogger();
   const { db } = createDb(config.DATABASE_URL, config.WORKER_CONCURRENCY + 4);
@@ -296,7 +302,7 @@ export async function startWorker(): Promise<void> {
       .finally(() => (ticking = false));
   };
   void tick();
-  const schedulerTimer = setInterval(tick, SCHEDULER_MS);
+  const schedulerTimer = setInterval(tick, config.SCHEDULER_TICK_MS);
   let draining = false;
   const drain = () => {
     if (draining) return;

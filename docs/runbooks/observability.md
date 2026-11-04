@@ -137,12 +137,18 @@ scrape_configs:
 ### Worker metrics
 
 Job, tool and model metrics are recorded where the work happens — the worker — which has no HTTP
-server. `initTelemetry(config, 'worker', { metricsPort, metricsHost, db })` starts a minimal
-listener that serves only `GET /metrics` with the same token check (default interface
-`127.0.0.1`; pass the container interface explicitly). The API already reports the queue gauges, so
-the worker passes no `db`. Until a `WORKER_METRICS_PORT` setting exists in `config.ts` (requested),
-the worker is wired without a port and its job/tool/model series are not exposed; HTTP, SSE and
-queue metrics come from the API.
+server. With `METRICS_TOKEN` and `WORKER_METRICS_PORT` set, `worker.ts` calls
+`initTelemetry(config, 'worker', { metricsPort, metricsHost })`, which starts a minimal listener
+serving only `GET /metrics` with the same token check on `WORKER_METRICS_HOST` (default
+`127.0.0.1`; set `0.0.0.0` in containers). The API already reports the queue gauges, so the worker
+passes no `db`. Without `WORKER_METRICS_PORT` the worker still records its series but nothing serves
+them; HTTP, SSE and queue metrics always come from the API.
+
+```yaml
+- job_name: jarvis-worker
+  authorization: { type: Bearer, credentials_file: /etc/prometheus/jarvis-metrics-token }
+  static_configs: [{ targets: ['worker.internal:9464'] }]
+```
 
 ## Alerts (suggested starting points)
 

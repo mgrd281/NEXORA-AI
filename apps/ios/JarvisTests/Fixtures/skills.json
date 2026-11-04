@@ -1,0 +1,110 @@
+{
+  "items": [
+    {
+      "id": "web-research",
+      "version": "1.0.0",
+      "status": "implemented",
+      "enabled": true,
+      "canToggle": true,
+      "available": true,
+      "unavailableReason": null,
+      "tools": [
+        "web.fetch",
+        "text.summarize"
+      ],
+      "plannedTools": [],
+      "permissions": [
+        "web:read"
+      ],
+      "maxRisk": "LOW",
+      "requiredConnections": [
+        "web"
+      ],
+      "modelUse": "optional",
+      "maxCostPerRunMicroUsd": 50000,
+      "docsPath": "docs/skills/web-research.md"
+    },
+    {
+      "id": "email-management",
+      "version": "1.0.0",
+      "status": "needs_connection",
+      "enabled": true,
+      "canToggle": true,
+      "available": false,
+      "unavailableReason": "CONNECTION_REQUIRED",
+      "tools": [
+        "email.send"
+      ],
+      "plannedTools": [],
+      "permissions": [
+        "email:send"
+      ],
+      "maxRisk": "MEDIUM",
+      "requiredConnections": [
+        "smtp"
+      ],
+      "modelUse": "none",
+      "maxCostPerRunMicroUsd": null,
+      "docsPath": "docs/skills/email-management.md"
+    },
+    {
+      "id": "translation",
+      "version": "1.0.0",
+      "status": "implemented",
+      "enabled": false,
+      "canToggle": true,
+      "available": false,
+      "unavailableReason": "DISABLED_BY_USER",
+      "tools": [
+        "text.translate"
+      ],
+      "plannedTools": [],
+      "permissions": [],
+      "maxRisk": "LOW",
+      "requiredConnections": [],
+      "modelUse": "required",
+      "maxCostPerRunMicroUsd": null,
+      "docsPath": "docs/skills/translation.md"
+    },
+    {
+      "id": "workflow-planning",
+      "version": "1.0.0",
+      "status": "implemented",
+      "enabled": true,
+      "canToggle": false,
+      "available": true,
+      "unavailableReason": null,
+      "tools": [
+        "assistant.answer",
+        "assistant.clarify",
+        "conversation.recall"
+      ],
+      "plannedTools": [],
+      "permissions": [],
+      "maxRisk": "LOW",
+      "requiredConnections": [],
+      "modelUse": "optional",
+      "maxCostPerRunMicroUsd": null,
+      "docsPath": "docs/skills/workflow-planning.md"
+    },
+    {
+      "id": "phone-calling",
+      "version": "1.0.0",
+      "status": "planned",
+      "enabled": false,
+      "canToggle": false,
+      "available": false,
+      "unavailableReason": "PLANNED",
+      "tools": [],
+      "plannedTools": [
+        "phone.call"
+      ],
+      "permissions": [],
+      "maxRisk": "HIGH",
+      "requiredConnections": [],
+      "modelUse": "none",
+      "maxCostPerRunMicroUsd": null,
+      "docsPath": "docs/skills/phone-calling.md"
+    }
+  ]
+}

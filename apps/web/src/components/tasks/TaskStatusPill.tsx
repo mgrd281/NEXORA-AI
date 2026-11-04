@@ -12,6 +12,7 @@ import {
   Clock,
   Hand,
   MessageCircleQuestionMark,
+  MessageCircleReply,
   Play,
   Route,
   ShieldCheck,
@@ -51,24 +52,37 @@ function asksQuestion(status: TaskStatus, outcome: TaskOutcome | null | undefine
 export function taskStateLabel(
   t: TranslateFn,
   task: { status: TaskStatus; outcome?: TaskOutcome | null },
+  answered = false,
 ): string {
-  return asksQuestion(task.status, task.outcome)
-    ? t('common.outcome.question')
-    : t(`common.taskStatus.${task.status}`);
+  if (!asksQuestion(task.status, task.outcome)) return t(`common.taskStatus.${task.status}`);
+  return answered ? t('common.outcome.answered') : t('common.outcome.question');
 }
 
 /** Task state chip: icon + localized label + tone (identical on every client). */
 export function TaskStatusPill({
   status,
   outcome,
+  answered = false,
   className,
 }: {
   status: TaskStatus;
   /** TaskSummary.outcome: a 'question' reads "Needs your answer". */
   outcome?: TaskOutcome | null;
+  /** The question was answered by a later request of its conversation: it reads "Answered". */
+  answered?: boolean;
   className?: string;
 }) {
   const { t } = useI18n();
+  if (asksQuestion(status, outcome) && answered) {
+    return (
+      <StatusPill
+        tone="neutral"
+        icon={MessageCircleReply}
+        label={t('common.outcome.answered')}
+        className={className}
+      />
+    );
+  }
   if (asksQuestion(status, outcome)) {
     return (
       <StatusPill

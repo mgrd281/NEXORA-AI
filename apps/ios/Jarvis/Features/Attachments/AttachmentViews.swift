@@ -7,6 +7,10 @@ struct AttachmentTray: View {
     @Environment(AppModel.self) private var app
     let draft: AttachmentDraft
 
+    init(draft: AttachmentDraft) {
+        self.draft = draft
+    }
+
     var body: some View {
         if !draft.isEmpty || draft.notice != nil {
             VStack(alignment: .leading, spacing: MeridianSpace.s2) {
@@ -101,6 +105,11 @@ struct AttachButton: View {
     var size: CGFloat = 36
     @State private var picking = false
 
+    init(draft: AttachmentDraft, size: CGFloat = 36) {
+        self.draft = draft
+        self.size = size
+    }
+
     var body: some View {
         Button {
             picking = true
@@ -131,14 +140,49 @@ struct AttachButton: View {
     }
 }
 
+/// A labelled "Attach the file" button (for a clarifying question that asks for a document);
+/// adds to the same draft as the composer's paper clip.
+struct AttachFileButton: View {
+    @Environment(AppModel.self) private var app
+    let draft: AttachmentDraft
+    @State private var picking = false
+
+    init(draft: AttachmentDraft) {
+        self.draft = draft
+    }
+
+    var body: some View {
+        Button {
+            picking = true
+        } label: {
+            Label("Attach the file", systemImage: MeridianIcon.attachment)
+        }
+        .buttonStyle(.meridianSecondary)
+        .disabled(draft.remainingSlots == 0 || app.attachmentsUnavailable)
+        .fileImporter(
+            isPresented: $picking,
+            allowedContentTypes: PickedFile.contentTypes,
+            allowsMultipleSelection: true
+        ) { result in
+            if case .success(let urls) = result, !urls.isEmpty {
+                Task { await draft.add(urls, api: app.api) }
+            }
+        }
+    }
+}
+
 /// Files attached to a request (task detail, conversation). Tapping one downloads it with the
 /// signed-in session (only its owner can) and opens it in Quick Look, which can also share it.
 struct AttachedFilesView: View {
     @Environment(AppModel.self) private var app
     let attachments: [Attachment]
-    @State private var downloadingId: String?
-    @State private var errorMessage: String?
-    @State private var previewURL: URL?
+    @State private var downloadingId: String? = nil
+    @State private var errorMessage: String? = nil
+    @State private var previewURL: URL? = nil
+
+    init(attachments: [Attachment]) {
+        self.attachments = attachments
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: MeridianSpace.s2) {

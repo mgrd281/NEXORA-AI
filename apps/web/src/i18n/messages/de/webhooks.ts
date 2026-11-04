@@ -25,7 +25,7 @@ const webhooks: Catalog<typeof source> = {
     user: 'Von dir ausgeschaltet.',
     failures: 'Nach {count} fehlgeschlagenen Zustellungen in Folge ausgeschaltet.',
   },
-  events: '{count, plural, one {# Ereignis} other {# Ereignisse}}',
+  allEvents: 'Alle Ereignisse',
   lastDelivery: 'Letzte Zustellung {time}',
   noDeliveries: 'Noch keine Zustellungen',
   failing:
@@ -37,6 +37,7 @@ const webhooks: Catalog<typeof source> = {
     deliveries: 'Zustellprotokoll',
     hideDeliveries: 'Zustellprotokoll ausblenden',
     rotate: 'Neues Geheimnis …',
+    edit: 'Bearbeiten',
     delete: 'Löschen …',
   },
   actionFor: '{action} ({host})',
@@ -46,9 +47,11 @@ const webhooks: Catalog<typeof source> = {
     turnedOn: 'Endpunkt eingeschaltet.',
     turnedOff: 'Endpunkt ausgeschaltet.',
     deleted: 'Endpunkt gelöscht.',
+    saved: 'Endpunkt gespeichert.',
   },
   form: {
     title: 'Webhook-Endpunkt hinzufügen',
+    editTitle: 'Webhook-Endpunkt bearbeiten',
     url: 'Endpunkt-URL',
     urlPlaceholder: 'https://example.com/jarvis/webhooks',
     urlHint: 'Muss mit https:// beginnen und aus dem Internet erreichbar sein.',
@@ -60,6 +63,7 @@ const webhooks: Catalog<typeof source> = {
     selectAll: 'Alle auswählen',
     selectNone: 'Auswahl leeren',
     create: 'Endpunkt hinzufügen',
+    save: 'Änderungen speichern',
   },
   eventTypes: {
     taskCreated: 'Aufgabe erstellt',
@@ -81,7 +85,8 @@ const webhooks: Catalog<typeof source> = {
       'Das alte Geheimnis gilt ab sofort nicht mehr. Hinterlege dieses in deinem Dienst, damit Zustellungen weiter geprüft werden können.',
     label: 'Signaturgeheimnis',
     copy: 'Signaturgeheimnis',
-    warning: 'Bewahre es in den Geheimnis-Einstellungen deines Dienstes auf, nie im Code oder in einem Chat.',
+    warning:
+      'Bewahre es in den Geheimnis-Einstellungen deines Dienstes auf, nie im Code oder in einem Chat.',
     done: 'Ich habe es gespeichert',
   },
   rotateDialog: {
@@ -114,8 +119,7 @@ const webhooks: Catalog<typeof source> = {
       CONNECT_FAILED: 'JARVIS konnte keine Verbindung zum Endpunkt herstellen.',
       TLS_CERTIFICATE: 'Das Sicherheitszertifikat des Endpunkts ist ungültig.',
       HOST_NOT_FOUND: 'Der Hostname des Endpunkts wurde nicht gefunden.',
-      PRIVATE_ADDRESS:
-        'Die Adresse führt in ein privates Netzwerk, daher wurde nichts gesendet.',
+      PRIVATE_ADDRESS: 'Die Adresse führt in ein privates Netzwerk, daher wurde nichts gesendet.',
       REDIRECT: 'Der Endpunkt hat umgeleitet; Umleitungen folgt JARVIS nicht.',
       ENDPOINT_DISABLED: 'Der Endpunkt wurde ausgeschaltet.',
       ENDPOINT_DELETED: 'Der Endpunkt wurde gelöscht.',

@@ -41,9 +41,12 @@ const conversations: Catalog<typeof source> = {
     hint: 'JARVIS sieht die früheren Anfragen und Ergebnisse dieses Gesprächs. Ergebnisse gelten als Information, nie als Anweisung.',
     send: 'Nachfrage senden',
     sent: 'Nachfrage gesendet.',
-    busy: 'Nachfragen ist möglich, sobald „{title}“ abgeschlossen ist.',
+    busy: 'Nachfragen ist möglich, sobald die letzte Anfrage abgeschlossen ist.',
+    busyApproval:
+      'Die letzte Anfrage wartet auf deine Freigabe. Gib sie frei oder lehne sie ab, dann kannst du nachfragen.',
     busyGeneric: 'Nachfragen ist möglich, sobald die aktuelle Anfrage abgeschlossen ist.',
     openBusy: 'Öffnen',
+    reviewBusy: 'Prüfen',
   },
   question: {
     title: 'JARVIS hat eine Rückfrage',

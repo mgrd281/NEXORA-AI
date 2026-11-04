@@ -2,7 +2,7 @@
 
 import type { CreateTaskRequest, RouteResponse } from '@jarvis/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, newIdempotencyKey, type ApiError } from './client';
+import { api, newIdempotencyKey, setSigningOut, type ApiError } from './client';
 import { qk } from './query-keys';
 
 /**
@@ -92,6 +92,9 @@ export function useSignOut() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => api.call('logout'),
+    // From the moment the session is revoked, other requests answer 401: not "expired".
+    onMutate: () => setSigningOut(true),
+    onError: () => setSigningOut(false),
     onSuccess: () => {
       queryClient.clear();
       // A full load (not router.push) drops every in-memory trace of the signed-out account.

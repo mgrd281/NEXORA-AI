@@ -22,7 +22,7 @@ import { useToast } from '@/components/ui/Toast';
 import { AttachmentList } from '@/features/attachments/Attachments';
 import { useI18n } from '@/i18n/I18nProvider';
 import { errorLine } from '@/i18n/server-message';
-import { useMe } from '@/lib/api/hooks';
+import { useAssistantStatus, useMe } from '@/lib/api/hooks';
 import { cx } from '@/lib/cx';
 import { useDeleteConversation } from './api';
 import { isQuestion, messageText, questionText, type TurnGroup } from './model';
@@ -35,7 +35,16 @@ import styles from './Thread.module.css';
  * live state as a small Presence ring and status, and what it said when the task completed (its
  * answer, question or result line). The task's title links to its page.
  */
-export function TurnItem({ group, position }: { group: TurnGroup; position: number }) {
+export function TurnItem({
+  group,
+  position,
+  answered = false,
+}: {
+  group: TurnGroup;
+  position: number;
+  /** A later request of the conversation follows (a question here was answered). */
+  answered?: boolean;
+}) {
   const i18n = useI18n();
   const { t } = i18n;
   const me = useMe();
@@ -95,7 +104,7 @@ export function TurnItem({ group, position }: { group: TurnGroup; position: numb
               <span>{t('conversations.thread.jarvis')}</span>
             </p>
             <div className={styles.taskLine}>
-              <TaskStatusPill status={task.status} outcome={task.outcome} />
+              <TaskStatusPill status={task.status} outcome={task.outcome} answered={answered} />
               <Link href={`/tasks/${task.id}`} className={styles.taskLink}>
                 <span className={styles.taskTitle} dir="auto">
                   {taskTitle(i18n, task)}
@@ -105,7 +114,9 @@ export function TurnItem({ group, position }: { group: TurnGroup; position: numb
             </div>
             {reply ? (
               <div className={cx(styles.reply, asked && styles.replyQuestion)}>
-                {asked && <Icon icon={MessageCircleQuestionMark} size={16} className={styles.replyIcon} />}
+                {asked && (
+                  <Icon icon={MessageCircleQuestionMark} size={16} className={styles.replyIcon} />
+                )}
                 {reply.localized ? (
                   <p className={styles.replyText}>{reply.text}</p>
                 ) : (
@@ -129,15 +140,23 @@ export function TurnList({
   groups,
   start,
   label,
+  followed = false,
 }: {
   groups: readonly TurnGroup[];
   start: number;
   label: string;
+  /** More requests follow the last of these (the page's own task, below them). */
+  followed?: boolean;
 }) {
   return (
     <ol className={styles.turns} aria-label={label}>
       {groups.map((group, i) => (
-        <TurnItem key={group.taskId} group={group} position={start + i} />
+        <TurnItem
+          key={group.taskId}
+          group={group}
+          position={start + i}
+          answered={followed || i < groups.length - 1}
+        />
       ))}
     </ol>
   );
@@ -192,6 +211,7 @@ export function EarlierTurns({
         groups={shown}
         start={hidden + 1}
         label={t('conversations.thread.earlierTitle')}
+        followed
       />
     </section>
   );
@@ -281,7 +301,7 @@ export function ConversationContinuation({
   later: readonly TurnGroup[];
   startPosition: number;
   canFollowUp: boolean;
-  activeTask: Pick<TaskSummary, 'id' | 'title' | 'titleMessage'> | null;
+  activeTask: Pick<TaskSummary, 'id' | 'status'> | null;
   showComposer: boolean;
   loadError: unknown;
   onRetry: () => void;
@@ -302,10 +322,14 @@ export function ConversationContinuation({
   }, [later]);
 
   if (later.length === 0 && !showComposer && !loadError) return null;
+  // The active request is always the newest one (follow-ups wait for it), shown just above.
+  const awaiting = activeTask?.status === 'AWAITING_APPROVAL';
   const blocked = canFollowUp ? null : activeTask && activeTask.id !== currentTaskId ? (
     <>
-      {t('conversations.followUp.busy', { title: taskTitle(i18n, activeTask) })}{' '}
-      <Link href={`/tasks/${activeTask.id}`}>{t('conversations.followUp.openBusy')}</Link>
+      {awaiting ? t('conversations.followUp.busyApproval') : t('conversations.followUp.busy')}{' '}
+      <Link href={`/tasks/${activeTask.id}`}>
+        {awaiting ? t('conversations.followUp.reviewBusy') : t('conversations.followUp.openBusy')}
+      </Link>
     </>
   ) : (
     t('conversations.followUp.busyGeneric')
@@ -314,10 +338,16 @@ export function ConversationContinuation({
   return (
     <section className={styles.continuation} aria-labelledby={headingId}>
       <h2 id={headingId} className={styles.sectionTitle}>
-        {later.length > 0 ? t('conversations.thread.laterTitle') : t('conversations.followUp.title')}
+        {later.length > 0
+          ? t('conversations.thread.laterTitle')
+          : t('conversations.followUp.title')}
       </h2>
       {loadError !== null && loadError !== undefined && (
-        <ErrorBanner title={t('conversations.thread.loadError')} error={loadError} onRetry={onRetry} />
+        <ErrorBanner
+          title={t('conversations.thread.loadError')}
+          error={loadError}
+          onRetry={onRetry}
+        />
       )}
       {later.length > 0 && (
         <div ref={listRef}>
@@ -357,17 +387,23 @@ export function AnswerComposer({
   onSent?: (task: TaskSummary) => void;
 }) {
   const { t } = useI18n();
+  const status = useAssistantStatus();
   const handle = useRef<ComposerHandle>(null);
   const wantsFile = missing.includes('document');
+  // The file picker only where this server stores files; otherwise say so (no dead button).
+  const canAttach = status.data?.capabilities.attachments === true;
   return (
     <div className={styles.answer}>
-      {wantsFile && (
-        <div>
-          <Button size="sm" icon={Paperclip} onClick={() => handle.current?.attach?.()}>
-            {t('conversations.question.attach')}
-          </Button>
-        </div>
-      )}
+      {wantsFile &&
+        (canAttach ? (
+          <div>
+            <Button size="sm" icon={Paperclip} onClick={() => handle.current?.attach?.()}>
+              {t('conversations.question.attach')}
+            </Button>
+          </div>
+        ) : (
+          status.data && <p className={styles.answerNote}>{t('attachments.unavailable')}</p>
+        ))}
       <FollowUpComposer
         conversationId={conversationId}
         answering

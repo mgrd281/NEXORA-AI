@@ -189,13 +189,13 @@ const settings = {
     },
     exportTitle: 'Export your data',
     exportDescription:
-      'Download everything JARVIS stores about you as one JSON file: profile, settings, tasks, approvals, memories, notifications and connections. Passwords and keys are never included.',
+      'Download everything JARVIS stores about you as one JSON file: profile, settings, conversations and tasks, approvals, memories, schedules, notifications, connections and webhooks. Attached files are included, up to 20 MB in all; any beyond that are listed and stay downloadable. Passwords, keys and webhook secrets are never included.',
     exportButton: 'Export my data',
     exporting: 'Preparing your export…',
     exported: 'Downloaded {file}',
     deleteTitle: 'Delete account',
     deleteDescription:
-      'Permanently deletes your account and everything in it: tasks, memories, connections and stored passwords.',
+      'Permanently deletes your account and everything in it: conversations, tasks, attached files, memories, schedules, connections, webhooks and stored passwords.',
     deleteButton: 'Delete account…',
     deleteDialog: {
       title: 'Delete your account?',

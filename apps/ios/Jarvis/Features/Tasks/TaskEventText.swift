@@ -4,7 +4,10 @@ import Foundation
 /// documented in apps/api/src/modules/events/events.ts.
 enum TaskEventText {
     static func describe(_ type: EventType, data: [String: JSONValue]) -> String {
-        let title = data["title"]?.stringValue ?? ""
+        // The step title in the app's language when the server wrote it, else as stored.
+        let title = ServerMessage(json: data["titleMessage"])
+            .rendered(or: data["title"]?.stringValue ?? "")
+            .bidiIsolated
         switch type {
         case .taskCreated:
             return String(localized: "Task created")

@@ -163,8 +163,14 @@
 }
 
 @media (min-width: 640px) {
+  /* Fixed columns, so counts and times line up from row to row. */
+  .requests {
+    min-inline-size: 76px;
+    text-align: end;
+  }
+
   .time {
-    min-inline-size: 88px;
+    min-inline-size: 96px;
     text-align: end;
   }
 }

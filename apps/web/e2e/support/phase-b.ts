@@ -18,6 +18,7 @@ import type {
   ScheduleRun,
   Skill,
   TaskDetail,
+  TaskEvent,
   TaskSummary,
   TimeZoneInfo,
   WebhookDelivery,
@@ -447,6 +448,9 @@ export function basePhaseB(
     time: '16:30',
     timeZone: tz,
   };
+  // The weekly schedule's last two runs happened at its real occurrences (Mondays 09:00).
+  const previous = nextOccurrences(weekly, now - 15 * DAY, 3).filter((x) => Date.parse(x) < now);
+  const lastWeeklyRun = previous.at(-1) ?? at(-2 * DAY);
   const paused: Recurrence = {
     frequency: 'weekly',
     interval: 1,
@@ -465,14 +469,14 @@ export function basePhaseB(
       status: 'active',
       pausedReason: null,
       nextRunAt: nextOccurrences(weekly, now, 1)[0] ?? null,
-      lastRunAt: at(-2 * DAY),
+      lastRunAt: lastWeeklyRun,
       lastTaskId: PB.d1,
       conversationId: PB.convD,
       runCount: 4,
       consecutiveFailures: 0,
       createdBy: 'agent',
       createdAt: at(-30 * DAY),
-      updatedAt: at(-2 * DAY),
+      updatedAt: lastWeeklyRun,
     },
     {
       id: PB.scheduleMonthly,
@@ -649,8 +653,13 @@ function replyOf(d: TaskDetail): ConversationMessage | null {
     return { ...base, kind: 'question', text: d.question.text, textMessage: d.question.message };
   }
   if (d.outcome === 'answer' || (d.outcome == null && d.answer)) {
-    const summary = [...d.steps].reverse().find((s) => s.output?.summary)?.output?.summary;
-    const body = d.answer ?? (typeof summary === 'string' ? summary : d.resultSummary);
+    // completion.ts: the recallable result (summary, document result, translation) in full.
+    const out = [...d.steps]
+      .reverse()
+      .map((s) => s.output ?? {})
+      .find((o) => o.summary || o.result || o.translation);
+    const written = out?.summary ?? out?.result ?? out?.translation;
+    const body = d.answer ?? (typeof written === 'string' ? written : d.resultSummary);
     if (body) return { ...base, kind: 'answer', text: body, textMessage: null };
   }
   if (d.resultSummary || d.resultSummaryMessage) {
@@ -757,6 +766,73 @@ export function conversationOf(state: Fixtures, id: string): ConversationDetail 
     canFollowUp: active === null,
     activeTaskId: active?.id ?? null,
   };
+}
+
+/* ------------------------------------------------------------------ timelines */
+
+let eventSeq = 9000;
+
+/**
+ * A task's event timeline as the worker writes it (task-state.ts / executor.ts): created,
+ * planning, plan ready, each step started and finished (or waiting for approval), completed.
+ */
+export function timelineOf(d: TaskDetail): TaskEvent[] {
+  const ev = (type: TaskEvent['type'], at: string, data: Record<string, unknown> = {}) => ({
+    id: String(eventSeq++),
+    taskId: d.id,
+    type,
+    at,
+    data,
+  });
+  const ref = (step: TaskDetail['steps'][number]) => ({
+    stepId: step.id,
+    toolId: step.toolId,
+    title: step.title,
+    ...(step.titleMessage ? { titleMessage: step.titleMessage } : {}),
+  });
+  const t0 = Date.parse(d.createdAt);
+  const iso = (ms: number) => new Date(ms).toISOString();
+  const events: TaskEvent[] = [
+    ev('task.created', d.createdAt, { status: 'QUEUED' }),
+    ev('task.status_changed', iso(t0 + 400), { from: 'QUEUED', to: 'PLANNING' }),
+  ];
+  if (d.steps.length === 0) return events;
+  events.push(
+    ev('plan.ready', iso(t0 + 900), {
+      stepCount: d.steps.length,
+      planner: d.planner ?? { mode: 'offline', provider: null, model: null },
+    }),
+    ev('task.status_changed', iso(t0 + 1000), { from: 'PLANNING', to: 'RUNNING' }),
+  );
+  for (const step of d.steps) {
+    if (step.status === 'AWAITING_APPROVAL') {
+      const approval = d.approvals.find((a) => a.stepId === step.id);
+      events.push(
+        ev('approval.requested', approval?.createdAt ?? iso(t0 + 2000), {
+          approvalId: approval?.id ?? null,
+          stepId: step.id,
+          summary: approval?.summary ?? step.title,
+          summaryMessage: approval?.summaryMessage ?? null,
+        }),
+        ev('task.status_changed', approval?.createdAt ?? iso(t0 + 2000), {
+          from: 'RUNNING',
+          to: 'AWAITING_APPROVAL',
+        }),
+      );
+      return events;
+    }
+    if (!step.startedAt) continue;
+    events.push(ev('step.started', step.startedAt, { ...ref(step), attempt: step.attempts || 1 }));
+    if (step.status === 'SUCCEEDED' && step.completedAt)
+      events.push(ev('step.succeeded', step.completedAt, ref(step)));
+  }
+  if (d.status === 'COMPLETED' && d.completedAt) {
+    events.push(
+      ev('task.status_changed', d.completedAt, { from: 'RUNNING', to: 'VERIFYING' }),
+      ev('task.status_changed', d.completedAt, { from: 'VERIFYING', to: 'COMPLETED' }),
+    );
+  }
+  return events;
 }
 
 /* ------------------------------------------------------------------ rich conversations */
@@ -1055,6 +1131,9 @@ export function withConversations(f: Fixtures, locale: FixtureLocale, now: numbe
     createdAt: at(c1T0 - MIN),
   };
   const docTitle = said(msg('plan.summarizeDocument', { name: pdf.filename }));
+  // result-summary.ts: a document summary's result line names the file; the summary itself is
+  // JARVIS's message (and the step's output).
+  const docResult = said(msg('result.documentSummarized', { name: pdf.filename }));
   const c1 = detail({
     id: PB.c1,
     conversationId: PB.convC,
@@ -1065,8 +1144,8 @@ export function withConversations(f: Fixtures, locale: FixtureLocale, now: numbe
     outcome: 'answer',
     source: 'text',
     progress: { completed: 1, total: 1 },
-    resultSummary: c.c1Summary,
-    resultSummaryMessage: null,
+    resultSummary: docResult.text,
+    resultSummaryMessage: docResult.message,
     createdAt: at(c1T0),
     updatedAt: at(c1T0 + 9 * SEC),
     completedAt: at(c1T0 + 9 * SEC),
@@ -1080,7 +1159,14 @@ export function withConversations(f: Fixtures, locale: FixtureLocale, now: numbe
         c1T0,
         {
           inputPreview: { attachmentId: pdf.id, mode: 'summary', language: locale },
-          output: { summary: c.c1Summary, pages: 14 },
+          output: {
+            title: pdf.filename,
+            result: c.c1Summary,
+            pages: 14,
+            method: 'extractive',
+            suspectedInjection: false,
+            excludedSentences: 0,
+          },
           evidence: [
             {
               kind: 'record',
@@ -1148,9 +1234,9 @@ export function withConversations(f: Fixtures, locale: FixtureLocale, now: numbe
     ],
   });
 
-  // ---- D: the weekly schedule's last run
-  const d1T0 = -2 * DAY;
+  // ---- D: the weekly schedule's last run (at its occurrence; the one before was skipped)
   const weekly = f.schedules.find((s) => s.id === PB.scheduleWeekly);
+  const d1T0 = weekly?.lastRunAt ? Date.parse(weekly.lastRunAt) - now : -2 * DAY;
   const dTitle = said(msg('plan.summarizeEmail', { host }));
   const dResult = said(msg('result.emailSent', { subject: dTitle.text, recipients: EMAIL }));
   const d1 = detail({
@@ -1174,7 +1260,9 @@ export function withConversations(f: Fixtures, locale: FixtureLocale, now: numbe
     steps: [],
   });
 
-  const details = [a1, a2, a3, b1, c1, c2, d1];
+  const details = [a1, a2, a3, b1, c1, c2, d1].map((d) =>
+    d.events.length > 0 ? d : { ...d, events: timelineOf(d) },
+  );
   const runs: ScheduleRun[] = [
     {
       id: PB.runA,

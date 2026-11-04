@@ -1,0 +1,20 @@
+{
+  "items": [
+    {
+      "id": "America/New_York",
+      "utcOffsetMinutes": -300
+    },
+    {
+      "id": "Asia/Kolkata",
+      "utcOffsetMinutes": 330
+    },
+    {
+      "id": "Europe/Berlin",
+      "utcOffsetMinutes": 60
+    },
+    {
+      "id": "UTC",
+      "utcOffsetMinutes": 0
+    }
+  ]
+}

@@ -1,11 +1,11 @@
 # Skill: document-analysis
 
-| Field   | Value                                                                                                                            |
-| ------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| id      | `document-analysis`                                                                                                              |
-| version | 0.0.1 (draft)                                                                                                                    |
-| status  | Planned — Phase 2 (uploads from web and iOS share sheet)                                                                         |
-| tools   | planned: `document.upload` (API), `document.extract` (PDF, DOCX, images via OCR); existing: `text.summarize`, `assistant.answer` |
+| Field   | Value                                                                                                                                                                                                                  |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id      | `document-analysis`                                                                                                                                                                                                    |
+| version | 0.1.0 (registry: `apps/api/src/modules/agent/skills/registry.ts`)                                                                                                                                                      |
+| status  | Implemented (Phase B) — uploads of PDF, DOCX, TXT, MD and CSV (≤ 10 MiB, content-sniffed), `document.analyze` (summary offline or by model; answers by model); switchable; needs file storage. OCR and images: planned |
+| tools   | `document.analyze` (owned); uploads through `POST /v1/attachments`; text extraction in `agent/documents/extract.ts` (pdf.js legacy, mammoth, UTF-8)                                                                    |
 
 ## Description
 

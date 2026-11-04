@@ -1,9 +1,11 @@
 # JARVIS continuous integration.
 #
-# Jobs: quality (tokens, OpenAPI, typecheck, lint, unit tests, format), evals (deterministic agent
+# Jobs: quality (tokens, OpenAPI, typecheck, lint, unit tests, format), ios-static (iOS fixtures,
+# contract mirroring, strings and Swift syntax checks; no Xcode), evals (deterministic agent
 # evaluations: offline, scripted model, worker pipeline), integration (API against
-# PostgreSQL 16 with RLS), build (API bundle + web), e2e (Playwright against the built app),
-# images (build and run the Docker images), security (gitleaks + blocking production audit).
+# PostgreSQL 16 with RLS), build (API bundle + web), e2e (Playwright: visual suite on the mock
+# API, then the real-stack specs one file at a time), images (build and run the Docker images),
+# security (gitleaks + blocking production audit).
 #
 # Third-party actions are pinned to major versions; pinning by full commit SHA is a tracked
 # follow-up (see README "Security"). The token is read-only everywhere.
@@ -66,6 +68,31 @@ jobs:
         run: node --test .github/scripts/*.test.mjs
       - name: Format check
         run: pnpm exec prettier --check apps/*/src packages/*/src
+
+  ios-static:
+    name: iOS static checks (no Xcode)
+    needs: quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Fixtures decode with the contracts
+        run: pnpm --filter @jarvis/api exec tsx ../ios/scripts/validate-fixtures.ts
+      - name: Swift enums, server sentences and endpoints mirror the contracts
+        run: pnpm --filter @jarvis/api exec tsx ../ios/scripts/check-contract-copy.ts
+      - name: Strings catalog complete in en, de and ar
+        run: node apps/ios/scripts/lint-strings.mjs
+      - name: Swift sources balanced, no banned constructs
+        run: node apps/ios/scripts/check-swift.mjs
 
   integration:
     name: Integration (PostgreSQL 16)
@@ -236,6 +263,11 @@ jobs:
       # Development/test-only allowances for the local fixture site and dev mailbox.
       FETCH_ALLOW_PRIVATE_HOSTS: 127.0.0.1:4599
       SMTP_ALLOW_INSECURE_LOCALHOST: 'true'
+      # Phase B: the webhook receiver started by e2e/real/phase-b.spec.ts, and a short scheduler
+      # tick so the "fires exactly once" schedule test does not wait 15 s per tick.
+      WEBHOOK_ALLOW_INSECURE_HOSTS: 127.0.0.1:4610
+      SCHEDULER_TICK_MS: '3000'
+      E2E_WEBHOOK_PORT: '4610'
       # Read by the Playwright suite (E2E_PASSWORD is generated per run below).
       E2E_BASE_URL: http://localhost:3000
       E2E_API_URL: http://127.0.0.1:4000
@@ -311,8 +343,10 @@ jobs:
           while read -r name pid; do
             kill -0 "$pid" 2>/dev/null || { echo "::error::$name exited"; tail -n 50 "e2e-logs/$name.log"; exit 1; }
           done < e2e-logs/pids
-      - name: Playwright
-        run: pnpm --filter @jarvis/web e2e
+      - name: Playwright (visual, mock API)
+        run: pnpm --filter @jarvis/web e2e:visual
+      - name: Playwright (real stack; one file at a time, they share one account and mailbox)
+        run: pnpm --filter @jarvis/web e2e:real
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4

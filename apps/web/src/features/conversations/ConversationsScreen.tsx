@@ -1,6 +1,7 @@
 'use client';
 
 import type { ConversationSummary } from '@jarvis/contracts';
+import { isTerminal } from '@jarvis/contracts';
 import { CalendarClock, MessagesSquare, Search, SearchX } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
@@ -219,13 +220,17 @@ function ConversationRow({ conversation: c }: { conversation: ConversationSummar
         )}
       </div>
       <div className={styles.meta}>
-        {c.hasActiveTask ? (
-          <span className={styles.active}>
-            <Spinner size={16} />
-            {t('conversations.list.active')}
-          </span>
+        {/* The newest task's real state (running, waiting for approval, needs an answer…). Only
+            when an older run of a schedule is still active is it the generic "in progress". */}
+        {last && !(c.hasActiveTask && isTerminal(last.status)) ? (
+          <TaskStatusPill status={last.status} outcome={last.outcome} />
         ) : (
-          last && <TaskStatusPill status={last.status} outcome={last.outcome} />
+          c.hasActiveTask && (
+            <span className={styles.active}>
+              <Spinner size={16} />
+              {t('conversations.list.active')}
+            </span>
+          )
         )}
         {c.scheduleId && (
           <Badge icon={CalendarClock} className={styles.scheduled}>

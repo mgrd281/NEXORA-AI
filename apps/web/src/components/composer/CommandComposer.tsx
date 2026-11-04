@@ -49,7 +49,10 @@ const SHOW_COUNT_FROM = 3600;
 const MAX_ROWS = 8;
 
 /** Sends one request (a new task or a follow-up) with its Idempotency-Key. */
-export type SubmitRequest = (body: CreateTaskRequest, idempotencyKey: string) => Promise<TaskSummary>;
+export type SubmitRequest = (
+  body: CreateTaskRequest,
+  idempotencyKey: string,
+) => Promise<TaskSummary>;
 
 export interface CommandComposerProps {
   /** Called with the created task instead of opening it. */
@@ -178,7 +181,9 @@ export function FollowUpComposer({
   return (
     <ComposerForm
       submit={submit}
-      label={answering ? t('conversations.question.answerLabel') : t('conversations.followUp.label')}
+      label={
+        answering ? t('conversations.question.answerLabel') : t('conversations.followUp.label')
+      }
       placeholder={
         answering
           ? t('conversations.followUp.answerPlaceholder')
@@ -263,7 +268,8 @@ function ComposerForm({
   }, [text]);
   // A notice about files goes away once the files it was about are sorted out.
   const shownNotice: Notice =
-    (notice === 'waitForUploads' && draft.uploading) || (notice === 'removeFailed' && draft.hasErrors)
+    (notice === 'waitForUploads' && draft.uploading) ||
+    (notice === 'removeFailed' && draft.hasErrors)
       ? notice
       : null;
 

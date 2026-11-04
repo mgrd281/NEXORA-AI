@@ -22,6 +22,8 @@ struct SettingsView: View {
                 appearanceSection
                 voiceSection
                 autonomySection
+                assistantSection
+                privacySection
                 connectionsSection
                 securitySection
                 aboutSection
@@ -29,6 +31,7 @@ struct SettingsView: View {
             .scrollContentBackground(.hidden)
             .background(MeridianColor.canvas)
             .navigationTitle(Text("Settings"))
+            .jarvisDestinations()
             .task { await load() }
             .refreshable { await refresh() }
             .onChange(of: app.me) { _, me in model.sync(from: me) }
@@ -37,6 +40,9 @@ struct SettingsView: View {
             .onChange(of: model.recognitionLocale) { _, _ in save() }
             .onChange(of: model.autoApproveEmailToSelf) { _, _ in save() }
             .onChange(of: model.allowExternalModels) { _, _ in save() }
+            .onChange(of: model.timeZone) { _, _ in save() }
+            .onChange(of: model.memoryRetention) { _, _ in save() }
+            .onChange(of: model.taskRetention) { _, _ in save() }
             .confirmationDialog(Text("Sign out of JARVIS on this iPhone?"), isPresented: $confirmingSignOut, titleVisibility: .visible) {
                 Button("Sign out", role: .destructive) { signOut() }
                 Button("Cancel", role: .cancel) {}
@@ -62,9 +68,58 @@ struct SettingsView: View {
                 } label: {
                     Text("Email")
                 }
+                NavigationLink {
+                    TimeZonePickerView(selection: $model.timeZone)
+                } label: {
+                    LabeledContent {
+                        Text(RecurrenceText.zoneName(model.timeZone))
+                    } label: {
+                        Text("Time zone")
+                    }
+                }
             }
         } header: {
             Text("Account")
+        } footer: {
+            Text("Your time zone is used for dates and times, for new schedules, and for when your monthly budget resets. The list shows the zones the server accepts.")
+        }
+    }
+
+    private var assistantSection: some View {
+        Section {
+            NavigationLink {
+                SkillsView()
+            } label: {
+                Label("Skills", systemImage: MeridianIcon.skills)
+            }
+            NavigationLink(value: SchedulesRoute()) {
+                Label("Schedules", systemImage: MeridianIcon.schedules)
+            }
+        } header: {
+            Text("What JARVIS can do")
+        }
+    }
+
+    private var privacySection: some View {
+        Section {
+            Picker(selection: $model.memoryRetention) {
+                ForEach(RetentionSetting.memoryChoices, id: \.self) { choice in
+                    Text(choice.label).tag(choice)
+                }
+            } label: {
+                Text("Keep memories")
+            }
+            Picker(selection: $model.taskRetention) {
+                ForEach(RetentionSetting.taskHistoryChoices, id: \.self) { choice in
+                    Text(choice.label).tag(choice)
+                }
+            } label: {
+                Text("Keep task history")
+            }
+        } header: {
+            Text("Automatic deletion")
+        } footer: {
+            Text("JARVIS checks once a day. Memories that haven't changed for the chosen period are deleted, and so are finished tasks older than it, with their conversations, results, approvals and attached files. Deleted data can't be recovered. Files you attach but never send are deleted after 24 hours.")
         }
     }
 

@@ -138,3 +138,20 @@ describe('api client', () => {
     await expect(gateway.call('getHome')).rejects.toMatchObject({ code: 'NETWORK', status: 502 });
   });
 });
+
+describe('redirect to sign-in on 401', () => {
+  it('does not report an expired session while a deliberate sign-out is under way', async () => {
+    const assign = vi.fn();
+    vi.stubGlobal('window', { location: { pathname: '/tasks', search: '', assign } });
+    vi.resetModules();
+    const client = await import('@/lib/api/client');
+    client.setSigningOut(true);
+    client.redirectToSignIn();
+    expect(assign).not.toHaveBeenCalled();
+    // A failed sign-out leaves the session in place: a later 401 is a real expiry again.
+    client.setSigningOut(false);
+    client.redirectToSignIn();
+    expect(assign).toHaveBeenCalledWith('/sign-in?next=%2Ftasks&reason=expired');
+    vi.unstubAllGlobals();
+  });
+});

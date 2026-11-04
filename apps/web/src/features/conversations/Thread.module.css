@@ -257,6 +257,11 @@
   gap: var(--space-3);
 }
 
+.answerNote {
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+}
+
 /* ------------------------------------------------------------- follow-up */
 
 .followUp {

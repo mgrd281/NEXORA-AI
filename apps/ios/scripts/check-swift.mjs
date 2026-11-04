@@ -2,6 +2,13 @@
 // (this does NOT replace compiling with Xcode):
 //
 //   node apps/ios/scripts/check-swift.mjs
+//   node apps/ios/scripts/check-swift.mjs --tree-sitter <dir>   # also a full syntax parse
+//
+// With --tree-sitter (or TREE_SITTER_SWIFT_DIR), <dir> is a node_modules folder that has
+// `tree-sitter` and `tree-sitter-swift` installed outside the repository, e.g.
+//   npm install --prefix /tmp/ts tree-sitter@0.22 tree-sitter-swift@0.7.1
+//   node apps/ios/scripts/check-swift.mjs --tree-sitter /tmp/ts/node_modules
+// Every file must then parse without ERROR or MISSING nodes.
 //
 // - (), [] and {} balance outside string literals and comments (incl. interpolations
 //   and multi-line strings), with the line of the first mismatch.
@@ -9,7 +16,8 @@
 //   preconditionFailure, implicitly unwrapped optionals, print().
 // - Every file under Jarvis/ and JarvisTests/ ends with a newline and uses spaces.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { createRequire } from 'node:module';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -147,8 +155,49 @@ for (const path of files) {
   }
 }
 
+/** Full syntax parse with tree-sitter-swift, loaded from a folder outside the repository. */
+function treeSitterCheck(dir) {
+  const load = createRequire(join(resolve(dir), 'noop.js'));
+  let Parser;
+  let Swift;
+  try {
+    Parser = load('tree-sitter');
+    Swift = load('tree-sitter-swift');
+  } catch (err) {
+    problems.push(`tree-sitter: cannot load tree-sitter / tree-sitter-swift from ${dir} (${err.message})`);
+    return null;
+  }
+  const parser = new Parser();
+  parser.setLanguage(Swift);
+  for (const path of files) {
+    const file = relative(root, path);
+    const src = readFileSync(path, 'utf8');
+    const tree = parser.parse(src, null, { bufferSize: 4 * 1024 * 1024 });
+    const errors = [];
+    const walk = (node) => {
+      if (node.type === 'ERROR' || node.isMissing) {
+        errors.push(`${node.isMissing ? `missing ${node.type}` : 'syntax error'} at ${node.startPosition.row + 1}:${node.startPosition.column + 1}`);
+        if (node.type === 'ERROR') return;
+      }
+      for (const child of node.children) walk(child);
+    };
+    walk(tree.rootNode);
+    for (const e of errors.slice(0, 5)) problems.push(`${file}: ${e} (tree-sitter-swift)`);
+  }
+  return load('tree-sitter-swift/package.json').version;
+}
+
+const flag = process.argv.indexOf('--tree-sitter');
+const treeSitterDir = flag >= 0 ? process.argv[flag + 1] : process.env.TREE_SITTER_SWIFT_DIR;
+const grammarVersion = treeSitterDir ? treeSitterCheck(treeSitterDir) : null;
+
 if (problems.length) {
   for (const p of problems) console.error(`✗ ${p}`);
   process.exit(1);
 }
 console.log(`✓ ${files.length} Swift files (${lines} lines): delimiters balanced, no banned constructs in app code.`);
+if (grammarVersion) {
+  console.log(`✓ every file parses with tree-sitter-swift ${grammarVersion} (no ERROR or MISSING nodes).`);
+} else {
+  console.log('  (syntax parse skipped: pass --tree-sitter <node_modules dir> to run it)');
+}

@@ -11,6 +11,9 @@
 //    (Text("…"), Button("…"), String(localized: "…"), IntentDialog("…"), …).
 //    Interpolations become %@ — the app interpolates only String values into
 //    localized text (numbers are pre-formatted), matching what Xcode extracts.
+//    For String(localized: "key", defaultValue: "…") the key is a name: its
+//    specifiers come from the default value, the catalog's English must equal the
+//    default value, and every use of the key must have the same default value.
 // 4. The InfoPlist catalog's English usage descriptions equal Info.plist.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -83,6 +86,7 @@ const CALLS =
 
 function extract() {
   const keys = new Map(); // key -> [locations]
+  const defaults = new Map(); // key -> default value (String(localized:defaultValue:))
   const phrases = new Map();
   for (const file of swiftFiles(join(root, 'Jarvis'))) {
     const src = readFileSync(file, 'utf8');
@@ -90,10 +94,20 @@ function extract() {
     for (const m of src.matchAll(CALLS)) {
       const quote = m.index + m[0].length - 1;
       if (src.slice(quote, quote + 3) === '"""') continue;
-      const [key] = readLiteral(src, quote);
+      const [key, end] = readLiteral(src, quote);
       const line = src.slice(0, m.index).split('\n').length;
       if (!keys.has(key)) keys.set(key, []);
       keys.get(key).push(`${rel}:${line}`);
+      const withDefault = /^\s*,\s*defaultValue:\s*"/.exec(src.slice(end));
+      if (m[0].startsWith('String(localized:') && withDefault) {
+        const [value] = readLiteral(src, end + withDefault[0].length - 1);
+        if (defaults.has(key) && defaults.get(key) !== value) {
+          problems.push(
+            `${rel}:${line}: ${JSON.stringify(key)} has two default values: ${JSON.stringify(defaults.get(key))} and ${JSON.stringify(value)}`,
+          );
+        }
+        defaults.set(key, value);
+      }
     }
     // App Shortcut phrases live in AppShortcuts.xcstrings.
     for (const block of src.matchAll(/phrases:\s*\[([\s\S]*?)\]/g)) {
@@ -106,7 +120,7 @@ function extract() {
     }
   }
   for (const key of phrases.keys()) keys.delete(key);
-  return { keys, phrases };
+  return { keys, defaults, phrases };
 }
 
 /** Format specifiers, normalised so %1$@ and %@ compare equal by position. */
@@ -125,7 +139,7 @@ function specifiers(text) {
   return list.sort();
 }
 
-function checkCatalog(file, { requiredKeys = [], extraCheck } = {}) {
+function checkCatalog(file, { requiredKeys = [], extraCheck, defaults = new Map() } = {}) {
   let catalog;
   try {
     catalog = JSON.parse(readFileSync(join(resources, file), 'utf8'));
@@ -140,7 +154,11 @@ function checkCatalog(file, { requiredKeys = [], extraCheck } = {}) {
     if (!(key in strings)) problems.push(`${file}: missing key ${JSON.stringify(key)}`);
   }
   for (const [key, entry] of Object.entries(strings)) {
-    const expected = specifiers(key);
+    const source = defaults.get(key);
+    const expected = specifiers(source ?? key);
+    if (source !== undefined && entry.localizations?.en?.stringUnit?.value !== source) {
+      problems.push(`${file}: ${JSON.stringify(key)} [en] must equal its default value ${JSON.stringify(source)}`);
+    }
     for (const locale of LOCALES) {
       const unit = entry.localizations?.[locale]?.stringUnit;
       if (!unit) {
@@ -162,17 +180,24 @@ function checkCatalog(file, { requiredKeys = [], extraCheck } = {}) {
   return strings;
 }
 
-const { keys, phrases } = extract();
+const { keys, defaults, phrases } = extract();
 
 if (process.argv.includes('--list')) {
-  console.log(JSON.stringify({ keys: [...keys.keys()].sort(), phrases: [...phrases.keys()] }, null, 2));
+  console.log(
+    JSON.stringify(
+      { keys: [...keys.keys()].sort(), defaults: Object.fromEntries(defaults), phrases: [...phrases.keys()] },
+      null,
+      2,
+    ),
+  );
   process.exit(0);
 }
 
-const localizable = checkCatalog('Localizable.xcstrings') ?? {};
+const localizable = checkCatalog('Localizable.xcstrings', { defaults }) ?? {};
 for (const [key, where] of keys) {
   if (!(key in localizable)) problems.push(`Localizable.xcstrings: missing ${JSON.stringify(key)} (used at ${where[0]})`);
-  if (/%(?!@|\d+\$@|lld)/.test(key.replaceAll('%@', ''))) problems.push(`literal contains a bare %: ${JSON.stringify(key)} (${where[0]})`);
+  const text = defaults.get(key) ?? key;
+  if (/%(?!@|\d+\$@|lld)/.test(text.replaceAll('%@', ''))) problems.push(`literal contains a bare %: ${JSON.stringify(text)} (${where[0]})`);
 }
 for (const key of Object.keys(localizable)) {
   if (!keys.has(key)) warnings.push(`Localizable.xcstrings: ${JSON.stringify(key)} is not used in the Swift sources`);

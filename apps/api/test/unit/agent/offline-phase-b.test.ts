@@ -279,37 +279,37 @@ describe('schedules', () => {
     [
       'every Monday at 9 summarize https://example.com/news and email it to me',
       { frequency: 'weekly', byWeekday: ['MO'], time: '09:00' },
-      'summarize https://example.com/news and email it to me',
+      'Summarize https://example.com/news and email it to me',
       'en',
     ],
     [
       'Every day at 7:30am summarize https://example.com/a',
       { frequency: 'daily', time: '07:30' },
-      'summarize https://example.com/a',
+      'Summarize https://example.com/a',
       'en',
     ],
     [
       'summarize https://example.com/a every weekday at 6 pm',
       { frequency: 'weekly', byWeekday: ['MO', 'TU', 'WE', 'TH', 'FR'], time: '18:00' },
-      'summarize https://example.com/a',
+      'Summarize https://example.com/a',
       'en',
     ],
     [
       'every month on the 1st at 8 summarize https://example.com/a',
       { frequency: 'monthly', byMonthDay: [1], time: '08:00' },
-      'summarize https://example.com/a',
+      'Summarize https://example.com/a',
       'en',
     ],
     [
       'jeden Montag um 9 Uhr fasse https://example.com/news zusammen und schick sie mir',
       { frequency: 'weekly', byWeekday: ['MO'], time: '09:00' },
-      'fasse https://example.com/news zusammen und schick sie mir',
+      'Fasse https://example.com/news zusammen und schick sie mir',
       'de',
     ],
     [
       'täglich um 18:15 fasse https://example.com/a zusammen',
       { frequency: 'daily', time: '18:15' },
-      'fasse https://example.com/a zusammen',
+      'Fasse https://example.com/a zusammen',
       'de',
     ],
     [

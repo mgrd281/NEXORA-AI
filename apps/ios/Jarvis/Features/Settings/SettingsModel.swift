@@ -12,6 +12,10 @@ final class SettingsModel {
     var recognitionLocale: RecognitionLocale = .auto
     var autoApproveEmailToSelf = false
     var allowExternalModels = true
+    /// An IANA zone from the server's list (`GET /v1/meta/time-zones`).
+    var timeZone = ""
+    var memoryRetention: RetentionSetting = .forever
+    var taskRetention: RetentionSetting = .forever
 
     private(set) var savingCount = 0
     private(set) var errorMessage: String?
@@ -27,6 +31,9 @@ final class SettingsModel {
         recognitionLocale = me.preferences.voice.recognitionLocale == .unknown ? .auto : me.preferences.voice.recognitionLocale
         autoApproveEmailToSelf = me.preferences.autonomy.autoApproveEmailToSelf
         allowExternalModels = me.preferences.ai.allowExternalModels
+        timeZone = me.timeZone
+        memoryRetention = RetentionSetting(days: me.preferences.retention.memoryDays)
+        taskRetention = RetentionSetting(days: me.preferences.retention.taskHistoryDays)
     }
 
     /// The patch needed to make the server match the controls, or nil if it already does.
@@ -53,6 +60,18 @@ final class SettingsModel {
         }
         if allowExternalModels != me.preferences.ai.allowExternalModels {
             preferences.ai = PreferencesPatch.AI(allowExternalModels: allowExternalModels)
+            changed = true
+        }
+        if !timeZone.isEmpty, timeZone != me.timeZone {
+            patch.timeZone = timeZone
+            changed = true
+        }
+        let retention = me.preferences.retention
+        if memoryRetention.days != retention.memoryDays || taskRetention.days != retention.taskHistoryDays {
+            preferences.retention = PreferencesPatch.Retention(
+                memoryDays: memoryRetention.days != retention.memoryDays ? memoryRetention : nil,
+                taskHistoryDays: taskRetention.days != retention.taskHistoryDays ? taskRetention : nil
+            )
             changed = true
         }
         guard changed else { return nil }

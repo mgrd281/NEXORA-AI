@@ -140,6 +140,10 @@ const tasks: Catalog<typeof source> = {
     title: 'Ergebnis',
     summary: 'Zusammenfassung',
     copySummary: 'Zusammenfassung',
+    answer: 'Antwort',
+    copyAnswer: 'Antwort',
+    translation: 'Übersetzung',
+    copyTranslation: 'Übersetzung',
     emailed: 'Per E-Mail an {recipients} gesendet',
     remembered: 'Im Gedächtnis gespeichert: „{text}“',
     proof: 'Nachweise',
@@ -205,7 +209,8 @@ const tasks: Catalog<typeof source> = {
         'Es speichert Text aus einem früheren Ergebnis, daher siehst du genau, was behalten wird.',
       UNTRUSTED_MEMORY:
         'Der Text stammt aus Inhalten, die KI-Assistenten Anweisungen geben wollten, daher wird er nie gespeichert.',
-      FUTURE_RUNS: 'Es richtet Anfragen ein, die später von selbst laufen, daher fragt JARVIS zuerst.',
+      FUTURE_RUNS:
+        'Es richtet Anfragen ein, die später von selbst laufen, daher fragt JARVIS zuerst.',
       unknown: 'Sicherheitsregel {code}.',
     },
   },
@@ -261,6 +266,7 @@ const tasks: Catalog<typeof source> = {
     smtp_receipt: 'Vom Mailserver angenommen',
     http_response: 'Seite gelesen',
     content_hash: 'Fingerabdruck der Seite',
+    fileHash: 'Fingerabdruck der Datei',
     record: 'Gespeichert',
     model_output: 'Von einem KI-Modell geschrieben',
     note: 'Hinweis',
@@ -391,6 +397,7 @@ const tasks: Catalog<typeof source> = {
       summarizeDocument: '{name} zusammenfassen',
       schedule: 'Zeitplan: {title}',
       clarify: 'Rückfrage zu deiner Anfrage',
+      forwardResult: '„{title}“ an {recipients} senden',
     },
     objective: {
       summarize: '{url} lesen und zusammenfassen.',
@@ -414,17 +421,18 @@ const tasks: Catalog<typeof source> = {
       summarizeDocument: '{name} zusammenfassen',
       schedule: 'Zeitplan anlegen',
       clarify: 'Bei dir nachfragen',
+      forwardResult: 'An {recipients} senden',
     },
     approval: {
       email: 'Die E-Mail „{subject}“ an {recipients} senden.',
       generic: '„{title}“ ausführen ({tool}).',
       recipientsMany: '{count, plural, one {# Empfänger} other {# Empfänger}}',
       schedule: 'Den Zeitplan „{title}“ anlegen.',
-      memory: 'Im Gedächtnis speichern: „{text}“.',
+      memory: 'Im Gedächtnis speichern: „{text}“',
     },
     result: {
       emailSent: '„{subject}“ an {recipients} gesendet.',
-      memorySaved: 'Im Gedächtnis gespeichert: „{text}“.',
+      memorySaved: 'Im Gedächtnis gespeichert: „{text}“',
       declined: 'Du hast abgelehnt, daher wurde nichts gesendet oder geändert: {action}',
       cancelled: 'Auf deinen Wunsch abgebrochen.',
       expired:

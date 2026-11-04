@@ -45,7 +45,7 @@ export {
 } from './metrics';
 export { captureException, errorsConfigured, errorsEnabled, type CaptureContext } from './sentry';
 export { registerHttpInstrumentation, routeLabel } from './http';
-export { errorType, sanitizeAttributes, scrubText } from './redact';
+export { errorType, pathOnly, sanitizeAttributes, scrubText } from './redact';
 
 export interface Telemetry {
   /** Tracing is configured (OTEL_EXPORTER_OTLP_ENDPOINT). */

@@ -55,6 +55,30 @@ enum ServerMessageParam: Decodable, Sendable, Equatable {
     }
 }
 
+extension ServerMessage {
+    /// A message carried in free-form JSON (for example `titleMessage` in event data);
+    /// nil unless the value has the `{ key, params }` shape.
+    init?(json: JSONValue?) {
+        guard case .object(let object)? = json, case .string(let key)? = object["key"] else { return nil }
+        var params: [String: ServerMessageParam] = [:]
+        if case .object(let raw)? = object["params"] {
+            for (name, value) in raw {
+                switch value {
+                case .string(let text):
+                    params[name] = .text(text)
+                case .number(let number):
+                    params[name] = .number(number)
+                case .object:
+                    params[name] = ServerMessage(json: value).map { .message($0) } ?? .unsupported
+                case .bool, .array, .null:
+                    params[name] = .unsupported
+                }
+            }
+        }
+        self.init(key: key, params: params)
+    }
+}
+
 extension Optional where Wrapped == ServerMessage {
     /// The message in the app's language, else the server's text (request language).
     func rendered(or fallback: String) -> String {
@@ -73,7 +97,8 @@ extension String {
 
 /// Renders every `ServerMessageKey` in the app's language. The English default values and
 /// the de/ar catalog entries (keys `server.<key>`) mirror the server's canonical templates in
-/// apps/api/src/modules/agent/i18n.ts; scripts/check-server-messages.ts verifies both.
+/// apps/api/src/modules/agent/i18n.ts; scripts/check-contract-copy.ts verifies both and that
+/// every `ServerMessageKey` of the contracts has a case here.
 enum ServerMessageText {
     static func render(_ message: ServerMessage) -> String? {
         let p = ServerMessageParams(message.params)
@@ -129,6 +154,8 @@ enum ServerMessageText {
         // Phase B: plan titles
         case "plan.emailResult":
             text = String(localized: "server.plan.emailResult", defaultValue: "Email “\(p.title)” to you")
+        case "plan.forwardResult":
+            text = String(localized: "server.plan.forwardResult", defaultValue: "Send “\(p.title)” to \(p.recipients)")
         case "plan.rememberResult":
             text = String(localized: "server.plan.rememberResult", defaultValue: "Remember the result of “\(p.title)”")
         case "plan.summarizeDocument":
@@ -153,6 +180,8 @@ enum ServerMessageText {
             text = String(localized: "server.step.recall", defaultValue: "Get the earlier result")
         case "step.emailResult":
             text = String(localized: "server.step.emailResult", defaultValue: "Email it to you")
+        case "step.forwardResult":
+            text = String(localized: "server.step.forwardResult", defaultValue: "Send it to \(p.recipients)")
         case "step.summarizeDocument":
             text = String(localized: "server.step.summarizeDocument", defaultValue: "Summarize \(p.name)")
         case "step.schedule":

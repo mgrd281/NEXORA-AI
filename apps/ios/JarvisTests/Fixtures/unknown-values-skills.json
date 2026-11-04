@@ -1,0 +1,25 @@
+{
+  "items": [
+    {
+      "id": "home-control",
+      "version": "1.0.0",
+      "status": "beta",
+      "enabled": true,
+      "canToggle": true,
+      "available": false,
+      "unavailableReason": "REGION_BLOCKED",
+      "tools": [
+        "lights.toggle"
+      ],
+      "plannedTools": [],
+      "permissions": [],
+      "maxRisk": "EXTREME",
+      "requiredConnections": [
+        "google"
+      ],
+      "modelUse": "always",
+      "maxCostPerRunMicroUsd": null,
+      "docsPath": "docs/skills/home-control.md"
+    }
+  ]
+}

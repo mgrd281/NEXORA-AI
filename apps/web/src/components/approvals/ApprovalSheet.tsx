@@ -370,7 +370,9 @@ function ApprovalDetailsView({
               </div>
               <div className={styles.fieldRow}>
                 <dt>{t('approvals.fields.repeats')}</dt>
-                <dd className={styles.genericValue}>{describeRecurrence(details.recurrence, i18n)}</dd>
+                <dd className={styles.genericValue}>
+                  {describeRecurrence(details.recurrence, i18n)}
+                </dd>
               </div>
               <div className={styles.fieldRow}>
                 <dt>{t('approvals.fields.nextRuns')}</dt>

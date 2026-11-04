@@ -3,7 +3,8 @@ import type source from '../en/attachments';
 
 const attachments: Catalog<typeof source> = {
   attach: 'إرفاق ملفات',
-  accepts: 'PDF أو Word (.docx) أو نص أو Markdown أو CSV · حتى {limitMb} ميغابايت لكل ملف',
+  accepts:
+    'PDF أو \u2066Word (.docx)\u2069 أو نص أو Markdown أو CSV · حتى {limitMb} ميغابايت لكل ملف',
   dropHere: 'أفلت الملفات هنا لإرفاقها',
   dropHint: 'حتى {max} ملفات، {limitMb} ميغابايت لكل ملف',
   listLabel: 'الملفات المراد إرسالها',

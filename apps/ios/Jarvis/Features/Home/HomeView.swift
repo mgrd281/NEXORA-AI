@@ -1,9 +1,5 @@
 import SwiftUI
 
-struct TaskRoute: Hashable {
-    let id: String
-}
-
 private struct SuggestionItem: Identifiable {
     let id: String
     let text: HomeCopy.SuggestionText
@@ -13,7 +9,7 @@ struct HomeView: View {
     @Environment(AppModel.self) private var app
     @State private var model = HomeModel()
     @State private var composer = ComposerModel()
-    @State private var path: [TaskRoute] = []
+    @State private var path = NavigationPath()
     @State private var reviewing: Approval? = nil
     @State private var showingVoice = false
 
@@ -40,14 +36,16 @@ struct HomeView: View {
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle(Text("Home"))
             .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(for: TaskRoute.self) { route in
-                TaskDetailView(taskId: route.id)
-            }
+            .jarvisDestinations()
             .refreshable { await reload() }
             .task { await reload() }
             .task { await followEvents() }
             .onChange(of: app.live.openCount) { _, _ in
                 model.scheduleRefresh(api: app.api)
+            }
+            .onChange(of: model.snapshot?.assistant) { _, status in
+                // Capability-dependent controls elsewhere (attaching files) follow the server.
+                if let status { app.assistantStatus = status }
             }
             .sheet(item: $reviewing) { approval in
                 ApprovalSheet(approval: approval) { _ in
@@ -55,7 +53,8 @@ struct HomeView: View {
                 }
             }
             .sheet(isPresented: $showingVoice) {
-                VoiceCaptureView { created in
+                VoiceCaptureView(attachmentIds: composer.attachments.readyIds) { created in
+                    composer.sentByVoice()
                     path.append(TaskRoute(id: created.id))
                     model.scheduleRefresh(api: app.api)
                 }

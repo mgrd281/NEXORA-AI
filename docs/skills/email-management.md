@@ -1,11 +1,11 @@
 # Skill: email-management
 
-| Field   | Value                                                                                                                                                                                             |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id      | `email-management`                                                                                                                                                                                |
-| version | 0.1.0                                                                                                                                                                                             |
-| status  | Partially implemented — Milestone 1 (in progress): **send** plain-text email via the user's SMTP account. Reading, triage, drafting replies, threads: planned (Phase 4, Gmail/Microsoft 365/IMAP) |
-| tools   | `email.send` (1.0.0); planned: `email.search`, `email.read`, `email.draft`, `email.reply`                                                                                                         |
+| Field   | Value                                                                                                                                                                                                                                      |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| id      | `email-management`                                                                                                                                                                                                                         |
+| version | 0.2.0 (registry: `apps/api/src/modules/agent/skills/registry.ts`)                                                                                                                                                                          |
+| status  | Implemented — **send** plain-text email via the user's SMTP account (`email.send`), including follow-ups that email an earlier result; switchable. Reading, triage, drafting replies, threads: planned (Phase 4, Gmail/Microsoft 365/IMAP) |
+| tools   | `email.send` (1.0.0); planned: `email.search`, `email.read`, `email.draft`, `email.reply`                                                                                                                                                  |
 
 ## Description
 

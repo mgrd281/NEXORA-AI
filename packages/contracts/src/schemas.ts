@@ -235,6 +235,8 @@ export const DeleteAccountRequest = z.object({
  *   result.declined                                       { action }
  * Phase B:
  *   plan.emailResult, plan.rememberResult                 { title }  (the earlier task's title)
+ *   plan.forwardResult                                    { title, recipients } (earlier task's title)
+ *   step.forwardResult                                    { recipients }
  *   plan.summarizeDocument, objective.summarizeDocument,
  *   step.summarizeDocument, result.documentSummarized     { name }   (the file name)
  *   plan.schedule, objective.schedule, approval.schedule,
@@ -275,6 +277,7 @@ export const ServerMessageKey = z.enum([
   'plan.summarizeDocument',
   'plan.schedule',
   'plan.clarify',
+  'plan.forwardResult',
   'objective.emailResult',
   'objective.rememberResult',
   'objective.summarizeDocument',
@@ -285,6 +288,7 @@ export const ServerMessageKey = z.enum([
   'step.summarizeDocument',
   'step.schedule',
   'step.clarify',
+  'step.forwardResult',
   'approval.schedule',
   'approval.memory',
   'result.scheduleCreated',
@@ -852,8 +856,11 @@ export const RetryTaskRequest = z.object({
  *   conversation.changed     { conversationId, change: 'title' | 'deleted' }
  *   schedule.changed         { scheduleId, change: 'created' | 'updated' | 'paused' | 'resumed'
  *                              | 'completed' | 'deleted' | 'run', status, nextRunAt }
+ *                            (status and nextRunAt are null for 'deleted')
  *   webhook.delivery_failed  { endpointId, deliveryId, eventType, reason, attempts, final }
- *   webhook.endpoint_changed { endpointId, status, disabledReason }
+ *   webhook.endpoint_changed { endpointId, change: 'created' | 'updated' | 'secret_rotated'
+ *                              | 'deleted' | 'disabled', status, disabledReason }
+ *                            (status and disabledReason are null for 'deleted')
  */
 export const AccountEventType = z.enum([
   'notification.created',
@@ -970,7 +977,11 @@ export const AssistantStatus = z.object({
     attachments: z.boolean().optional(),
     /** Translation can run now (needs a model). */
     translation: z.boolean().optional(),
-    /** Schedules can be created (task-scheduling skill enabled). */
+    /**
+     * JARVIS may propose schedules from requests (schedule.create; the task-scheduling skill is
+     * enabled). Creating, editing and pausing schedules yourself (the schedules routes) is a
+     * direct action and always available; existing schedules keep running until paused.
+     */
     schedules: z.boolean().optional(),
   }),
   version: z.string(),
