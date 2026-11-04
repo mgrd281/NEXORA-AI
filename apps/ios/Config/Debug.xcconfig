@@ -2,5 +2,18 @@
 // `//` starts a comment in xcconfig files, hence `$()` between the slashes.
 JARVIS_API_BASE_URL = http:/$()/localhost:4000
 
+// Connecting Google / Microsoft from the iPhone (see Jarvis/Features/Connections/OAuthFlow.swift).
+// Empty = not set up in this build: the app says so and offers the web instead. Set it in
+// Local.xcconfig to the https redirect URI that is also in the API's OAUTH_REDIRECT_URIS and
+// registered at Google / Microsoft, e.g.
+//   JARVIS_OAUTH_REDIRECT_URI = https:/$()/jarvis.example.net/connections/callback
+//   JARVIS_OAUTH_CALLBACK_HOST = jarvis.example.net
+//   JARVIS_ENTITLEMENTS = Config/Jarvis.entitlements
+// The entitlement (Associated Domains, webcredentials:<host>) needs the capability enabled on
+// the App ID and an apple-app-site-association file on that host.
+JARVIS_OAUTH_REDIRECT_URI =
+JARVIS_OAUTH_CALLBACK_HOST =
+JARVIS_ENTITLEMENTS =
+
 // Optional per-developer overrides (not committed), e.g. a different port.
 #include? "Local.xcconfig"

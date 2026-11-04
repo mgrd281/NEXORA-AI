@@ -1,0 +1,128 @@
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  min-width: 0;
+}
+
+.thumb {
+  position: relative;
+  display: block;
+  inline-size: 100%;
+  max-inline-size: 22rem;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+  cursor: zoom-in;
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+.thumb:hover {
+  border-color: var(--color-border-strong);
+}
+
+.thumbImage {
+  display: block;
+  inline-size: 100%;
+  aspect-ratio: 1280 / 900;
+  object-fit: cover;
+  object-position: top;
+}
+
+.zoom {
+  position: absolute;
+  inset-block-end: var(--space-2);
+  inset-inline-end: var(--space-2);
+  display: inline-flex;
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  box-shadow: var(--shadow-popover);
+}
+
+.caption {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-primary);
+}
+
+.captionMeta {
+  color: var(--color-text-secondary);
+}
+
+.unavailable {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+}
+
+.lightbox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 0 var(--space-6) var(--space-6);
+}
+
+.full {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+
+.lightboxMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  font: var(--text-caption);
+  color: var(--color-text-secondary);
+}
+
+.url {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font: var(--text-mono);
+}
+
+.download {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font: var(--text-label);
+}
+
+/* The lightbox shows the page at a readable size (the agent's viewport is 1280 px wide). */
+dialog.wide {
+  inline-size: min(1040px, calc(100vw - var(--space-8)));
+}
+
+/* Small: a compact thumbnail with its caption beside it. */
+.small {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.small .thumb {
+  flex: none;
+  inline-size: 7.5rem;
+}
+
+.small .zoom {
+  inset-block-end: var(--space-1);
+  inset-inline-end: var(--space-1);
+  padding: 2px;
+}

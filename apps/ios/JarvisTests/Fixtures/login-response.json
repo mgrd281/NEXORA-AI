@@ -30,7 +30,8 @@
         "taskFailed": false
       },
       "spending": {
-        "monthlyAiBudgetUsd": 20
+        "monthlyAiBudgetUsd": 20,
+        "monthlyPurchaseLimitUsd": 0
       },
       "memory": {
         "enabled": true

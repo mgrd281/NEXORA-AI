@@ -1,0 +1,30 @@
+{
+  "id": "booking-book-full-en",
+  "version": 1,
+  "suite": "booking",
+  "title": "Scenario 1 — a named slot with the user's details: read live slots, then book only after approval (MEDIUM)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Book a check-up at Fixture Dental on 2026-11-12 at 10:00 for Alex Example, phone +49 30 1234567",
+    "browserAvailable": true
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["booking.find_slots", "booking.book"],
+    "urlsExactly": [],
+    "recipientsExactly": [],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "allow",
+        "reasonsInclude": ["RISK_LOW"]
+      },
+      {
+        "step": 1,
+        "decision": "require_approval",
+        "reasonsInclude": ["RISK_MEDIUM"],
+        "reasonsExclude": ["AUTO_APPROVED_SELF"]
+      }
+    ]
+  }
+}

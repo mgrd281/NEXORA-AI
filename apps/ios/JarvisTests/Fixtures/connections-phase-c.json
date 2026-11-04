@@ -1,0 +1,70 @@
+{
+  "items": [
+    {
+      "id": "a1c2e3f4-5b6d-4e7f-8a9b-0c1d2e3f4a51",
+      "provider": "google",
+      "label": "Google",
+      "accountIdentifier": "ada@gmail.example",
+      "status": "expired",
+      "permissions": [],
+      "lastVerifiedAt": "2026-11-03T08:00:00.000Z",
+      "lastError": null,
+      "expiresAt": null,
+      "createdAt": "2026-10-20T10:00:00.000Z",
+      "capabilities": [
+        "mail.read",
+        "mail.send",
+        "calendar.read"
+      ],
+      "scopes": [
+        "openid",
+        "email",
+        "https://www.googleapis.com/auth/gmail.readonly",
+        "https://www.googleapis.com/auth/gmail.send",
+        "https://www.googleapis.com/auth/calendar.events.readonly",
+        "https://www.googleapis.com/auth/calendar.freebusy"
+      ],
+      "statusReason": "GRANT_INVALID"
+    },
+    {
+      "id": "b2d3f4a5-6c7e-4f8a-9b0c-1d2e3f4a5b62",
+      "provider": "microsoft",
+      "label": "Microsoft",
+      "accountIdentifier": "ada@outlook.example",
+      "status": "active",
+      "permissions": [],
+      "lastVerifiedAt": "2026-11-04T07:30:00.000Z",
+      "lastError": null,
+      "expiresAt": null,
+      "createdAt": "2026-10-22T10:00:00.000Z",
+      "capabilities": [
+        "calendar.read"
+      ],
+      "scopes": [
+        "openid",
+        "email",
+        "offline_access",
+        "User.Read",
+        "Calendars.Read"
+      ],
+      "statusReason": null
+    },
+    {
+      "id": "cb15a57c-8225-41a0-b6e8-d3d056de9173",
+      "provider": "smtp",
+      "label": "Email",
+      "accountIdentifier": "jarvis@example.com",
+      "status": "active",
+      "permissions": [
+        "email.send"
+      ],
+      "lastVerifiedAt": "2026-11-03T08:00:00.000Z",
+      "lastError": null,
+      "expiresAt": null,
+      "createdAt": "2026-10-01T08:10:00.000Z",
+      "capabilities": [],
+      "scopes": [],
+      "statusReason": null
+    }
+  ]
+}

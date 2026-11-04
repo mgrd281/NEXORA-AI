@@ -1,12 +1,13 @@
 /**
  * Key validation shared by the storage drivers. A driver only ever accepts the
- * one key shape the database allows (attachments_storage_key_format):
- *   tenants/<uuid>/users/<uuid>/attachments/<uuid>
+ * key shapes the database allows:
+ *   tenants/<uuid>/users/<uuid>/attachments/<uuid>   (attachments_storage_key_format)
+ *   tenants/<uuid>/users/<uuid>/evidence/<uuid>      (evidence_artifacts_storage_key_format, 0005)
  * so a key can never be absolute, contain "..", or point outside the tenant's
  * prefix, whatever a caller passes.
  */
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
-const KEY = new RegExp(`^tenants/${UUID}/users/${UUID}/attachments/${UUID}$`);
+const KEY = new RegExp(`^tenants/${UUID}/users/${UUID}/(?:attachments|evidence)/${UUID}$`);
 
 export function isValidStorageKey(key: string): boolean {
   return KEY.test(key);

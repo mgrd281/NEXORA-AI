@@ -14,7 +14,14 @@
  *    excepted: webhooks are managed on the web only).
  * 4. Every endpoint the app calls (Core/Networking/APIClient+Endpoints.swift) is a route of
  *    the contract route table with the same method, an `idempotent` route is sent with an
- *    Idempotency-Key, and every Phase B route except the web-only webhooks has an endpoint.
+ *    Idempotency-Key, every Phase B route except the web-only webhooks has an endpoint, and
+ *    so does every Phase C route (plus disconnecting a connection).
+ * 5. Phase C: nested enums (approval email mode / via, calendar action, provider kind and
+ *    revocation, calendar event and source status, comparison site status) mirror their
+ *    contract enums; every EvidenceCode has a localized title (EvidenceText).
+ *
+ * Enums whose contract values include `unknown` (OrderStatus, BookingStatus: the outcome is
+ * unknown) use `unrecognized` as the lenient fallback instead, so the two never collide.
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -70,7 +77,24 @@ const mirrors: Record<string, readonly string[]> = {
   SchedulePauseReason: contracts.SchedulePauseReason.options,
   ScheduleRunStatus: contracts.ScheduleRunStatus.options,
   ScheduleRunReason: contracts.ScheduleRunReason.options,
+  // Phase C
+  OAuthProvider: contracts.OAuthProvider.options,
+  ConnectionCapability: contracts.ConnectionCapability.options,
+  ConnectionStatusReason: contracts.ConnectionStatusReason.options,
+  EmailWatchStatus: contracts.EmailWatchStatus.options,
+  BrowserSessionStatus: contracts.BrowserSessionStatus.options,
+  BrowserStopReason: contracts.BrowserStopReason.options,
+  EvidenceArtifactKind: contracts.EvidenceArtifactKind.options,
+  EvidenceMediaType: contracts.EvidenceMediaType.options,
+  OrderStatus: contracts.OrderStatus.options,
+  BookingStatus: contracts.BookingStatus.options,
+  ReliabilitySignalCode: contracts.ReliabilitySignalCode.options,
+  AttendeeResponse: contracts.AttendeeResponse.options,
 };
+
+/** The lenient fallback case: `unknown`, or `unrecognized` when `unknown` is a contract value. */
+const fallbackOf = (expected: readonly string[]) =>
+  expected.includes('unknown') ? 'unrecognized' : 'unknown';
 
 for (const [name, expected] of Object.entries(mirrors)) {
   const actual = swiftRawValues(name);
@@ -78,12 +102,115 @@ for (const [name, expected] of Object.entries(mirrors)) {
     problems.push(`Enums.swift: enum ${name} not found`);
     continue;
   }
-  const want = new Set([...expected, 'unknown']);
+  const want = new Set([...expected, fallbackOf(expected)]);
   const missing = [...want].filter((v) => !actual.includes(v));
   const extra = actual.filter((v) => !want.has(v));
   if (missing.length || extra.length) {
     problems.push(
       `Enums.swift: ${name} missing ${JSON.stringify(missing)}, extra ${JSON.stringify(extra)}`,
+    );
+  }
+}
+
+/* 1b. Nested enums (Phase C) --------------------------------------------------- */
+
+/** Raw values of the first `enum Name: String` after `anchor` in a Swift file. */
+function nestedRawValues(file: string, anchor: string, name: string): string[] | null {
+  const src = read(file);
+  const from = src.indexOf(anchor);
+  if (from < 0) return null;
+  const start = src.slice(from).search(new RegExp(`\\benum ${name}: String\\b`));
+  if (start < 0) return null;
+  const at = from + start;
+  const body = src.slice(at, src.indexOf('}', at));
+  const values: string[] = [];
+  for (const m of body.matchAll(/^\s+case (\w+)(?: = "([^"]+)")?\s*$/gm)) values.push(m[2] ?? m[1]);
+  return values;
+}
+
+interface ZodEnumLike {
+  options: readonly string[];
+}
+interface ZodWrapped {
+  unwrap(): unknown;
+}
+/** The enum inside optional / nullable wrappers. */
+function enumOf(schema: unknown): readonly string[] {
+  let current = schema as Partial<ZodEnumLike & ZodWrapped>;
+  for (let i = 0; i < 3 && !current.options && typeof current.unwrap === 'function'; i++) {
+    current = current.unwrap() as Partial<ZodEnumLike & ZodWrapped>;
+  }
+  if (!current.options) throw new Error('not an enum schema');
+  return current.options;
+}
+type Shape = Record<string, unknown>;
+const shapeOf = (schema: unknown) => (schema as { shape: Shape }).shape;
+const approvalKind = (kind: string) =>
+  shapeOf(
+    (contracts.ApprovalDetails as unknown as { options: unknown[] }).options.find(
+      (o) => (shapeOf(o).kind as { value: string }).value === kind,
+    ),
+  );
+
+const nested: [string, string, string, readonly string[]][] = [
+  [
+    'Jarvis/Core/Models/Approvals.swift',
+    'struct Email:',
+    'Mode',
+    enumOf(approvalKind('email').mode),
+  ],
+  ['Jarvis/Core/Models/Approvals.swift', 'struct Email:', 'Via', enumOf(approvalKind('email').via)],
+  [
+    'Jarvis/Core/Models/Approvals.swift',
+    'struct CalendarEventAction:',
+    'Action',
+    enumOf(approvalKind('calendar_event').action),
+  ],
+  [
+    'Jarvis/Core/Models/Connections.swift',
+    'struct ConnectionProviderInfo:',
+    'Kind',
+    enumOf(shapeOf(contracts.ConnectionProviderInfo).kind),
+  ],
+  [
+    'Jarvis/Core/Models/Connections.swift',
+    'struct ConnectionProviderInfo:',
+    'Revocation',
+    enumOf(shapeOf(contracts.ConnectionProviderInfo).revocation),
+  ],
+  [
+    'Jarvis/Core/Models/Calendar.swift',
+    'enum CalendarEventStatus',
+    'CalendarEventStatus',
+    enumOf(shapeOf(contracts.CalendarEvent).status),
+  ],
+  [
+    'Jarvis/Core/Models/Calendar.swift',
+    'struct CalendarSource:',
+    'Status',
+    enumOf(shapeOf(contracts.CalendarSource).status),
+  ],
+  [
+    'Jarvis/Core/Models/Commerce.swift',
+    'struct ShoppingComparison:',
+    'Status',
+    enumOf(
+      shapeOf((shapeOf(contracts.ShoppingComparison).sites as { element: unknown }).element).status,
+    ),
+  ],
+];
+for (const [file, anchor, name, expected] of nested) {
+  const actual = nestedRawValues(file, anchor, name);
+  if (!actual) {
+    problems.push(`${file}: enum ${name} after ${anchor} not found`);
+    continue;
+  }
+  const want = new Set([...expected, fallbackOf(expected)]);
+  const missing = [...want].filter((v) => !actual.includes(v));
+  const extra = actual.filter((v) => !want.has(v));
+  if (missing.length || extra.length) {
+    problems.push(
+      `${file}: ${anchor} ${name} missing ${JSON.stringify(missing)}, extra ${JSON.stringify(extra)}`,
     );
   }
 }
@@ -157,6 +284,7 @@ function caseLabels(source: string, marker: string): Set<string> {
 
 const errorSwift = read('Jarvis/App/ErrorText.swift');
 const eventSwift = read('Jarvis/Features/Tasks/TaskEventText.swift');
+const presentationSwift = read('Jarvis/DesignSystem/PhaseCPresentation.swift');
 const coverage: [string, readonly string[], Set<string>][] = [
   [
     'TaskErrorText.reasonText',
@@ -172,6 +300,11 @@ const coverage: [string, readonly string[], Set<string>][] = [
     'PolicyReasonText.describe',
     contracts.PolicyReason.options,
     caseLabels(eventSwift, 'enum PolicyReasonText'),
+  ],
+  [
+    'EvidenceText.title',
+    contracts.EvidenceCode.options,
+    caseLabels(presentationSwift, 'enum EvidenceText'),
   ],
 ];
 for (const [name, expected, actual] of coverage) {
@@ -219,8 +352,28 @@ for (const call of calls) {
   }
 }
 const phaseBTags = new Set(['conversations', 'attachments', 'skills', 'schedules', 'meta']);
+/** Phase C routes (all of them on iPhone) and disconnecting, which the Connections screen offers. */
+const phaseCRoutes = new Set([
+  'listConnectionProviders',
+  'startOAuthConnection',
+  'completeOAuthConnection',
+  'deleteConnection',
+  'listUpcomingEvents',
+  'listCalendarEvents',
+  'listEmailWatches',
+  'deleteEmailWatch',
+  'listOrders',
+  'getOrder',
+  'listBookings',
+  'getBooking',
+  'getEvidence',
+  'downloadEvidence',
+]);
+for (const name of phaseCRoutes) {
+  if (!(name in contracts.routes)) problems.push(`check-contract-copy.ts: ${name} is not a route`);
+}
 for (const [name, route] of routeTable) {
-  if (!phaseBTags.has(route.tag)) continue;
+  if (!phaseBTags.has(route.tag) && !phaseCRoutes.has(name)) continue;
   if (!calls.some((c) => c.method === route.method && c.path === route.path)) {
     problems.push(
       `APIClient+Endpoints.swift: no endpoint for ${name} (${route.method} ${route.path})`,
@@ -234,7 +387,8 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `✓ ${Object.keys(mirrors).length} enums mirror the contracts; ${serverKeys.length} server messages match the API's ` +
-    `en/de/ar templates; every TaskErrorReason, PolicyReason and (non-webhook) ApiErrorReason has copy; ` +
-    `${calls.length} app endpoints are contract routes, and every non-webhook Phase B route has one.`,
+  `✓ ${Object.keys(mirrors).length} enums and ${nested.length} nested enums mirror the contracts; ` +
+    `${serverKeys.length} server messages match the API's en/de/ar templates; every TaskErrorReason, ` +
+    `PolicyReason, (non-webhook) ApiErrorReason and EvidenceCode has copy; ${calls.length} app endpoints ` +
+    `are contract routes, and every non-webhook Phase B route and every Phase C route has one.`,
 );

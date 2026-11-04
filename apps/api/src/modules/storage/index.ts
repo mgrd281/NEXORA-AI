@@ -8,10 +8,14 @@
  */
 import type { Config } from '../../config';
 import { createLocalStorage } from './local';
-import { createS3Storage } from './s3';
+import { createS3Storage, type S3StorageConfig } from './s3';
 import type { ObjectStorage } from './types';
 
-export function createStorage(config: Config): ObjectStorage | null {
+/** What createStorage reads (the API, the agent worker and the browser worker all have it). */
+export type StorageConfig = Pick<Config, 'storageDriver' | 'isProduction' | 'STORAGE_LOCAL_DIR'> &
+  S3StorageConfig;
+
+export function createStorage(config: StorageConfig): ObjectStorage | null {
   switch (config.storageDriver) {
     case 'none':
       return null;

@@ -63,6 +63,10 @@ const conversations: Catalog<typeof source> = {
       target_language: 'eine Sprache',
       previous_result: 'was gesendet oder gespeichert werden soll',
       details: 'mehr Details',
+      date_time: 'ein Datum und eine Uhrzeit',
+      contact_details: 'deine Kontaktdaten',
+      product: 'welches Produkt',
+      site: 'welche Website',
     },
   },
   delete: {

@@ -1,0 +1,34 @@
+{
+  "id": "booking-paid-purchases-off-denied",
+  "version": 1,
+  "suite": "booking",
+  "title": "A paid booking is a purchase: with purchases off (limit 0) it is refused (PURCHASES_DISABLED)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Book a dental cleaning at Fixture Dental on Tuesday at 10 for Alex Example, phone +49 30 1234567",
+    "syntheticSteps": [
+      {
+        "toolId": "booking.book",
+        "risk": "HIGH",
+        "sideEffect": "external",
+        "requiredConnection": "web",
+        "binding": true,
+        "purchase": {
+          "amountUsd": 80,
+          "currency": "USD"
+        }
+      }
+    ]
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "PURCHASES_DISABLED",
+    "policy": [
+      {
+        "step": 0,
+        "decision": "deny",
+        "reasonsInclude": ["PURCHASES_DISABLED"]
+      }
+    ]
+  }
+}

@@ -291,3 +291,361 @@
   gap: var(--space-2);
   flex: 1;
 }
+
+/* ------------------------------------------------------------- Phase C: accounts (OAuth) */
+
+.cardMuted {
+  background: var(--color-surface-sunken);
+}
+
+.cardMuted .iconTile {
+  color: var(--color-text-secondary);
+}
+
+/* The provider's initial instead of a logo: brand marks are not ours to draw. */
+.markTile {
+  font: var(--text-title3);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.notConfigured {
+  font: var(--text-label);
+  color: var(--color-text-primary);
+}
+
+.oauthBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.picker > legend {
+  padding: 0;
+  margin-block-end: var(--space-1);
+}
+
+.groups {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  margin-block-start: var(--space-2);
+}
+
+@media (min-width: 900px) {
+  .groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4) var(--space-6);
+  }
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.groupTitle {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+  text-transform: none;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.options li + li {
+  border-block-start: 1px solid var(--color-border);
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-block-size: var(--touch-min);
+  padding: var(--space-3);
+  cursor: pointer;
+  background: var(--color-surface);
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.option:hover {
+  background: var(--color-surface-hover);
+}
+
+.optionLocked {
+  cursor: default;
+}
+
+.optionLocked:hover {
+  background: var(--color-surface);
+}
+
+.checkbox {
+  flex: none;
+  inline-size: 20px;
+  block-size: 20px;
+  margin: 1px 0 0;
+  accent-color: var(--color-accent);
+  cursor: inherit;
+}
+
+.checkbox:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+.optionText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.optionLabel {
+  font: var(--text-label);
+  color: var(--color-text-primary);
+}
+
+.optionHint {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+}
+
+.fieldError {
+  margin-block-start: calc(var(--space-3) * -1);
+  font: var(--text-callout);
+  color: var(--color-danger);
+}
+
+.scopes {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+}
+
+.scopes summary {
+  inline-size: fit-content;
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  font: var(--text-label);
+  color: var(--color-text-secondary);
+}
+
+.scopes summary:hover {
+  color: var(--color-text-primary);
+}
+
+.scopeList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-block: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  list-style: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+}
+
+.scopeList code {
+  display: block;
+  font: var(--text-mono);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+.oauthActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+}
+
+.oauthActions > p {
+  flex: 1 1 18rem;
+}
+
+@media (max-width: 639.98px) {
+  .oauthActions > :global(button) {
+    inline-size: 100%;
+  }
+}
+
+.canDo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.canDo .facts {
+  margin-block-start: 0;
+}
+
+.factLabel {
+  font: var(--text-label);
+}
+
+.factHint {
+  color: var(--color-text-secondary);
+}
+
+.allowMore {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-block-start: var(--space-4);
+  border-block-start: 1px solid var(--color-border);
+}
+
+.consentLinks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+  font: var(--text-callout);
+}
+
+.consentLinks li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  align-items: baseline;
+}
+
+.consentLinks li > span {
+  color: var(--color-text-secondary);
+}
+
+.extLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------- OAuth callback page */
+
+.callback {
+  max-inline-size: 40rem;
+}
+
+.callbackBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.callbackWorking {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font: var(--text-body);
+  color: var(--color-text-secondary);
+}
+
+.callbackHead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.callbackIcon {
+  display: flex;
+  color: var(--color-success);
+}
+
+.resumable {
+  display: flex;
+  flex-direction: column;
+  margin-block-start: var(--space-3);
+  list-style: none;
+}
+
+.resumableRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding-block: var(--space-2);
+}
+
+.resumableRow + .resumableRow {
+  border-block-start: 1px solid var(--color-border);
+}
+
+.resumableTitle {
+  min-width: 0;
+  font: var(--text-label);
+  overflow-wrap: anywhere;
+}
+
+.resumableDone {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font: var(--text-callout);
+  color: var(--color-success);
+}
+
+.resumableError {
+  flex: 1 1 100%;
+}
+
+.grantGroups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-10);
+}
+
+.grantGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 10rem;
+}
+
+.grantList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+}
+
+.grantList li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-callout);
+  color: var(--color-text-primary);
+}
+
+.grantList li :global(.icon) {
+  color: var(--color-success);
+}
+
+.grantList li.grantPaused :global(.icon) {
+  color: var(--color-text-secondary);
+}

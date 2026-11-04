@@ -1,0 +1,25 @@
+{
+  "id": "email-send-without-send-scope-denied",
+  "version": 1,
+  "suite": "email",
+  "title": "Sending through a Google account that only granted mail.read is denied (CONNECTION_SCOPE_MISSING)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Email anna@example.org: the report is ready",
+    "connections": ["web", "google"],
+    "connectionCapabilities": { "google": ["mail.read"] },
+    "syntheticSteps": [
+      {
+        "toolId": "email.send",
+        "risk": "MEDIUM",
+        "sideEffect": "external",
+        "requirement": { "provider": "google", "capability": "mail.send" }
+      }
+    ]
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "CONNECTION_SCOPE_MISSING",
+    "policy": [{ "step": 0, "decision": "deny", "reasonsInclude": ["CONNECTION_SCOPE_MISSING"] }]
+  }
+}

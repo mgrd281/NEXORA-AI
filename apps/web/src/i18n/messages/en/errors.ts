@@ -90,6 +90,52 @@ const errors = {
     SKILL_DISABLED: 'This needs the skill “{skill}”, which is turned off in Settings.',
     UNTRUSTED_MEMORY:
       'JARVIS won’t save this to memory: it comes from content that tried to give instructions to AI assistants.',
+    CONNECTION_EXPIRED: 'Your {provider} connection has expired. Reconnect it, then retry.',
+    CONNECTION_SCOPE_MISSING:
+      '{provider} hasn’t given JARVIS this permission: {capability}. Reconnect and allow it, then retry.',
+    PROVIDER_RATE_LIMITED: '{provider} is limiting requests right now. Try again in a few minutes.',
+    PROVIDER_UNAVAILABLE: '{provider} isn’t responding right now. Try again later.',
+    PROVIDER_REJECTED: '{provider} refused the request (error {status}).',
+    EMAIL_THREAD_NOT_FOUND: 'That email thread no longer exists in your mailbox.',
+    WATCH_LIMIT_REACHED: 'JARVIS already watches {max} threads for replies, the most it can.',
+    CALENDAR_CONFLICT:
+      'That time is already taken in your calendar, so JARVIS didn’t add anything.',
+    EVENT_NOT_FOUND: 'That event no longer exists in your calendar.',
+    EVENT_CHANGED: 'The event changed after JARVIS read it, so nothing was changed. Ask again.',
+    NO_FREE_SLOTS: 'There’s no free time in that window.',
+    INVALID_TIME_RANGE: 'The start and end times don’t make a valid range.',
+    CAPTCHA_DETECTED:
+      '{host} asks to prove you’re human. JARVIS never solves these: continue on the site yourself.',
+    LOGIN_REQUIRED:
+      '{host} needs you to sign in. JARVIS doesn’t sign in for you: continue on the site yourself.',
+    BOT_PROTECTION:
+      '{host} blocks automated visits. JARVIS doesn’t work around that: continue on the site yourself.',
+    SITE_UNSUPPORTED: 'JARVIS doesn’t support {host} yet.',
+    NAVIGATION_BLOCKED:
+      'The site tried to lead JARVIS to {host}, which isn’t allowed, so it stopped.',
+    PAGE_CHANGED: '{host} looks different than JARVIS expects, so it stopped rather than guess.',
+    SITE_ERROR: '{host} showed an error (status {status}).',
+    BROWSER_BUDGET_EXCEEDED:
+      'The site needed more steps than JARVIS allows ({limit}), so it stopped.',
+    BROWSER_TIMEOUT: 'The site took too long, so JARVIS stopped.',
+    BROWSER_CRASHED: 'The browser stopped unexpectedly.',
+    BROWSER_UNAVAILABLE: 'The browser agent isn’t running on this server.',
+    SLOT_TAKEN: 'That appointment was taken in the meantime, so nothing was booked.',
+    BOOKING_DETAILS_MISSING: 'The booking form needs details JARVIS doesn’t have: {fields}.',
+    BOOKING_UNCONFIRMED:
+      'The booking was sent, but the site showed no confirmation. Check with the site before trying again.',
+    PRICE_CHANGED: 'The price changed from {expected} to {actual}, so nothing was ordered.',
+    OUT_OF_STOCK: 'It’s out of stock, so nothing was ordered.',
+    CHECKOUT_UNSUPPORTED:
+      'JARVIS can’t order on {host}. Your cart is ready there: finish the purchase yourself.',
+    ORDER_UNKNOWN:
+      'The order was interrupted while it was being placed. Check your orders with the shop before trying again.',
+    PURCHASES_DISABLED:
+      'Purchases are turned off. Set a monthly purchase limit in Settings to allow them.',
+    PURCHASE_LIMIT:
+      'This purchase ({amount}) would go over your monthly limit of {limit} ({spent} already spent).',
+    PURCHASE_CURRENCY:
+      'The price is in {currency}, but your purchase limit is in US dollars, so JARVIS won’t buy it.',
   },
   /**
    * Why an API request was refused (contracts ApiErrorReason, sent in error.details.reason),
@@ -124,6 +170,22 @@ const errors = {
     WEBHOOK_DISABLED: 'This endpoint is turned off. Turn it on to send a test.',
     SKILL_NOT_TOGGLEABLE: 'This skill is part of how JARVIS works and can’t be turned off.',
     SKILL_PLANNED: 'This skill isn’t available yet.',
+    PROVIDER_NOT_CONFIGURED: '{provider} isn’t set up on this server.',
+    REDIRECT_URI_NOT_ALLOWED: 'This app’s sign-in return address isn’t allowed on this server.',
+    OAUTH_STATE_INVALID: 'This sign-in link isn’t valid any more. Start connecting again.',
+    OAUTH_STATE_EXPIRED: 'The sign-in took too long. Start connecting again.',
+    OAUTH_DENIED: 'You didn’t allow access at {provider}, so nothing was connected.',
+    OAUTH_EXCHANGE_FAILED: '{provider} didn’t complete the sign-in. Try again.',
+    OAUTH_SCOPE_NOT_GRANTED:
+      'None of the permissions JARVIS asked for were allowed, so nothing was connected.',
+    OAUTH_ACCOUNT_MISMATCH:
+      'You signed in to a different {provider} account. Disconnect the old one first to switch.',
+    OAUTH_PENDING_LIMIT:
+      'Too many sign-ins are still open. Finish them or wait a few minutes, then try again.',
+    CONNECTION_NOT_OAUTH: 'This connection can’t be reconnected this way.',
+    CALENDAR_NOT_CONNECTED: 'No calendar is connected.',
+    CALENDAR_UNAVAILABLE: '{provider} didn’t answer in time.',
+    EVIDENCE_NOT_AVAILABLE: 'This evidence file can’t be read on this server right now.',
   },
   network: 'Can’t reach JARVIS. Check your connection.',
   badResponse: 'JARVIS sent a response this app doesn’t understand. Reload the page.',

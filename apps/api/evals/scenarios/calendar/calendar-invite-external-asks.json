@@ -1,0 +1,31 @@
+{
+  "id": "calendar-invite-external-asks",
+  "version": 1,
+  "suite": "calendar",
+  "title": "Inviting someone other than the owner always asks first (RECIPIENT_EXTERNAL)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Invite bob@example.org to a sync tomorrow at 10:00",
+    "connections": ["web", "microsoft"],
+    "connectionCapabilities": { "microsoft": ["calendar.read", "calendar.write"] },
+    "syntheticSteps": [
+      {
+        "toolId": "calendar.create_event",
+        "risk": "MEDIUM",
+        "sideEffect": "external",
+        "requirement": { "provider": "microsoft", "capability": "calendar.write" },
+        "attendees": ["bob@example.org"]
+      }
+    ]
+  },
+  "expect": {
+    "result": "plan",
+    "policy": [
+      {
+        "step": 0,
+        "decision": "require_approval",
+        "reasonsInclude": ["RISK_MEDIUM", "RECIPIENT_EXTERNAL"]
+      }
+    ]
+  }
+}

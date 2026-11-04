@@ -72,6 +72,32 @@ only in the dialog's state and never cached or re-shown. Unit tests: `test/{conv
 attachments,schedules}.test.ts`; visual + behaviour specs: `e2e/visual/phase-b.spec.ts`
 (fixtures in `e2e/support/phase-b.ts`, validated against the contracts by `mock-api.ts`).
 
+## Phase C screens (docs/architecture/phase-c.md §3.9)
+
+| Feature            | Where                                                                                                                                        | Code                                                          |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Google / Microsoft | Connections: one card per provider — “Not configured on this server”, capability checkboxes with the exact scopes, connected, expired        | `features/connections/{OAuthCard,oauth,Reconnect}`            |
+| OAuth callback     | `/connections/callback` (the redirect URI): forwards `code`/`state`/`error`/`iss` once, clears the address, offers Retry for resumable tasks | `features/connections/CallbackScreen`                         |
+| Home “Upcoming”    | Only when `HomeSnapshot.upcoming` is not null: days in the account’s zone, overlaps flagged, calendars that didn’t answer with their fix     | `features/home/{Upcoming,upcoming}`                           |
+| Approval sheets    | `calendar_event`, `booking`, `purchase` (items, totals, delivery, payment, monthly limit meter), `form_submission`, email drafts / `via`     | `components/approvals/{PhaseCDetails,labels}`                 |
+| Task results       | Email threads, free times, offers compared (table; cards on phones), cart, slots (“Choose” fills the follow-up), booking, order, sessions    | `features/tasks/phase-c/{PhaseCResults,results}`              |
+| Failure next steps | Reconnect, Allow, Open the site yourself, Adjust the limit, Finish at the shop — one action per Phase C reason                               | `features/tasks/phase-c/NextStep`                             |
+| Evidence           | Screenshots as thumbnails with a lightbox (alt text: site + time), ICS / JSON as owner-only downloads                                        | `components/evidence/EvidenceImage`, `phase-c/PhaseCEvidence` |
+| Settings           | Spending (monthly purchase limit, 0 = off; orders; bookings), Reply tracking (watched threads, Stop)                                         | `features/settings/{SpendingSection,RepliesSection,spending}` |
+
+Rules specific to these screens: amounts are contracts `Money` formatted with `lib/money.ts` in the
+viewer's notation inside a left-to-right isolate (money parameters of server sentences —
+"USD 129.99" — are reformatted the same way); a price, shipping cost or delivery time a page did
+not state reads “Not stated”, never 0 or free; nothing from a page, a mailbox or an invitation is
+ever a link target unless it is http(s) (`safeExternalUrl`); evidence files load only from the
+API's own `/v1/evidence/:id/content`; the consent URL is followed only when it is https (http only
+on localhost, for the mock providers). Step outputs are the tools' display previews: a full
+`ShoppingComparison` / `BookingSlots` / `PreparedCart` / `EmailThreadSummary[]` is used when a
+preview carries one, otherwise the preview fields (see `phase-c/results.ts`). Unit tests:
+`test/phase-c.test.ts`, `test/phase-c-catalogs.test.ts`; visual + behaviour specs:
+`e2e/visual/phase-c.spec.ts` (fixtures in `e2e/support/phase-c.ts`, evidence screenshots captured
+from the local fixture site in `e2e/support/evidence/`).
+
 ## Visual tests (mock API)
 
 ```bash
@@ -97,3 +123,14 @@ The specs share one account and one mailbox, so they run one file at a time (`--
 PDF upload with document summary and owner-only download, a schedule that fires exactly once, a
 signed metadata-only webhook to a local receiver (`WEBHOOK_ALLOW_INSECURE_HOSTS`), a disabled
 skill refused with the localized reason (en/de/ar) and the retention preference.
+`phase-c.spec.ts` covers connecting Google through the real OAuth redirect against the mock
+provider (PKCE S256 checked by the provider, session-bound single-use state), Home "Upcoming", a
+calendar event after approval, a Gmail summary with an injected instruction ignored, an email sent
+once through the Gmail API, scenario 9 (expired grant → Reconnect → Retry), scenario 3 (two fixture
+merchants compared with screenshots), scenario 7 (purchases off, over the limit), scenario 10 (one
+order with evidence; an interrupted checkout reconciled without a second order), scenario 1 (a
+booking with confirmation + ICS, saved to the calendar) and a CAPTCHA handed over. It needs the
+mock providers with their control channel (`node tools/mock-providers/server.mjs --no-seed`,
+`MOCK_CONTROL_PORT`, `E2E_MOCK_CONTROL_URL`), the fixture site (`E2E_FIXTURE_URL`) and a running
+browser worker; the API and workers get `GOOGLE_CLIENT_ID/SECRET`, `GOOGLE_BASE_URL_OVERRIDE`,
+`BROWSER_FIXTURE_ORIGIN` and `BROWSER_ALLOW_PRIVATE_HOSTS` (development only).

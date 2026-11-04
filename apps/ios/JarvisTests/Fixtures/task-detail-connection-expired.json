@@ -1,0 +1,98 @@
+{
+  "id": "d4f5a6b7-8e9a-4b0c-9d2e-3f4a5b6c7d84",
+  "title": "Summarize your unread emails",
+  "titleMessage": {
+    "key": "plan.emailUnread",
+    "params": {}
+  },
+  "request": "summarize my unread emails",
+  "status": "FAILED",
+  "riskLevel": "LOW",
+  "source": "text",
+  "progress": {
+    "completed": 0,
+    "total": 3
+  },
+  "pendingApprovalId": null,
+  "pendingApproval": null,
+  "resultSummary": null,
+  "resultSummaryMessage": null,
+  "error": {
+    "code": "CONNECTION_REQUIRED",
+    "message": "The Google connection has expired. Reconnect it, then retry.",
+    "retryable": true,
+    "reason": "CONNECTION_EXPIRED",
+    "params": {
+      "provider": "google"
+    }
+  },
+  "createdAt": "2026-11-04T08:00:00.000Z",
+  "updatedAt": "2026-11-04T08:00:02.000Z",
+  "completedAt": "2026-11-04T08:00:02.000Z",
+  "conversationId": "07853474-1278-4b72-9b76-f4ce830ec68c",
+  "outcome": null,
+  "question": null,
+  "scheduleId": null,
+  "attachmentCount": 0,
+  "objective": "Read your unread emails and summarize them.",
+  "objectiveMessage": {
+    "key": "objective.emailUnread",
+    "params": {}
+  },
+  "planner": {
+    "mode": "offline",
+    "provider": null,
+    "model": null
+  },
+  "answer": null,
+  "steps": [
+    {
+      "id": "dae1f2b3-4e5a-4b6c-9d8e-9fabcde3214a",
+      "position": 0,
+      "title": "Search your mailbox",
+      "titleMessage": {
+        "key": "step.searchEmail",
+        "params": {}
+      },
+      "toolId": "email.search",
+      "riskLevel": "LOW",
+      "status": "BLOCKED",
+      "requiresApproval": false,
+      "policy": {
+        "decision": "deny",
+        "reasons": [
+          "CONNECTION_EXPIRED"
+        ]
+      },
+      "inputPreview": {
+        "unreadOnly": true
+      },
+      "output": null,
+      "evidence": [],
+      "attempts": 1,
+      "startedAt": null,
+      "completedAt": null,
+      "error": {
+        "code": "CONNECTION_REQUIRED",
+        "message": "The Google connection has expired.",
+        "retryable": true,
+        "reason": "CONNECTION_EXPIRED",
+        "params": {
+          "provider": "google"
+        }
+      }
+    }
+  ],
+  "approvals": [],
+  "events": [],
+  "cost": {
+    "estimatedMicroUsd": 0,
+    "actualMicroUsd": 0
+  },
+  "evidence": [],
+  "canCancel": false,
+  "canRetry": true,
+  "startedAt": "2026-11-04T08:00:01.000Z",
+  "attachments": [],
+  "browserSessions": []
+}

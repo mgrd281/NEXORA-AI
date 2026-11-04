@@ -1,28 +1,35 @@
 'use client';
 
+import type { ConnectionProviderInfo } from '@jarvis/contracts';
 import { Page } from '@/components/shell/Page';
 import { ErrorBanner } from '@/components/ui/Banner';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useI18n } from '@/i18n/I18nProvider';
 import { useMe } from '@/lib/api/hooks';
 import { DeveloperSection } from '@/features/webhooks/DeveloperSection';
-import { useConnections } from './api';
+import { useConnectionProviders, useConnections } from './api';
 import { EmailCard } from './EmailCard';
+import { OAuthCard } from './OAuthCard';
+import { connectionOf, OAUTH_PROVIDERS } from './oauth';
 import { WebAccessCard } from './WebAccessCard';
 import styles from './connections.module.css';
 
 /**
- * What JARVIS can access, and the controls to revoke it. Only the connection types this build
- * implements (web access and SMTP email) are shown. `connection.changed` events refresh the
- * list (see lib/events/invalidation.ts).
+ * What JARVIS can access, and the controls to revoke it: the Google and Microsoft accounts
+ * (each as this server offers it — or honestly "not configured on this server"), SMTP email
+ * and web access. `connection.changed` events refresh the list (lib/events/invalidation.ts).
  */
 export function ConnectionsScreen() {
   const { t } = useI18n();
   const me = useMe();
   const connections = useConnections();
+  const providers = useConnectionProviders();
   const items = connections.data?.items ?? [];
   const web = items.find((c) => c.provider === 'web') ?? null;
   const smtp = items.find((c) => c.provider === 'smtp') ?? null;
+  const oauth = OAUTH_PROVIDERS.map((p) =>
+    providers.data?.items.find((i) => i.provider === p && i.kind === 'oauth'),
+  ).filter((i): i is ConnectionProviderInfo => i !== undefined);
 
   return (
     <Page title={t('connections.title')} description={t('connections.description')}>
@@ -31,7 +38,7 @@ export function ConnectionsScreen() {
           <span className="visually-hidden" role="status">
             {t('connections.loading')}
           </span>
-          {[0, 1].map((i) => (
+          {[0, 1, 2].map((i) => (
             <div key={i} className={styles.skeletonCard} aria-hidden="true">
               <Skeleton width={40} height={40} radius="md" />
               <div className={styles.skeletonLines}>
@@ -49,8 +56,22 @@ export function ConnectionsScreen() {
         />
       ) : (
         <div className={styles.cards}>
-          <WebAccessCard connection={web} />
+          {providers.isError && !providers.data && (
+            <ErrorBanner
+              error={providers.error}
+              onRetry={() => void providers.refetch()}
+              retrying={providers.isFetching}
+            />
+          )}
+          {oauth.map((info) => (
+            <OAuthCard
+              key={info.provider}
+              info={info}
+              connection={connectionOf(info.provider as 'google' | 'microsoft', items)}
+            />
+          ))}
           <EmailCard connection={smtp} me={me.data} />
+          <WebAccessCard connection={web} />
         </div>
       )}
       <DeveloperSection />

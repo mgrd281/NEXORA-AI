@@ -1,0 +1,90 @@
+{
+  "id": "d6e3f4b5-a4b7-4bc9-9d56-5f9876543260",
+  "taskId": "c3e4f5a6-7d8f-4a9b-8c1d-2e3f4a5b6c73",
+  "taskTitle": "Buy pour-over kettle on Fixture Kitchen Supply",
+  "taskTitleMessage": {
+    "key": "plan.buy",
+    "params": {
+      "product": "pour-over kettle",
+      "site": "Fixture Kitchen Supply"
+    }
+  },
+  "stepId": "c9e0f1a2-3d4f-4a5b-8c7d-8e9fabcd2139",
+  "toolId": "shop.checkout",
+  "status": "PENDING",
+  "riskLevel": "HIGH",
+  "summary": "Buy for USD 54.48 at Fixture Kitchen Supply.",
+  "summaryMessage": {
+    "key": "approval.purchase",
+    "params": {
+      "total": "USD 54.48",
+      "merchant": "Fixture Kitchen Supply"
+    }
+  },
+  "details": {
+    "kind": "purchase",
+    "siteId": "fixture-shop",
+    "merchant": {
+      "name": "Fixture Kitchen Supply",
+      "host": "shop.fixture.test"
+    },
+    "items": [
+      {
+        "title": "Ceramic pour-over kettle 1.2 l",
+        "quantity": 2,
+        "unitPrice": {
+          "amountMicro": 24990000,
+          "currency": "USD"
+        },
+        "lineTotal": {
+          "amountMicro": 49980000,
+          "currency": "USD"
+        },
+        "productUrl": "https://shop.fixture.test/shop/products/KET-12"
+      }
+    ],
+    "subtotal": {
+      "amountMicro": 49980000,
+      "currency": "USD"
+    },
+    "shipping": {
+      "amountMicro": 4500000,
+      "currency": "USD"
+    },
+    "tax": null,
+    "total": {
+      "amountMicro": 54480000,
+      "currency": "USD"
+    },
+    "delivery": {
+      "method": "Standard parcel",
+      "estimate": "2–4 business days",
+      "address": "Ada Lovelace, Example Street 1, 10115 Berlin"
+    },
+    "paymentMethod": "Visa •••• 4242",
+    "limit": {
+      "monthly": {
+        "amountMicro": 100000000,
+        "currency": "USD"
+      },
+      "spentThisMonth": {
+        "amountMicro": 20000000,
+        "currency": "USD"
+      },
+      "remainingAfter": {
+        "amountMicro": 25520000,
+        "currency": "USD"
+      }
+    },
+    "evidenceArtifactId": "bec5d6f7-8c9e-4fa1-9bcd-def76543218e"
+  },
+  "actionHash": "c0ffee00a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c",
+  "reasons": [
+    "RISK_HIGH",
+    "PURCHASE"
+  ],
+  "expiresAt": "2026-11-05T09:15:00.000Z",
+  "decidedAt": null,
+  "decisionNote": null,
+  "createdAt": "2026-11-04T09:15:00.000Z"
+}

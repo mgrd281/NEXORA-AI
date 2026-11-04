@@ -1,0 +1,23 @@
+{
+  "items": [
+    {
+      "id": "a1c2e3f4-5b6d-4e7f-8a9b-0c1d2e3f4a51",
+      "provider": "dropbox",
+      "label": "Dropbox",
+      "accountIdentifier": "ada@example.com",
+      "status": "paused",
+      "permissions": [],
+      "lastVerifiedAt": null,
+      "lastError": null,
+      "expiresAt": null,
+      "createdAt": "2026-10-20T10:00:00.000Z",
+      "capabilities": [
+        "drive.read"
+      ],
+      "scopes": [
+        "files.content.read"
+      ],
+      "statusReason": "SUSPENDED"
+    }
+  ]
+}

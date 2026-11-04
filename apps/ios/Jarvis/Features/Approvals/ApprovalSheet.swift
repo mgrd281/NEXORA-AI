@@ -127,6 +127,14 @@ struct ApprovalSheet: View {
             ScheduleActionPreview(action: action)
         case .memory(let action):
             MemoryActionPreview(action: action)
+        case .calendarEvent(let action):
+            CalendarEventPreview(action: action)
+        case .booking(let action):
+            BookingPreview(action: action)
+        case .purchase(let action):
+            PurchasePreview(action: action)
+        case .formSubmission(let action):
+            FormSubmissionPreview(action: action)
         case .generic(let action):
             Card {
                 Text(action.toolId.label)
@@ -190,7 +198,7 @@ struct ApprovalSheet: View {
                     if model.deciding == .approve {
                         ProgressView().tint(MeridianColor.onInk)
                     } else {
-                        Label("Approve", systemImage: MeridianIcon.approve)
+                        Label(approveLabel, systemImage: MeridianIcon.approve)
                     }
                 }
                 .buttonStyle(.meridianPrimary)
@@ -208,10 +216,42 @@ struct ApprovalSheet: View {
                 }
                 .buttonStyle(.meridianDestructive)
                 .disabled(!model.canDecide)
-                .accessibilityHint(Text("Nothing is sent. The task stops at this step."))
+                .accessibilityHint(Text(declineHint))
             }
             .padding(MeridianSpace.s4)
             .background(.bar)
+        }
+    }
+
+    /// What approving does, in words matching the action ("Approve and buy" for a purchase).
+    private var approveLabel: String {
+        switch approval.details {
+        case .email(let email):
+            return email.isDraft ? String(localized: "Approve and save draft") : String(localized: "Approve and send")
+        case .schedule:
+            return String(localized: "Approve and create")
+        case .memory:
+            return String(localized: "Approve and save")
+        case .calendarEvent(let action):
+            return action.action == .cancel ? String(localized: "Approve and cancel the event") : String(localized: "Approve and save")
+        case .booking:
+            return String(localized: "Approve and book")
+        case .purchase:
+            return String(localized: "Approve and buy")
+        case .formSubmission:
+            return String(localized: "Approve and submit")
+        case .generic, .unknown:
+            return String(localized: "Approve")
+        }
+    }
+
+    private var declineHint: String {
+        switch approval.details {
+        case .purchase: String(localized: "Nothing is bought. The task stops at this step.")
+        case .booking: String(localized: "Nothing is booked. The task stops at this step.")
+        case .calendarEvent: String(localized: "Your calendar isn't changed. The task stops at this step.")
+        case .email(let email) where email.isDraft: String(localized: "No draft is saved. The task stops at this step.")
+        default: String(localized: "Nothing is sent. The task stops at this step.")
         }
     }
 
@@ -226,15 +266,31 @@ struct ApprovalSheet: View {
     }
 }
 
-/// The exact email that will be sent.
+/// The exact email that will be sent (or saved as a draft), and how.
 private struct EmailPreview: View {
     let email: ApprovalDetails.Email
 
     var body: some View {
+        if email.isDraft {
+            NoteView(text: String(localized: "This saves a draft in your mailbox. Nothing is sent; you can review and send it yourself later."), systemImage: "square.and.pencil")
+        }
         Card {
             DetailRow(label: String(localized: "From"), value: email.from)
+            if let via = viaText {
+                Divider().overlay(MeridianColor.border)
+                DetailRow(label: email.isDraft ? String(localized: "Saved in") : String(localized: "Sent through"), value: via)
+            }
             Divider().overlay(MeridianColor.border)
             DetailRow(label: String(localized: "To"), value: email.to.joined(separator: ", "))
+            if let cc = email.cc, !cc.isEmpty {
+                Divider().overlay(MeridianColor.border)
+                DetailRow(label: String(localized: "Cc"), value: cc.joined(separator: ", "))
+            }
+            if let thread = email.inReplyTo {
+                Divider().overlay(MeridianColor.border)
+                // The thread's subject comes from the mailbox (written by others).
+                DetailRow(label: String(localized: "In reply to"), value: thread.subject.isEmpty ? String(localized: "(no subject)") : thread.subject.bidiIsolated)
+            }
             Divider().overlay(MeridianColor.border)
             DetailRow(label: String(localized: "Subject"), value: email.subject)
             Divider().overlay(MeridianColor.border)
@@ -249,6 +305,16 @@ private struct EmailPreview: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .accessibilityElement(children: .combine)
+        }
+    }
+
+    private var viaText: String? {
+        switch email.via {
+        case .smtp: String(localized: "Your SMTP mail server")
+        case .google: String(localized: "Your Google account (Gmail)")
+        case .microsoft: String(localized: "Your Microsoft account (Outlook)")
+        case .unknown: String(localized: "A way this version of the app doesn't know")
+        case .none: nil
         }
     }
 }
@@ -344,7 +410,7 @@ private struct UntrustedSourceNote: View {
 }
 
 /// A labelled value in an approval preview; values are selectable so they can be checked.
-private struct DetailRow: View {
+struct DetailRow: View {
     let label: String
     let value: String
     var monospaced = false

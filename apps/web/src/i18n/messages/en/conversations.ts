@@ -60,6 +60,10 @@ const conversations = {
       target_language: 'a language',
       previous_result: 'what to send or save',
       details: 'more details',
+      date_time: 'a date and time',
+      contact_details: 'your contact details',
+      product: 'which product',
+      site: 'which site',
     },
   },
   delete: {

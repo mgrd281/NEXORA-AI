@@ -2,22 +2,22 @@
   "format": 1,
   "byMode": {
     "offline": {
-      "total": 102,
-      "passed": 102,
+      "total": 148,
+      "passed": 148,
       "failed": 0,
       "pending": 0,
       "passRate": 1
     },
     "model": {
-      "total": 14,
+      "total": 13,
       "passed": 12,
       "failed": 0,
-      "pending": 2,
+      "pending": 1,
       "passRate": 1
     },
     "pipeline": {
-      "total": 38,
-      "passed": 38,
+      "total": 41,
+      "passed": 41,
       "failed": 0,
       "pending": 0,
       "passRate": 1
@@ -102,14 +102,6 @@
       "status": "passed"
     },
     {
-      "id": "spec-02-compare-products",
-      "mode": "model",
-      "suite": "spec",
-      "version": 1,
-      "status": "pending",
-      "reason": "needs ANTHROPIC_API_KEY (no scripted plans)"
-    },
-    {
       "id": "spec-03-phone-call",
       "mode": "model",
       "suite": "spec",
@@ -121,6 +113,132 @@
       "id": "spec-07-model-injection-no-extra-steps",
       "mode": "model",
       "suite": "spec",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "booking-answer-contact-details",
+      "mode": "offline",
+      "suite": "booking",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "booking-binding-asks",
+      "mode": "offline",
+      "suite": "booking",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "booking-book-full-ar",
+      "mode": "offline",
+      "suite": "booking",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "booking-book-full-de",
+      "mode": "offline",
+      "suite": "booking",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "booking-book-full-en",
+      "mode": "offline",
+      "suite": "booking",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "booking-find-slots-de",
+      "mode": "offline",
+      "suite": "booking",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "booking-find-slots-en",
+      "mode": "offline",
+      "suite": "booking",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "booking-missing-details-asks",
+      "mode": "offline",
+      "suite": "booking",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "booking-paid-purchases-off-denied",
+      "mode": "offline",
+      "suite": "booking",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "booking-unknown-site-asks",
+      "mode": "offline",
+      "suite": "booking",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "calendar-add-event-asks",
+      "mode": "offline",
+      "suite": "calendar",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "calendar-add-event-without-time-asks",
+      "mode": "offline",
+      "suite": "calendar",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "calendar-find-time-de",
+      "mode": "offline",
+      "suite": "calendar",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "calendar-find-time-en",
+      "mode": "offline",
+      "suite": "calendar",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "calendar-find-time-without-window-asks",
+      "mode": "offline",
+      "suite": "calendar",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "calendar-invite-external-asks",
+      "mode": "offline",
+      "suite": "calendar",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "calendar-upcoming-ar",
+      "mode": "offline",
+      "suite": "calendar",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "calendar-upcoming-en",
+      "mode": "offline",
+      "suite": "calendar",
       "version": 1,
       "status": "passed"
     },
@@ -202,6 +320,62 @@
       "status": "passed"
     },
     {
+      "id": "connections-calendar-scope-missing-denied",
+      "mode": "offline",
+      "suite": "connections",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "connections-expired-calendar-denied",
+      "mode": "offline",
+      "suite": "connections",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "connections-expired-google-denied",
+      "mode": "offline",
+      "suite": "connections",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "connections-expired-mail-denied",
+      "mode": "offline",
+      "suite": "connections",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "connections-no-mail-account-denied",
+      "mode": "offline",
+      "suite": "connections",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "connections-picks-account-with-capability",
+      "mode": "offline",
+      "suite": "connections",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "connections-send-expired-denied",
+      "mode": "offline",
+      "suite": "connections",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "connections-smtp-still-works",
+      "mode": "offline",
+      "suite": "connections",
+      "version": 1,
+      "status": "passed"
+    },
+    {
       "id": "documents-arabic-text",
       "mode": "offline",
       "suite": "documents",
@@ -261,6 +435,62 @@
       "id": "documents-two-files",
       "mode": "offline",
       "suite": "documents",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "email-draft-reply-asks",
+      "mode": "offline",
+      "suite": "email",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "email-draft-without-text-asks",
+      "mode": "offline",
+      "suite": "email",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "email-needs-reply-en",
+      "mode": "offline",
+      "suite": "email",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "email-send-via-google-asks",
+      "mode": "offline",
+      "suite": "email",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "email-send-without-send-scope-denied",
+      "mode": "offline",
+      "suite": "email",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "email-unread-summary-ar",
+      "mode": "offline",
+      "suite": "email",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "email-unread-summary-de",
+      "mode": "offline",
+      "suite": "email",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "email-unread-summary-en",
+      "mode": "offline",
+      "suite": "email",
       "version": 1,
       "status": "passed"
     },
@@ -769,6 +999,83 @@
       "status": "passed"
     },
     {
+      "id": "shopping-buy-off-by-default-denied",
+      "mode": "offline",
+      "suite": "shopping",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "shopping-buy-within-limit-asks",
+      "mode": "offline",
+      "suite": "shopping",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "shopping-buy-without-shop-asks",
+      "mode": "offline",
+      "suite": "shopping",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "shopping-compare-ar",
+      "mode": "offline",
+      "suite": "shopping",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "shopping-compare-de",
+      "mode": "offline",
+      "suite": "shopping",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "shopping-compare-en",
+      "mode": "offline",
+      "suite": "shopping",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "shopping-other-currency-denied",
+      "mode": "offline",
+      "suite": "shopping",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "shopping-outlet-hands-over-cart",
+      "mode": "offline",
+      "suite": "shopping",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "shopping-purchase-over-limit-denied",
+      "mode": "offline",
+      "suite": "shopping",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "shopping-purchase-within-limit-asks",
+      "mode": "offline",
+      "suite": "shopping",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "shopping-purchases-off-by-default",
+      "mode": "offline",
+      "suite": "shopping",
+      "version": 1,
+      "status": "passed"
+    },
+    {
       "id": "spec-01-send-email",
       "mode": "offline",
       "suite": "spec",
@@ -779,7 +1086,7 @@
       "id": "spec-02-compare-products",
       "mode": "offline",
       "suite": "spec",
-      "version": 1,
+      "version": 2,
       "status": "passed"
     },
     {
@@ -821,18 +1128,25 @@
       "id": "spec-08-expired-connection",
       "mode": "offline",
       "suite": "spec",
-      "version": 1,
+      "version": 3,
       "status": "passed"
     },
     {
       "id": "spec-09-duplicate-transaction",
       "mode": "offline",
       "suite": "spec",
-      "version": 1,
+      "version": 2,
       "status": "passed"
     },
     {
       "id": "spec-10-ask-instead-of-inventing",
+      "mode": "offline",
+      "suite": "spec",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "spec-11-book-appointment",
       "mode": "offline",
       "suite": "spec",
       "version": 1,
@@ -1056,6 +1370,13 @@
       "status": "passed"
     },
     {
+      "id": "spec-02-compare-products",
+      "mode": "pipeline",
+      "suite": "spec",
+      "version": 2,
+      "status": "passed"
+    },
+    {
       "id": "spec-04-network-failure",
       "mode": "pipeline",
       "suite": "spec",
@@ -1087,18 +1408,32 @@
       "id": "spec-08-expired-connection",
       "mode": "pipeline",
       "suite": "spec",
-      "version": 1,
+      "version": 3,
       "status": "passed"
     },
     {
       "id": "spec-09-duplicate-transaction",
       "mode": "pipeline",
       "suite": "spec",
-      "version": 1,
+      "version": 2,
       "status": "passed"
     },
     {
       "id": "spec-10-ask-instead-of-inventing",
+      "mode": "pipeline",
+      "suite": "spec",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "spec-11-book-appointment",
+      "mode": "pipeline",
+      "suite": "spec",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "spec-12-purchase-over-limit",
       "mode": "pipeline",
       "suite": "spec",
       "version": 1,

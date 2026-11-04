@@ -20,7 +20,12 @@ import {
   ATTACHMENT_EXTENSIONS,
   Attachment,
   AssistantStatus,
+  Booking,
   Connection,
+  ConnectionProviderInfo,
+  EmailWatch,
+  EvidenceArtifact,
+  Order,
   ConversationMessage,
   EVENTS_PATH,
   HomeSnapshot,
@@ -47,6 +52,7 @@ import {
 } from '@jarvis/contracts';
 import { z } from 'zod';
 import { buildFixtures, type FixtureOptions, type Fixtures } from './fixtures';
+import { evidenceBytes, FIXTURE_HOST } from './phase-c';
 import {
   conversationList,
   conversationOf,
@@ -115,6 +121,13 @@ const FixtureSchema = z.object({
   webhooks: z.array(WebhookEndpoint),
   webhookDeliveries: z.record(z.string(), z.array(WebhookDelivery)),
   timeZones: z.array(TimeZoneInfo),
+  // Phase C
+  providers: z.array(ConnectionProviderInfo),
+  emailWatches: z.array(EmailWatch),
+  orders: z.array(Order),
+  bookings: z.array(Booking),
+  evidenceArtifacts: z.array(EvidenceArtifact),
+  evidenceFiles: z.record(z.string(), z.string()),
 });
 
 /**
@@ -779,6 +792,142 @@ const DEFAULTS: Partial<Record<RouteName, MockHandler>> = {
 
   // ---- meta
   listTimeZones: (_r, s) => ({ body: { items: s.timeZones } }),
+
+  // ---- Phase C: connections (OAuth)
+  listConnectionProviders: (_r, s) => ({ body: { items: s.providers } }),
+  deleteConnection: (req, s) => {
+    const before = s.connections.length;
+    s.connections = s.connections.filter((c) => c.id !== req.params.id);
+    return s.connections.length < before ? { status: 204 } : notFound('Connection');
+  },
+  startOAuthConnection: (req, s) => {
+    const body = req.body as { provider: 'google' | 'microsoft'; redirectUri: string };
+    const info = s.providers.find((p) => p.provider === body.provider);
+    if (!info?.configured) {
+      return apiError(503, 'SERVICE_UNAVAILABLE', 'Not configured', {
+        reason: 'PROVIDER_NOT_CONFIGURED',
+        provider: body.provider,
+      });
+    }
+    const redirect = new URL(body.redirectUri);
+    if (redirect.pathname !== '/connections/callback') {
+      return apiError(400, 'VALIDATION_FAILED', 'Redirect URI not allowed', {
+        reason: 'REDIRECT_URI_NOT_ALLOWED',
+      });
+    }
+    // Like the mock providers: the "consent page" answers at once with a code for this state.
+    const state = `mock-state-${body.provider}-${'x'.repeat(24)}`;
+    const target = new URL(body.redirectUri);
+    target.searchParams.set('code', `mock-code-${body.provider}`);
+    target.searchParams.set('state', state);
+    return {
+      body: {
+        authorizationUrl: target.href,
+        expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+      },
+    };
+  },
+  completeOAuthConnection: (req, s) => {
+    const body = req.body as { state: string; code?: string; error?: string };
+    const provider = /mock-state-(google|microsoft)/.exec(body.state)?.[1] as
+      'google' | 'microsoft' | undefined;
+    if (!provider)
+      return apiError(400, 'VALIDATION_FAILED', 'Unknown state', { reason: 'OAUTH_STATE_INVALID' });
+    if (body.error)
+      return apiError(400, 'VALIDATION_FAILED', 'Denied', { reason: 'OAUTH_DENIED', provider });
+    const existing = s.connections.find((c) => c.provider === provider);
+    const nowIso = new Date().toISOString();
+    const connection: Fixtures['connections'][number] = {
+      id: existing?.id ?? crypto.randomUUID(),
+      provider,
+      label: provider === 'google' ? 'Google' : 'Microsoft',
+      accountIdentifier: existing?.accountIdentifier ?? s.me.email,
+      status: 'active',
+      permissions: [],
+      lastVerifiedAt: nowIso,
+      lastError: null,
+      expiresAt: null,
+      createdAt: existing?.createdAt ?? nowIso,
+      capabilities: existing?.capabilities?.length
+        ? existing.capabilities
+        : ['mail.read', 'calendar.read'],
+      scopes: existing?.scopes ?? [],
+      statusReason: null,
+    };
+    s.connections = [...s.connections.filter((c) => c.id !== connection.id), connection];
+    const resumable = s.tasks
+      .filter(
+        (t) =>
+          t.status === 'FAILED' &&
+          t.error?.reason === 'CONNECTION_EXPIRED' &&
+          t.error.params?.provider === provider,
+      )
+      .map((t) => t.id);
+    return { body: { connection, returnTo: '/connections', resumableTaskIds: resumable } };
+  },
+
+  // ---- Phase C: calendar (Home "Upcoming" and a window of events)
+  listUpcomingEvents: (_r, s) => ({ body: { upcoming: s.home.upcoming ?? null } }),
+  listCalendarEvents: (_r, s) => {
+    const upcoming = s.home.upcoming;
+    if (!upcoming)
+      return apiError(409, 'CONFLICT', 'No calendar', { reason: 'CALENDAR_NOT_CONNECTED' });
+    return { body: { items: [], sources: upcoming.sources, truncated: false } };
+  },
+
+  // ---- Phase C: reply watches
+  listEmailWatches: (_r, s) => ({ body: { items: s.emailWatches } }),
+  deleteEmailWatch: (req, s) => {
+    const watch = s.emailWatches.find((w) => w.id === req.params.id);
+    if (!watch) return notFound('Watch');
+    s.emailWatches = s.emailWatches.map((w) =>
+      w.id === watch.id
+        ? { ...w, status: 'stopped', nextCheckAt: null, updatedAt: new Date().toISOString() }
+        : w,
+    );
+    return { status: 204 };
+  },
+
+  // ---- Phase C: orders, bookings, evidence
+  listOrders: (req, s) => {
+    const status = req.query.get('status');
+    return { body: page(s.orders.filter((o) => !status || o.status === status)) };
+  },
+  getOrder: (req, s) => {
+    const order = s.orders.find((o) => o.id === req.params.id);
+    return order ? { body: order } : notFound('Order');
+  },
+  listBookings: (req, s) => {
+    const status = req.query.get('status');
+    return { body: page(s.bookings.filter((b) => !status || b.status === status)) };
+  },
+  getBooking: (req, s) => {
+    const booking = s.bookings.find((b) => b.id === req.params.id);
+    return booking ? { body: booking } : notFound('Booking');
+  },
+  getEvidence: (req, s) => {
+    const a = s.evidenceArtifacts.find((x) => x.id === req.params.id);
+    return a ? { body: a } : notFound('Evidence');
+  },
+  downloadEvidence: (req, s) => {
+    const a = s.evidenceArtifacts.find((x) => x.id === req.params.id);
+    const file = s.evidenceFiles[req.params.id ?? ''];
+    if (!a || !file) return notFound('Evidence');
+    const ext = a.kind === 'screenshot' ? 'png' : a.kind === 'ics' ? 'ics' : 'json';
+    return {
+      raw: {
+        body: evidenceBytes(file),
+        contentType: a.mediaType === 'text/calendar' ? 'text/calendar; charset=utf-8' : a.mediaType,
+        headers: {
+          'content-disposition': `attachment; filename="evidence-${a.id.slice(0, 8)}.${ext}"`,
+          'x-content-type-options': 'nosniff',
+          'content-security-policy': "sandbox; default-src 'none'",
+          'cache-control': 'private, no-store',
+          'x-evidence-host': FIXTURE_HOST,
+        },
+      },
+    };
+  },
 };
 
 /** The default handlers, e.g. to wrap one in an override (delay, failure). */

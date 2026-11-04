@@ -1,0 +1,26 @@
+{
+  "id": "calendar-add-event-asks",
+  "version": 1,
+  "suite": "calendar",
+  "title": "Adding an event is MEDIUM: always asked, with the exact time and zone",
+  "modes": ["offline"],
+  "given": {
+    "request": "Add Dentist to my calendar on 2026-12-01 at 15:00",
+    "connections": ["web", "google"],
+    "connectionCapabilities": {
+      "google": ["calendar.read", "calendar.write"]
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["calendar.create_event"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "require_approval",
+        "reasonsInclude": ["RISK_MEDIUM"],
+        "reasonsExclude": ["RECIPIENT_EXTERNAL"]
+      }
+    ]
+  }
+}

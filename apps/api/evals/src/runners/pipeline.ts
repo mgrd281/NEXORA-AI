@@ -11,6 +11,15 @@
  * (no timers); retry backoff is skipped by making task jobs due, approval
  * expiry is left alone. Fault injection uses the worker's test hook
  * (afterToolExecute) — the same seam the integration tests use.
+ *
+ * Phase C: when a scenario needs the browser agent, the real fixture site
+ * (scripts/fixture-site.mjs, its own process on a random port) and the
+ * browser worker's own job loop (runBrowserOnce + a 'browser' heartbeat, real
+ * headless Chromium) run beside the agent worker; when one lists a Google or
+ * Microsoft connection, the mock providers (tools/mock-providers) do, and the
+ * connection is stored as the OAuth flow would store it (sealed tokens the
+ * mock accepts). Side effects then also count orders and reservations at the
+ * fixture site and mail the providers sent.
  */
 import {
   DEFAULT_PREFERENCES,
@@ -18,21 +27,26 @@ import {
   type TaskSummary,
   type ToolId,
 } from '@jarvis/contracts';
-import { randomUUID } from 'node:crypto';
+import { spawn, type ChildProcess } from 'node:child_process';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import pg from 'pg';
-import type { Config } from '../../../src/config';
+import { runBrowserOnce } from '../../../src/browser-worker';
+import { loadBrowserWorkerConfig, type Config } from '../../../src/config';
 import { migrate } from '../../../src/db/migrate';
 import { createDb, withContext, type Db, type DbContext } from '../../../src/db/pool';
 import { SecretBox } from '../../../src/lib/crypto';
 import { createAgentServices } from '../../../src/modules/agent/index';
 import { silentLogger } from '../../../src/modules/agent/runtime';
 import { hashPassword } from '../../../src/modules/auth/password';
+import type { BrowserJobDeps } from '../../../src/modules/browser/jobs';
 import { sealSecret } from '../../../src/modules/connections/smtp';
+import { sealTokens } from '../../../src/modules/integrations/tokens';
+import { heartbeat } from '../../../src/modules/jobs/queue';
 import { createLocalStorage } from '../../../src/modules/storage/local';
 import type { ObjectStorage } from '../../../src/modules/storage/types';
 import { loadTaskDetail } from '../../../src/modules/tasks/mappers';
@@ -44,6 +58,11 @@ import {
   type FixtureSite,
 } from '../../../test/fixtures/http-site';
 import { startSmtpSink, type SmtpSink } from '../../../test/fixtures/smtp-sink';
+import {
+  startGoogleMock,
+  startMicrosoftMock,
+  type MockProvider,
+} from '../../../../../tools/mock-providers/index.mjs';
 import { missingCapabilities } from '../capabilities';
 import { compare, type Observed, type ObservedStepPolicy } from '../expect';
 import { loadPage } from '../fixtures';
@@ -73,8 +92,56 @@ export interface PipelineEnv {
   downOrigin: string;
   /** Tool after whose side effect the worker "crashes" once (fault injection). */
   crash: { afterTool: ToolId | null };
+  /** Phase C: the fixture shop / booking site process, when a scenario needs the browser agent. */
+  fixture: FixtureProcess | null;
+  /** Phase C: the mock OAuth providers, when a scenario lists a Google or Microsoft connection. */
+  mocks: { google: MockProvider; microsoft: MockProvider } | null;
   close(): Promise<void>;
 }
+
+/** Phase C: the fixture site (shops, booking site) as its own process. */
+export interface FixtureProcess {
+  origin: string;
+  port: number;
+  admin(pathAndQuery: string, method?: 'GET' | 'POST'): Promise<Record<string, unknown>>;
+  stop(): Promise<void>;
+}
+
+const FIXTURE_SCRIPT = path.resolve(import.meta.dirname, '../../../../../scripts/fixture-site.mjs');
+const MOCK_CLIENT = { clientId: 'eval-client', clientSecret: 'eval-secret' };
+
+async function startFixtureProcess(): Promise<FixtureProcess> {
+  const child: ChildProcess = spawn(process.execPath, [FIXTURE_SCRIPT, '--port', '0', '--quiet'], {
+    stdio: ['ignore', 'pipe', 'inherit'],
+  });
+  const origin = await new Promise<string>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('fixture site did not start')), 10_000);
+    child.stdout!.on('data', (chunk: Buffer) => {
+      const m = /fixture site on (http:\/\/[^/\s]+)\//.exec(chunk.toString());
+      if (m) {
+        clearTimeout(t);
+        resolve(m[1]!);
+      }
+    });
+    child.once('exit', (code) => reject(new Error(`fixture site exited (${code})`)));
+  });
+  return {
+    origin,
+    port: Number(new URL(origin).port),
+    async admin(p, method = 'POST') {
+      const res = await fetch(`${origin}${p}`, { method });
+      return (await res.json()) as Record<string, unknown>;
+    },
+    stop: () =>
+      new Promise<void>((resolve) => {
+        if (child.exitCode !== null) return resolve();
+        child.once('exit', () => resolve());
+        child.kill('SIGTERM');
+      }),
+  };
+}
+
+const isOAuth = (p: string): p is 'google' | 'microsoft' => p === 'google' || p === 'microsoft';
 
 function databaseName(url: string): string {
   return new URL(url).pathname.replace(/^\//, '');
@@ -136,12 +203,40 @@ export async function startPipeline(scenarios: readonly LoadedScenario[]): Promi
   const smtp = await startSmtpSink();
   const down = await closedPort();
   const storageDir = await mkdtemp(path.join(tmpdir(), 'jarvis-evals-'));
+  const needsBrowser = scenarios.some((s) => s.given.browserAvailable);
+  const needsOAuth = scenarios.some((s) => s.given.connections.some(isOAuth));
+  const fixture = needsBrowser ? await startFixtureProcess() : null;
+  const mocks = needsOAuth
+    ? {
+        google: await startGoogleMock({ ...MOCK_CLIENT, accounts: [] }),
+        microsoft: await startMicrosoftMock({ ...MOCK_CLIENT, accounts: [] }),
+      }
+    : null;
+  const phaseC: Record<string, string> = {
+    ...(fixture
+      ? {
+          BROWSER_FIXTURE_ORIGIN: fixture.origin,
+          BROWSER_ALLOW_PRIVATE_HOSTS: `127.0.0.1:${fixture.port}`,
+        }
+      : {}),
+    ...(mocks
+      ? {
+          GOOGLE_CLIENT_ID: MOCK_CLIENT.clientId,
+          GOOGLE_CLIENT_SECRET: MOCK_CLIENT.clientSecret,
+          GOOGLE_BASE_URL_OVERRIDE: mocks.google.url,
+          MICROSOFT_CLIENT_ID: MOCK_CLIENT.clientId,
+          MICROSOFT_CLIENT_SECRET: MOCK_CLIENT.clientSecret,
+          MICROSOFT_BASE_URL_OVERRIDE: mocks.microsoft.url,
+        }
+      : {}),
+  };
   const config = evalConfig({
     DATABASE_URL: EVAL_APP_URL,
     FETCH_ALLOW_PRIVATE_HOSTS: `127.0.0.1:${site.port},127.0.0.1:${down}`,
     SMTP_ALLOW_INSECURE_LOCALHOST: 'true',
     STORAGE_DRIVER: 'local',
     STORAGE_LOCAL_DIR: storageDir,
+    ...phaseC,
   });
   const { db } = createDb(EVAL_APP_URL, 5);
   const secrets = new SecretBox(config.SECRET_ENCRYPTION_KEY, config.SECRET_ENCRYPTION_KEY_ID);
@@ -165,6 +260,37 @@ export async function startPipeline(scenarios: readonly LoadedScenario[]): Promi
       },
     },
   };
+  // The browser worker's own loop (no SecretBox, no model), as src/browser-worker.ts runs it.
+  let browserLoop: Promise<void> | null = null;
+  let browserRunning = true;
+  let beats: NodeJS.Timeout | null = null;
+  const browserId = `eval-browser-${randomUUID().slice(0, 8)}`;
+  if (fixture) {
+    const browser: BrowserJobDeps = {
+      config: loadBrowserWorkerConfig({
+        NODE_ENV: 'test',
+        LOG_LEVEL: 'silent',
+        DATABASE_URL: EVAL_APP_URL,
+        STORAGE_DRIVER: 'local',
+        STORAGE_LOCAL_DIR: storageDir,
+        ...phaseC,
+      }),
+      db,
+      storage,
+      log: { info: () => {}, warn: () => {}, error: () => {} },
+      workerId: browserId,
+      cancelPollMs: 200,
+    };
+    const beat = () => heartbeat(db, browserId, 'eval', '0.0.0', 'browser').catch(() => {});
+    await beat();
+    beats = setInterval(() => void beat(), 5_000);
+    browserLoop = (async () => {
+      while (browserRunning) {
+        await runBrowserOnce(browser, 2).catch(() => 0);
+        await new Promise((r) => setTimeout(r, 50));
+      }
+    })();
+  }
   return {
     config,
     db,
@@ -177,13 +303,55 @@ export async function startPipeline(scenarios: readonly LoadedScenario[]): Promi
     siteOrigin: `http://127.0.0.1:${site.port}`,
     downOrigin: `http://127.0.0.1:${down}`,
     crash,
+    fixture,
+    mocks,
     async close() {
+      browserRunning = false;
+      if (beats) clearInterval(beats);
+      await browserLoop;
+      await db
+        .deleteFrom('worker_heartbeats')
+        .where('worker_id', '=', browserId)
+        .execute()
+        .catch(() => {});
+      await fixture?.stop();
+      await mocks?.google.close();
+      await mocks?.microsoft.close();
       await smtp.stop();
       await site.close();
       await db.destroy();
       await rm(storageDir, { recursive: true, force: true });
     },
   };
+}
+
+/** Phase C: what the outside world received — orders and reservations at the fixture site, provider mail. */
+async function externalSideEffects(env: PipelineEnv, email: string): Promise<number> {
+  let n = 0;
+  if (env.fixture) {
+    for (const shop of ['shop', 'outlet']) {
+      const r = await env.fixture.admin(`/${shop}/admin/orders`, 'GET');
+      n += Array.isArray(r.orders) ? r.orders.length : 0;
+    }
+    const b = await env.fixture.admin('/booking/admin/reservations', 'GET');
+    n += Array.isArray(b.reservations) ? b.reservations.length : 0;
+  }
+  if (env.mocks)
+    for (const m of [env.mocks.google, env.mocks.microsoft]) {
+      try {
+        n += m.sent(email).length;
+      } catch {
+        // No such account at this provider.
+      }
+    }
+  return n;
+}
+
+/** Phase C: a fresh fixture site and provider mailbox for each scenario. */
+async function resetExternal(env: PipelineEnv): Promise<void> {
+  if (!env.fixture) return;
+  for (const shop of ['shop', 'outlet']) await env.fixture.admin(`/${shop}/admin/reset`);
+  await env.fixture.admin('/booking/admin/reset?rotation=off');
 }
 
 /* ------------------------------------------------------------------ */
@@ -223,7 +391,61 @@ async function createUser(env: PipelineEnv, s: LoadedScenario, email: string): P
     const status = s.given.connectionStatus ?? {};
     for (const provider of s.given.connections) {
       const connStatus = status[provider] ?? 'active';
-      if (provider === 'web') {
+      if (isOAuth(provider)) {
+        // As the OAuth flow stores it: account, capabilities, scopes, one sealed envelope
+        // whose tokens the mock provider accepts (an expired row keeps its envelope; the
+        // provider just refuses it, as after a revoked grant).
+        const mock = env.mocks![provider];
+        const capabilities = s.given.connectionCapabilities?.[provider] ?? [];
+        mock.addAccount({ email, name: 'Eval Owner' });
+        const accessToken = `at_eval_${randomBytes(12).toString('hex')}`;
+        const refreshToken = `rt_eval_${randomBytes(12).toString('hex')}`;
+        const scopes = ['openid', 'email'];
+        const valid = connStatus === 'active';
+        mock.oauth.accessTokens.set(accessToken, {
+          email,
+          clientId: MOCK_CLIENT.clientId,
+          scopes,
+          expiresAt: Date.now() + 3_600_000,
+          valid,
+        });
+        mock.oauth.refreshTokens.set(refreshToken, {
+          email,
+          clientId: MOCK_CLIENT.clientId,
+          scopes,
+          valid,
+        });
+        const id = randomUUID();
+        await trx
+          .insertInto('connections')
+          .values({
+            id,
+            tenant_id: tenantId,
+            user_id: userId,
+            provider,
+            label: provider === 'google' ? 'Google' : 'Microsoft',
+            account_identifier: email,
+            status: connStatus,
+            status_reason: connStatus === 'expired' ? 'GRANT_INVALID' : null,
+            permissions: [],
+            capabilities,
+            granted_scopes: scopes,
+            provider_account_id: `eval-${provider}-${userId.slice(0, 8)}`,
+            token_expires_at: new Date(Date.now() + 3_600_000),
+            ...sealTokens(
+              env.secrets,
+              { user_id: userId, provider, id },
+              {
+                accessToken,
+                refreshToken,
+                expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+                scope: scopes,
+                tokenType: 'Bearer',
+              },
+            ),
+          })
+          .execute();
+      } else if (provider === 'web') {
         await trx
           .insertInto('connections')
           .values({
@@ -490,6 +712,7 @@ export async function runPipeline(env: PipelineEnv, s: LoadedScenario): Promise<
   try {
     const email = s.given.account?.email ?? defaultEmail(s);
     const p = await prepare(s, { site: env.siteOrigin, down: env.downOrigin, email });
+    await resetExternal(env);
     const user = await createUser(env, s, email);
     const files = await storeAttachments(env, user, p);
     const earlierFiles = files.filter((f) => f.earlier).map((f) => f.id);
@@ -512,7 +735,7 @@ export async function runPipeline(env: PipelineEnv, s: LoadedScenario): Promise<
       await drain(env);
       if (turn.outcome !== 'question') await decideApprovals(env, user, t.id, 'all');
     }
-    const turnSent = env.smtp.messages.length;
+    const turnSent = env.smtp.messages.length + (await externalSideEffects(env, email));
 
     env.crash.afterTool = s.given.faults.crashAfterTool ?? null;
     const input = {
@@ -530,13 +753,40 @@ export async function runPipeline(env: PipelineEnv, s: LoadedScenario): Promise<
     env.crash.afterTool = null;
 
     const d = await detail(env, user, created.id);
+    const sent = async () =>
+      env.smtp.messages.length + (await externalSideEffects(env, email)) - turnSent;
     const observed = await observe(
       env,
       user,
       d,
-      env.smtp.messages.length - turnSent,
+      await sent(),
       p.expect.pipeline?.retryNeedsAcknowledgement !== undefined,
     );
+    if (observed.pipeline) {
+      observed.pipeline.evidence = await withContext(env.db, user, async (trx) =>
+        Number(
+          (
+            await trx
+              .selectFrom('evidence_artifacts')
+              .select((eb) => eb.fn.countAll<string>().as('n'))
+              .where('task_id', '=', created.id)
+              .executeTakeFirstOrThrow()
+          ).n,
+        ),
+      );
+      // Scenario 10: the user acknowledges the unknown outcome and retries; the step
+      // reconciles with the merchant instead of ordering again.
+      if (p.expect.pipeline?.acknowledgedRetry) {
+        observed.pipeline.afterRetry = null;
+        if (d.status === 'FAILED') {
+          await env.services.tasks.retry(user, created.id, { acknowledgeUnknownOutcome: true });
+          await drain(env);
+          await decideApprovals(env, user, created.id, 'all');
+          const after = await detail(env, user, created.id);
+          observed.pipeline.afterRetry = { status: after.status, sideEffects: await sent() };
+        }
+      }
+    }
     const failures = compare(p.expect, observed, 'pipeline');
     return resultOf(s, 'pipeline', {
       status: failures.length ? 'failed' : 'passed',

@@ -4,6 +4,8 @@ const settings = {
   navLabel: 'Settings sections',
   loading: 'Loading settings…',
   sections: {
+    spending: 'Spending',
+    replies: 'Reply tracking',
     profile: 'Profile',
     language: 'Language & region',
     appearance: 'Appearance',
@@ -23,6 +25,9 @@ const settings = {
   language: 'Language',
   /** Current values in the section index on narrow screens. */
   index: {
+    purchaseLimit: 'Up to {limit} a month',
+    purchasesOff: 'Purchases off',
+    watching: '{count, plural, =0 {None watched} one {# thread watched} other {# threads watched}}',
     voiceOn: 'Read aloud on',
     voiceOff: 'Read aloud off',
     notificationsOn: '{on} of {total} on',
@@ -31,6 +36,55 @@ const settings = {
     memoryOn: 'Memory on',
     memoryOff: 'Memory off',
     skillsOn: '{on} of {total} on',
+  },
+  /** Phase C: the monthly purchase limit, orders and bookings. */
+  spending: {
+    description:
+      'What JARVIS may buy for you, and every order and booking it placed or tried to place.',
+    limit: 'Monthly purchase limit',
+    limitInvalid: 'Enter an amount from 0 to {max} US dollars.',
+    off: 'Purchases are off. JARVIS can compare offers and fill a cart, but never buys anything.',
+    on: 'Up to {limit} a month · {spent} committed this month · {left} left',
+    onShort: 'Up to {limit} a month',
+    facts: {
+      covers:
+        'Covers purchases and paid bookings in a calendar month of your time zone. 0 turns purchases off.',
+      approval:
+        'Each purchase still waits for your approval of the exact items, total and shop, and is placed exactly once.',
+      counts:
+        'Orders being placed or with an unknown outcome count against the limit until they are resolved.',
+      currency:
+        'The limit is in US dollars. Prices in other currencies are refused, never converted.',
+    },
+    orders: 'Orders',
+    bookings: 'Bookings',
+    noOrders: 'JARVIS hasn’t placed any orders.',
+    noBookings: 'JARVIS hasn’t booked any appointments.',
+    more: 'Show more',
+    moreItems: '{count, plural, one {and # more item} other {and # more items}}',
+    openTask: 'Open task',
+  },
+  /** Phase C: threads watched for replies (email.track_replies). */
+  replies: {
+    description:
+      'Email threads JARVIS checks for a reply every {minutes} minutes and tells you about. Only subjects and senders are kept, never the messages.',
+    empty:
+      'JARVIS isn’t watching any threads. Ask it to tell you when someone replies to an email it sent for you.',
+    status: {
+      watching: 'Watching',
+      replied: 'Replied',
+      stopped: 'Stopped',
+      expired: 'No reply',
+      failed: 'Stopped working',
+    },
+    stop: 'Stop',
+    stopLabel: 'Stop watching “{subject}”',
+    stopped: 'JARVIS no longer watches this thread.',
+    until: 'Watching until {time}',
+    repliedBy: '{name} replied {time}',
+    expired: 'No reply by {time}',
+    failed: 'The connection stopped working or the thread is gone.',
+    stoppedLine: 'You stopped watching it.',
   },
   profile: {
     displayName: 'Display name',
@@ -92,6 +146,12 @@ const settings = {
       attachments: 'Read attached files',
       translation: 'Translate text',
       schedules: 'Run requests on a schedule',
+      mail: 'Read and draft email (Google, Microsoft)',
+      calendar: 'Use your calendar',
+      browser: 'Use supported websites',
+      booking: 'Book appointments on supported sites',
+      shopping: 'Compare products in supported shops',
+      purchases: 'Buy with your approval',
     },
     capabilityOn: 'Available',
     capabilityOff: 'Not available',
@@ -103,6 +163,12 @@ const settings = {
       attachments: 'Needs file storage on this server, and the document skill turned on',
       translation: 'Needs an AI model',
       schedules: 'Turn on the scheduling skill',
+      mail: 'Connect a Google or Microsoft account',
+      calendar: 'Connect a calendar',
+      browser: 'Needs the browser agent on this server',
+      booking: 'Needs the browser agent on this server',
+      shopping: 'Needs the browser agent on this server',
+      purchases: 'Set a monthly purchase limit',
     },
     statusFailed: 'JARVIS couldn’t load the assistant status.',
     externalModels: 'Allow external AI models',

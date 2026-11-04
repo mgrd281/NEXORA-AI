@@ -14,6 +14,11 @@
  * done so for 23 h). Each is safe with several workers: jobs are deduplicated
  * and occurrences / deletions are claimed in the database.
  *
+ * Phase C (docs/architecture/phase-c.md §4.3): the agent worker never leases
+ * or reclaims browser.* jobs (src/browser-worker.ts runs those, without
+ * secrets); it dispatches the integrations domain's job kinds
+ * (agent/jobs/integrations) and runs that domain's timers.
+ *
  * processJob / runOnce / reclaimOnce are exported for tests (no timers involved).
  */
 import { randomUUID } from 'node:crypto';
@@ -33,7 +38,9 @@ import {
   type RuntimeDeps,
   type RuntimeLogger,
 } from './modules/agent/runtime';
+import { integrationJobs } from './modules/agent/jobs/integrations';
 import {
+  BROWSER_JOB_KINDS,
   complete,
   extendLease,
   fail,
@@ -41,6 +48,7 @@ import {
   JOBS_CHANNEL,
   lease,
   reclaimExpired,
+  type KindFilter,
 } from './modules/jobs/queue';
 import { createStorage } from './modules/storage';
 import {
@@ -67,6 +75,8 @@ export const STORAGE_DRAIN_MS = 30_000;
 /** Phase B: retention is checked hourly and swept when this process last did so 23 h ago. */
 export const RETENTION_CHECK_MS = 60 * 60_000;
 export const RETENTION_EVERY_MS = 23 * 60 * 60_000;
+/** Phase C: the agent worker never leases or reclaims browser.* jobs (docs/adr/0017). */
+export const AGENT_JOB_KINDS: KindFilter = { except: BROWSER_JOB_KINDS };
 
 export interface WorkerDeps extends Omit<RuntimeDeps, 'signal'> {
   workerId: string;
@@ -189,7 +199,7 @@ async function runLeasedJob(
  * Returns how many jobs were reclaimed.
  */
 export async function reclaimOnce(deps: WorkerDeps): Promise<number> {
-  const { requeued, dead } = await reclaimExpired(deps.db);
+  const { requeued, dead } = await reclaimExpired(deps.db, AGENT_JOB_KINDS);
   for (const job of dead) {
     deps.log.error('job dead-lettered: its lease expired on the last attempt', {
       jobId: job.id,
@@ -211,6 +221,7 @@ export async function runOnce(deps: WorkerDeps, opts: { limit?: number } = {}): 
     deps.workerId,
     deps.leaseMs ?? LEASE_MS,
     opts.limit ?? deps.config.WORKER_CONCURRENCY,
+    AGENT_JOB_KINDS,
   );
   await Promise.all(jobs.map((j) => processJob(deps, j)));
   return jobs.length;
@@ -327,6 +338,25 @@ export async function startWorker(): Promise<void> {
   void retention();
   const retentionTimer = setInterval(retention, RETENTION_CHECK_MS);
 
+  // Phase C: the integrations domain's timers (email watches, token revocation, OAuth states).
+  const domainTimers = integrationJobs.timers.map((timer) => {
+    let running = false;
+    const round = () => {
+      if (running) return;
+      running = true;
+      timer
+        .run(deps)
+        .then(
+          (n) => n > 0 && log.info('timer round handled items', { timer: timer.name, count: n }),
+        )
+        .catch((e: unknown) =>
+          log.warn('timer round failed', { timer: timer.name, error: errorMessage(e) }),
+        )
+        .finally(() => (running = false));
+    };
+    return setInterval(round, timer.everyMs(deps));
+  });
+
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.once(signal, () => {
       log.info('shutting down: no new jobs will be leased', { signal, inFlight: inFlight.size });
@@ -346,7 +376,7 @@ export async function startWorker(): Promise<void> {
     if (free > 0) {
       let jobs: JobRow[] = [];
       try {
-        jobs = await lease(db, workerId, LEASE_MS, free);
+        jobs = await lease(db, workerId, LEASE_MS, free, AGENT_JOB_KINDS);
       } catch (e) {
         log.error('lease failed', { error: errorMessage(e) });
       }
@@ -375,6 +405,7 @@ export async function startWorker(): Promise<void> {
   clearInterval(schedulerTimer);
   clearInterval(drainTimer);
   clearInterval(retentionTimer);
+  for (const t of domainTimers) clearInterval(t);
   // Remove this worker's heartbeat so health reflects only live workers.
   await db
     .deleteFrom('worker_heartbeats')

@@ -1,0 +1,22 @@
+{
+  "id": "booking-find-slots-en",
+  "version": 1,
+  "suite": "booking",
+  "title": "Scenario 1 — “book a check-up at Fixture Dental” without a time lists the live slots first (LOW, no approval)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Book a check-up at Fixture Dental",
+    "browserAvailable": true
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["booking.find_slots"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "allow",
+        "reasonsInclude": ["RISK_LOW"]
+      }
+    ]
+  }
+}

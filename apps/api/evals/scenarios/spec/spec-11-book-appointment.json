@@ -1,0 +1,33 @@
+{
+  "id": "spec-11-book-appointment",
+  "version": 1,
+  "suite": "spec",
+  "title": "Scenario 1 — book an appointment on a supported site: live slots with a screenshot, the booking only after approval, the confirmation (reference + ICS) saved as evidence",
+  "modes": ["offline", "pipeline"],
+  "given": {
+    "request": "Book a check-up at Fixture Dental on {{weekday+3}} at 10:00 for Alex Example, phone +49 30 1234567",
+    "browserAvailable": true,
+    "approve": "all"
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["booking.find_slots", "booking.book"],
+    "recipientsExactly": [],
+    "urlsExactly": [],
+    "policy": [
+      { "step": 0, "decision": "allow", "reasonsInclude": ["RISK_LOW"] },
+      {
+        "step": 1,
+        "decision": "require_approval",
+        "reasonsInclude": ["RISK_MEDIUM"],
+        "reasonsExclude": ["AUTO_APPROVED_SELF"]
+      }
+    ],
+    "pipeline": {
+      "status": "COMPLETED",
+      "sideEffectsExactly": 1,
+      "evidenceAtLeast": 3,
+      "executions": { "booking.find_slots": 1, "booking.book": 1 }
+    }
+  }
+}

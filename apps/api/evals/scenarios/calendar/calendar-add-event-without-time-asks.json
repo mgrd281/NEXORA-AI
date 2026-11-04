@@ -1,0 +1,18 @@
+{
+  "id": "calendar-add-event-without-time-asks",
+  "version": 1,
+  "suite": "calendar",
+  "title": "An event without a time: JARVIS asks when",
+  "modes": ["offline"],
+  "given": {
+    "request": "Add Dentist to my calendar on Friday",
+    "connections": ["web", "google"],
+    "connectionCapabilities": {
+      "google": ["calendar.read", "calendar.write"]
+    }
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["date_time"]
+  }
+}

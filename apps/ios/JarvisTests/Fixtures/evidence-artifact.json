@@ -1,0 +1,12 @@
+{
+  "id": "cfd6e7a8-9daf-4ab2-8cde-ef876543219f",
+  "kind": "extract",
+  "mediaType": "application/json",
+  "sizeBytes": 3021,
+  "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+  "pageUrl": "https://shop.fixture.test/shop?q=kettle",
+  "taskId": "c3e4f5a6-7d8f-4a9b-8c1d-2e3f4a5b6c73",
+  "browserSessionId": "fca3b4d5-6a7c-4d8e-9fab-bcdef543216c",
+  "downloadPath": "/v1/evidence/cfd6e7a8-9daf-4ab2-8cde-ef876543219f/content",
+  "createdAt": "2026-11-04T09:12:03.000Z"
+}

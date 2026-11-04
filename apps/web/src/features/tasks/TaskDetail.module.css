@@ -664,3 +664,8 @@
   align-items: baseline;
   gap: var(--space-1) var(--space-2);
 }
+
+/* A tool's text result keeps its own line breaks (ranked offers, free times, threads). */
+.preLine {
+  white-space: pre-line;
+}

@@ -18,7 +18,9 @@ apps/ios
 │   │   ├── Models              Codable mirrors of packages/contracts (enums with .unknown,
 │   │   │                       JSONValue, ISO 8601 decoding, task state machine, ServerMessage
 │   │   │                       rendering, conversations, attachments + client checks, skills,
-│   │   │                       schedules/recurrence, time zones)
+│   │   │                       schedules/recurrence, time zones; Phase C: Connections (OAuth),
+│   │   │                       Calendar, Email, Commerce (money, evidence, browser sessions,
+│   │   │                       offers, carts, orders, bookings))
 │   │   ├── Networking          APIClient (actor) + typed endpoints, ApiError/NetworkError,
 │   │   │                       SSE line splitter + parser, EventStream (reconnecting SSE)
 │   │   └── Storage             KeychainStore, CredentialStore
@@ -38,8 +40,15 @@ apps/ios
 │   │   │                       schedule and memory previews; untrusted-source facts)
 │   │   ├── Voice               VoiceCaptureView/Model, SpeechSession, ResponseSpeaker
 │   │   ├── Memory              MemoryView, MemoryModel
+│   │   ├── Connections         OAuthFlow (redirect policy, callback forwarding, ASWebAuthentication-
+│   │   │                       Session), ConnectionsModel/View, ConnectResultView (resumable
+│   │   │                       retries), ReconnectButton
+│   │   ├── Activity            Orders, bookings (paged, read-only records + cards), reply tracking
+│   │   ├── Shared              Evidence download / thumbnails / Quick Look, external-link policy,
+│   │   │                       CalendarText (times in the event's own zone)
 │   │   └── Settings            SettingsView/Model, SessionsView, SkillsView (read-only),
-│   │                           TimeZonePickerView (zones the server accepts), retention
+│   │                           TimeZonePickerView (zones the server accepts), retention,
+│   │                           SpendingView (monthly purchase limit)
 │   ├── Intents                 AskJarvisIntent + JarvisShortcuts (Siri / Shortcuts)
 │   └── Resources               Info.plist, Localizable/InfoPlist/AppShortcuts.xcstrings, Assets
 ├── JarvisTests                 Swift Testing suites + JSON fixtures
@@ -105,6 +114,65 @@ apps/ios
   the app's language from catalog keys `server.<key>`; an unknown key or a missing parameter
   falls back to the server's text. Task and step errors show the `TaskErrorReason` sentence
   (with parameters), else the code's sentence — never the server's English `message`.
+
+## Phase C: connections, calendars, browser agent, commerce
+
+- **OAuth on iPhone (ADR-0016).** The server runs the authorization code flow with PKCE
+  (S256): state bound to this app's session, single use, 10 minutes; verifier sealed on the
+  server; code exchanged with the client secret on the server. The app (`OAuthFlow.swift`)
+  only (1) asks `POST /v1/connections/oauth/start` with the provider, the capabilities the
+  user ticked (least privilege, incremental with `connectionId`) and the configured https
+  redirect URI, (2) opens the returned URL — https only — in SwiftUI's
+  `WebAuthenticationSession` with `.https(host:path:)` and an ephemeral browser session,
+  (3) forwards the redirect's `state` / `code` | `error` / `error_description` / `iss`
+  verbatim to `POST /v1/connections/oauth/callback`. A redirect to another host or path, a
+  short or missing state, neither or both of code and error, or any repeated parameter is
+  refused locally and nothing is sent. Cancelling the sheet connects nothing and shows no
+  error. What must be configured outside the code (redirect URI, server allow-list,
+  Google/Microsoft redirect registration, Associated Domains + apple-app-site-association) is
+  listed in the README and at the top of `OAuthFlow.swift`; without the redirect URI the
+  Connect buttons are disabled and say so.
+- **Expired connections (scenario 9).** `Connection.status == .expired` with its
+  `statusReason` shows why and **Reconnect** (the same capabilities as before, plus one a
+  failed step named in `CONNECTION_SCOPE_MISSING { capability }`). A task that failed with
+  `CONNECTION_EXPIRED { provider }` offers Reconnect in place; the callback's
+  `resumableTaskIds` are offered for **Retry** (one idempotency key per task per result
+  sheet, so a double tap replays). Nothing is shown as connected unless the server's callback
+  answer says so.
+- **Home "Upcoming".** Rendered only when `HomeSnapshot.upcoming` is not nil (spec §4A);
+  `connection.changed` events refetch Home. Events are grouped by day in the account's zone;
+  times are formatted with the event's own zone (`Date.IntervalFormatStyle(timeZone:)` — no
+  hour arithmetic), adding the zone's short name when its offset differs from the viewer's.
+  Each calendar that didn't answer is named with its fix.
+- **Approvals.** `ApprovalDetails` decodes `calendar_event`, `booking`, `purchase` and
+  `form_submission` and the email `mode` / `via` / `cc` / `inReplyTo`; every field the server
+  bound to the action hash is on screen (times in the stored zone, every attendee and whether
+  they are emailed, every form field with personal ones marked, items / quantities / totals /
+  delivery / payment / the monthly limit). Unknown kinds, actions, modes or routes from a
+  newer server stay non-approvable. The approve button names the consequence ("Approve and
+  buy", "Approve and save draft").
+- **Evidence.** Screenshots, extracts and ICS files are downloaded with the session
+  (`GET /v1/evidence/:id/content`, owner only), written to a per-file temporary folder with
+  complete file protection, shown in Quick Look and deleted when it closes; screenshot
+  thumbnails are kept in a small in-memory cache that is cleared on sign-out. Evidence titles
+  are localized by `EvidenceCode`.
+- **Step outputs are previews.** `TaskStep.output` is the server's redacted preview (not a
+  frozen contract), so the comparison table, cart, slots and mail / calendar text are read
+  defensively (`StepPreview`): a missing field shows nothing rich, never a guess. Order and
+  booking cards come from `GET /v1/orders/:id` / `GET /v1/bookings/:id`, not the preview.
+  Text written by others (mail, invitations, product titles, a site's terms) is shown
+  bidi-isolated and labelled as such, with the injection warning when the server flagged it.
+- **Money.** Amounts are integer micro-units (`Money`) formatted with the currency's usual
+  decimals without ever rounding away a stated fraction; money parameters of sentences and
+  errors ("USD 129.99") are parsed exactly and shown in the app's locale. Currencies are never
+  converted.
+- **Purchase limit.** `PATCH /v1/me` with only `preferences.spending.monthlyPurchaseLimitUsd`
+  (the AI budget keeps its stored value); 0 = purchases off (the default, also for older
+  servers); raising it asks for confirmation; the screen shows the value the server saved.
+- **Statuses with a real `unknown`.** `OrderStatus` and `BookingStatus` have a contract value
+  `unknown` (the outcome is unknown); it decodes to `.outcomeUnknown`, and a value from a newer
+  server to `.unrecognized`, so the two can never be confused (enforced by
+  `scripts/check-contract-copy.ts`).
 
 ## Presence
 
@@ -185,13 +253,16 @@ capturing).
 
 Verified in this repository's Linux environment (no Xcode, no Swift toolchain):
 
-- All JSON test fixtures parse with the matching Zod schemas from `@jarvis/contracts`
-  and round-trip unchanged; the four `unknown-values*.json` fixtures are rejected exactly at
+- All 63 JSON test fixtures parse with the matching Zod schemas from `@jarvis/contracts`
+  and round-trip unchanged; the seven `unknown-values*.json` fixtures are rejected exactly at
   their deliberately unknown enum fields and union variants; `me-before-phase-b.json` parses
-  with only the contract defaults for `retention` and `skills` (`scripts/validate-fixtures.ts`).
-- Every Swift enum mirrors its contract enum (plus `unknown`); every `ServerMessageKey`
+  with only the contract defaults for `retention`, `skills` and
+  `spending.monthlyPurchaseLimitUsd` (`scripts/validate-fixtures.ts`).
+- Every Swift enum (40) and nested Phase C enum (8) mirrors its contract enum (plus
+  `unknown`, or `unrecognized` where `unknown` is a contract value); every `ServerMessageKey`
   renders from a catalog entry whose en/de/ar equal the API's canonical templates; every
-  `TaskErrorReason`, `PolicyReason` and non-webhook `ApiErrorReason` has copy
+  `TaskErrorReason`, `PolicyReason`, non-webhook `ApiErrorReason` and `EvidenceCode` has copy;
+  every app endpoint is a contract route and every Phase C route has an endpoint
   (`scripts/check-contract-copy.ts`).
 - The String Catalogs are valid JSON with translated en/de/ar values for every key, matching
   format specifiers, and coverage of every localizable literal in the Swift sources
@@ -204,12 +275,19 @@ Verified in this repository's Linux environment (no Xcode, no Swift toolchain):
 **Not verified:** compilation and type-checking, the Swift Testing suites, running the app
 in the Simulator, VoiceOver/Dynamic Type/RTL rendering, speech recognition, Siri phrase
 matching, and XcodeGen project generation. These need a Mac with Xcode 16+; the first
-build may surface compiler errors that static checks cannot catch.
+build may surface compiler errors that static checks cannot catch. Phase C adds: the
+`ASWebAuthenticationSession` round trip (needs the redirect URI, Associated Domains and a
+provider console registration — none exist in this repository's environment), and the
+SwiftUI `WebAuthenticationSession.authenticate(using:callback:preferredBrowserSession:
+additionalHeaderFields:)` signature (iOS 17.4 SDK) as written. View builders were kept at
+ten children or fewer so they don't depend on the variadic `ViewBuilder`.
 
 ## Not in this slice
 
-Push notifications, an in-app notifications list, connecting services (done on the web;
-the app lists connections read-only), webhook management and switching skills on or off
-(both on the web; the app shows the skills catalog read-only), editing a schedule's end
-(`until`/`count`) or several days of the month (kept as they are; changed on the web),
-offline caching, and an iPad layout.
+Push notifications, an in-app notifications list (so `connection_expired` and
+`email_reply_received` show up on Home / in Connections and Reply tracking, not as a list),
+setting up SMTP mailboxes or web access (on the web; Google and Microsoft connect here),
+webhook management and switching skills on or off (both on the web; the app shows the
+skills catalog read-only), changing the monthly AI budget (shown read-only next to the
+purchase limit), editing a schedule's end (`until`/`count`) or several days of the month
+(kept as they are; changed on the web), offline caching, and an iPad layout.

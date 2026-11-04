@@ -1,28 +1,33 @@
 {
   "id": "spec-08-expired-connection",
-  "version": 1,
+  "version": 3,
   "suite": "spec",
-  "title": "Spec 8 — expired authorization (OAuth planned): an expired email connection is denied",
+  "title": "Spec 8 / scenario 9 — expired OAuth credentials: a step that needs the expired Google connection is denied with CONNECTION_EXPIRED (Reconnect), nothing runs",
   "modes": ["offline", "pipeline"],
   "given": {
-    "request": "Email me: renew the car insurance",
+    "request": "Summarize my unread emails",
+    "connections": ["web", "google"],
     "connectionStatus": {
-      "smtp": "expired"
+      "google": "expired"
+    },
+    "connectionCapabilities": {
+      "google": ["mail.read"]
     }
   },
   "expect": {
     "result": "deny",
-    "errorReason": "CONNECTION_MISSING",
+    "errorReason": "CONNECTION_EXPIRED",
     "policy": [
       {
         "step": 0,
         "decision": "deny",
-        "reasonsInclude": ["CONNECTION_MISSING"]
+        "reasonsInclude": ["CONNECTION_EXPIRED"]
       }
     ],
+    "sideEffectsAtMost": 0,
     "pipeline": {
       "status": "FAILED",
-      "errorCode": "CONNECTION_REQUIRED",
+      "errorReason": "CONNECTION_EXPIRED",
       "sideEffectsExactly": 0
     }
   }

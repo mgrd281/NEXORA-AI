@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AttachmentMediaType, SkillId } from './enums';
+import { AttachmentMediaType, EvidenceMediaType, SkillId } from './enums';
 import { ATTACHMENT_LIMITS, ATTACHMENT_UPLOAD_FIELD } from './limits';
 import {
   AdminOverview,
@@ -9,7 +9,12 @@ import {
   AssistantStatus,
   Attachment,
   AuditEvent,
+  Booking,
+  BookingListQuery,
+  CalendarEventList,
+  CalendarEventListQuery,
   Connection,
+  ConnectionProviderInfo,
   ConversationDetail,
   ConversationDetailQuery,
   ConversationListQuery,
@@ -20,6 +25,8 @@ import {
   CreateTaskRequest,
   CreateWebhookRequest,
   DeleteAccountRequest,
+  EmailWatch,
+  EvidenceArtifact,
   FollowUpRequest,
   HomeSnapshot,
   LoginRequest,
@@ -28,6 +35,12 @@ import {
   Memory,
   MemoryListQuery,
   Notification,
+  OAuthCallbackRequest,
+  OAuthCallbackResult,
+  OAuthStartRequest,
+  OAuthStartResponse,
+  Order,
+  OrderListQuery,
   Page,
   PageQuery,
   RetryTaskRequest,
@@ -46,6 +59,7 @@ import {
   UpdateScheduleRequest,
   UpdateSkillRequest,
   UpdateWebhookRequest,
+  UpcomingEvents,
   UsageSummary,
   VoiceSession,
   VoiceSessionEnd,
@@ -711,6 +725,140 @@ export const routes = {
     tag: 'meta',
     auth: 'user',
     response: z.object({ items: z.array(TimeZoneInfo) }),
+  },
+
+  /* ---------------------------------------------------------------- */
+  /* Phase C (docs/architecture/phase-c.md)                            */
+  /* ---------------------------------------------------------------- */
+
+  // Connections (OAuth 2.0: Google, Microsoft)
+  listConnectionProviders: {
+    method: 'GET',
+    path: '/v1/connections/providers',
+    summary:
+      'Connection providers on this server: configured or not, capabilities and their scopes',
+    tag: 'connections',
+    auth: 'user',
+    response: z.object({ items: z.array(ConnectionProviderInfo) }),
+  },
+  startOAuthConnection: {
+    method: 'POST',
+    path: '/v1/connections/oauth/start',
+    summary:
+      'Start connecting (or reconnecting) a Google or Microsoft account: authorization code with PKCE',
+    tag: 'connections',
+    auth: 'user',
+    body: OAuthStartRequest,
+    response: OAuthStartResponse,
+  },
+  completeOAuthConnection: {
+    method: 'POST',
+    path: '/v1/connections/oauth/callback',
+    summary:
+      'Finish connecting: the provider redirect forwarded by the client (same session, single use)',
+    tag: 'connections',
+    auth: 'user',
+    body: OAuthCallbackRequest,
+    response: OAuthCallbackResult,
+  },
+
+  // Calendar (live from the provider)
+  listUpcomingEvents: {
+    method: 'GET',
+    path: '/v1/calendar/upcoming',
+    summary: 'The next events of the connected calendars (upcoming null when none is connected)',
+    tag: 'calendar',
+    auth: 'user',
+    response: z.object({ upcoming: UpcomingEvents.nullable() }),
+  },
+  listCalendarEvents: {
+    method: 'GET',
+    path: '/v1/calendar/events',
+    summary: 'Events of the connected calendars in a time window',
+    tag: 'calendar',
+    auth: 'user',
+    query: CalendarEventListQuery,
+    response: CalendarEventList,
+  },
+
+  // Email reply tracking
+  listEmailWatches: {
+    method: 'GET',
+    path: '/v1/email/watches',
+    summary: 'Threads JARVIS watches for replies',
+    tag: 'email',
+    auth: 'user',
+    response: z.object({ items: z.array(EmailWatch) }),
+  },
+  deleteEmailWatch: {
+    method: 'DELETE',
+    path: '/v1/email/watches/:id',
+    summary: 'Stop watching a thread for replies',
+    tag: 'email',
+    auth: 'user',
+    params: IdParams,
+    response: null,
+    successStatus: 204,
+  },
+
+  // Orders and bookings (records of what the agent did; read-only)
+  listOrders: {
+    method: 'GET',
+    path: '/v1/orders',
+    summary: 'Orders JARVIS placed or tried to place, newest first',
+    tag: 'commerce',
+    auth: 'user',
+    query: OrderListQuery,
+    response: Page(Order),
+  },
+  getOrder: {
+    method: 'GET',
+    path: '/v1/orders/:id',
+    summary: 'An order with its evidence',
+    tag: 'commerce',
+    auth: 'user',
+    params: IdParams,
+    response: Order,
+  },
+  listBookings: {
+    method: 'GET',
+    path: '/v1/bookings',
+    summary: 'Appointments JARVIS booked or tried to book, newest first',
+    tag: 'commerce',
+    auth: 'user',
+    query: BookingListQuery,
+    response: Page(Booking),
+  },
+  getBooking: {
+    method: 'GET',
+    path: '/v1/bookings/:id',
+    summary: 'A booking with its evidence',
+    tag: 'commerce',
+    auth: 'user',
+    params: IdParams,
+    response: Booking,
+  },
+
+  // Evidence files of the browser agent
+  getEvidence: {
+    method: 'GET',
+    path: '/v1/evidence/:id',
+    summary: 'Evidence file metadata',
+    tag: 'evidence',
+    auth: 'user',
+    params: IdParams,
+    response: EvidenceArtifact,
+  },
+  downloadEvidence: {
+    method: 'GET',
+    path: '/v1/evidence/:id/content',
+    summary: 'Download an evidence file (screenshot, extracted data, ICS) — its owner only',
+    tag: 'evidence',
+    auth: 'user',
+    params: IdParams,
+    download: { mediaTypes: EvidenceMediaType.options },
+    response: null,
+    successStatus: 200,
   },
 } as const satisfies Record<string, RouteDef>;
 

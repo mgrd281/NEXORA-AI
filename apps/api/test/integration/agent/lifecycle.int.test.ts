@@ -511,6 +511,13 @@ describe('task creation and status', () => {
       attachments: true,
       translation: false,
       schedules: true,
+      // Phase C: nothing is connected, no browser worker runs, and no Phase C tool is built yet.
+      mail: false,
+      calendar: false,
+      browser: false,
+      booking: false,
+      shopping: false,
+      purchases: false,
     });
     expect(s.version).toBe(h.config.APP_VERSION);
     expect(typeof s.worker.healthy).toBe('boolean');
@@ -526,7 +533,9 @@ describe('task creation and status', () => {
       expect((await withKey.services.status.get(optedOut)).planner.reason).toBe(
         'USER_DISABLED_EXTERNAL_MODELS',
       );
-      const broke = await newUser(withKey.db, { spending: { monthlyAiBudgetUsd: 0 } });
+      const broke = await newUser(withKey.db, {
+        spending: { monthlyAiBudgetUsd: 0, monthlyPurchaseLimitUsd: 0 },
+      });
       expect((await withKey.services.status.get(broke)).planner.reason).toBe('BUDGET_EXHAUSTED');
     } finally {
       await withKey.close();

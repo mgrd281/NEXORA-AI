@@ -48,6 +48,28 @@ const home: Catalog<typeof source> = {
     remember: 'Merk dir, dass ich auf Flügen Gangplätze bevorzuge',
     emailMe: 'Schick mir: Freitag den Zahnarzt anrufen',
   },
+  upcoming: {
+    title: 'Demnächst',
+    today: 'Heute',
+    tomorrow: 'Morgen',
+    allDay: 'Ganztägig',
+    empty: 'In den nächsten 7 Tagen steht nichts in deinem Kalender.',
+    people: '{count, plural, one {# Person} other {# Personen}}',
+    inZone: '{zone}: {time}',
+    openAt: '(öffnet bei {provider})',
+    now: 'Jetzt',
+    cancelled: 'Abgesagt',
+    tentative: 'Vorläufig',
+    overlapsWith: 'Überschneidet sich mit „{title}“',
+    overlapsMany: 'Überschneidet sich mit {count} Terminen',
+    sources: {
+      expired: 'Dein {provider}-Kalender ({account}) fehlt hier: Die Verbindung ist abgelaufen.',
+      scope_missing:
+        'Dein {provider}-Kalender ({account}) fehlt hier: JARVIS darf ihn nicht lesen.',
+      unavailable:
+        '{provider} ({account}) hat nicht rechtzeitig geantwortet, deshalb fehlen diese Termine hier.',
+    },
+  },
   suggestionsLabel: 'Vorschläge',
   suggestionFills: 'Setzt diese Anfrage in die Befehlszeile',
   suggest: {

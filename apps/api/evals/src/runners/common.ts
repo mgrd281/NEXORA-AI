@@ -230,6 +230,21 @@ export function agentContext(p: Prepared, route: ModelRoute): AgentContext {
     connections,
     budget: { limitMicro: usdToMicro(p.preferences.spending.monthlyAiBudgetUsd), spentMicro: 0 },
     route,
+    // Phase C: every listed connection with its status and capabilities, and the purchases.
+    connectionStates: p.scenario.given.connections.map((provider) => ({
+      connectionId: stableId(`${p.scenario.id}:connection:${provider}`),
+      provider,
+      status: status[provider] ?? 'active',
+      capabilities:
+        provider === 'google' || provider === 'microsoft'
+          ? (p.scenario.given.connectionCapabilities?.[provider] ?? [])
+          : [],
+      accountIdentifier: provider === 'smtp' ? p.account.email : null,
+    })),
+    purchases: {
+      limitMicro: usdToMicro(p.preferences.spending.monthlyPurchaseLimitUsd),
+      spentMicro: usdToMicro(p.scenario.given.purchases?.spentUsd ?? 0),
+    },
   };
 }
 
@@ -251,10 +266,14 @@ export function planningInput(p: Prepared, agent: AgentContext): PlanningInput {
       disabledSkills: agent.preferences.skills?.disabled ?? [],
       hasAttachments: p.attachments.length > 0,
       hasRecallable: p.turns.some((t) => t.recallable),
+      connections: agent.connectionStates ?? [],
+      browserAvailable: p.scenario.given.browserAvailable,
     }),
     memories: [],
     conversation: p.turns,
     attachments: p.attachments,
+    connections: agent.connectionStates ?? [],
+    browserAvailable: p.scenario.given.browserAvailable,
   };
 }
 
@@ -389,6 +408,19 @@ export function observeSynthetic(p: Prepared, agent: AgentContext): Observed {
       model: { available: agent.route.mode === 'model', offlineReason: agent.route.reason },
       projectedCostMicro: 0,
       budget: agent.budget,
+      // Phase C facts, exactly as assessStep would pass them.
+      requirement: s.requirement ?? null,
+      connectionStates: agent.connectionStates,
+      purchase: s.purchase
+        ? {
+            amountMicro: s.purchase.amountUsd === null ? null : usdToMicro(s.purchase.amountUsd),
+            currency: s.purchase.currency,
+            limitMicro: agent.purchases?.limitMicro ?? 0,
+            spentMicro: agent.purchases?.spentMicro ?? 0,
+          }
+        : null,
+      attendees: s.attendees,
+      binding: s.binding ?? false,
     });
     if (r.decision === 'deny' && firstDeny === null) firstDeny = denyReason(r.denyCode!, r.reasons);
     return { step: i, toolId: s.toolId, decision: r.decision, reasons: r.reasons };

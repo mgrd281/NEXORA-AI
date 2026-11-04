@@ -4,13 +4,23 @@ import type { TaskDetail, TaskStep, ToolId } from '@jarvis/contracts';
 import { RISK_ORDER } from '@jarvis/contracts';
 import type { LucideIcon } from 'lucide-react';
 import {
+  AppWindow,
+  BellRing,
   BookmarkPlus,
+  CalendarCheck,
   CalendarClock,
+  CalendarCog,
+  CalendarDays,
+  CalendarPlus,
+  CalendarSearch,
+  CalendarX,
   ChevronDown,
   CircleAlert,
   CircleCheck,
   CircleSlash,
   CornerDownRight,
+  CreditCard,
+  FilePen,
   FileSearch,
   FileText,
   Globe,
@@ -18,10 +28,17 @@ import {
   History,
   Languages,
   Mail,
+  MailOpen,
+  MailSearch,
   MessageCircleQuestionMark,
   MessageSquareText,
+  Scale,
+  ScanSearch,
   ShieldBan,
   ShieldCheck,
+  ShoppingBag,
+  ShoppingCart,
+  TextCursorInput,
   TimerOff,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -64,7 +81,40 @@ export const TOOL_ICON: Record<ToolId, LucideIcon> = {
   'schedule.create': CalendarClock,
   'conversation.recall': History,
   'assistant.clarify': MessageCircleQuestionMark,
+  // Phase C
+  'email.search': MailSearch,
+  'email.read_thread': MailOpen,
+  'email.draft_reply': FilePen,
+  'email.track_replies': BellRing,
+  'calendar.list': CalendarDays,
+  'calendar.free_busy': CalendarSearch,
+  'calendar.create_event': CalendarPlus,
+  'calendar.update_event': CalendarCog,
+  'calendar.cancel_event': CalendarX,
+  'booking.find_slots': ScanSearch,
+  'booking.book': CalendarCheck,
+  'browser.read': AppWindow,
+  'browser.fill': TextCursorInput,
+  'shop.search': ShoppingBag,
+  'shop.compare': Scale,
+  'shop.prepare_cart': ShoppingCart,
+  'shop.checkout': CreditCard,
 };
+
+/** Recipient reasons of an invitation or a draft are not about an email being sent. */
+const REASON_BY_TOOL: Partial<Record<ToolId, 'invitation' | 'draft'>> = {
+  'calendar.create_event': 'invitation',
+  'calendar.update_event': 'invitation',
+  'calendar.cancel_event': 'invitation',
+  'email.draft_reply': 'draft',
+};
+
+function policyReasonKey(toolId: ToolId, code: string): string {
+  const group = REASON_BY_TOOL[toolId];
+  return group && ['RECIPIENT_EXTERNAL', 'MANY_RECIPIENTS', 'RECIPIENT_SELF'].includes(code)
+    ? `tasks.policy.reasonsByTool.${group}.${code}`
+    : `tasks.policy.reasons.${code}`;
+}
 
 /** What JARVIS planned, step by step, with live status, policy and evidence. */
 export function PlanSection({ task }: { task: TaskDetail }) {
@@ -129,7 +179,7 @@ function PlanStep({ step, task }: { step: TaskStep; task: TaskDetail }) {
     step.policy.reasons.includes('AUTO_APPROVED_SELF') ||
     step.policy.reasons.includes('UNTRUSTED_CONTENT');
   const reason = (code: string) =>
-    tDynamic(`tasks.policy.reasons.${code}`, 'tasks.policy.reasons.unknown', { code });
+    tDynamic(policyReasonKey(step.toolId, code), 'tasks.policy.reasons.unknown', { code });
   const reasons = step.policy.reasons.map(reason);
   // The approval card at the top already flags untrusted content for the pending decision.
   const flaggedAbove = pendingApproval(task)?.stepId === step.id;

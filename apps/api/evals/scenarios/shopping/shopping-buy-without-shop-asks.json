@@ -1,0 +1,15 @@
+{
+  "id": "shopping-buy-without-shop-asks",
+  "version": 1,
+  "suite": "shopping",
+  "title": "“Buy a new laptop” naming no supported shop: ask where (never pick a merchant for the user)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Buy a new laptop",
+    "browserAvailable": true
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["site"]
+  }
+}

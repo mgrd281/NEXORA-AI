@@ -165,6 +165,26 @@ enum ToolId: String, Codable, Sendable {
     case scheduleCreate = "schedule.create"
     case conversationRecall = "conversation.recall"
     case assistantClarify = "assistant.clarify"
+    // Phase C: email agent
+    case emailSearch = "email.search"
+    case emailReadThread = "email.read_thread"
+    case emailDraftReply = "email.draft_reply"
+    case emailTrackReplies = "email.track_replies"
+    // Phase C: calendars
+    case calendarList = "calendar.list"
+    case calendarFreeBusy = "calendar.free_busy"
+    case calendarCreateEvent = "calendar.create_event"
+    case calendarUpdateEvent = "calendar.update_event"
+    case calendarCancelEvent = "calendar.cancel_event"
+    // Phase C: booking, browser agent, shopping (supported sites only)
+    case bookingFindSlots = "booking.find_slots"
+    case bookingBook = "booking.book"
+    case browserRead = "browser.read"
+    case browserFill = "browser.fill"
+    case shopSearch = "shop.search"
+    case shopCompare = "shop.compare"
+    case shopPrepareCart = "shop.prepare_cart"
+    case shopCheckout = "shop.checkout"
     case unknown
 
     init(from decoder: any Decoder) throws {
@@ -175,6 +195,9 @@ enum ToolId: String, Codable, Sendable {
 enum ConnectionProvider: String, Codable, Sendable {
     case web
     case smtp
+    // Phase C: OAuth 2.0 accounts
+    case google
+    case microsoft
     case unknown
 
     init(from decoder: any Decoder) throws {
@@ -264,6 +287,11 @@ enum EventType: String, Codable, Sendable, CaseIterable {
     case scheduleChanged = "schedule.changed"
     case webhookDeliveryFailed = "webhook.delivery_failed"
     case webhookEndpointChanged = "webhook.endpoint_changed"
+    // Phase C account events (ids, enums and times only: screens refetch)
+    case emailWatchChanged = "email_watch.changed"
+    case browserSessionChanged = "browser_session.changed"
+    case orderChanged = "order.changed"
+    case bookingChanged = "booking.changed"
     case unknown
 
     init(from decoder: any Decoder) throws {
@@ -314,6 +342,15 @@ enum MissingInfo: String, Codable, Sendable, CaseIterable {
     case targetLanguage = "target_language"
     case previousResult = "previous_result"
     case details
+    // Phase C
+    /// A date/time (window) for an event, a meeting or an appointment.
+    case dateTime = "date_time"
+    /// Details a booking form requires that JARVIS doesn't know (e.g. a phone number).
+    case contactDetails = "contact_details"
+    /// Which product, variant or quantity.
+    case product
+    /// Which supported site or shop.
+    case site
     case unknown
 
     init(from decoder: any Decoder) throws {
@@ -408,6 +445,11 @@ enum SkillUnavailableReason: String, Codable, Sendable, CaseIterable {
     case modelRequired = "MODEL_REQUIRED"
     case memoryDisabled = "MEMORY_DISABLED"
     case storageNotConfigured = "STORAGE_NOT_CONFIGURED"
+    // Phase C
+    /// None of the services the skill can use (Google, Microsoft) is configured on this server.
+    case providerNotConfigured = "PROVIDER_NOT_CONFIGURED"
+    /// The isolated browser agent isn't running on this server (or its evidence storage is missing).
+    case browserUnavailable = "BROWSER_UNAVAILABLE"
     case unknown
 
     init(from decoder: any Decoder) throws {
@@ -514,6 +556,212 @@ enum ScheduleRunReason: String, Codable, Sendable, CaseIterable {
     case budgetExhausted = "BUDGET_EXHAUSTED"
     case schedulePaused = "SCHEDULE_PAUSED"
     case createFailed = "CREATE_FAILED"
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+}
+
+
+// MARK: - Phase C (docs/architecture/phase-c.md)
+
+/// Providers connected with OAuth 2.0 (authorization code + PKCE, run by the server).
+enum OAuthProvider: String, Codable, Sendable, CaseIterable {
+    case google
+    case microsoft
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+
+    /// The providers this build can connect (excludes `.unknown`).
+    static let connectable: [OAuthProvider] = [.google, .microsoft]
+
+    var connectionProvider: ConnectionProvider {
+        switch self {
+        case .google: .google
+        case .microsoft: .microsoft
+        case .unknown: .unknown
+        }
+    }
+}
+
+/// What JARVIS may do with an OAuth connection; each maps to least-privilege provider scopes.
+enum ConnectionCapability: String, Codable, Sendable, CaseIterable {
+    case mailRead = "mail.read"
+    case mailCompose = "mail.compose"
+    case mailSend = "mail.send"
+    case calendarRead = "calendar.read"
+    case calendarWrite = "calendar.write"
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+
+    /// In the order the server lists them (excludes `.unknown`).
+    static let selectable: [ConnectionCapability] = [.mailRead, .mailCompose, .mailSend, .calendarRead, .calendarWrite]
+}
+
+/// Why a connection isn't active (`Connection.statusReason`).
+enum ConnectionStatusReason: String, Codable, Sendable, CaseIterable {
+    /// The provider refused the refresh token (revoked or ran out): reconnect.
+    case grantInvalid = "GRANT_INVALID"
+    /// The provider rejected a freshly refreshed token: reconnect.
+    case tokenRejected = "TOKEN_REJECTED"
+    /// A permission was withdrawn; the connection may stay active with less.
+    case scopeMissing = "SCOPE_MISSING"
+    /// Repeated provider failures.
+    case providerError = "PROVIDER_ERROR"
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+}
+
+/// A thread JARVIS watches for replies (`email.track_replies`).
+enum EmailWatchStatus: String, Codable, Sendable, CaseIterable {
+    case watching
+    case replied
+    case stopped
+    case expired
+    case failed
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+}
+
+/// One run of the isolated browser agent.
+enum BrowserSessionStatus: String, Codable, Sendable, CaseIterable {
+    case queued
+    case running
+    case succeeded
+    case failed
+    /// Stopped at something only the user may do (CAPTCHA, sign-in, bot protection).
+    case handover
+    /// The worker stopped mid-way; for a binding step the outcome is unknown.
+    case interrupted
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+}
+
+/// Why a browser session stopped before succeeding (also a `TaskErrorReason` of the same name).
+enum BrowserStopReason: String, Codable, Sendable, CaseIterable {
+    case captchaDetected = "CAPTCHA_DETECTED"
+    case loginRequired = "LOGIN_REQUIRED"
+    case botProtection = "BOT_PROTECTION"
+    case siteUnsupported = "SITE_UNSUPPORTED"
+    case navigationBlocked = "NAVIGATION_BLOCKED"
+    case pageChanged = "PAGE_CHANGED"
+    case siteError = "SITE_ERROR"
+    case budgetExceeded = "BROWSER_BUDGET_EXCEEDED"
+    case timeout = "BROWSER_TIMEOUT"
+    case crashed = "BROWSER_CRASHED"
+    case cancelled = "CANCELLED"
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+
+    /// The user continues on the site themselves (JARVIS never works around these).
+    var isHandover: Bool {
+        self == .captchaDetected || self == .loginRequired || self == .botProtection
+    }
+}
+
+/// Files the browser agent keeps as evidence.
+enum EvidenceArtifactKind: String, Codable, Sendable, CaseIterable {
+    case screenshot
+    case extract
+    case ics
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+}
+
+enum EvidenceMediaType: String, Codable, Sendable, CaseIterable {
+    case png = "image/png"
+    case json = "application/json"
+    case calendar = "text/calendar"
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+
+    /// File-name extension for a downloaded copy (Quick Look picks the viewer from it).
+    var fileExtension: String {
+        switch self {
+        case .png: "png"
+        case .json: "json"
+        case .calendar: "ics"
+        case .unknown: "bin"
+        }
+    }
+}
+
+/// An order placed by `shop.checkout`. The contract itself has a value `unknown` (the
+/// outcome is unknown); a value from a newer server decodes to `.unrecognized`.
+enum OrderStatus: String, Codable, Sendable, CaseIterable {
+    case submitting
+    case placed
+    case failed
+    /// Interrupted after submission started: check with the merchant before retrying.
+    case outcomeUnknown = "unknown"
+    case unrecognized
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unrecognized)
+    }
+}
+
+/// An appointment booked by `booking.book` (same lifecycle as orders; `unknown` is a real value).
+enum BookingStatus: String, Codable, Sendable, CaseIterable {
+    case submitting
+    case confirmed
+    case failed
+    /// Submitted, but the site showed no confirmation: check with the site before retrying.
+    case outcomeUnknown = "unknown"
+    case cancelled
+    case unrecognized
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unrecognized)
+    }
+}
+
+/// Facts about a merchant read from its own pages (never a JARVIS judgement).
+enum ReliabilitySignalCode: String, Codable, Sendable, CaseIterable {
+    case https
+    case returnPolicy = "return_policy"
+    case contactDetails = "contact_details"
+    case legalNotice = "legal_notice"
+    case customerRating = "customer_rating"
+    case deliveryTerms = "delivery_terms"
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        self = try LenientEnum.decode(decoder, fallback: .unknown)
+    }
+}
+
+/// A calendar attendee's response as the provider reports it.
+enum AttendeeResponse: String, Codable, Sendable, CaseIterable {
+    case accepted
+    case declined
+    case tentative
+    case needsAction = "needs_action"
     case unknown
 
     init(from decoder: any Decoder) throws {

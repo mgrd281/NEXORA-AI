@@ -6,6 +6,7 @@ import {
   BookmarkPlus,
   Bot,
   CalendarClock,
+  Camera,
   Database,
   ExternalLink,
   FileSearch,
@@ -16,6 +17,7 @@ import {
   MailCheck,
   MessageCircleQuestionMark,
   Scissors,
+  Server,
   StickyNote,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -27,6 +29,7 @@ import { useI18n } from '@/i18n/I18nProvider';
 import { cx } from '@/lib/cx';
 import styles from './Evidence.module.css';
 import { parseEvidence, shortHash, type EvidenceView } from './model';
+import { PhaseCEvidence, PHASE_C_EVIDENCE_ICON } from './phase-c/PhaseCEvidence';
 import { ExactTime, useByteFormat } from './format';
 
 const ICON: Record<Evidence['kind'], LucideIcon> = {
@@ -36,6 +39,9 @@ const ICON: Record<Evidence['kind'], LucideIcon> = {
   record: Database,
   model_output: Bot,
   note: StickyNote,
+  // Phase C
+  provider_response: Server,
+  browser_capture: Camera,
 };
 
 /** A failure code (HTTP 4xx/5xx, SMTP 4xx/5xx) is the one technical detail that needs colour. */
@@ -93,6 +99,8 @@ function evidenceTitle(view: EvidenceView, kind: Evidence['kind'], ofFile: boole
       return 'tasks.evidence.recalled';
     case 'question':
       return 'tasks.evidence.question';
+    case 'phaseC':
+      return `tasks.evidence.codes.${view.code}`;
     default:
       return `tasks.evidence.${kind}`;
   }
@@ -114,7 +122,14 @@ function EvidenceItem({ evidence, ofFile }: { evidence: Evidence; ofFile: boolea
   return (
     <li className={styles.item}>
       <span className={styles.icon}>
-        <Icon icon={VIEW_ICON[view.kind] ?? ICON[evidence.kind]} size={16} />
+        <Icon
+          icon={
+            view.kind === 'phaseC'
+              ? PHASE_C_EVIDENCE_ICON[view.code]
+              : (VIEW_ICON[view.kind] ?? ICON[evidence.kind])
+          }
+          size={16}
+        />
       </span>
       <div className={styles.body}>
         <div className={styles.head}>
@@ -277,6 +292,8 @@ function EvidenceBody({ view }: { view: EvidenceView }) {
           })}
         </p>
       ) : null;
+    case 'phaseC':
+      return <PhaseCEvidence code={view.code} params={view.params} />;
     case 'record':
     case 'note':
       return (

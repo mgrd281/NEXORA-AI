@@ -1,0 +1,19 @@
+{
+  "id": "connections-smtp-still-works",
+  "version": 1,
+  "suite": "connections",
+  "title": "With SMTP and Google both connected, email keeps going through SMTP (absent via means SMTP)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Email me: the report is ready",
+    "connections": ["web", "smtp", "google"],
+    "connectionCapabilities": {
+      "google": ["mail.send"]
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["email.send"],
+    "recipientsExactly": ["{{me}}"]
+  }
+}

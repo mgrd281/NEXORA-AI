@@ -30,6 +30,8 @@
 	<false/>
 	<key>JARVIS_API_BASE_URL</key>
 	<string>$(JARVIS_API_BASE_URL)</string>
+	<key>JARVIS_OAUTH_REDIRECT_URI</key>
+	<string>$(JARVIS_OAUTH_REDIRECT_URI)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>

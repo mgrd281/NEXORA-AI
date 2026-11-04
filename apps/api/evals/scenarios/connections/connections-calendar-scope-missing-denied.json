@@ -1,0 +1,18 @@
+{
+  "id": "connections-calendar-scope-missing-denied",
+  "version": 1,
+  "suite": "connections",
+  "title": "A calendar request on an account that granted only mail is denied (CONNECTION_SCOPE_MISSING)",
+  "modes": ["offline"],
+  "given": {
+    "request": "What's on my calendar this week?",
+    "connections": ["web", "google"],
+    "connectionCapabilities": {
+      "google": ["mail.read"]
+    }
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "CONNECTION_SCOPE_MISSING"
+  }
+}

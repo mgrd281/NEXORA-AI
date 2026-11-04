@@ -1,0 +1,26 @@
+{
+  "id": "shopping-purchase-over-limit-denied",
+  "version": 1,
+  "suite": "shopping",
+  "title": "Scenario 7 — a purchase over what is left of the monthly limit is refused (PURCHASE_LIMIT)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Buy the FX-100 headphones on the fixture shop",
+    "preferences": { "spending": { "monthlyAiBudgetUsd": 20, "monthlyPurchaseLimitUsd": 100 } },
+    "purchases": { "spentUsd": 50 },
+    "syntheticSteps": [
+      {
+        "toolId": "shop.checkout",
+        "risk": "HIGH",
+        "sideEffect": "external",
+        "requiredConnection": "web",
+        "purchase": { "amountUsd": 83.99, "currency": "USD" }
+      }
+    ]
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "PURCHASE_LIMIT",
+    "policy": [{ "step": 0, "decision": "deny", "reasonsInclude": ["PURCHASE_LIMIT"] }]
+  }
+}

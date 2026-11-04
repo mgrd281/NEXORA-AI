@@ -1,0 +1,64 @@
+{
+  "id": "d6e3f4b5-a4b7-4bc9-9d56-5f9876543260",
+  "taskId": "e5a6b7c8-9f0b-4c1d-8e3f-4a5b6c7d8e95",
+  "taskTitle": "Buy pour-over kettle on Fixture Kitchen Supply",
+  "taskTitleMessage": {
+    "key": "plan.buy",
+    "params": {
+      "product": "pour-over kettle",
+      "site": "Fixture Kitchen Supply"
+    }
+  },
+  "stepId": "ebf2a3c4-5f6b-4c7d-8e9f-abcdef43215b",
+  "toolId": "booking.book",
+  "status": "PENDING",
+  "riskLevel": "HIGH",
+  "summary": "Book Check-up on Fixture Dental.",
+  "summaryMessage": {
+    "key": "approval.booking",
+    "params": {
+      "service": "Check-up",
+      "site": "Fixture Dental"
+    }
+  },
+  "details": {
+    "kind": "booking",
+    "siteId": "fixture-booking",
+    "siteName": "Fixture Dental",
+    "siteHost": "booking.fixture.test",
+    "service": "Check-up",
+    "start": "2026-11-10T08:30:00.000Z",
+    "end": "2026-11-10T09:00:00.000Z",
+    "timeZone": "Europe/Berlin",
+    "fields": [
+      {
+        "label": "Name",
+        "value": "Ada Lovelace",
+        "personal": true
+      },
+      {
+        "label": "Phone",
+        "value": "+49 30 1234567",
+        "personal": true
+      },
+      {
+        "label": "Reason for visit",
+        "value": "Check-up",
+        "personal": false
+      }
+    ],
+    "price": null,
+    "binding": true,
+    "cancellationTerms": "Cancel at least 24 hours before, or a fee of EUR 30 applies.",
+    "evidenceArtifactId": "d0e7f8b9-aeb1-4bc3-9def-f9876543220a"
+  },
+  "actionHash": "c0ffee00a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c",
+  "reasons": [
+    "RISK_HIGH",
+    "BINDING_COMMITMENT"
+  ],
+  "expiresAt": "2026-11-05T09:15:00.000Z",
+  "decidedAt": null,
+  "decisionNote": null,
+  "createdAt": "2026-11-04T09:15:00.000Z"
+}

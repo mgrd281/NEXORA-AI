@@ -29,6 +29,7 @@ import type {
 } from '@jarvis/contracts';
 import { catalogs } from '../../src/i18n/messages';
 import { basePhaseB, derivedId, type PhaseBState } from './phase-b';
+import { basePhaseC, type PhaseCState } from './phase-c';
 import { renderServerMessage } from '../../src/i18n/server-message';
 import { createTranslator, stripIsolates } from '../../src/i18n/translate';
 
@@ -231,7 +232,7 @@ const CONTENT: Record<FixtureLocale, LocalizedContent> = {
   },
 };
 
-export interface Fixtures extends PhaseBState {
+export interface Fixtures extends PhaseBState, PhaseCState {
   me: Me;
   assistantStatus: AssistantStatus;
   tasks: TaskSummary[];
@@ -279,7 +280,7 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
       autonomy: { autoApproveEmailToSelf: false },
       ai: { allowExternalModels: true },
       notifications: { approvalRequested: true, taskCompleted: true, taskFailed: true },
-      spending: { monthlyAiBudgetUsd: 20 },
+      spending: { monthlyAiBudgetUsd: 20, monthlyPurchaseLimitUsd: 0 },
       memory: { enabled: true },
       retention: { memoryDays: null, taskHistoryDays: null },
       skills: { disabled: [] },
@@ -654,6 +655,8 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
     activeTasks: [runningTask, emailTask],
     recentTasks: [memoryTask, failedTask],
     unreadNotifications: notifications.filter((n) => n.readAt === null).length,
+    // No connection grants calendar.read: Home shows no "Upcoming" section.
+    upcoming: null,
     suggestions: offline
       ? [
           {
@@ -677,6 +680,7 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
 
   return {
     ...basePhaseB({ me, connections, assistantStatus }, locale, now),
+    ...basePhaseC(),
     me,
     assistantStatus,
     tasks,

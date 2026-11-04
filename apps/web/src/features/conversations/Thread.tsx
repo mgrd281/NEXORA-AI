@@ -5,7 +5,7 @@ import { isTerminal } from '@jarvis/contracts';
 import { ArrowUpRight, MessageCircleQuestionMark, Paperclip } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode, type Ref } from 'react';
 import { FollowUpComposer } from '@/components/composer/CommandComposer';
 import type { ComposerHandle } from '@/components/composer/ComposerRegistry';
 import { presenceFromTask } from '@/components/presence/model';
@@ -295,6 +295,7 @@ export function ConversationContinuation({
   showComposer,
   loadError,
   onRetry,
+  followUpRef,
 }: {
   conversationId: string;
   currentTaskId: string;
@@ -305,6 +306,8 @@ export function ConversationContinuation({
   showComposer: boolean;
   loadError: unknown;
   onRetry: () => void;
+  /** The follow-up field, so the page can propose a reply (e.g. a chosen appointment). */
+  followUpRef?: Ref<ComposerHandle>;
 }) {
   const i18n = useI18n();
   const { t } = i18n;
@@ -366,6 +369,7 @@ export function ConversationContinuation({
           <FollowUpComposer
             conversationId={conversationId}
             blocked={blocked}
+            handleRef={followUpRef}
             onSent={(task) => {
               sentTaskId.current = task.id;
             }}

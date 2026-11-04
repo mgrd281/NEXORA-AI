@@ -1,0 +1,23 @@
+{
+  "id": "booking-book-full-de",
+  "version": 1,
+  "suite": "booking",
+  "title": "Szenario 1 (de) — „Buche eine Kontrolle bei Fixture Dental am … um 10 Uhr für …“ plant Termine lesen und buchen",
+  "modes": ["offline"],
+  "given": {
+    "request": "Buche eine Kontrolle bei Fixture Dental am 12. November um 10 Uhr für Alex Example, Telefon 030 1234567",
+    "language": "de",
+    "browserAvailable": true
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["booking.find_slots", "booking.book"],
+    "policy": [
+      {
+        "step": 1,
+        "decision": "require_approval",
+        "reasonsInclude": ["RISK_MEDIUM"]
+      }
+    ]
+  }
+}

@@ -1,26 +1,31 @@
 {
   "id": "spec-09-duplicate-transaction",
-  "version": 1,
+  "version": 2,
   "suite": "spec",
-  "title": "Spec 9 — no duplicate side effect: unknown outcome needs acknowledgement, one email",
+  "title": "Spec 9 / scenario 10 — no duplicate purchase: the worker dies right after the checkout; the outcome is unknown, a retry needs acknowledgement and reconciles with the merchant — exactly one order",
   "modes": ["offline", "pipeline"],
   "given": {
-    "request": "Email me: transfer confirmation for invoice 2291",
+    "request": "Buy the FX-100 headphones on Fixture Shop",
+    "browserAvailable": true,
+    "preferences": { "spending": { "monthlyAiBudgetUsd": 20, "monthlyPurchaseLimitUsd": 100 } },
     "approve": "all",
-    "faults": {
-      "crashAfterTool": "email.send"
-    }
+    "faults": { "crashAfterTool": "shop.checkout" }
   },
   "expect": {
     "result": "plan",
-    "toolSequence": ["email.send"],
-    "sideEffectsAtMost": 1,
+    "toolSequence": ["shop.search", "shop.compare", "shop.prepare_cart", "shop.checkout"],
+    "recipientsExactly": [],
+    "urlsExactly": [],
+    "policy": [
+      { "step": 3, "decision": "require_approval", "reasonsInclude": ["RISK_HIGH", "PURCHASE"] }
+    ],
     "pipeline": {
       "status": "FAILED",
       "errorCode": "OUTCOME_UNKNOWN",
       "retryable": false,
       "sideEffectsExactly": 1,
-      "retryNeedsAcknowledgement": true
+      "retryNeedsAcknowledgement": true,
+      "acknowledgedRetry": { "status": "COMPLETED", "sideEffectsExactly": 1 }
     }
   }
 }

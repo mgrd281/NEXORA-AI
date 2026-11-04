@@ -42,6 +42,10 @@ export interface Observed {
     executions: Partial<Record<ToolId, number>>;
     schedulesCreated: number;
     scheduledTasks: number;
+    /** Phase C: evidence files of the task. */
+    evidence?: number;
+    /** Phase C: the task after an acknowledged retry (only when the scenario asks for one). */
+    afterRetry?: { status: TaskStatus; sideEffects: number } | null;
   };
 }
 
@@ -144,6 +148,25 @@ export function compare(expected: Scenario['expect'], o: Observed, mode: Mode): 
         f.push(`schedules created: expected ${e.schedulesCreated}, got ${p.schedulesCreated}`);
       if (e.scheduledTasksCreated !== undefined && p.scheduledTasks !== e.scheduledTasksCreated)
         f.push(`scheduled tasks: expected ${e.scheduledTasksCreated}, got ${p.scheduledTasks}`);
+      if (e.evidenceAtLeast !== undefined && (p.evidence ?? 0) < e.evidenceAtLeast)
+        f.push(`evidence files: expected at least ${e.evidenceAtLeast}, got ${p.evidence ?? 0}`);
+      if (e.acknowledgedRetry) {
+        const r = p.afterRetry;
+        if (!r) f.push('acknowledged retry: not run');
+        else {
+          if (e.acknowledgedRetry.status && r.status !== e.acknowledgedRetry.status)
+            f.push(
+              `after the acknowledged retry: status expected ${e.acknowledgedRetry.status}, got ${r.status}`,
+            );
+          if (
+            e.acknowledgedRetry.sideEffectsExactly !== undefined &&
+            r.sideEffects !== e.acknowledgedRetry.sideEffectsExactly
+          )
+            f.push(
+              `after the acknowledged retry: side effects expected exactly ${e.acknowledgedRetry.sideEffectsExactly}, got ${r.sideEffects}`,
+            );
+        }
+      }
     }
   }
   return f;

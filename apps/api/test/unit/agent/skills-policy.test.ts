@@ -91,7 +91,9 @@ describe('skills registry', () => {
     };
     for (const s of SKILLS) {
       for (const id of s.tools) {
-        const tool = getTool(id)!;
+        // Phase C tools are owned by their skills before they are registered (stage 2).
+        const tool = getTool(id);
+        if (!tool) continue;
         const risk = tool.riskLevel(samples[id] ?? {}, { accountEmail: OWN }) as RiskLevel;
         expect(RISK_ORDER[s.maxRisk], `${s.id}/${id}`).toBeGreaterThanOrEqual(RISK_ORDER[risk]);
       }
@@ -287,7 +289,7 @@ describe('skill availability per user', () => {
     );
 
   it('reports the first reason a skill cannot run', () => {
-    expect(entry('calendar-management', agent())).toMatchObject({
+    expect(entry('phone-calling', agent())).toMatchObject({
       status: 'planned',
       available: false,
       unavailableReason: 'PLANNED',

@@ -76,7 +76,8 @@ describe('GET/PATCH /v1/me', () => {
     expect(me.preferences).toEqual({
       ...DEFAULT_PREFERENCES,
       voice: { ...DEFAULT_PREFERENCES.voice, speakResponses: true },
-      spending: { monthlyAiBudgetUsd: 5 },
+      // Phase C: the purchase limit keeps its value (0) when only the AI budget changes.
+      spending: { ...DEFAULT_PREFERENCES.spending, monthlyAiBudgetUsd: 5 },
     });
     // A second partial update keeps earlier changes.
     const next = await c.request('PATCH', '/v1/me', {
@@ -151,7 +152,7 @@ describe('POST /v1/account/export', () => {
     const doc = res.json<Record<string, unknown>>();
     expect(doc).toMatchObject({
       format: 'jarvis.account-export',
-      version: 3,
+      version: 4,
       profile: { id: c.user.userId, email: c.user.email },
       preferences: DEFAULT_PREFERENCES,
     });
@@ -284,7 +285,7 @@ describe('POST /v1/account/export', () => {
       version: number;
       tasks: { id: string; steps: Record<string, unknown>[] }[];
     }>();
-    expect(doc.version).toBe(3);
+    expect(doc.version).toBe(4);
     const step = doc.tasks.find((t) => t.id === taskId)!.steps[0]!;
     expect(step).toMatchObject({
       id: stepId,

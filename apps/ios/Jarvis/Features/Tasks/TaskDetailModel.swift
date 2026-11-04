@@ -12,6 +12,9 @@ final class TaskDetailModel {
     private(set) var loadError: String?
     private(set) var actionError: String?
     private(set) var isPerformingAction = false
+    /// Orders and bookings the task's steps made (Phase C), by id, as the server records them.
+    private(set) var orders: [String: Order] = [:]
+    private(set) var bookings: [String: Booking] = [:]
 
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
     /// One key per retry intent, reused if the same retry is re-sent after a transport
@@ -35,6 +38,7 @@ final class TaskDetailModel {
             detail = fresh
             if fresh.answer != nil || fresh.status.isTerminal { streamedAnswer = "" }
             loadError = nil
+            await loadLinkedRecords(fresh, api: api)
         } catch is CancellationError {
             return
         } catch {
@@ -42,8 +46,32 @@ final class TaskDetailModel {
         }
     }
 
+    /// The order / booking cards come from their own records (status, totals, evidence), not
+    /// from the step preview. A record that can't be read is simply not shown.
+    private func loadLinkedRecords(_ detail: TaskDetail, api: APIClient) async {
+        for step in detail.steps {
+            if let id = StepPreview.orderId(step) {
+                let order = try? await api.order(id: id)
+                if let order { orders[id] = order }
+            }
+            if let id = StepPreview.bookingId(step) {
+                let booking = try? await api.booking(id: id)
+                if let booking { bookings[id] = booking }
+            }
+        }
+    }
+
+    var linkedOrders: [Order] {
+        (detail?.steps ?? []).compactMap { StepPreview.orderId($0).flatMap { orders[$0] } }
+    }
+
+    var linkedBookings: [Booking] {
+        (detail?.steps ?? []).compactMap { StepPreview.bookingId($0).flatMap { bookings[$0] } }
+    }
+
     func handle(_ event: StreamEvent, api: APIClient) {
-        guard event.taskId == taskId else { return }
+        // Account events (browser sessions, orders, bookings) carry the task in their data.
+        guard (event.taskId ?? event.data["taskId"]?.stringValue) == taskId else { return }
         if event.type == .taskAnswerDelta {
             if let text = event.data["text"]?.stringValue { streamedAnswer += text }
             return

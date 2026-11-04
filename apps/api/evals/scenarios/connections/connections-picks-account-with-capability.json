@@ -1,0 +1,25 @@
+{
+  "id": "connections-picks-account-with-capability",
+  "version": 1,
+  "suite": "connections",
+  "title": "The account granting the capability is used (Microsoft calendar while Google has only mail)",
+  "modes": ["offline"],
+  "given": {
+    "request": "What's on my calendar this week?",
+    "connections": ["web", "google", "microsoft"],
+    "connectionCapabilities": {
+      "google": ["mail.read"],
+      "microsoft": ["calendar.read"]
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["calendar.list"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "allow"
+      }
+    ]
+  }
+}

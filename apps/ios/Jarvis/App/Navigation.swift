@@ -23,6 +23,28 @@ struct ScheduleRoute: Hashable {
 /// The list of schedules.
 struct SchedulesRoute: Hashable {}
 
+// Phase C
+/// Google, Microsoft and the other connections.
+struct ConnectionsRoute: Hashable {}
+
+/// The monthly purchase limit.
+struct SpendingRoute: Hashable {}
+
+struct OrdersRoute: Hashable {}
+
+struct OrderRoute: Hashable {
+    let id: String
+}
+
+struct BookingsRoute: Hashable {}
+
+struct BookingRoute: Hashable {
+    let id: String
+}
+
+/// Threads JARVIS watches for replies.
+struct EmailWatchesRoute: Hashable {}
+
 extension View {
     /// Registers the app's push destinations. Apply once per NavigationStack, on its root view.
     func jarvisDestinations() -> some View {
@@ -37,6 +59,27 @@ extension View {
         }
         .navigationDestination(for: SchedulesRoute.self) { _ in
             SchedulesView()
+        }
+        .navigationDestination(for: ConnectionsRoute.self) { _ in
+            ConnectionsView()
+        }
+        .navigationDestination(for: SpendingRoute.self) { _ in
+            SpendingView()
+        }
+        .navigationDestination(for: OrdersRoute.self) { _ in
+            OrdersView()
+        }
+        .navigationDestination(for: OrderRoute.self) { route in
+            OrderDetailView(orderId: route.id)
+        }
+        .navigationDestination(for: BookingsRoute.self) { _ in
+            BookingsView()
+        }
+        .navigationDestination(for: BookingRoute.self) { route in
+            BookingDetailView(bookingId: route.id)
+        }
+        .navigationDestination(for: EmailWatchesRoute.self) { _ in
+            EmailWatchesView()
         }
     }
 }

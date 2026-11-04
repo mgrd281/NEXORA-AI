@@ -281,16 +281,28 @@ export interface TaskEventsTable {
   created_at: Generated<Date>;
 }
 
+export type ConnectionProviderValue = 'web' | 'smtp' | 'google' | 'microsoft';
+export type OAuthProviderValue = 'google' | 'microsoft';
+export type ConnectionCapabilityValue =
+  'mail.read' | 'mail.compose' | 'mail.send' | 'calendar.read' | 'calendar.write';
+export type ConnectionStatusReasonValue =
+  'GRANT_INVALID' | 'TOKEN_REJECTED' | 'SCOPE_MISSING' | 'PROVIDER_ERROR';
+
 export interface ConnectionsTable {
   id: Generated<string>;
   tenant_id: string;
   user_id: string;
-  provider: 'web' | 'smtp';
+  provider: ConnectionProviderValue;
   label: string;
   account_identifier: string | null;
   permissions: Generated<string[]>;
   status: 'active' | 'error' | 'expired' | 'revoked';
   config: JsonDefault<Record<string, unknown>>;
+  /**
+   * SMTP: the password envelope (AAD `${user_id}:smtp`). OAuth (0005): one
+   * SecretBox envelope of the token set (AAD oauth:<user_id>:<provider>:<id>);
+   * deleting the row queues it for revocation (Google).
+   */
   secret_ciphertext: Buffer | null;
   secret_key_id: string | null;
   last_verified_at: NullableTimestamp;
@@ -298,6 +310,17 @@ export interface ConnectionsTable {
   expires_at: NullableTimestamp;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
+  /** OAuth only (0005): what JARVIS may use (every scope of each granted). */
+  capabilities: Generated<ConnectionCapabilityValue[]>;
+  /** OAuth only (0005): the scopes the provider reported as granted. */
+  granted_scopes: Generated<string[]>;
+  /** Why it is not active (0005; SCOPE_MISSING may stay on an active connection). */
+  status_reason: ConnectionStatusReasonValue | null;
+  /** OAuth only (0005): Google `sub` / Microsoft object id; required while active. */
+  provider_account_id: string | null;
+  /** OAuth only (0005): expiry of the current access token (refresh before it). */
+  token_expires_at: NullableTimestamp;
+  token_refreshed_at: NullableTimestamp;
 }
 
 export interface MemoriesTable {
@@ -320,7 +343,10 @@ export type NotificationKindValue =
   | 'connection_error'
   | 'schedule_failed'
   | 'schedule_paused'
-  | 'webhook_disabled';
+  | 'webhook_disabled'
+  // Phase C (0005)
+  | 'connection_expired'
+  | 'email_reply_received';
 
 export interface NotificationsTable {
   id: Generated<string>;
@@ -392,7 +418,10 @@ export type JobKind =
   // Phase B (0004)
   | 'schedule.run'
   | 'retention.sweep'
-  | 'webhook.deliver';
+  | 'webhook.deliver'
+  // Phase C (0005). browser.* jobs are leased only by the browser worker.
+  | 'email.watch_poll'
+  | 'browser.session';
 
 export interface JobsTable {
   id: Generated<number>;
@@ -419,6 +448,8 @@ export interface WorkerHeartbeatsTable {
   version: string | null;
   started_at: Generated<Date>;
   last_heartbeat_at: Generated<Date>;
+  /** 'agent' (src/worker.ts) or 'browser' (src/browser-worker.ts) (0005). */
+  kind: Generated<'agent' | 'browser'>;
 }
 
 export interface FeatureFlagsTable {
@@ -617,6 +648,225 @@ export interface WebhookDeliveriesTable {
   completed_at: NullableTimestamp;
 }
 
+/* ------------------------------------------------------------------ */
+/* Phase C (0005)                                                      */
+/* ------------------------------------------------------------------ */
+
+export interface OAuthStatesTable {
+  id: Generated<string>;
+  tenant_id: string;
+  user_id: string;
+  /** Only this session can complete it. */
+  session_id: string;
+  provider: OAuthProviderValue;
+  capabilities: ConnectionCapabilityValue[];
+  requested_scopes: string[];
+  /** SHA-256 of the state parameter (32 bytes). */
+  state_hash: Buffer;
+  /** PKCE verifier, SecretBox envelope (AAD oauth-state:<user_id>:<id>). */
+  code_verifier_ciphertext: Buffer;
+  code_verifier_key_id: string;
+  redirect_uri: string;
+  connection_id: string | null;
+  return_to: string | null;
+  created_at: Generated<Date>;
+  /** ≤ created_at + 15 minutes (CHECK); contracts OAUTH_LIMITS.stateTtlMinutes. */
+  expires_at: Timestamp;
+  /** Single use: set by `UPDATE … WHERE consumed_at IS NULL`. */
+  consumed_at: NullableTimestamp;
+}
+
+export type EmailWatchStatusValue = 'watching' | 'replied' | 'stopped' | 'expired' | 'failed';
+
+export interface EmailWatchesTable {
+  id: Generated<string>;
+  tenant_id: string;
+  user_id: string;
+  connection_id: string;
+  provider: OAuthProviderValue;
+  thread_id: string;
+  subject: string;
+  task_id: string | null;
+  /** Unique (one watch per email.track_replies step). */
+  step_id: string | null;
+  status: Generated<EmailWatchStatusValue>;
+  last_seen_message_id: string | null;
+  last_seen_at: NullableTimestamp;
+  last_checked_at: NullableTimestamp;
+  /** Set exactly while status = 'watching' (CHECK). */
+  next_check_at: NullableTimestamp;
+  consecutive_failures: Generated<number>;
+  reply_message_id: string | null;
+  reply_from_name: string | null;
+  reply_from_address: string | null;
+  /** Set exactly while status = 'replied' (CHECK). */
+  reply_at: NullableTimestamp;
+  expires_at: Timestamp;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export type BrowserSessionStatusValue =
+  'queued' | 'running' | 'succeeded' | 'failed' | 'handover' | 'interrupted';
+
+export type BrowserStopReasonValue =
+  | 'CAPTCHA_DETECTED'
+  | 'LOGIN_REQUIRED'
+  | 'BOT_PROTECTION'
+  | 'SITE_UNSUPPORTED'
+  | 'NAVIGATION_BLOCKED'
+  | 'PAGE_CHANGED'
+  | 'SITE_ERROR'
+  | 'BROWSER_BUDGET_EXCEEDED'
+  | 'BROWSER_TIMEOUT'
+  | 'BROWSER_CRASHED'
+  | 'CANCELLED';
+
+/** Created in 0001 (unused); its lifecycle columns since 0005. */
+export interface BrowserSessionsTable {
+  id: Generated<string>;
+  tenant_id: string;
+  user_id: string;
+  task_id: string;
+  step_id: string;
+  status: BrowserSessionStatusValue;
+  /** Always 'ephemeral' (CHECK). */
+  isolation_profile: Generated<'ephemeral'>;
+  site_id: string;
+  operation: string;
+  /** Unique per user: one session per tool execution attempt. */
+  idempotency_key: string;
+  request: Json<Record<string, unknown>>;
+  /** Present once succeeded (CHECK). */
+  result: Json<Record<string, unknown> | null> | null;
+  /** Set exactly for failed / handover (and optionally interrupted) (CHECK). */
+  stop_reason: BrowserStopReasonValue | null;
+  /** Set exactly while status = 'handover' (CHECK). */
+  handover_url: string | null;
+  navigations: Generated<number>;
+  requests: Generated<number>;
+  blocked_requests: Generated<number>;
+  worker_id: string | null;
+  cancel_requested_at: NullableTimestamp;
+  started_at: NullableTimestamp;
+  /** Null exactly while queued / running (CHECK). */
+  ended_at: NullableTimestamp;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export type EvidenceArtifactKindValue = 'screenshot' | 'extract' | 'ics';
+export type EvidenceMediaTypeValue = 'image/png' | 'application/json' | 'text/calendar';
+
+export interface EvidenceArtifactsTable {
+  /** Generate it before the insert: storage_key must be built from it (CHECK). */
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  task_id: string;
+  browser_session_id: string;
+  kind: EvidenceArtifactKindValue;
+  /** Fixed per kind (CHECK). */
+  media_type: EvidenceMediaTypeValue;
+  size_bytes: number;
+  sha256: string;
+  storage_driver: StorageDriverValue;
+  /** Exactly tenants/<tenant_id>/users/<user_id>/evidence/<id> (CHECK). */
+  storage_key: string;
+  page_url: string | null;
+  created_at: Generated<Date>;
+}
+
+export type OrderStatusValue = 'submitting' | 'placed' | 'failed' | 'unknown';
+
+/** contracts CartLine as stored in orders.items. */
+export interface CartLineJson {
+  title: string;
+  quantity: number;
+  unitPrice: { amountMicro: number; currency: string };
+  lineTotal: { amountMicro: number; currency: string };
+  productUrl: string;
+}
+
+export interface OrdersTable {
+  id: Generated<string>;
+  tenant_id: string;
+  user_id: string;
+  task_id: string | null;
+  step_id: string | null;
+  site_id: string;
+  merchant_name: string;
+  merchant_host: string;
+  /** Unique per user; sent to the merchant (exactly once on both sides). */
+  idempotency_key: string;
+  status: Generated<OrderStatusValue>;
+  items: Json<CartLineJson[]>;
+  currency: string;
+  subtotal_micro: number;
+  shipping_micro: number;
+  tax_micro: number | null;
+  total_micro: number;
+  /** Set exactly while placed, with placed_at (CHECK). */
+  merchant_order_id: string | null;
+  placed_at: NullableTimestamp;
+  /** A TaskErrorReason; set exactly while failed / unknown (CHECK). */
+  failure_reason: string | null;
+  approval_id: string | null;
+  action_hash: string;
+  cart_artifact_id: string | null;
+  confirmation_artifact_id: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export type BookingStatusValue = 'submitting' | 'confirmed' | 'failed' | 'unknown' | 'cancelled';
+
+export interface BookingsTable {
+  id: Generated<string>;
+  tenant_id: string;
+  user_id: string;
+  task_id: string | null;
+  step_id: string | null;
+  site_id: string;
+  site_name: string;
+  site_host: string;
+  service: string;
+  /** Unique per user (exactly once). */
+  idempotency_key: string;
+  status: Generated<BookingStatusValue>;
+  slot_start: Timestamp;
+  slot_end: NullableTimestamp;
+  time_zone: string;
+  /** Required while confirmed (CHECK). */
+  reference: string | null;
+  price_micro: number | null;
+  price_currency: string | null;
+  binding: boolean;
+  calendar_event_id: string | null;
+  failure_reason: string | null;
+  approval_id: string | null;
+  action_hash: string;
+  slots_artifact_id: string | null;
+  confirmation_artifact_id: string | null;
+  ics_artifact_id: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+/** View (security_invoker): orders that are, or may be, committed. Read-only. */
+export interface CommittedPurchasesView {
+  user_id: ColumnType<string, never, never>;
+  currency: ColumnType<string, never, never>;
+  total_micro: ColumnType<number, never, never>;
+  created_at: ColumnType<Date, never, never>;
+  /** Orders: submitting | placed | unknown; paid bookings (0006): submitting | confirmed | unknown. */
+  status: ColumnType<'submitting' | 'placed' | 'confirmed' | 'unknown', never, never>;
+  /** 0006: what committed the money. */
+  kind: ColumnType<'order' | 'booking', never, never>;
+  /** 0006: the task step that committed it (null once the task is deleted). */
+  step_id: ColumnType<string | null, never, never>;
+}
+
 export interface SubscriptionsTable {
   id: Generated<string>;
   tenant_id: string;
@@ -663,6 +913,16 @@ export interface Database {
   schedule_runs: ScheduleRunsTable;
   webhook_endpoints: WebhookEndpointsTable;
   webhook_deliveries: WebhookDeliveriesTable;
+  // Phase C (0005). oauth_revocations is not listed: only SECURITY DEFINER
+  // functions reach it (oauth_revocations_claim / _complete / _failed, and 0007
+  // oauth_revocations_cancel for the caller's own pending rows of one account).
+  oauth_states: OAuthStatesTable;
+  email_watches: EmailWatchesTable;
+  browser_sessions: BrowserSessionsTable;
+  evidence_artifacts: EvidenceArtifactsTable;
+  orders: OrdersTable;
+  bookings: BookingsTable;
+  committed_purchases: CommittedPurchasesView;
 }
 
 export type TaskRow = Selectable<TasksTable>;
@@ -680,6 +940,12 @@ export type WebhookEndpointRow = Selectable<WebhookEndpointsTable>;
 export type WebhookDeliveryRow = Selectable<WebhookDeliveriesTable>;
 export type MessageRow = Selectable<MessagesTable>;
 export type ConversationRow = Selectable<ConversationsTable>;
+export type OAuthStateRow = Selectable<OAuthStatesTable>;
+export type EmailWatchRow = Selectable<EmailWatchesTable>;
+export type BrowserSessionRow = Selectable<BrowserSessionsTable>;
+export type EvidenceArtifactRow = Selectable<EvidenceArtifactsTable>;
+export type OrderRow = Selectable<OrdersTable>;
+export type BookingRow = Selectable<BookingsTable>;
 export type NewTask = Insertable<TasksTable>;
 export type NewStep = Insertable<TaskStepsTable>;
 export type TaskUpdate = Updateable<TasksTable>;

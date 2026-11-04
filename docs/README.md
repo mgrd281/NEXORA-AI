@@ -17,6 +17,7 @@ across documents: **Built** / **Implemented** = in the code now (with file refer
 | Call the API                         | [API conventions](architecture/api.md), [OpenAPI 3.1 spec](api/openapi.json)                                                 |
 | Change the schema                    | [Data model](architecture/data-model.md)                                                                                     |
 | Build Phase B (ownership, contracts) | [Phase B architecture](architecture/phase-b.md)                                                                              |
+| Build Phase C (ownership, contracts) | [Phase C architecture](architecture/phase-c.md)                                                                              |
 | Review security or privacy           | [Threat model](security/threat-model.md), [privacy](security/privacy.md)                                                     |
 | Build UI                             | [Design system](design/design-system.md), [screens](design/screens.md), [review process](design/review-process.md)           |
 | Operate it                           | [Operations runbook](runbooks/operations.md), [release checklist](release-checklist.md)                                      |
@@ -41,6 +42,9 @@ across documents: **Built** / **Implemented** = in the code now (with file refer
 - [Phase B](architecture/phase-b.md) — frozen contracts and schema (0004), data flows, security notes
   and the file ownership map for follow-ups, questions, attachments, skills, schedules, retention,
   translation, webhooks, time zones, observability and evals
+- [Phase C](architecture/phase-c.md) — frozen contracts and schema (0005), extension points, data
+  flows, security notes and the file ownership map for OAuth connections (Google, Microsoft), the
+  email agent, calendars and Home "Upcoming", booking, the isolated browser agent and shopping
 
 ### Architecture decision records
 
@@ -61,6 +65,9 @@ across documents: **Built** / **Implemented** = in the code now (with file refer
 | [0013](adr/0013-ios-swiftui.md)                     | iOS in SwiftUI; Android and macOS in Phase 6                                |
 | [0014](adr/0014-secrets-encryption.md)              | AES-256-GCM secret envelopes with owner-bound AAD; rotation                 |
 | [0015](adr/0015-ssrf-protection.md)                 | SSRF protection validated at connect time                                   |
+| [0016](adr/0016-oauth-connections.md)               | OAuth 2.0 connections: code + PKCE, session-bound state, sealed tokens      |
+| [0017](adr/0017-browser-agent-isolation.md)         | Browser agent in a separate, secret-free worker; ephemeral contexts         |
+| [0018](adr/0018-commerce-safety.md)                 | Purchases: limit (off by default), exact approval, exactly-once orders      |
 
 ### Security and privacy
 

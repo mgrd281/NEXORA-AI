@@ -49,6 +49,20 @@ describe('storage keys', () => {
     expect(isValidStorageKey(key())).toBe(true);
     for (const k of BAD_KEYS) expect(isValidStorageKey(k), k).toBe(false);
   });
+
+  it('accepts the evidence key shape of 0005 (evidence_artifacts_storage_key_format) and nothing looser', () => {
+    const t = randomUUID();
+    const u = randomUUID();
+    expect(isValidStorageKey(`tenants/${t}/users/${u}/evidence/${randomUUID()}`)).toBe(true);
+    for (const k of [
+      `tenants/${t}/users/${u}/evidence/../attachments/${randomUUID()}`,
+      `tenants/${t}/users/${u}/evidence/${randomUUID()}/x`,
+      `tenants/${t}/users/${u}/evidences/${randomUUID()}`,
+      `tenants/${t}/users/${u}/evidence/`,
+      `/tenants/${t}/users/${u}/evidence/${randomUUID()}`,
+    ])
+      expect(isValidStorageKey(k), k).toBe(false);
+  });
 });
 
 describe('local storage driver', () => {

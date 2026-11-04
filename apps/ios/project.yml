@@ -41,6 +41,10 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         CODE_SIGN_STYLE: Automatic
+        # Empty by default; set JARVIS_ENTITLEMENTS = Config/Jarvis.entitlements in
+        # Config/Local.xcconfig to opt in to the Associated Domains entitlement that
+        # ASWebAuthenticationSession needs for the https OAuth callback.
+        CODE_SIGN_ENTITLEMENTS: "$(JARVIS_ENTITLEMENTS)"
         ENABLE_PREVIEWS: YES
     scheme:
       testTargets:

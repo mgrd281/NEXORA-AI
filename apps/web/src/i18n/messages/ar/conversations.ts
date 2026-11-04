@@ -65,6 +65,10 @@ const conversations: Catalog<typeof source> = {
       target_language: 'لغة',
       previous_result: 'ما يجب إرساله أو حفظه',
       details: 'مزيدًا من التفاصيل',
+      date_time: 'تاريخًا ووقتًا',
+      contact_details: 'بيانات الاتصال الخاصة بك',
+      product: 'المنتج المقصود',
+      site: 'الموقع المقصود',
     },
   },
   delete: {

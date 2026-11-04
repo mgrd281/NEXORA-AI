@@ -1,0 +1,23 @@
+{
+  "id": "shopping-buy-off-by-default-denied",
+  "version": 1,
+  "suite": "shopping",
+  "title": "Scenario 7 — “buy … on Fixture Shop” with the default limit of $0 is refused at planning (PURCHASES_DISABLED); nothing runs",
+  "modes": ["offline"],
+  "given": {
+    "request": "Buy the FX-100 headphones on Fixture Shop",
+    "browserAvailable": true
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "PURCHASES_DISABLED",
+    "toolSequence": ["shop.search", "shop.compare", "shop.prepare_cart", "shop.checkout"],
+    "policy": [
+      {
+        "step": 3,
+        "decision": "deny",
+        "reasonsInclude": ["PURCHASES_DISABLED"]
+      }
+    ]
+  }
+}

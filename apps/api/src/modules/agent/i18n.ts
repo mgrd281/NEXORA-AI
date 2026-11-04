@@ -270,6 +270,302 @@ const MESSAGES = {
     de: 'Kannst du genauer sagen, was du brauchst?',
     ar: 'هل يمكنك أن توضح ما تحتاجه بمزيد من التفصيل؟',
   },
+  // Phase C (docs/architecture/phase-c.md §6) — canonical wording; clients mirror it
+  'plan.emailUnread': {
+    en: 'Summarize your unread emails',
+    de: 'Ungelesene E-Mails zusammenfassen',
+    ar: 'تلخيص رسائلك غير المقروءة',
+  },
+  'plan.emailNeedsReply': {
+    en: 'Find emails waiting for your reply',
+    de: 'E-Mails finden, die auf deine Antwort warten',
+    ar: 'العثور على الرسائل التي تنتظر ردك',
+  },
+  'plan.draftReply': {
+    en: 'Draft a reply to {name}',
+    de: 'Antwort an {name} entwerfen',
+    ar: 'صياغة مسودة رد على {name}',
+  },
+  'plan.calendarUpcoming': {
+    en: 'Check your upcoming events',
+    de: 'Anstehende Termine ansehen',
+    ar: 'الاطلاع على مواعيدك القادمة',
+  },
+  'plan.findMeetingTime': {
+    en: 'Find a time to meet {who}',
+    de: 'Einen Termin mit {who} finden',
+    ar: 'إيجاد وقت للقاء {who}',
+  },
+  'plan.findSlots': {
+    en: 'Find free appointments on {site}',
+    de: 'Freie Termine auf {site} finden',
+    ar: 'البحث عن مواعيد متاحة على {site}',
+  },
+  'plan.book': {
+    en: 'Book {service} on {site}',
+    de: '{service} auf {site} buchen',
+    ar: 'حجز {service} على {site}',
+  },
+  'plan.compareProducts': {
+    en: 'Compare offers for {query}',
+    de: 'Angebote für {query} vergleichen',
+    ar: 'مقارنة العروض لـ {query}',
+  },
+  'plan.buy': {
+    en: 'Buy {product} on {site}',
+    de: '{product} auf {site} kaufen',
+    ar: 'شراء {product} من {site}',
+  },
+  'objective.emailUnread': {
+    en: 'Read your unread emails and summarize them.',
+    de: 'Deine ungelesenen E-Mails lesen und zusammenfassen.',
+    ar: 'قراءة رسائلك غير المقروءة وتلخيصها.',
+  },
+  'objective.emailNeedsReply': {
+    en: 'List the conversations whose newest message is waiting for your reply.',
+    de: 'Die Unterhaltungen auflisten, deren neueste Nachricht auf deine Antwort wartet.',
+    ar: 'عرض المحادثات التي تنتظر أحدث رسائلها ردك.',
+  },
+  'objective.draftReply': {
+    en: 'Write a reply to {name} and save it as a draft — nothing is sent.',
+    de: 'Eine Antwort an {name} schreiben und als Entwurf speichern – es wird nichts gesendet.',
+    ar: 'كتابة رد على {name} وحفظه كمسودة — لن يُرسل شيء.',
+  },
+  'objective.calendarUpcoming': {
+    en: 'Read the next events in your calendar.',
+    de: 'Die nächsten Termine aus deinem Kalender lesen.',
+    ar: 'قراءة الأحداث القادمة في تقويمك.',
+  },
+  'objective.findMeetingTime': {
+    en: 'Find times when you and {who} are free.',
+    de: 'Zeiten finden, zu denen du und {who} frei seid.',
+    ar: 'إيجاد أوقات تكون فيها أنت و{who} متاحين.',
+  },
+  'objective.findSlots': {
+    en: 'Read the free appointments {site} offers right now.',
+    de: 'Die freien Termine lesen, die {site} gerade anbietet.',
+    ar: 'قراءة المواعيد المتاحة التي يعرضها {site} الآن.',
+  },
+  'objective.book': {
+    en: 'Book {service} on {site} once you approve, and keep the confirmation.',
+    de: '{service} auf {site} buchen, sobald du zustimmst, und die Bestätigung aufbewahren.',
+    ar: 'حجز {service} على {site} بعد موافقتك، والاحتفاظ بالتأكيد.',
+  },
+  'objective.compareProducts': {
+    en: 'Compare prices, shipping and delivery times for {query} on the supported shops.',
+    de: 'Preise, Versandkosten und Lieferzeiten für {query} in den unterstützten Shops vergleichen.',
+    ar: 'مقارنة الأسعار وتكاليف الشحن ومدد التوصيل لـ {query} في المتاجر المدعومة.',
+  },
+  'objective.buy': {
+    en: 'Order {product} on {site} once you approve the exact total.',
+    de: '{product} auf {site} bestellen, sobald du den genauen Gesamtbetrag bestätigst.',
+    ar: 'طلب {product} من {site} بعد موافقتك على المبلغ الإجمالي الدقيق.',
+  },
+  'step.searchEmail': {
+    en: 'Search your mailbox',
+    de: 'Postfach durchsuchen',
+    ar: 'البحث في بريدك',
+  },
+  'step.readThreads': {
+    en: 'Read the emails',
+    de: 'E-Mails lesen',
+    ar: 'قراءة الرسائل',
+  },
+  'step.summarizeEmail': {
+    en: 'Summarize the emails',
+    de: 'E-Mails zusammenfassen',
+    ar: 'تلخيص الرسائل',
+  },
+  'step.draftReply': {
+    en: 'Draft the reply to {name}',
+    de: 'Antwort an {name} entwerfen',
+    ar: 'صياغة مسودة الرد على {name}',
+  },
+  'step.trackReplies': {
+    en: 'Watch for a reply',
+    de: 'Auf eine Antwort achten',
+    ar: 'متابعة وصول رد',
+  },
+  'step.listEvents': {
+    en: 'Read your calendar',
+    de: 'Kalender lesen',
+    ar: 'قراءة تقويمك',
+  },
+  'step.freeBusy': {
+    en: 'Find free times',
+    de: 'Freie Zeiten finden',
+    ar: 'إيجاد الأوقات المتاحة',
+  },
+  'step.createEvent': {
+    en: 'Create “{title}”',
+    de: '„{title}“ anlegen',
+    ar: 'إنشاء «{title}»',
+  },
+  'step.updateEvent': {
+    en: 'Change “{title}”',
+    de: '„{title}“ ändern',
+    ar: 'تعديل «{title}»',
+  },
+  'step.cancelEvent': {
+    en: 'Cancel “{title}”',
+    de: '„{title}“ absagen',
+    ar: 'إلغاء «{title}»',
+  },
+  'step.saveToCalendar': {
+    en: 'Add it to your calendar',
+    de: 'In den Kalender eintragen',
+    ar: 'إضافته إلى تقويمك',
+  },
+  'step.findSlots': {
+    en: 'Read free appointments on {site}',
+    de: 'Freie Termine auf {site} lesen',
+    ar: 'قراءة المواعيد المتاحة على {site}',
+  },
+  'step.book': {
+    en: 'Book on {site}',
+    de: 'Auf {site} buchen',
+    ar: 'الحجز على {site}',
+  },
+  'step.readSite': {
+    en: 'Read {site}',
+    de: '{site} lesen',
+    ar: 'قراءة {site}',
+  },
+  'step.fillForm': {
+    en: 'Fill in the form on {site}',
+    de: 'Formular auf {site} ausfüllen',
+    ar: 'ملء النموذج على {site}',
+  },
+  'step.searchShops': {
+    en: 'Search shops for {query}',
+    de: 'Shops nach {query} durchsuchen',
+    ar: 'البحث في المتاجر عن {query}',
+  },
+  'step.compareOffers': {
+    en: 'Compare the offers',
+    de: 'Angebote vergleichen',
+    ar: 'مقارنة العروض',
+  },
+  'step.prepareCart': {
+    en: 'Fill the cart on {site}',
+    de: 'Warenkorb auf {site} füllen',
+    ar: 'تجهيز سلة التسوق على {site}',
+  },
+  'step.checkout': {
+    en: 'Place the order on {site}',
+    de: 'Bestellung auf {site} aufgeben',
+    ar: 'تقديم الطلب على {site}',
+  },
+  'approval.emailDraft': {
+    en: 'Save the draft “{subject}” to {recipients} — nothing is sent.',
+    de: 'Den Entwurf „{subject}“ an {recipients} speichern – es wird nichts gesendet.',
+    ar: 'حفظ المسودة «{subject}» إلى {recipients} — لن يُرسل شيء.',
+  },
+  'approval.eventCreate': {
+    en: 'Add “{title}” to your calendar.',
+    de: '„{title}“ in deinen Kalender eintragen.',
+    ar: 'إضافة «{title}» إلى تقويمك.',
+  },
+  'approval.eventInvite': {
+    en: 'Add “{title}” to your calendar and invite {recipients}.',
+    de: '„{title}“ in deinen Kalender eintragen und {recipients} einladen.',
+    ar: 'إضافة «{title}» إلى تقويمك ودعوة {recipients}.',
+  },
+  'approval.eventUpdate': {
+    en: 'Change “{title}” in your calendar.',
+    de: '„{title}“ in deinem Kalender ändern.',
+    ar: 'تعديل «{title}» في تقويمك.',
+  },
+  'approval.eventCancel': {
+    en: 'Cancel “{title}” in your calendar.',
+    de: '„{title}“ in deinem Kalender absagen.',
+    ar: 'إلغاء «{title}» من تقويمك.',
+  },
+  'approval.booking': {
+    en: 'Book {service} on {site}.',
+    de: '{service} auf {site} buchen.',
+    ar: 'حجز {service} على {site}.',
+  },
+  'approval.formSubmission': {
+    en: 'Submit the form on {site}.',
+    de: 'Das Formular auf {site} absenden.',
+    ar: 'إرسال النموذج على {site}.',
+  },
+  'approval.cart': {
+    en: 'Put the items in a cart on {site} — nothing is bought.',
+    de: 'Die Artikel auf {site} in den Warenkorb legen – es wird nichts gekauft.',
+    ar: 'وضع المنتجات في سلة التسوق على {site} — لن يُشترى شيء.',
+  },
+  'approval.purchase': {
+    en: 'Buy for {total} from {merchant}.',
+    de: 'Für {total} bei {merchant} kaufen.',
+    ar: 'الشراء بمبلغ {total} من {merchant}.',
+  },
+  'result.draftCreated': {
+    en: 'Saved the draft “{subject}”.',
+    de: 'Entwurf „{subject}“ gespeichert.',
+    ar: 'تم حفظ المسودة «{subject}».',
+  },
+  'result.watchingReplies': {
+    en: 'Watching “{subject}” for replies.',
+    de: '„{subject}“ wird auf Antworten beobachtet.',
+    ar: 'تتم متابعة الردود على «{subject}».',
+  },
+  'result.eventCreated': {
+    en: 'Added “{title}” to your calendar.',
+    de: '„{title}“ in deinen Kalender eingetragen.',
+    ar: 'تمت إضافة «{title}» إلى تقويمك.',
+  },
+  'result.eventUpdated': {
+    en: 'Changed “{title}” in your calendar.',
+    de: '„{title}“ in deinem Kalender geändert.',
+    ar: 'تم تعديل «{title}» في تقويمك.',
+  },
+  'result.eventCancelled': {
+    en: 'Cancelled “{title}”.',
+    de: '„{title}“ abgesagt.',
+    ar: 'تم إلغاء «{title}».',
+  },
+  'result.booked': {
+    en: 'Booked {service} on {site} (reference {reference}).',
+    de: '{service} auf {site} gebucht (Referenz {reference}).',
+    ar: 'تم حجز {service} على {site} (المرجع {reference}).',
+  },
+  'result.formSubmitted': {
+    en: 'Submitted the form on {site}.',
+    de: 'Formular auf {site} abgesendet.',
+    ar: 'تم إرسال النموذج على {site}.',
+  },
+  'result.cartPrepared': {
+    en: 'The cart on {site} is ready — nothing was bought.',
+    de: 'Der Warenkorb auf {site} ist bereit – es wurde nichts gekauft.',
+    ar: 'سلة التسوق على {site} جاهزة — لم يُشترَ شيء.',
+  },
+  'result.orderPlaced': {
+    en: 'Ordered from {merchant} (order {orderId}).',
+    de: 'Bei {merchant} bestellt (Bestellung {orderId}).',
+    ar: 'تم الطلب من {merchant} (الطلب {orderId}).',
+  },
+  'question.dateTime': {
+    en: 'When should it be? For example: Tuesday from 10:00 to 11:00.',
+    de: 'Wann soll es sein? Zum Beispiel: Dienstag von 10:00 bis 11:00.',
+    ar: 'متى ينبغي أن يكون؟ على سبيل المثال: الثلاثاء من 10:00 إلى 11:00.',
+  },
+  'question.contactDetails': {
+    en: 'Which details should I give the site? For example your phone number.',
+    de: 'Welche Angaben soll ich der Website geben? Zum Beispiel deine Telefonnummer.',
+    ar: 'ما البيانات التي ينبغي أن أقدمها للموقع؟ على سبيل المثال رقم هاتفك.',
+  },
+  'question.product': {
+    en: 'Which product do you mean? Name the model or paste its link.',
+    de: 'Welches Produkt meinst du? Nenne das Modell oder füge den Link ein.',
+    ar: 'أي منتج تقصد؟ اذكر الطراز أو الصق رابطه.',
+  },
+  'question.site': {
+    en: 'Where should I look? Name one of the supported sites.',
+    de: 'Wo soll ich nachsehen? Nenne eine der unterstützten Websites.',
+    ar: 'أين ينبغي أن أبحث؟ اذكر أحد المواقع المدعومة.',
+  },
 } satisfies Record<ServerMessageKey, Dict>;
 
 const CONTENT = {

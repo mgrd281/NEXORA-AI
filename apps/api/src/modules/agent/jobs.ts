@@ -14,6 +14,7 @@ import { handleExecuteJob, taskStatus } from './executor';
 import { handleRetentionJob } from './jobs/retention';
 import { handleScheduleRunJob, onScheduleRunDead } from './jobs/schedule-run';
 import { handleWebhookDeliverJob, onWebhookDeliverDead } from './jobs/webhook-deliver';
+import { integrationJobs } from './jobs/integrations';
 import { handlePlanJob, type JobOutcome } from './plan-job';
 import type { RuntimeDeps } from './runtime';
 import { failTask, tryLockTask } from './task-state';
@@ -70,6 +71,13 @@ export async function runJob(deps: RuntimeDeps, job: JobRow): Promise<JobOutcome
       return handleRetentionJob(deps, job);
     case 'webhook.deliver':
       return handleWebhookDeliverJob(deps, job);
+    default: {
+      // Phase C: the integrations domain's kinds (modules/agent/jobs/integrations).
+      const handler = integrationJobs.handlers[job.kind];
+      if (handler) return handler.run(deps, job);
+      // browser.* jobs belong to the browser worker; the agent worker never leases them.
+      throw new Error(`the agent worker has no handler for job kind ${job.kind}`);
+    }
   }
 }
 
@@ -81,6 +89,8 @@ export async function runJob(deps: RuntimeDeps, job: JobRow): Promise<JobOutcome
 export async function onJobDead(deps: RuntimeDeps, job: JobRow): Promise<void> {
   if (job.kind === 'schedule.run') return onScheduleRunDead(deps, job);
   if (job.kind === 'webhook.deliver') return onWebhookDeliverDead(deps, job);
+  const domain = integrationJobs.handlers[job.kind];
+  if (domain) return domain.onDead?.(deps, job);
   if (!job.task_id || job.kind === 'approval.expire' || job.kind === 'retention.sweep') return;
   const ctx = ctxOf(job);
   const taskId = job.task_id;

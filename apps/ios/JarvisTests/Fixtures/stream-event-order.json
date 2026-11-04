@@ -1,0 +1,11 @@
+{
+  "id": "4211",
+  "type": "order.changed",
+  "taskId": null,
+  "at": "2026-11-04T09:14:30.000Z",
+  "data": {
+    "orderId": "f2a9b0d1-c0d3-4de5-9f12-1b987654322c",
+    "taskId": "c3e4f5a6-7d8f-4a9b-8c1d-2e3f4a5b6c73",
+    "status": "placed"
+  }
+}

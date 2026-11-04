@@ -215,6 +215,125 @@ enum ServerMessageText {
             text = String(localized: "server.question.previousResult", defaultValue: "There is no earlier result in this conversation I could use. What should I send or save?")
         case "question.details":
             text = String(localized: "server.question.details", defaultValue: "Can you tell me more about what you need?")
+        // Phase C: email, calendars, booking, browser agent, shopping
+        case "plan.emailUnread":
+            text = String(localized: "server.plan.emailUnread", defaultValue: "Summarize your unread emails")
+        case "plan.emailNeedsReply":
+            text = String(localized: "server.plan.emailNeedsReply", defaultValue: "Find emails waiting for your reply")
+        case "plan.draftReply":
+            text = String(localized: "server.plan.draftReply", defaultValue: "Draft a reply to \(p.name)")
+        case "plan.calendarUpcoming":
+            text = String(localized: "server.plan.calendarUpcoming", defaultValue: "Check your upcoming events")
+        case "plan.findMeetingTime":
+            text = String(localized: "server.plan.findMeetingTime", defaultValue: "Find a time to meet \(p.who)")
+        case "plan.findSlots":
+            text = String(localized: "server.plan.findSlots", defaultValue: "Find free appointments on \(p.site)")
+        case "plan.book":
+            text = String(localized: "server.plan.book", defaultValue: "Book \(p.service) on \(p.site)")
+        case "plan.compareProducts":
+            text = String(localized: "server.plan.compareProducts", defaultValue: "Compare offers for \(p.query)")
+        case "plan.buy":
+            text = String(localized: "server.plan.buy", defaultValue: "Buy \(p.product) on \(p.site)")
+        case "objective.emailUnread":
+            text = String(localized: "server.objective.emailUnread", defaultValue: "Read your unread emails and summarize them.")
+        case "objective.emailNeedsReply":
+            text = String(localized: "server.objective.emailNeedsReply", defaultValue: "List the conversations whose newest message is waiting for your reply.")
+        case "objective.draftReply":
+            text = String(localized: "server.objective.draftReply", defaultValue: "Write a reply to \(p.name) and save it as a draft — nothing is sent.")
+        case "objective.calendarUpcoming":
+            text = String(localized: "server.objective.calendarUpcoming", defaultValue: "Read the next events in your calendar.")
+        case "objective.findMeetingTime":
+            text = String(localized: "server.objective.findMeetingTime", defaultValue: "Find times when you and \(p.who) are free.")
+        case "objective.findSlots":
+            text = String(localized: "server.objective.findSlots", defaultValue: "Read the free appointments \(p.site) offers right now.")
+        case "objective.book":
+            text = String(localized: "server.objective.book", defaultValue: "Book \(p.service) on \(p.site) once you approve, and keep the confirmation.")
+        case "objective.compareProducts":
+            text = String(localized: "server.objective.compareProducts", defaultValue: "Compare prices, shipping and delivery times for \(p.query) on the supported shops.")
+        case "objective.buy":
+            text = String(localized: "server.objective.buy", defaultValue: "Order \(p.product) on \(p.site) once you approve the exact total.")
+        case "step.searchEmail":
+            text = String(localized: "server.step.searchEmail", defaultValue: "Search your mailbox")
+        case "step.readThreads":
+            text = String(localized: "server.step.readThreads", defaultValue: "Read the emails")
+        case "step.summarizeEmail":
+            text = String(localized: "server.step.summarizeEmail", defaultValue: "Summarize the emails")
+        case "step.draftReply":
+            text = String(localized: "server.step.draftReply", defaultValue: "Draft the reply to \(p.name)")
+        case "step.trackReplies":
+            text = String(localized: "server.step.trackReplies", defaultValue: "Watch for a reply")
+        case "step.listEvents":
+            text = String(localized: "server.step.listEvents", defaultValue: "Read your calendar")
+        case "step.freeBusy":
+            text = String(localized: "server.step.freeBusy", defaultValue: "Find free times")
+        case "step.createEvent":
+            text = String(localized: "server.step.createEvent", defaultValue: "Create “\(p.title)”")
+        case "step.updateEvent":
+            text = String(localized: "server.step.updateEvent", defaultValue: "Change “\(p.title)”")
+        case "step.cancelEvent":
+            text = String(localized: "server.step.cancelEvent", defaultValue: "Cancel “\(p.title)”")
+        case "step.saveToCalendar":
+            text = String(localized: "server.step.saveToCalendar", defaultValue: "Add it to your calendar")
+        case "step.findSlots":
+            text = String(localized: "server.step.findSlots", defaultValue: "Read free appointments on \(p.site)")
+        case "step.book":
+            text = String(localized: "server.step.book", defaultValue: "Book on \(p.site)")
+        case "step.readSite":
+            text = String(localized: "server.step.readSite", defaultValue: "Read \(p.site)")
+        case "step.fillForm":
+            text = String(localized: "server.step.fillForm", defaultValue: "Fill in the form on \(p.site)")
+        case "step.searchShops":
+            text = String(localized: "server.step.searchShops", defaultValue: "Search shops for \(p.query)")
+        case "step.compareOffers":
+            text = String(localized: "server.step.compareOffers", defaultValue: "Compare the offers")
+        case "step.prepareCart":
+            text = String(localized: "server.step.prepareCart", defaultValue: "Fill the cart on \(p.site)")
+        case "step.checkout":
+            text = String(localized: "server.step.checkout", defaultValue: "Place the order on \(p.site)")
+        case "approval.emailDraft":
+            text = String(localized: "server.approval.emailDraft", defaultValue: "Save the draft “\(p.subject)” to \(p.recipients) — nothing is sent.")
+        case "approval.eventCreate":
+            text = String(localized: "server.approval.eventCreate", defaultValue: "Add “\(p.title)” to your calendar.")
+        case "approval.eventInvite":
+            text = String(localized: "server.approval.eventInvite", defaultValue: "Add “\(p.title)” to your calendar and invite \(p.recipients).")
+        case "approval.eventUpdate":
+            text = String(localized: "server.approval.eventUpdate", defaultValue: "Change “\(p.title)” in your calendar.")
+        case "approval.eventCancel":
+            text = String(localized: "server.approval.eventCancel", defaultValue: "Cancel “\(p.title)” in your calendar.")
+        case "approval.booking":
+            text = String(localized: "server.approval.booking", defaultValue: "Book \(p.service) on \(p.site).")
+        case "approval.formSubmission":
+            text = String(localized: "server.approval.formSubmission", defaultValue: "Submit the form on \(p.site).")
+        case "approval.cart":
+            text = String(localized: "server.approval.cart", defaultValue: "Put the items in a cart on \(p.site) — nothing is bought.")
+        case "approval.purchase":
+            text = String(localized: "server.approval.purchase", defaultValue: "Buy for \(p.total) from \(p.merchant).")
+        case "result.draftCreated":
+            text = String(localized: "server.result.draftCreated", defaultValue: "Saved the draft “\(p.subject)”.")
+        case "result.watchingReplies":
+            text = String(localized: "server.result.watchingReplies", defaultValue: "Watching “\(p.subject)” for replies.")
+        case "result.eventCreated":
+            text = String(localized: "server.result.eventCreated", defaultValue: "Added “\(p.title)” to your calendar.")
+        case "result.eventUpdated":
+            text = String(localized: "server.result.eventUpdated", defaultValue: "Changed “\(p.title)” in your calendar.")
+        case "result.eventCancelled":
+            text = String(localized: "server.result.eventCancelled", defaultValue: "Cancelled “\(p.title)”.")
+        case "result.booked":
+            text = String(localized: "server.result.booked", defaultValue: "Booked \(p.service) on \(p.site) (reference \(p.reference)).")
+        case "result.formSubmitted":
+            text = String(localized: "server.result.formSubmitted", defaultValue: "Submitted the form on \(p.site).")
+        case "result.cartPrepared":
+            text = String(localized: "server.result.cartPrepared", defaultValue: "The cart on \(p.site) is ready — nothing was bought.")
+        case "result.orderPlaced":
+            text = String(localized: "server.result.orderPlaced", defaultValue: "Ordered from \(p.merchant) (order \(p.orderId)).")
+        case "question.dateTime":
+            text = String(localized: "server.question.dateTime", defaultValue: "When should it be? For example: Tuesday from 10:00 to 11:00.")
+        case "question.contactDetails":
+            text = String(localized: "server.question.contactDetails", defaultValue: "Which details should I give the site? For example your phone number.")
+        case "question.product":
+            text = String(localized: "server.question.product", defaultValue: "Which product do you mean? Name the model or paste its link.")
+        case "question.site":
+            text = String(localized: "server.question.site", defaultValue: "Where should I look? Name one of the supported sites.")
         default:
             return nil
         }
@@ -247,6 +366,8 @@ final class ServerMessageParams {
         case .text(let text):
             if name == "tool", let tool = ToolId(rawValue: text), tool != .unknown { return tool.label }
             if name == "skill", let skill = SkillId(rawValue: text), skill != .unknown { return skill.name }
+            // Money parameters ("USD 129.99") in the app's locale.
+            if name == "total", let money = Money(param: text) { return money.formatted }
             return text
         case .number(let number):
             return Self.format(number)

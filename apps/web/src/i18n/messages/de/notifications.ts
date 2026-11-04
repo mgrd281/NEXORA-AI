@@ -19,6 +19,8 @@ const notifications: Catalog<typeof source> = {
     schedule_paused:
       '{reason, select, budget {„{scheduleTitle}“ pausiert: Das KI-Budget für diesen Monat ist aufgebraucht} other {„{scheduleTitle}“ nach wiederholten Fehlern pausiert}}',
     webhook_disabled: 'Webhook an {endpointHost} nach wiederholten Zustellfehlern ausgeschaltet',
+    connection_expired: 'Deine Verbindung zu {provider} ist abgelaufen: Verbinde sie neu',
+    email_reply_received: '{fromAddress} hat auf „{subject}“ geantwortet',
   },
   kindsUntitled: {
     approval_requested: 'Eine Aufgabe wartet auf Freigabe',
@@ -28,6 +30,8 @@ const notifications: Catalog<typeof source> = {
     schedule_failed: 'Eine geplante Ausführung ist fehlgeschlagen',
     schedule_paused: 'Ein Zeitplan wurde pausiert',
     webhook_disabled: 'Ein Webhook-Endpunkt wurde nach wiederholten Zustellfehlern ausgeschaltet',
+    connection_expired: 'Eine Verbindung ist abgelaufen: Verbinde sie neu',
+    email_reply_received: 'In einer beobachteten Unterhaltung ist eine Antwort eingegangen',
   },
 };
 

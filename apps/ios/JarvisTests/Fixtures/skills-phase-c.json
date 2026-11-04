@@ -1,0 +1,69 @@
+{
+  "items": [
+    {
+      "id": "email-management",
+      "version": "2.0.0",
+      "status": "needs_connection",
+      "enabled": true,
+      "canToggle": true,
+      "available": false,
+      "unavailableReason": "CONNECTION_REQUIRED",
+      "tools": [
+        "email.send",
+        "email.search",
+        "email.read_thread",
+        "email.draft_reply",
+        "email.track_replies"
+      ],
+      "plannedTools": [],
+      "permissions": [
+        "email:read",
+        "email:send"
+      ],
+      "maxRisk": "HIGH",
+      "requiredConnections": [],
+      "connectionOptions": [
+        {
+          "provider": "smtp"
+        },
+        {
+          "provider": "google",
+          "capability": "mail.read"
+        },
+        {
+          "provider": "microsoft",
+          "capability": "mail.read"
+        }
+      ],
+      "modelUse": "optional",
+      "maxCostPerRunMicroUsd": null,
+      "docsPath": "docs/skills/email-management.md"
+    },
+    {
+      "id": "shopping-assistant",
+      "version": "1.0.0",
+      "status": "implemented",
+      "enabled": true,
+      "canToggle": true,
+      "available": false,
+      "unavailableReason": "BROWSER_UNAVAILABLE",
+      "tools": [
+        "shop.search",
+        "shop.compare",
+        "shop.prepare_cart",
+        "shop.checkout"
+      ],
+      "plannedTools": [],
+      "permissions": [
+        "web:read",
+        "commerce:purchase"
+      ],
+      "maxRisk": "HIGH",
+      "requiredConnections": [],
+      "connectionOptions": [],
+      "modelUse": "none",
+      "maxCostPerRunMicroUsd": null,
+      "docsPath": "docs/skills/shopping-assistant.md"
+    }
+  ]
+}

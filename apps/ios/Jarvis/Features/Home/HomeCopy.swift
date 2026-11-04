@@ -9,6 +9,8 @@ enum HomeCopy {
         let command: String?
         /// Whether the suggestion leads to Settings in this app.
         let opensSettings: Bool
+        /// Whether the suggestion leads to Connections (Phase C: Google / Microsoft connect here).
+        var opensConnections = false
     }
 
     static func suggestion(_ suggestion: Suggestion) -> SuggestionText? {
@@ -21,9 +23,10 @@ enum HomeCopy {
             )
         case "suggest.connectEmail":
             SuggestionText(
-                message: String(localized: "No working mailbox is connected, so JARVIS can't send email yet. Connect one in JARVIS on the web."),
+                message: String(localized: "No working mailbox is connected, so JARVIS can't send email yet. Connect Google or Microsoft in Connections, or an SMTP mailbox on the web."),
                 command: nil,
-                opensSettings: true
+                opensSettings: false,
+                opensConnections: true
             )
         case "suggest.configureModel":
             SuggestionText(

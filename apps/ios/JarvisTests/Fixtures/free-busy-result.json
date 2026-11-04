@@ -1,0 +1,33 @@
+{
+  "timeMin": "2026-11-10T07:00:00.000Z",
+  "timeMax": "2026-11-10T17:00:00.000Z",
+  "timeZone": "Europe/Berlin",
+  "durationMinutes": 30,
+  "calendars": [
+    {
+      "email": "ada@gmail.example",
+      "accessible": true,
+      "busy": [
+        {
+          "start": "2026-11-10T08:00:00.000Z",
+          "end": "2026-11-10T09:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "email": "lin@example.org",
+      "accessible": false,
+      "busy": []
+    }
+  ],
+  "slots": [
+    {
+      "start": "2026-11-10T09:00:00.000Z",
+      "end": "2026-11-10T09:30:00.000Z"
+    },
+    {
+      "start": "2026-11-10T09:15:00.000Z",
+      "end": "2026-11-10T09:45:00.000Z"
+    }
+  ]
+}

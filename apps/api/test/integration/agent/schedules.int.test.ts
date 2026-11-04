@@ -354,7 +354,9 @@ describe('budget', () => {
       now: () => clock,
     });
     try {
-      const user = await newUser(hk.db, { spending: { monthlyAiBudgetUsd: 1 } });
+      const user = await newUser(hk.db, {
+        spending: { monthlyAiBudgetUsd: 1, monthlyPurchaseLimitUsd: 0 },
+      });
       await withContext(hk.db, user, async (trx) => {
         await trx
           .updateTable('users')

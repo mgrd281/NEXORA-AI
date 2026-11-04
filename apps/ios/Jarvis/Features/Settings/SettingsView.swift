@@ -17,22 +17,33 @@ struct SettingsView: View {
                             .listRowInsets(EdgeInsets())
                     }
                 }
-                accountSection
-                languageSection
-                appearanceSection
-                voiceSection
-                autonomySection
-                assistantSection
-                privacySection
-                connectionsSection
-                securitySection
-                aboutSection
+                // Grouped so no builder block has more than ten children.
+                Group {
+                    accountSection
+                    languageSection
+                    appearanceSection
+                    voiceSection
+                    autonomySection
+                }
+                Group {
+                    assistantSection
+                    connectionsSection
+                    spendingSection
+                    privacySection
+                    securitySection
+                    aboutSection
+                }
             }
             .scrollContentBackground(.hidden)
             .background(MeridianColor.canvas)
             .navigationTitle(Text("Settings"))
             .jarvisDestinations()
             .task { await load() }
+            .task {
+                for await event in app.live.updates() where event.type == .connectionChanged {
+                    await model.loadConnections(api: app.api)
+                }
+            }
             .refreshable { await refresh() }
             .onChange(of: app.me) { _, me in model.sync(from: me) }
             .onChange(of: model.theme) { _, _ in save() }
@@ -194,23 +205,66 @@ struct SettingsView: View {
 
     private var connectionsSection: some View {
         Section {
-            if let error = model.connectionsError {
-                Text(error)
-                    .foregroundStyle(MeridianColor.danger)
-            } else if model.connectionsLoaded, model.connections.isEmpty {
-                Text("No services connected.")
-                    .foregroundStyle(MeridianColor.textSecondary)
-            } else if !model.connectionsLoaded {
-                ProgressView()
+            NavigationLink(value: ConnectionsRoute()) {
+                HStack(spacing: MeridianSpace.s2) {
+                    Label("Connected services", systemImage: MeridianIcon.connections)
+                    Spacer(minLength: MeridianSpace.s2)
+                    connectionsSummary
+                }
             }
-            ForEach(model.connections) { connection in
-                ConnectionRow(connection: connection)
+            NavigationLink(value: EmailWatchesRoute()) {
+                Label("Reply tracking", systemImage: "eye")
             }
         } header: {
             Text("Connections")
         } footer: {
-            Text("Connect or change services in JARVIS on the web. Credentials are never shown here.")
+            Text("Connect Google or Microsoft here. Email over SMTP and web access are set up in JARVIS on the web. Credentials are never shown.")
         }
+    }
+
+    @ViewBuilder
+    private var connectionsSummary: some View {
+        if let error = model.connectionsError {
+            Image(systemName: "exclamationmark.triangle")
+                .foregroundStyle(MeridianColor.danger)
+                .accessibilityLabel(Text(error))
+        } else if model.connectionsLoaded {
+            let expired = model.connections.filter(\.needsReconnect).count
+            if expired > 0 {
+                ToneBadge(label: String(localized: "Reconnect needed"), systemImage: "exclamationmark.triangle", tone: .warning)
+            } else {
+                Text(model.connections.count.formatted())
+                    .foregroundStyle(MeridianColor.textSecondary)
+                    .accessibilityLabel(Text("Connected: \(model.connections.count.formatted())"))
+            }
+        }
+    }
+
+    private var spendingSection: some View {
+        Section {
+            NavigationLink(value: SpendingRoute()) {
+                LabeledContent {
+                    Text(purchaseLimitText)
+                } label: {
+                    Label("Purchase limit", systemImage: "creditcard")
+                }
+            }
+            NavigationLink(value: OrdersRoute()) {
+                Label("Orders", systemImage: "bag")
+            }
+            NavigationLink(value: BookingsRoute()) {
+                Label("Bookings", systemImage: "calendar.badge.checkmark")
+            }
+        } header: {
+            Text("Spending")
+        } footer: {
+            Text("Purchases are off until you set a monthly limit. Every purchase still asks you first.")
+        }
+    }
+
+    private var purchaseLimitText: String {
+        let limit = app.me?.preferences.spending.monthlyPurchaseLimitUsd ?? 0
+        return limit > 0 ? SpendingModel.usd(limit) : String(localized: "Purchases off")
     }
 
     private var securitySection: some View {
@@ -302,33 +356,5 @@ struct SettingsView: View {
         await app.refreshMe()
         model.sync(from: app.me)
         await model.loadConnections(api: app.api)
-    }
-}
-
-private struct ConnectionRow: View {
-    let connection: Connection
-
-    var body: some View {
-        HStack(alignment: .top, spacing: MeridianSpace.s3) {
-            Image(systemName: connection.provider.icon)
-                .foregroundStyle(MeridianColor.textSecondary)
-                .frame(width: 24)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: MeridianSpace.s1) {
-                Text(connection.label)
-                    .meridianFont(.bodyStrong)
-                Text(connection.accountIdentifier ?? connection.provider.label)
-                    .meridianFont(.caption)
-                    .foregroundStyle(MeridianColor.textSecondary)
-                if connection.status == .error, let lastError = connection.lastError {
-                    Text(lastError)
-                        .meridianFont(.caption)
-                        .foregroundStyle(MeridianColor.danger)
-                }
-            }
-            Spacer(minLength: MeridianSpace.s2)
-            ToneBadge(label: connection.status.label, systemImage: connection.status == .active ? "checkmark" : "exclamationmark", tone: connection.status.tone)
-        }
-        .accessibilityElement(children: .combine)
     }
 }

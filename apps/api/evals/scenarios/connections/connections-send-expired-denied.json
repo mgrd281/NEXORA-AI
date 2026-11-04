@@ -1,0 +1,22 @@
+{
+  "id": "connections-send-expired-denied",
+  "version": 1,
+  "suite": "connections",
+  "title": "Sending through an expired Google account is denied before anything is sent",
+  "modes": ["offline"],
+  "given": {
+    "request": "Email me: the report is ready",
+    "connections": ["web", "google"],
+    "connectionStatus": {
+      "google": "expired"
+    },
+    "connectionCapabilities": {
+      "google": ["mail.send"]
+    }
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "CONNECTION_EXPIRED",
+    "sideEffectsAtMost": 0
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "id": "a3b0c1e2-d1e4-4ef6-8a23-2c987654323d",
+  "taskId": "e5a6b7c8-9f0b-4c1d-8e3f-4a5b6c7d8e95",
+  "siteId": "fixture-booking",
+  "siteName": "Fixture Dental",
+  "siteHost": "booking.fixture.test",
+  "service": "Check-up",
+  "status": "confirmed",
+  "start": "2026-11-10T08:30:00.000Z",
+  "end": "2026-11-10T09:00:00.000Z",
+  "timeZone": "Europe/Berlin",
+  "reference": "FD-7Q2K",
+  "price": {
+    "amountMicro": 0,
+    "currency": "USD"
+  },
+  "binding": true,
+  "calendarEventId": "evt-dentist-1110",
+  "failureReason": null,
+  "evidence": [
+    {
+      "id": "d0e7f8b9-aeb1-4bc3-9def-f9876543220a",
+      "kind": "screenshot",
+      "mediaType": "image/png",
+      "sizeBytes": 48211,
+      "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "pageUrl": "https://booking.fixture.test/booking/confirmation/FD-7Q2K",
+      "taskId": "e5a6b7c8-9f0b-4c1d-8e3f-4a5b6c7d8e95",
+      "browserSessionId": null,
+      "downloadPath": "/v1/evidence/d0e7f8b9-aeb1-4bc3-9def-f9876543220a/content",
+      "createdAt": "2026-11-04T09:12:03.000Z"
+    },
+    {
+      "id": "e1f8a9c0-bfc2-4cd4-8ef1-0a987654321b",
+      "kind": "ics",
+      "mediaType": "text/calendar",
+      "sizeBytes": 812,
+      "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "pageUrl": null,
+      "taskId": "e5a6b7c8-9f0b-4c1d-8e3f-4a5b6c7d8e95",
+      "browserSessionId": null,
+      "downloadPath": "/v1/evidence/e1f8a9c0-bfc2-4cd4-8ef1-0a987654321b/content",
+      "createdAt": "2026-11-04T09:12:03.000Z"
+    }
+  ],
+  "createdAt": "2026-11-04T10:00:00.000Z",
+  "updatedAt": "2026-11-04T10:00:40.000Z"
+}

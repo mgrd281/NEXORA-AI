@@ -1,6 +1,7 @@
 'use client';
 
 import type { Notification } from '@jarvis/contracts';
+import { ConnectionProvider } from '@jarvis/contracts';
 import type { LucideIcon } from 'lucide-react';
 import {
   BellOff,
@@ -9,6 +10,7 @@ import {
   CircleCheck,
   CirclePause,
   Hand,
+  MailCheck,
   PlugZap,
   Webhook,
 } from 'lucide-react';
@@ -20,6 +22,7 @@ import { Icon } from '@/components/ui/Icon';
 import { RelativeTime } from '@/components/ui/RelativeTime';
 import { SkeletonRow } from '@/components/ui/Skeleton';
 import { useI18n } from '@/i18n/I18nProvider';
+import { PROVIDER_NAME } from '@/i18n/server-message';
 import type { TranslateFn } from '@/i18n/translate';
 import { useMarkNotificationsRead, useNotifications } from '@/lib/api/hooks';
 import { cx } from '@/lib/cx';
@@ -33,13 +36,17 @@ const KIND_ICON: Record<Notification['kind'], { icon: LucideIcon; tone: string }
   schedule_failed: { icon: CalendarX, tone: styles.danger ?? '' },
   schedule_paused: { icon: CirclePause, tone: styles.warning ?? '' },
   webhook_disabled: { icon: Webhook, tone: styles.danger ?? '' },
+  connection_expired: { icon: PlugZap, tone: styles.warning ?? '' },
+  email_reply_received: { icon: MailCheck, tone: styles.success ?? '' },
 };
 
 function hrefFor(n: Notification): string {
-  if (n.kind === 'connection_error') return '/connections';
+  if (n.kind === 'connection_error' || n.kind === 'connection_expired') return '/connections';
   if (n.kind === 'webhook_disabled') return '/connections#developer';
   if (n.kind === 'schedule_paused') return '/tasks/scheduled';
   if (n.kind === 'schedule_failed' && !n.taskId) return '/tasks/scheduled';
+  // A reply arrived in a watched thread: the watch list, unless the watch came from a task.
+  if (n.kind === 'email_reply_received' && !n.taskId) return '/settings#replies';
   return n.taskId ? `/tasks/${n.taskId}` : '/tasks';
 }
 
@@ -62,6 +69,19 @@ function notificationMessage(t: TranslateFn, n: Notification): string {
       return d.endpointHost
         ? t('notifications.kinds.webhook_disabled', { endpointHost: d.endpointHost })
         : t('notifications.kindsUntitled.webhook_disabled');
+    case 'connection_expired': {
+      const provider = ConnectionProvider.safeParse(d.provider);
+      return provider.success
+        ? t('notifications.kinds.connection_expired', { provider: PROVIDER_NAME[provider.data] })
+        : t('notifications.kindsUntitled.connection_expired');
+    }
+    case 'email_reply_received':
+      return d.subject && d.fromAddress
+        ? t('notifications.kinds.email_reply_received', {
+            subject: d.subject,
+            fromAddress: d.fromAddress,
+          })
+        : t('notifications.kindsUntitled.email_reply_received');
     case 'approval_requested':
     case 'task_completed':
     case 'task_failed':

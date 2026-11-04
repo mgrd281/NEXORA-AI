@@ -1,0 +1,33 @@
+{
+  "id": "email-unread-summary-en",
+  "version": 1,
+  "suite": "email",
+  "title": "Summarize unread email: search, read, summarize — all read-only, nothing asks",
+  "modes": ["offline"],
+  "given": {
+    "request": "Summarize my unread emails",
+    "connections": ["web", "google"],
+    "connectionCapabilities": {
+      "google": ["mail.read", "mail.compose", "mail.send"]
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["email.search", "email.read_thread", "text.summarize"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "allow"
+      },
+      {
+        "step": 1,
+        "decision": "allow"
+      },
+      {
+        "step": 2,
+        "decision": "allow"
+      }
+    ],
+    "sideEffectsAtMost": 0
+  }
+}

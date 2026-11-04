@@ -126,6 +126,8 @@ export type EvidenceView =
   | { kind: 'recalled'; taskId: string }
   /** assistant.clarify asked for missing information. */
   | { kind: 'question'; missing: MissingInfo[] }
+  /** Phase C: a provider call, a browser capture or a record (rendered from its code + params). */
+  | { kind: 'phaseC'; code: PhaseCEvidenceCode; params: Record<string, string | number> }
   | { kind: 'record' | 'note'; label: string; value: string };
 
 /** Only http(s) URLs become links (never javascript:, data: …). */
@@ -238,8 +240,31 @@ function evidenceFromCode(code: EvidenceCode, p: EvidenceParams): EvidenceView |
     }
     case 'QUESTION_ASKED':
       return { kind: 'question', missing: parseMissing(p.missing) };
+    default:
+      return (PHASE_C_EVIDENCE as readonly string[]).includes(code)
+        ? { kind: 'phaseC', code: code as PhaseCEvidenceCode, params: p }
+        : null;
   }
 }
+
+/** Evidence codes of the Phase C tools (contracts EvidenceCode doc: params per code). */
+export const PHASE_C_EVIDENCE = [
+  'PROVIDER_RESPONSE',
+  'MAIL_SEARCH',
+  'MAIL_SENT',
+  'MAIL_DRAFT',
+  'EMAIL_WATCH',
+  'CALENDAR_EVENT',
+  'FREE_BUSY',
+  'SCREENSHOT',
+  'PAGE_EXTRACT',
+  'ICS_FILE',
+  'BOOKING_CONFIRMATION',
+  'ORDER_CONFIRMATION',
+  'CART_SNAPSHOT',
+  'HANDOVER',
+] as const satisfies readonly EvidenceCode[];
+export type PhaseCEvidenceCode = (typeof PHASE_C_EVIDENCE)[number];
 
 /** "email_content,recipient" (QUESTION_ASKED) → the known MissingInfo values, in order. */
 export function parseMissing(raw: unknown): MissingInfo[] {
@@ -322,6 +347,10 @@ export function parseEvidence(e: Evidence): EvidenceView {
     }
     case 'record':
       return { kind: e.kind, label: e.label, value: e.value };
+    // Phase C evidence without a dedicated view yet: shown as recorded (label and value).
+    case 'provider_response':
+    case 'browser_capture':
+      return { kind: 'record', label: e.label, value: e.value };
   }
 }
 

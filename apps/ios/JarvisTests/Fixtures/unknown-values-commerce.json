@@ -1,0 +1,55 @@
+{
+  "id": "f2a9b0d1-c0d3-4de5-9f12-1b987654322c",
+  "taskId": "c3e4f5a6-7d8f-4a9b-8c1d-2e3f4a5b6c73",
+  "siteId": "fixture-shop",
+  "merchantName": "Fixture Kitchen Supply",
+  "merchantHost": "shop.fixture.test",
+  "status": "refunded",
+  "items": [
+    {
+      "title": "Ceramic pour-over kettle 1.2 l",
+      "quantity": 2,
+      "unitPrice": {
+        "amountMicro": 24990000,
+        "currency": "USD"
+      },
+      "lineTotal": {
+        "amountMicro": 49980000,
+        "currency": "USD"
+      },
+      "productUrl": "https://shop.fixture.test/shop/products/KET-12"
+    }
+  ],
+  "subtotal": {
+    "amountMicro": 49980000,
+    "currency": "USD"
+  },
+  "shipping": {
+    "amountMicro": 4500000,
+    "currency": "USD"
+  },
+  "tax": null,
+  "total": {
+    "amountMicro": 54480000,
+    "currency": "USD"
+  },
+  "merchantOrderId": "FX-100231",
+  "placedAt": "2026-11-04T09:14:30.000Z",
+  "failureReason": "CARD_DECLINED",
+  "evidence": [
+    {
+      "id": "bec5d6f7-8c9e-4fa1-9bcd-def76543218e",
+      "kind": "video",
+      "mediaType": "video/mp4",
+      "sizeBytes": 48211,
+      "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "pageUrl": null,
+      "taskId": "c3e4f5a6-7d8f-4a9b-8c1d-2e3f4a5b6c73",
+      "browserSessionId": "fca3b4d5-6a7c-4d8e-9fab-bcdef543216c",
+      "downloadPath": "/v1/evidence/bec5d6f7-8c9e-4fa1-9bcd-def76543218e/content",
+      "createdAt": "2026-11-04T09:12:03.000Z"
+    }
+  ],
+  "createdAt": "2026-11-04T09:14:00.000Z",
+  "updatedAt": "2026-11-04T09:14:30.000Z"
+}

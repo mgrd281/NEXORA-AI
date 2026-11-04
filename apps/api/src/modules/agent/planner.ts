@@ -13,6 +13,7 @@ import type { PriorTurn } from './conversation-context';
 import { AgentError } from './errors';
 import type { ModelAdapter, ModelUsage } from './models/adapter';
 import { planOffline, type PlanningAttachment } from './models/offline';
+import type { ConnectionState } from './tools/types';
 import { selectModel, type ModelRoute } from './models/router';
 import { MAX_STEPS, validatePlan, type Plan } from './plan';
 import { inputJsonSchema, TOOLS } from './tools/registry';
@@ -33,6 +34,10 @@ export interface PlanningInput {
   conversation?: readonly PriorTurn[];
   /** Phase B: files of the conversation (ids, names as data, sizes). */
   attachments?: readonly PlanningAttachment[];
+  /** Phase C: the user's connections (no secrets): offline intents and tool.bind use them. */
+  connections?: readonly ConnectionState[];
+  /** Phase C: the isolated browser agent can run now. */
+  browserAvailable?: boolean;
 }
 
 export type { PlanningAttachment };
@@ -191,15 +196,24 @@ export async function planTask(
     ownEmail: input.account.email,
     conversationTaskIds: turns.filter((t) => t.recallable).map((t) => t.taskId),
     attachmentIds: (input.attachments ?? []).map((a) => a.id),
+    bind: {
+      connections: input.connections ?? [],
+      accountEmail: input.account.email,
+      ownName: input.account.displayName || null,
+      timeZone: input.account.timeZone,
+    },
   };
 
   if (deps.route.mode === 'offline' || !deps.adapter) {
     const offline = planOffline(input.request, {
       language: input.language,
       ownEmail: input.account.email,
+      ownName: input.account.displayName || null,
       timeZone: input.account.timeZone,
       conversation: turns,
       attachments: input.attachments ?? [],
+      connections: input.connections ?? [],
+      browserAvailable: input.browserAvailable ?? false,
     });
     if (!offline.ok) {
       return {

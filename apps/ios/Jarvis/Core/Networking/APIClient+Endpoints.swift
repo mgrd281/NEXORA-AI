@@ -144,6 +144,100 @@ extension APIClient {
         return list.items
     }
 
+    /// Disconnects a service. For Google the server also queues the revocation of its grant;
+    /// Microsoft has no per-app revocation (the app says where to remove it there).
+    func deleteConnection(id: String) async throws {
+        let _: EmptyResponse = try await send(.delete, "/v1/connections/\(Self.id(id))")
+    }
+
+    // MARK: OAuth connections (Phase C)
+
+    /// Which providers this server can connect (configured or not), with the exact scopes.
+    func connectionProviders() async throws -> [ConnectionProviderInfo] {
+        let list: ItemList<ConnectionProviderInfo> = try await send(.get, "/v1/connections/providers")
+        return list.items
+    }
+
+    /// Starts an authorization (code + PKCE run by the server). Not idempotent: each call
+    /// creates a new single-use state bound to this session.
+    func startOAuth(_ request: OAuthStartRequest) async throws -> OAuthStartResponse {
+        try await send(.post, "/v1/connections/oauth/start", body: request)
+    }
+
+    /// Forwards the provider's redirect (its query parameters) with this session.
+    func completeOAuth(_ request: OAuthCallbackRequest) async throws -> OAuthCallbackResult {
+        try await send(.post, "/v1/connections/oauth/callback", body: request)
+    }
+
+    // MARK: Calendar (Phase C; live from the provider)
+
+    /// The next events of the connected calendars; nil when no calendar is connected.
+    func upcomingEvents() async throws -> UpcomingEvents? {
+        let response: UpcomingEventsResponse = try await send(.get, "/v1/calendar/upcoming")
+        return response.upcoming
+    }
+
+    func calendarEvents(from: Date, to: Date, provider: OAuthProvider? = nil) async throws -> CalendarEventList {
+        var query = [
+            URLQueryItem(name: "from", value: from.formatted(.iso8601)),
+            URLQueryItem(name: "to", value: to.formatted(.iso8601)),
+        ]
+        if let provider, provider != .unknown {
+            query.append(URLQueryItem(name: "provider", value: provider.rawValue))
+        }
+        return try await send(.get, "/v1/calendar/events", query: query)
+    }
+
+    // MARK: Email reply tracking (Phase C)
+
+    func emailWatches() async throws -> [EmailWatch] {
+        let list: ItemList<EmailWatch> = try await send(.get, "/v1/email/watches")
+        return list.items
+    }
+
+    /// Stops watching a thread (the row is kept as `stopped`).
+    func stopEmailWatch(id: String) async throws {
+        let _: EmptyResponse = try await send(.delete, "/v1/email/watches/\(Self.id(id))")
+    }
+
+    // MARK: Orders and bookings (Phase C; read-only records)
+
+    func orders(status: OrderStatus? = nil, cursor: String?, limit: Int = 25) async throws -> Page<Order> {
+        var query = [URLQueryItem(name: "limit", value: String(limit))]
+        if let status, status != .unrecognized { query.append(URLQueryItem(name: "status", value: status.rawValue)) }
+        if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
+        return try await send(.get, "/v1/orders", query: query)
+    }
+
+    func order(id: String) async throws -> Order {
+        try await send(.get, "/v1/orders/\(Self.id(id))")
+    }
+
+    func bookings(status: BookingStatus? = nil, cursor: String?, limit: Int = 25) async throws -> Page<Booking> {
+        var query = [URLQueryItem(name: "limit", value: String(limit))]
+        if let status, status != .unrecognized { query.append(URLQueryItem(name: "status", value: status.rawValue)) }
+        if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
+        return try await send(.get, "/v1/bookings", query: query)
+    }
+
+    func booking(id: String) async throws -> Booking {
+        try await send(.get, "/v1/bookings/\(Self.id(id))")
+    }
+
+    // MARK: Evidence files (Phase C; owner only)
+
+    func evidence(id: String) async throws -> EvidenceArtifact {
+        try await send(.get, "/v1/evidence/\(Self.id(id))")
+    }
+
+    /// The file's bytes and the media type the server sent (image/png, application/json,
+    /// text/calendar).
+    func downloadEvidence(id: String) async throws -> (data: Data, mediaType: EvidenceMediaType) {
+        let (data, response) = try await download("/v1/evidence/\(Self.id(id))/content")
+        let mime = response.mimeType?.lowercased() ?? ""
+        return (data, EvidenceMediaType(rawValue: mime) ?? .unknown)
+    }
+
     // MARK: Conversations (Phase B)
 
     func conversations(search: String?, cursor: String?, limit: Int = 25) async throws -> Page<ConversationSummary> {

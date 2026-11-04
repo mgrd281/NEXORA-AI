@@ -51,6 +51,12 @@ const REQUEST_SCHEMAS = new Set([
   'SchedulePreviewRequest',
   'CreateWebhookRequest',
   'UpdateWebhookRequest',
+  // Phase C
+  'OAuthStartRequest',
+  'OAuthCallbackRequest',
+  'CalendarEventListQuery',
+  'OrderListQuery',
+  'BookingListQuery',
 ]);
 /** Primitive building blocks that read better inline than as $refs. */
 const INLINE_PRIMITIVES = new Set(['Id', 'Timestamp', 'MicroUsd']);
@@ -80,7 +86,7 @@ const EXTRA_ERRORS: Partial<Record<RouteName, string[]>> = {
   cancelTask: ['409'],
   decideApproval: ['409'],
   connectSmtp: ['422'],
-  testConnection: ['422'],
+  testConnection: ['409', '422'],
   deleteAccount: ['403'],
   login: ['401'],
   // Phase B
@@ -96,12 +102,45 @@ const EXTRA_ERRORS: Partial<Record<RouteName, string[]>> = {
   createWebhook: ['409', '422'],
   updateWebhook: ['422'],
   testWebhook: ['409'],
+  // Phase C (docs/architecture/phase-c.md §3.1, §3.3, §3.8)
+  startOAuthConnection: ['404', '503'],
+  completeOAuthConnection: ['409', '422', '503'],
+  listCalendarEvents: ['409', '503'],
+  downloadEvidence: ['503'],
 };
 
 /** Route-specific wording where the generic description would mislead. */
 const ERROR_DESCRIPTION_OVERRIDES: Partial<Record<RouteName, Record<string, string>>> = {
   login: {
     '401': 'UNAUTHENTICATED — the email or password is incorrect, or the account is disabled.',
+  },
+  // Phase C
+  startOAuthConnection: {
+    '400':
+      'VALIDATION_FAILED — invalid body, or details.reason REDIRECT_URI_NOT_ALLOWED (not exactly one of the server’s redirect URIs) / CONNECTION_NOT_OAUTH.',
+    '404': 'NOT_FOUND — connectionId is not this user’s connection of that provider.',
+    '429':
+      'RATE_LIMITED — too many requests, or details.reason OAUTH_PENDING_LIMIT { max } (unfinished authorizations).',
+    '503': 'SERVICE_UNAVAILABLE — details.reason PROVIDER_NOT_CONFIGURED { provider }.',
+  },
+  completeOAuthConnection: {
+    '400':
+      'VALIDATION_FAILED — invalid body, or details.reason OAUTH_STATE_INVALID (unknown, used, or started by another session; wrong iss) / OAUTH_STATE_EXPIRED / OAUTH_DENIED { provider } / OAUTH_SCOPE_NOT_GRANTED { capabilities }.',
+    '409':
+      'CONFLICT — details.reason OAUTH_ACCOUNT_MISMATCH { provider } (signed in to another account than the connected one).',
+    '422': 'CONNECTION_FAILED — details.reason OAUTH_EXCHANGE_FAILED { provider }.',
+    '503': 'SERVICE_UNAVAILABLE — details.reason PROVIDER_NOT_CONFIGURED { provider }.',
+  },
+  listCalendarEvents: {
+    '400': `VALIDATION_FAILED — invalid query, or a window whose “to” is not after “from” or that is wider than ${contracts.CALENDAR_LIMITS.listMaxDays} days.`,
+    '409':
+      'CONNECTION_REQUIRED — details.reason CALENDAR_NOT_CONNECTED (no active calendar connection).',
+    '503':
+      'SERVICE_UNAVAILABLE — details.reason CALENDAR_UNAVAILABLE { provider } (no calendar answered).',
+  },
+  downloadEvidence: {
+    '503':
+      'SERVICE_UNAVAILABLE — details.reason EVIDENCE_NOT_AVAILABLE (stored by another storage driver, or no storage) / STORAGE_UNAVAILABLE.',
   },
 };
 

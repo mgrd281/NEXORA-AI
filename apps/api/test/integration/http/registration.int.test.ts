@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildPath, EVENTS_PATH, routes, type RouteDef } from '@jarvis/contracts';
+import { buildPath, EVENTS_PATH, routes, type RouteDef, type RouteName } from '@jarvis/contracts';
+import { PENDING_ROUTES } from '../../../src/routes';
 import { createHarness, type Harness } from './support';
 
 let h: Harness;
@@ -12,8 +13,9 @@ const SOME_ID = '00000000-0000-4000-8000-000000000000';
 
 describe('route registration', () => {
   it('registers every contract route and rejects unauthenticated calls to protected ones', async () => {
-    const protectedRoutes = (Object.entries(routes) as [string, RouteDef][]).filter(
-      ([, r]) => r.auth !== 'none',
+    // Phase C stage 1: routes whose handlers land in stage 2 are checked below instead.
+    const protectedRoutes = (Object.entries(routes) as [RouteName, RouteDef][]).filter(
+      ([name, r]) => r.auth !== 'none' && !PENDING_ROUTES.has(name),
     );
     expect(protectedRoutes.length).toBeGreaterThan(30);
     for (const [name, r] of protectedRoutes) {
@@ -25,6 +27,15 @@ describe('route registration', () => {
       });
       expect(res.statusCode, `${name} ${r.method} ${url}`).toBe(401);
       expect(res.json().error.code, name).toBe('UNAUTHENTICATED');
+    }
+  });
+
+  it('answers 404 for contract routes whose handlers have not landed (never a placeholder)', async () => {
+    for (const name of PENDING_ROUTES) {
+      const r = routes[name] as RouteDef;
+      const url = buildPath(r.path, { id: SOME_ID });
+      const res = await h.app.inject({ method: r.method, url });
+      expect(res.statusCode, `${name} ${r.method} ${url}`).toBe(404);
     }
   });
 

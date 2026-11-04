@@ -483,6 +483,7 @@ describe('Phase B route table', () => {
         'listTimeZones',
       ]),
     );
-    expect(Object.keys(routes)).toHaveLength(35 + 26);
+    // Milestone 1 + Phase B; Phase C adds more (test/phase-c.test.ts counts them all).
+    expect(Object.keys(routes).length).toBeGreaterThanOrEqual(35 + 26);
   });
 });

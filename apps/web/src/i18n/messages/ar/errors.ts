@@ -90,6 +90,46 @@ const errors: Catalog<typeof source> = {
     SKILL_DISABLED: 'يتطلب هذا مهارة «{skill}»، وهي متوقفة في الإعدادات.',
     UNTRUSTED_MEMORY:
       'لن يحفظ JARVIS هذا في الذاكرة لأنه مأخوذ من محتوى حاول توجيه تعليمات إلى مساعدي الذكاء الاصطناعي.',
+    CONNECTION_EXPIRED: 'انتهت صلاحية اتصالك بـ {provider}. أعد الاتصال ثم حاول مجددًا.',
+    CONNECTION_SCOPE_MISSING:
+      'لم يمنح {provider} JARVIS هذا الإذن: {capability}. أعد الاتصال واسمح به ثم حاول مجددًا.',
+    PROVIDER_RATE_LIMITED: 'يحدّ {provider} من الطلبات حاليًا. حاول مجددًا بعد بضع دقائق.',
+    PROVIDER_UNAVAILABLE: 'لا يستجيب {provider} حاليًا. حاول مجددًا لاحقًا.',
+    PROVIDER_REJECTED: 'رفض {provider} الطلب (الخطأ {status}).',
+    EMAIL_THREAD_NOT_FOUND: 'لم تعد سلسلة الرسائل هذه موجودة في بريدك.',
+    WATCH_LIMIT_REACHED:
+      'يتابع JARVIS بالفعل {max} من سلاسل الرسائل بانتظار الردود، وهو الحد الأقصى.',
+    CALENDAR_CONFLICT: 'هذا الوقت محجوز بالفعل في تقويمك، لذا لم يُضف JARVIS شيئًا.',
+    EVENT_NOT_FOUND: 'لم يعد هذا الحدث موجودًا في تقويمك.',
+    EVENT_CHANGED: 'تغيّر الحدث بعد أن قرأه JARVIS، لذا لم يُغيَّر شيء. اطلب مجددًا.',
+    NO_FREE_SLOTS: 'لا يوجد وقت متاح في هذه الفترة.',
+    INVALID_TIME_RANGE: 'وقتا البداية والنهاية لا يشكّلان فترة صالحة.',
+    CAPTCHA_DETECTED:
+      'يطلب {host} إثبات أنك إنسان. لا يحل JARVIS هذه الاختبارات أبدًا: تابع على الموقع بنفسك.',
+    LOGIN_REQUIRED:
+      'يتطلب {host} تسجيل الدخول. لا يسجّل JARVIS الدخول نيابةً عنك: تابع على الموقع بنفسك.',
+    BOT_PROTECTION: 'يحظر {host} الزيارات الآلية. لا يتحايل JARVIS على ذلك: تابع على الموقع بنفسك.',
+    SITE_UNSUPPORTED: 'لا يدعم JARVIS {host} بعد.',
+    NAVIGATION_BLOCKED: 'حاول الموقع توجيه JARVIS إلى {host}، وهذا غير مسموح، لذا توقف.',
+    PAGE_CHANGED: 'يبدو {host} مختلفًا عمّا يتوقعه JARVIS، لذا توقف بدلًا من التخمين.',
+    SITE_ERROR: 'عرض {host} خطأً (الحالة {status}).',
+    BROWSER_BUDGET_EXCEEDED: 'احتاج الموقع إلى خطوات أكثر مما يسمح به JARVIS ({limit})، لذا توقف.',
+    BROWSER_TIMEOUT: 'استغرق الموقع وقتًا طويلًا، لذا توقف JARVIS.',
+    BROWSER_CRASHED: 'توقف المتصفح بشكل غير متوقع.',
+    BROWSER_UNAVAILABLE: 'وكيل المتصفح لا يعمل على هذا الخادم.',
+    SLOT_TAKEN: 'حُجز هذا الموعد في الأثناء، لذا لم يُحجز شيء.',
+    BOOKING_DETAILS_MISSING: 'يتطلب نموذج الحجز بيانات لا يملكها JARVIS: {fields}.',
+    BOOKING_UNCONFIRMED:
+      'أُرسل الحجز، لكن الموقع لم يعرض تأكيدًا. تحقق من الموقع قبل المحاولة مجددًا.',
+    PRICE_CHANGED: 'تغيّر السعر من {expected} إلى {actual}، لذا لم يُطلب شيء.',
+    OUT_OF_STOCK: 'المنتج غير متوفر، لذا لم يُطلب شيء.',
+    CHECKOUT_UNSUPPORTED: 'لا يستطيع JARVIS الطلب على {host}. سلتك جاهزة هناك: أكمل الشراء بنفسك.',
+    ORDER_UNKNOWN: 'انقطع الطلب أثناء تقديمه. تحقق من طلباتك لدى المتجر قبل المحاولة مجددًا.',
+    PURCHASES_DISABLED: 'المشتريات معطّلة. حدّد حدًا شهريًا للمشتريات في الإعدادات للسماح بها.',
+    PURCHASE_LIMIT:
+      'سيتجاوز هذا الشراء ({amount}) حدك الشهري البالغ {limit} (أُنفق {spent} بالفعل).',
+    PURCHASE_CURRENCY:
+      'السعر بعملة {currency}، لكن حد مشترياتك بالدولار الأمريكي، لذا لن يشتريه JARVIS.',
   },
   api: {
     FILE_TOO_LARGE: 'الحد الأقصى لحجم الملف {limitMb} ميغابايت.',
@@ -121,6 +161,21 @@ const errors: Catalog<typeof source> = {
     WEBHOOK_DISABLED: 'نقطة النهاية هذه متوقفة. شغّلها لإرسال اختبار.',
     SKILL_NOT_TOGGLEABLE: 'هذه المهارة جزء من طريقة عمل JARVIS ولا يمكن إيقافها.',
     SKILL_PLANNED: 'هذه المهارة غير متاحة بعد.',
+    PROVIDER_NOT_CONFIGURED: '{provider} غير مُعدّ على هذا الخادم.',
+    REDIRECT_URI_NOT_ALLOWED: 'عنوان العودة الخاص بهذا التطبيق غير مسموح به على هذا الخادم.',
+    OAUTH_STATE_INVALID: 'رابط تسجيل الدخول هذا لم يعد صالحًا. ابدأ الاتصال من جديد.',
+    OAUTH_STATE_EXPIRED: 'استغرق تسجيل الدخول وقتًا طويلًا. ابدأ الاتصال من جديد.',
+    OAUTH_DENIED: 'لم تسمح بالوصول لدى {provider}، لذا لم يُربط أي شيء.',
+    OAUTH_EXCHANGE_FAILED: 'لم يُكمل {provider} تسجيل الدخول. حاول مجددًا.',
+    OAUTH_SCOPE_NOT_GRANTED: 'لم يُسمح بأي من الأذونات التي طلبها JARVIS، لذا لم يُربط أي شيء.',
+    OAUTH_ACCOUNT_MISMATCH:
+      'سجّلت الدخول بحساب {provider} مختلف. افصل الحساب القديم أولًا للتبديل.',
+    OAUTH_PENDING_LIMIT:
+      'هناك عمليات تسجيل دخول كثيرة ما زالت مفتوحة. أكملها أو انتظر بضع دقائق ثم حاول مجددًا.',
+    CONNECTION_NOT_OAUTH: 'لا يمكن إعادة ربط هذا الاتصال بهذه الطريقة.',
+    CALENDAR_NOT_CONNECTED: 'لا يوجد تقويم متصل.',
+    CALENDAR_UNAVAILABLE: 'لم يُجب {provider} في الوقت المناسب.',
+    EVIDENCE_NOT_AVAILABLE: 'لا يمكن قراءة ملف الإثبات هذا على هذا الخادم حاليًا.',
   },
   network: 'تعذّر الوصول إلى JARVIS. تحقّق من اتصالك.',
   badResponse: 'أرسل JARVIS ردًا لا يفهمه هذا التطبيق. أعد تحميل الصفحة.',

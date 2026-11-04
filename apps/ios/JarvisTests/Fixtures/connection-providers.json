@@ -1,0 +1,107 @@
+{
+  "items": [
+    {
+      "provider": "google",
+      "kind": "oauth",
+      "configured": true,
+      "capabilities": [
+        {
+          "capability": "mail.read",
+          "scopes": [
+            "https://www.googleapis.com/auth/gmail.readonly"
+          ]
+        },
+        {
+          "capability": "mail.compose",
+          "scopes": [
+            "https://www.googleapis.com/auth/gmail.compose"
+          ]
+        },
+        {
+          "capability": "mail.send",
+          "scopes": [
+            "https://www.googleapis.com/auth/gmail.send"
+          ]
+        },
+        {
+          "capability": "calendar.read",
+          "scopes": [
+            "https://www.googleapis.com/auth/calendar.events.readonly",
+            "https://www.googleapis.com/auth/calendar.freebusy"
+          ]
+        },
+        {
+          "capability": "calendar.write",
+          "scopes": [
+            "https://www.googleapis.com/auth/calendar.events"
+          ]
+        }
+      ],
+      "identityScopes": [
+        "openid",
+        "email"
+      ],
+      "revocation": "provider"
+    },
+    {
+      "provider": "microsoft",
+      "kind": "oauth",
+      "configured": false,
+      "capabilities": [
+        {
+          "capability": "mail.read",
+          "scopes": [
+            "https://graph.microsoft.com/Mail.Read"
+          ]
+        },
+        {
+          "capability": "mail.compose",
+          "scopes": [
+            "https://graph.microsoft.com/Mail.ReadWrite"
+          ]
+        },
+        {
+          "capability": "mail.send",
+          "scopes": [
+            "https://graph.microsoft.com/Mail.Send"
+          ]
+        },
+        {
+          "capability": "calendar.read",
+          "scopes": [
+            "https://graph.microsoft.com/Calendars.Read"
+          ]
+        },
+        {
+          "capability": "calendar.write",
+          "scopes": [
+            "https://graph.microsoft.com/Calendars.ReadWrite"
+          ]
+        }
+      ],
+      "identityScopes": [
+        "openid",
+        "email",
+        "offline_access",
+        "https://graph.microsoft.com/User.Read"
+      ],
+      "revocation": "local_only"
+    },
+    {
+      "provider": "smtp",
+      "kind": "smtp",
+      "configured": true,
+      "capabilities": [],
+      "identityScopes": [],
+      "revocation": null
+    },
+    {
+      "provider": "web",
+      "kind": "web",
+      "configured": true,
+      "capabilities": [],
+      "identityScopes": [],
+      "revocation": null
+    }
+  ]
+}

@@ -14,6 +14,10 @@ const PREFERENCE_FOR: Record<NotificationKind, keyof Preferences['notifications'
   schedule_failed: 'taskFailed',
   schedule_paused: null,
   webhook_disabled: null,
+  // Phase C: an expired connection always notifies (nothing using it works until the
+  // user reconnects); a reply to a watched thread is a result the user asked for.
+  connection_expired: null,
+  email_reply_received: 'taskCompleted',
 };
 
 /**

@@ -1,3 +1,4 @@
+import type { RouteName } from '@jarvis/contracts';
 import type { FastifyInstance } from 'fastify';
 import { assertAllRoutesRegistered } from './http/route';
 import { registerAccountRoutes } from './modules/account/routes';
@@ -5,12 +6,17 @@ import { registerAdminRoutes } from './modules/admin/routes';
 import { registerApprovalRoutes } from './modules/approvals/routes';
 import { registerAttachmentRoutes } from './modules/attachments/routes';
 import { registerAuthRoutes } from './modules/auth/routes';
+import { registerBookingRoutes } from './modules/bookings/routes';
+import { registerCalendarRoutes } from './modules/calendar/routes';
 import { registerConnectionRoutes } from './modules/connections/routes';
 import { registerConversationRoutes } from './modules/conversations/routes';
+import { registerEmailRoutes } from './modules/email/routes';
+import { registerEvidenceRoutes } from './modules/evidence/routes';
 import { registerHomeRoutes } from './modules/home/routes';
 import { registerMemoryRoutes } from './modules/memory/routes';
 import { registerMetaRoutes } from './modules/meta/routes';
 import { registerNotificationRoutes } from './modules/notifications/routes';
+import { registerOrderRoutes } from './modules/orders/routes';
 import { registerScheduleRoutes } from './modules/schedules/routes';
 import { registerSkillRoutes } from './modules/skills/routes';
 import { registerStreamRoutes } from './modules/stream/routes';
@@ -19,6 +25,14 @@ import { registerUsageRoutes } from './modules/usage/routes';
 import { registerVoiceRoutes } from './modules/voice/routes';
 import { registerWebhookRoutes } from './modules/webhooks/routes';
 import type { AppDeps } from './services';
+
+/**
+ * Phase C stage 1 → 2 (docs/architecture/phase-c.md §0, §9): contract routes
+ * whose handlers had not landed yet. Every Phase C handler is registered now,
+ * so the list is empty — and assertAllRoutesRegistered refuses any pending
+ * route in production regardless.
+ */
+export const PENDING_ROUTES: ReadonlySet<RouteName> = new Set<RouteName>([]);
 
 /**
  * Registers every HTTP module. Boot fails if any route in the contract table
@@ -43,7 +57,16 @@ export async function registerRoutes(app: FastifyInstance, deps: AppDeps): Promi
   registerScheduleRoutes(app, deps);
   registerWebhookRoutes(app, deps);
   registerMetaRoutes(app, deps);
+  // Phase C (OAuth connections are registered with the other connection routes)
+  registerCalendarRoutes(app, deps);
+  registerEmailRoutes(app, deps);
+  registerOrderRoutes(app, deps);
+  registerBookingRoutes(app, deps);
+  registerEvidenceRoutes(app, deps);
   // Server-Sent Events (GET /v1/events) — outside the JSON route table.
   registerStreamRoutes(app, deps);
-  assertAllRoutesRegistered(app);
+  assertAllRoutesRegistered(app, {
+    pending: PENDING_ROUTES,
+    production: deps.config.isProduction,
+  });
 }

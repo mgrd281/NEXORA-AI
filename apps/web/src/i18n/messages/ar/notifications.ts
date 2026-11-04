@@ -20,6 +20,8 @@ const notifications: Catalog<typeof source> = {
     schedule_paused:
       '{reason, select, budget {أُوقف «{scheduleTitle}» مؤقتًا لأن ميزانية الذكاء الاصطناعي لهذا الشهر نفدت} other {أُوقف «{scheduleTitle}» مؤقتًا بعد إخفاقات متكررة}}',
     webhook_disabled: 'أُوقف الويب هوك إلى {endpointHost} بعد إخفاقات متكررة في التسليم',
+    connection_expired: 'انتهت صلاحية اتصالك بـ {provider}: أعد الاتصال',
+    email_reply_received: 'ردّ {fromAddress} على «{subject}»',
   },
   kindsUntitled: {
     approval_requested: 'مهمة بحاجة إلى موافقتك',
@@ -29,6 +31,8 @@ const notifications: Catalog<typeof source> = {
     schedule_failed: 'فشل تنفيذ مجدول',
     schedule_paused: 'أُوقف جدول مؤقتًا',
     webhook_disabled: 'أُوقفت نقطة نهاية ويب هوك بعد إخفاقات متكررة في التسليم',
+    connection_expired: 'انتهت صلاحية اتصال: أعد الاتصال',
+    email_reply_received: 'وصل رد في سلسلة رسائل يتابعها JARVIS',
   },
 };
 

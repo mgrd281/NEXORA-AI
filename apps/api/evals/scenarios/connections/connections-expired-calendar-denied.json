@@ -1,0 +1,21 @@
+{
+  "id": "connections-expired-calendar-denied",
+  "version": 1,
+  "suite": "connections",
+  "title": "An expired Microsoft calendar: denied with CONNECTION_EXPIRED",
+  "modes": ["offline"],
+  "given": {
+    "request": "What's on my calendar today?",
+    "connections": ["web", "microsoft"],
+    "connectionStatus": {
+      "microsoft": "expired"
+    },
+    "connectionCapabilities": {
+      "microsoft": ["calendar.read"]
+    }
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "CONNECTION_EXPIRED"
+  }
+}

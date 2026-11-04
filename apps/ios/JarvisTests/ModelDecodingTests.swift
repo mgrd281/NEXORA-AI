@@ -143,7 +143,7 @@ struct ModelDecodingTests {
         #expect(detail.approvals[0].status == .unknown)
         #expect(detail.events[0].type == .unknown)
         // An approval this build cannot display is never approvable.
-        #expect(detail.approvals[0].details == ApprovalDetails.unknown(kind: "calendar_event"))
+        #expect(detail.approvals[0].details == ApprovalDetails.unknown(kind: "phone_call"))
         #expect(!detail.approvals[0].isReviewable)
         // Known values elsewhere are untouched.
         #expect(detail.steps[1].status == .succeeded)

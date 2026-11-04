@@ -4,6 +4,24 @@ import type { JobKind, JobRow } from '../../db/types';
 
 export const JOBS_CHANNEL = 'jarvis_jobs';
 
+/**
+ * Phase C (docs/adr/0017): job kinds only the browser worker leases and
+ * reclaims (src/browser-worker.ts); the agent worker leases everything else.
+ */
+export const BROWSER_JOB_KINDS: readonly JobKind[] = ['browser.session'];
+
+/** Which jobs a worker process takes: only these kinds, or all but these. */
+export type KindFilter = { only: readonly JobKind[] } | { except: readonly JobKind[] };
+
+const kindClause = (f: KindFilter | undefined) =>
+  !f
+    ? sql``
+    : 'only' in f
+      ? sql`AND kind = ANY(${[...f.only]}::text[])`
+      : f.except.length
+        ? sql`AND NOT (kind = ANY(${[...f.except]}::text[]))`
+        : sql``;
+
 export interface EnqueueInput {
   kind: JobKind;
   tenantId: string;
@@ -34,12 +52,14 @@ export async function lease(
   workerId: string,
   leaseMs: number,
   limit: number,
+  /** Phase C: the agent worker passes { except: BROWSER_JOB_KINDS }, the browser worker { only: … }. */
+  kinds?: KindFilter,
 ): Promise<JobRow[]> {
   const res = await sql<JobRow>`
     UPDATE jobs SET status = 'running', locked_by = ${workerId},
            locked_until = now() + (${leaseMs} * interval '1 millisecond'), attempts = attempts + 1
      WHERE id IN (
-       SELECT id FROM jobs WHERE status = 'queued' AND run_at <= now()
+       SELECT id FROM jobs WHERE status = 'queued' AND run_at <= now() ${kindClause(kinds)}
         ORDER BY run_at, id FOR UPDATE SKIP LOCKED LIMIT ${limit})
     RETURNING *`.execute(db);
   return res.rows;
@@ -100,37 +120,48 @@ export async function fail(
  * job never reaches the worker's failure path, so the caller must run the
  * dead-letter handling for it (the worker fails its task, see reclaimOnce).
  */
-export async function reclaimExpired(db: Db): Promise<{ requeued: number; dead: JobRow[] }> {
+export async function reclaimExpired(
+  db: Db,
+  /** Phase C: each worker process reclaims (and dead-letters) only the kinds it runs. */
+  kinds?: KindFilter,
+): Promise<{ requeued: number; dead: JobRow[] }> {
   const res = await sql<JobRow>`
     UPDATE jobs SET status = CASE WHEN attempts >= max_attempts THEN 'dead' ELSE 'queued' END,
            locked_by = NULL, locked_until = NULL,
            last_error = COALESCE(last_error, '') || ' [lease expired]'
-     WHERE status = 'running' AND locked_until < now()
+     WHERE status = 'running' AND locked_until < now() ${kindClause(kinds)}
     RETURNING *`.execute(db);
   const dead = res.rows.filter((j) => j.status === 'dead');
   return { requeued: res.rows.length - dead.length, dead };
 }
+
+export type WorkerKind = 'agent' | 'browser';
 
 export async function heartbeat(
   db: Db,
   workerId: string,
   hostname: string,
   version: string,
+  /** Phase C: 'browser' for src/browser-worker.ts. */
+  kind: WorkerKind = 'agent',
 ): Promise<void> {
   await sql`
-    INSERT INTO worker_heartbeats (worker_id, hostname, version) VALUES (${workerId}, ${hostname}, ${version})
+    INSERT INTO worker_heartbeats (worker_id, hostname, version, kind)
+    VALUES (${workerId}, ${hostname}, ${version}, ${kind})
     ON CONFLICT (worker_id) DO UPDATE SET last_heartbeat_at = now(), version = EXCLUDED.version`.execute(
     db,
   );
 }
 
-/** Most recent heartbeat of any worker; healthy if within 30 s. */
+/** Most recent heartbeat of any worker of `kind`; healthy if within 30 s. */
 export async function workerHealth(
   db: Db,
+  kind: WorkerKind = 'agent',
 ): Promise<{ healthy: boolean; lastHeartbeatAt: Date | null }> {
   const row = await db
     .selectFrom('worker_heartbeats')
     .select((eb) => eb.fn.max('last_heartbeat_at').as('last'))
+    .where('kind', '=', kind)
     .executeTakeFirst();
   const last = (row?.last as Date | null | undefined) ?? null;
   return { healthy: !!last && Date.now() - last.getTime() < 30_000, lastHeartbeatAt: last };

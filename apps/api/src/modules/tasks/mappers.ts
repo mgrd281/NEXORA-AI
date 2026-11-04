@@ -23,6 +23,7 @@ import type { Trx } from '../../db/pool';
 import type { ApprovalRow, StepRow, TaskRow } from '../../db/types';
 import { asMessage } from '../agent/i18n';
 import { loadTaskAttachments } from '../attachments/mappers';
+import { loadTaskBrowserSessions } from '../evidence/mappers';
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
@@ -231,7 +232,7 @@ export async function loadTaskDetail(
   const t = (await taskSummaryQuery(trx).where('t.id', '=', taskId).executeTakeFirst()) as
     TaskAggregate | undefined;
   if (!t) return null;
-  const [steps, approvals, events, attachments] = await Promise.all([
+  const [steps, approvals, events, attachments, browserSessions] = await Promise.all([
     trx
       .selectFrom('task_steps')
       .selectAll()
@@ -250,6 +251,8 @@ export async function loadTaskDetail(
       .limit(500)
       .execute(),
     loadTaskAttachments(trx, [taskId]),
+    // Phase C: the browser agent's sessions, oldest first, with their evidence files.
+    loadTaskBrowserSessions(trx, taskId),
   ]);
   const summary = toTaskSummary(t);
   return {
@@ -269,6 +272,7 @@ export async function loadTaskDetail(
     canRetry: canRetryTask(summary, { modelAvailable: ctx.modelAvailable }),
     startedAt: iso(t.started_at),
     attachments: attachments.get(taskId) ?? [],
+    browserSessions,
   };
 }
 

@@ -8,8 +8,9 @@ import type { Suggestion } from '@jarvis/contracts';
  *   suggest.enableWeb          kind 'connect', href '/connections'
  *       Web access is not active, so JARVIS cannot read public web pages yet.
  *   suggest.connectEmail       kind 'connect', href '/connections'
- *       No working SMTP mailbox (none connected, or its last verification
- *       failed), so JARVIS cannot send email yet.
+ *       No way to send email yet: no working SMTP mailbox (none connected, or
+ *       its last verification failed) and no active Google / Microsoft
+ *       account granting mail.send (Phase C).
  *   suggest.configureModel     kind 'review', href '/settings#assistant'
  *       The planner runs offline (deterministic rules engine). The client may
  *       explain why using AssistantStatus.planner.reason.
@@ -25,7 +26,10 @@ import type { Suggestion } from '@jarvis/contracts';
 export interface SuggestionState {
   /** A non-revoked web connection with status 'active' exists. */
   webActive: boolean;
-  /** A non-revoked SMTP connection with status 'active' exists. */
+  /**
+   * A non-revoked SMTP connection with status 'active' exists, or (Phase C) an
+   * active Google / Microsoft connection granting mail.send.
+   */
   emailActive: boolean;
   /** AssistantStatus.planner.mode === 'offline'. */
   plannerOffline: boolean;

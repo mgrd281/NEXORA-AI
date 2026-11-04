@@ -1,0 +1,15 @@
+{
+  "id": "connections-no-mail-account-denied",
+  "version": 1,
+  "suite": "connections",
+  "title": "No mail account connected: the step is denied (CONNECTION_MISSING), nothing runs",
+  "modes": ["offline"],
+  "given": {
+    "request": "Summarize my unread emails",
+    "connections": ["web"]
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "CONNECTION_MISSING"
+  }
+}

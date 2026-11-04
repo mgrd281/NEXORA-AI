@@ -14,7 +14,13 @@
  * preferences.memory.enabled) under a row lock of the user, audits it, and
  * never touches risk, approvals or any other permission.
  */
-import type { Skill, SkillId, SkillUnavailableReason } from '@jarvis/contracts';
+import type {
+  ConnectionProvider,
+  Skill,
+  SkillId,
+  SkillUnavailableReason,
+  ToolId,
+} from '@jarvis/contracts';
 import type { Config } from '../../../config';
 import { withContext, type Db, type DbContext } from '../../../db/pool';
 import { AppError } from '../../../lib/errors';
@@ -22,8 +28,33 @@ import type { SkillService } from '../../../services';
 import { resolvePreferences } from '../../account/me';
 import { audit } from '../../audit/audit';
 import type { ObjectStorage } from '../../storage/types';
+import { workerHealth } from '../../jobs/queue';
 import { loadAgentContext, type AgentContext } from '../context';
+import { satisfies, TOOLS } from '../tools/registry';
 import { getSkill, SKILLS, type SkillDefinition } from './registry';
+
+/** Phase C: what the server offers beyond the user's own settings. */
+export interface SkillEnv {
+  storageConfigured: boolean;
+  /** OAuth providers with a client id and secret on this server (SMTP and web always are). */
+  providersConfigured?: ReadonlySet<ConnectionProvider>;
+  /** A browser worker is running (and storage is configured). */
+  browserAvailable?: boolean;
+  /** Tools registered on this server (default: the tool registry). */
+  registered?: ReadonlySet<ToolId>;
+}
+
+const OAUTH: ReadonlySet<ConnectionProvider> = new Set(['google', 'microsoft']);
+
+/** The SkillEnv of this server for one request (browser health is a database read). */
+export async function skillEnv(deps: SkillServiceDeps): Promise<SkillEnv> {
+  const providersConfigured = new Set<ConnectionProvider>(['web', 'smtp']);
+  if (deps.config.oauth.google) providersConfigured.add('google');
+  if (deps.config.oauth.microsoft) providersConfigured.add('microsoft');
+  const browserAvailable =
+    deps.storage !== null && (await workerHealth(deps.db, 'browser')).healthy;
+  return { storageConfigured: deps.storage !== null, providersConfigured, browserAvailable };
+}
 
 export interface SkillServiceDeps {
   config: Config;
@@ -32,40 +63,72 @@ export interface SkillServiceDeps {
 }
 
 /** One registry entry as the contract's Skill, for this user's context. */
+/**
+ * Phase C: a skill counts as built only once at least one of its tools is
+ * registered on this server (the tools of a domain land in stage 2); its
+ * unregistered tools are listed as planned.
+ */
+export function effectiveStatus(
+  def: SkillDefinition,
+  registered: ReadonlySet<ToolId> = new Set(TOOLS.keys()),
+): 'implemented' | 'planned' {
+  if (def.status === 'planned') return 'planned';
+  return def.tools.some((t) => registered.has(t)) ? 'implemented' : 'planned';
+}
+
 export function skillEntry(
   def: SkillDefinition,
-  agent: Pick<AgentContext, 'preferences' | 'connections' | 'route'>,
-  storageConfigured: boolean,
+  agent: Pick<AgentContext, 'preferences' | 'connections' | 'route' | 'connectionStates'>,
+  envOrStorage: SkillEnv | boolean,
 ): Skill {
+  const env: SkillEnv =
+    typeof envOrStorage === 'boolean' ? { storageConfigured: envOrStorage } : envOrStorage;
+  const registered = env.registered ?? new Set(TOOLS.keys());
+  const status = effectiveStatus(def, registered);
   const disabled = new Set(agent.preferences.skills?.disabled ?? []);
   const isMemory = def.id === 'personal-memory';
   const enabled =
-    def.status === 'planned'
+    status === 'planned'
       ? false
       : isMemory
         ? agent.preferences.memory.enabled
         : !(def.canToggle && disabled.has(def.id));
-  const missingConnection = def.requiredConnections.some((c) => !agent.connections.has(c));
+  const active = new Set(agent.connections.keys());
+  const missingRequired = def.requiredConnections.some((c) => !agent.connections.has(c));
+  const options = def.connectionOptions ?? [];
+  const noOption =
+    options.length > 0 && !options.some((o) => satisfies(o, agent.connectionStates, active));
+  // None of the services the skill could use can be connected on this server at all.
+  const unconfigurable =
+    noOption &&
+    options.every((o) => OAUTH.has(o.provider)) &&
+    options.every((o) => !(env.providersConfigured ?? new Set()).has(o.provider));
+  const missingConnection = missingRequired || noOption;
   let reason: SkillUnavailableReason | null = null;
-  if (def.status === 'planned') reason = 'PLANNED';
+  if (status === 'planned') reason = 'PLANNED';
   else if (!enabled) reason = isMemory ? 'MEMORY_DISABLED' : 'DISABLED_BY_USER';
+  else if (unconfigurable && !missingRequired) reason = 'PROVIDER_NOT_CONFIGURED';
   else if (missingConnection) reason = 'CONNECTION_REQUIRED';
+  else if (def.needsBrowser && !env.browserAvailable) reason = 'BROWSER_UNAVAILABLE';
   else if (def.modelUse === 'required' && agent.route.mode !== 'model') reason = 'MODEL_REQUIRED';
-  else if (def.id === 'document-analysis' && !storageConfigured) reason = 'STORAGE_NOT_CONFIGURED';
+  else if (def.id === 'document-analysis' && !env.storageConfigured)
+    reason = 'STORAGE_NOT_CONFIGURED';
   return {
     id: def.id,
     version: def.version,
     status:
-      def.status === 'planned' ? 'planned' : missingConnection ? 'needs_connection' : 'implemented',
+      status === 'planned' ? 'planned' : missingConnection ? 'needs_connection' : 'implemented',
     enabled,
-    canToggle: def.canToggle,
+    // A skill that is not built yet cannot be switched (contracts Skill.canToggle).
+    canToggle: status === 'planned' ? false : def.canToggle,
     available: reason === null,
     unavailableReason: reason,
-    tools: [...def.tools],
-    plannedTools: [...def.plannedTools],
+    tools: def.tools.filter((t) => registered.has(t)),
+    plannedTools: [...def.tools.filter((t) => !registered.has(t)), ...def.plannedTools],
     permissions: [...def.permissions],
     maxRisk: def.maxRisk,
     requiredConnections: [...def.requiredConnections],
+    ...(options.length > 0 ? { connectionOptions: options.map((o) => ({ ...o })) } : {}),
     modelUse: def.modelUse,
     maxCostPerRunMicroUsd: def.maxCostPerRunMicroUsd,
     docsPath: def.docsPath,
@@ -76,18 +139,18 @@ const refuse = (reason: 'SKILL_PLANNED' | 'SKILL_NOT_TOGGLEABLE', message: strin
   new AppError('INVALID_STATE', message, { reason });
 
 export function createSkillService(deps: SkillServiceDeps): SkillService {
-  const storageConfigured = deps.storage !== null;
-
   async function list(ctx: DbContext): Promise<Skill[]> {
-    const agent = await withContext(deps.db, ctx, (trx) =>
-      loadAgentContext(trx, deps.config, ctx.userId),
-    );
-    return SKILLS.map((s) => skillEntry(s, agent, storageConfigured));
+    const [agent, env] = await Promise.all([
+      withContext(deps.db, ctx, (trx) => loadAgentContext(trx, deps.config, ctx.userId)),
+      skillEnv(deps),
+    ]);
+    return SKILLS.map((s) => skillEntry(s, agent, env));
   }
 
   async function setEnabled(ctx: DbContext, id: SkillId, enabled: boolean): Promise<Skill> {
     const def = getSkill(id);
-    if (def.status === 'planned') throw refuse('SKILL_PLANNED', 'This skill is not available yet.');
+    if (effectiveStatus(def) === 'planned')
+      throw refuse('SKILL_PLANNED', 'This skill is not available yet.');
     if (!def.canToggle)
       throw refuse('SKILL_NOT_TOGGLEABLE', 'This skill is part of how JARVIS works and stays on.');
     return withContext(deps.db, ctx, async (trx) => {
@@ -124,7 +187,7 @@ export function createSkillService(deps: SkillServiceDeps): SkillService {
         metadata: { skill: id, enabled },
       });
       const agent = await loadAgentContext(trx, deps.config, ctx.userId);
-      return skillEntry(def, agent, storageConfigured);
+      return skillEntry(def, agent, await skillEnv(deps));
     });
   }
 

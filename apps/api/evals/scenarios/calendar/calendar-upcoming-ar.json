@@ -1,0 +1,18 @@
+{
+  "id": "calendar-upcoming-ar",
+  "version": 1,
+  "suite": "calendar",
+  "title": "Arabic: what is on my calendar today",
+  "modes": ["offline"],
+  "given": {
+    "request": "ما الذي في تقويمي اليوم؟",
+    "connections": ["web", "google"],
+    "connectionCapabilities": {
+      "google": ["calendar.read", "calendar.write"]
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["calendar.list"]
+  }
+}

@@ -16,9 +16,10 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useId, useRef, useState, type RefObject } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type RefObject } from 'react';
 import { ApprovalSentence } from '@/components/approvals/ApprovalSentence';
 import { ApprovalSheet } from '@/components/approvals/ApprovalSheet';
+import type { ComposerHandle } from '@/components/composer/ComposerRegistry';
 import {
   isUntrustedApproval,
   untrustedSourceFacts,
@@ -77,6 +78,9 @@ import {
   type WrittenKind,
 } from './model';
 import { PlanSection } from './PlanSection';
+import { NextStep, hasNextStep } from './phase-c/NextStep';
+import { SessionArtifactsContext } from './phase-c/PhaseCEvidence';
+import { PhaseCResults } from './phase-c/PhaseCResults';
 import { useTaskActions } from './TaskActions';
 import styles from './TaskDetail.module.css';
 
@@ -188,128 +192,143 @@ function TaskDetailView({
     : null;
   // The question panel carries the answer field while this is the latest request.
   const answerHere = asked && later.length === 0;
+  // A proposed reply (e.g. a chosen appointment) goes into the follow-up field, not sent.
+  const followUp = useRef<ComposerHandle>(null);
+  const showFollowUp = isTerminal(task.status) && !answerHere && canFollowUp;
+  // Screenshots the browser sessions section shows: the proof lists link to it instead.
+  const sessionArtifacts = useMemo(
+    () => new Set((task.browserSessions ?? []).flatMap((s) => s.artifacts.map((a) => a.id))),
+    [task.browserSessions],
+  );
 
   return (
-    <div className={styles.frame}>
-      <BackLink />
-      <Page
-        width="wide"
-        title={<bdi>{title}</bdi>}
-        description={
-          <HeaderMeta task={task} statusRef={statusRef} answered={asked && later.length > 0} />
-        }
-        actions={
-          headerCancel || actions.next ? (
-            <>
-              {headerCancel}
-              {actions.next}
-            </>
-          ) : undefined
-        }
-      >
-        <div className={styles.layout}>
-          <div className={styles.main}>
-            {refreshError !== null && (
-              <ErrorBanner
-                title={t('tasks.detail.refreshError')}
-                error={refreshError}
-                onRetry={onRefresh}
+    <SessionArtifactsContext value={sessionArtifacts}>
+      <div className={styles.frame}>
+        <BackLink />
+        <Page
+          width="wide"
+          title={<bdi>{title}</bdi>}
+          description={
+            <HeaderMeta task={task} statusRef={statusRef} answered={asked && later.length > 0} />
+          }
+          actions={
+            headerCancel || actions.next ? (
+              <>
+                {headerCancel}
+                {actions.next}
+              </>
+            ) : undefined
+          }
+        >
+          <div className={styles.layout}>
+            <div className={styles.main}>
+              {refreshError !== null && (
+                <ErrorBanner
+                  title={t('tasks.detail.refreshError')}
+                  error={refreshError}
+                  onRetry={onRefresh}
+                />
+              )}
+              {actionError && <ErrorBanner error={actionError} />}
+              {approval && (
+                <ApprovalPanel
+                  task={task}
+                  approval={approval}
+                  reviewRef={reviewRef}
+                  onReview={() => review(approval)}
+                />
+              )}
+              <EarlierTurns
+                groups={earlier}
+                hasOlderPages={conversation.hasNextPage}
+                loadingOlder={conversation.isFetchingNextPage}
+                onLoadOlder={() => void conversation.fetchNextPage()}
               />
-            )}
-            {actionError && <ErrorBanner error={actionError} />}
-            {approval && (
-              <ApprovalPanel
+              {!restatesTitle(task.request, stripIsolates(title)) && (
+                <RequestQuote request={task.request} />
+              )}
+              {task.attachments && task.attachments.length > 0 && (
+                <AttachmentList attachments={task.attachments} />
+              )}
+              {asked && (
+                <QuestionPanel
+                  task={task}
+                  missing={missing}
+                  answered={!answerHere}
+                  composer={
+                    answerHere ? (
+                      <AnswerComposer conversationId={task.conversationId} missing={missing} />
+                    ) : null
+                  }
+                />
+              )}
+              <StatusBanner task={task} />
+              <AnswerSection task={task} streamed={stream.text} />
+              {!asked && <ResultSection task={task} fullText={fullText} />}
+              <PhaseCResults
                 task={task}
-                approval={approval}
-                reviewRef={reviewRef}
-                onReview={() => review(approval)}
+                onChooseSlot={showFollowUp ? (text) => followUp.current?.setText(text) : undefined}
               />
-            )}
-            <EarlierTurns
-              groups={earlier}
-              hasOlderPages={conversation.hasNextPage}
-              loadingOlder={conversation.isFetchingNextPage}
-              onLoadOlder={() => void conversation.fetchNextPage()}
-            />
-            {!restatesTitle(task.request, stripIsolates(title)) && (
-              <RequestQuote request={task.request} />
-            )}
-            {task.attachments && task.attachments.length > 0 && (
-              <AttachmentList attachments={task.attachments} />
-            )}
-            {asked && (
-              <QuestionPanel
+              <ConversationContinuation
+                followUpRef={followUp}
+                conversationId={task.conversationId}
+                currentTaskId={task.id}
+                later={later}
+                startPosition={earlier.length + 2}
+                canFollowUp={canFollowUp}
+                activeTask={activeTask}
+                showComposer={isTerminal(task.status) && !answerHere}
+                loadError={conversation.isError ? conversation.error : null}
+                onRetry={() => void conversation.refetch()}
+              />
+              <PlanSection task={task} />
+              <HistorySection
+                events={task.events}
+                status={task.status}
+                approvals={task.approvals}
+                steps={task.steps}
+              />
+              {approval && actions.cancel && (
+                <div className={styles.endActions}>{actions.cancel}</div>
+              )}
+            </div>
+            <aside className={styles.side} aria-label={t('tasks.details.title')}>
+              <DetailsPanel
                 task={task}
-                missing={missing}
-                answered={!answerHere}
-                composer={
-                  answerHere ? (
-                    <AnswerComposer conversationId={task.conversationId} missing={missing} />
-                  ) : null
+                conversation={
+                  thread
+                    ? { taskCount: thread.taskCount, scheduled: thread.scheduleId !== null }
+                    : null
                 }
               />
-            )}
-            <StatusBanner task={task} />
-            <AnswerSection task={task} streamed={stream.text} />
-            {!asked && <ResultSection task={task} fullText={fullText} />}
-            <ConversationContinuation
-              conversationId={task.conversationId}
-              currentTaskId={task.id}
-              later={later}
-              startPosition={earlier.length + 2}
-              canFollowUp={canFollowUp}
-              activeTask={activeTask}
-              showComposer={isTerminal(task.status) && !answerHere}
-              loadError={conversation.isError ? conversation.error : null}
-              onRetry={() => void conversation.refetch()}
-            />
-            <PlanSection task={task} />
-            <HistorySection
-              events={task.events}
-              status={task.status}
-              approvals={task.approvals}
-              steps={task.steps}
-            />
-            {approval && actions.cancel && (
-              <div className={styles.endActions}>{actions.cancel}</div>
-            )}
+            </aside>
           </div>
-          <aside className={styles.side} aria-label={t('tasks.details.title')}>
-            <DetailsPanel
-              task={task}
-              conversation={
-                thread
-                  ? { taskCount: thread.taskCount, scheduled: thread.scheduleId !== null }
-                  : null
-              }
-            />
-          </aside>
-        </div>
-      </Page>
-      {/* Phones: the decision stays within reach once its own button has scrolled away. */}
-      {approval && !reviewOnScreen && (
-        <div className={styles.decisionBar}>
-          <p className={styles.decisionText} id={barTextId}>
-            <Icon icon={Hand} size={16} className={styles.decisionIcon} />
-            <span>{t('tasks.approvalPanel.title')}</span>
-          </p>
-          {/* Its own short label: the card's "Review and decide" stays the one by that name. */}
-          <Button variant="primary" onClick={() => review(approval)} aria-describedby={barTextId}>
-            {t('tasks.approvalPanel.reviewShort')}
-          </Button>
-        </div>
-      )}
-      {actions.dialogs}
-      <ApprovalSheet
-        approval={reviewing}
-        open={reviewing !== null}
-        onClose={() => setReviewing(null)}
-        onDecided={() => {
-          decided.current = true;
-        }}
-        hideTaskLink
-      />
-    </div>
+        </Page>
+        {/* Phones: the decision stays within reach once its own button has scrolled away. */}
+        {approval && !reviewOnScreen && (
+          <div className={styles.decisionBar}>
+            <p className={styles.decisionText} id={barTextId}>
+              <Icon icon={Hand} size={16} className={styles.decisionIcon} />
+              <span>{t('tasks.approvalPanel.title')}</span>
+            </p>
+            {/* Its own short label: the card's "Review and decide" stays the one by that name. */}
+            <Button variant="primary" onClick={() => review(approval)} aria-describedby={barTextId}>
+              {t('tasks.approvalPanel.reviewShort')}
+            </Button>
+          </div>
+        )}
+        {actions.dialogs}
+        <ApprovalSheet
+          approval={reviewing}
+          open={reviewing !== null}
+          onClose={() => setReviewing(null)}
+          onDecided={() => {
+            decided.current = true;
+          }}
+          hideTaskLink
+        />
+      </div>
+    </SessionArtifactsContext>
   );
 }
 
@@ -386,18 +405,27 @@ function StatusBanner({ task }: { task: TaskDetail }) {
       const reason = errorReason(i18n, task.error, {
         step: step ? serverText(i18n, step.titleMessage, step.title) : null,
       });
+      // Phase C: the one thing that fixes it (Reconnect, open the site, adjust the limit).
+      const next = hasNextStep(task.error);
       return (
-        <Banner tone={modelLimit ? 'info' : 'danger'} title={errorTitle(i18n, task.error)}>
+        <Banner
+          tone={modelLimit || next === 'handover' ? 'info' : next ? 'warning' : 'danger'}
+          title={next ? t(`tasks.nextStep.titles.${next}`) : errorTitle(i18n, task.error)}
+        >
           {reason && <p className={styles.guidance}>{reason}</p>}
-          <p className={styles.guidance}>
-            {t(guidance.key)}
-            {!modelLimit && guidance.link && (
-              <>
-                {' '}
-                <Link href={guidance.link.href}>{t(guidance.link.key)}</Link>
-              </>
-            )}
-          </p>
+          {next ? (
+            <NextStep task={task} />
+          ) : (
+            <p className={styles.guidance}>
+              {t(guidance.key)}
+              {!modelLimit && guidance.link && (
+                <>
+                  {' '}
+                  <Link href={guidance.link.href}>{t(guidance.link.key)}</Link>
+                </>
+              )}
+            </p>
+          )}
           {modelLimit && (
             <>
               <OfflineCommands />
@@ -436,6 +464,10 @@ const APPROVAL_BODY: Record<Approval['details']['kind'], MessageKey> = {
   generic: 'tasks.approvalPanel.bodyGeneric',
   schedule: 'tasks.approvalPanel.bodySchedule',
   memory: 'tasks.approvalPanel.bodyMemory',
+  calendar_event: 'tasks.approvalPanel.bodyCalendar',
+  booking: 'tasks.approvalPanel.bodyBooking',
+  purchase: 'tasks.approvalPanel.bodyPurchase',
+  form_submission: 'tasks.approvalPanel.bodyForm',
 };
 
 function ApprovalPanel({
@@ -645,7 +677,10 @@ function ResultSection({ task, fullText }: { task: TaskDetail; fullText: string 
               {resultLine !== null ? (
                 <p>{resultLine}</p>
               ) : (
-                <UserText as="p">{task.resultSummary}</UserText>
+                // Line breaks are the tool's own (a ranked list, free times): kept.
+                <UserText as="p" className={styles.preLine}>
+                  {task.resultSummary}
+                </UserText>
               )}
             </div>
           )

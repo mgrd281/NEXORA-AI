@@ -29,6 +29,17 @@
  * fields are computed by assessStep from the static registry and the user's
  * preferences, never by a skill, and no value of them can allow a step, lower
  * its risk or remove an approval (unit-tested).
+ *
+ * Phase C (docs/architecture/phase-c.md §5):
+ *   1. generalised: the exact connection the bound input needs (tool.requires,
+ *      else requiredConnection), checked against every non-revoked connection:
+ *        none active                        → deny CONNECTION_MISSING       (CONNECTION_REQUIRED)
+ *        an OAuth one that expired          → deny CONNECTION_EXPIRED       (CONNECTION_REQUIRED)
+ *        active, capability not granted     → deny CONNECTION_SCOPE_MISSING (CONNECTION_REQUIRED)
+ *   3b. domain rules (policy-domain.ts): purchases (PURCHASES_DISABLED,
+ *       PURCHASE_CURRENCY, PURCHASE_LIMIT deny; else approval PURCHASE),
+ *       binding commitments (approval BINDING_COMMITMENT), calendar invitations
+ *       (approval RECIPIENT_EXTERNAL) — restrict-only by construction.
  */
 import type {
   ConnectionProvider,
@@ -40,6 +51,8 @@ import type {
   ToolId,
 } from '@jarvis/contracts';
 import type { OfflineReason } from './models/router';
+import { evaluateDomainRules } from './policy-domain';
+import type { ConnectionRequirement, ConnectionState, PurchaseFacts } from './tools/types';
 
 export interface PolicyInput {
   toolId: ToolId;
@@ -76,27 +89,107 @@ export interface PolicyInput {
    * user's approval of the exact text (MEMORY_FROM_CONTENT).
    */
   fromContent?: boolean;
+  /**
+   * Phase C: the exact connection this input needs (tool.requires on the
+   * bound input); when absent, `requiredConnection` applies.
+   */
+  requirement?: ConnectionRequirement | null;
+  /**
+   * Phase C: the tool's connectionOptions (with requiredConnection first, if
+   * any). When the input binds no exact requirement, at least one must be
+   * satisfied — a tool never runs without a connection it could use.
+   */
+  connectionOptions?: readonly ConnectionRequirement[];
+  /**
+   * Phase C: every non-revoked connection with its status and capabilities
+   * (from the database via loadAgentContext), so an expired connection is
+   * told apart from a missing one. Absent: only `activeConnections` is known.
+   */
+  connectionStates?: readonly ConnectionState[];
+  /**
+   * Phase C: money the step commits (tool.purchase on the input) with this
+   * month's committed purchases and the limit, in micro-USD.
+   */
+  purchase?: (PurchaseFacts & { limitMicro: number; spentMicro: number }) | null;
+  /** Phase C: invitation recipients (tool.attendees). */
+  attendees?: readonly string[];
+  /** Phase C: a binding commitment on a site (tool.binding). */
+  binding?: boolean;
 }
 
 export interface PolicyResult extends PolicyDecision {
   /** Error code for the task when decision is 'deny'. */
   denyCode: ErrorCode | null;
+  /** Phase C: facts of a deny for the TaskError params (e.g. the purchase limit). */
+  denyParams?: Record<string, string | number>;
 }
 
-const deny = (reasons: string[], denyCode: ErrorCode): PolicyResult => ({
+const deny = (
+  reasons: string[],
+  denyCode: ErrorCode,
+  denyParams?: Record<string, string | number>,
+): PolicyResult => ({
   decision: 'deny',
   reasons,
   denyCode,
+  ...(denyParams ? { denyParams } : {}),
 });
+
+const OAUTH_PROVIDERS: ReadonlySet<ConnectionProvider> = new Set(['google', 'microsoft']);
+
+/** Rule 1: the connection the step needs — missing, expired, or lacking the capability. */
+function connectionDeny(p: PolicyInput): PolicyResult | null {
+  const exact: ConnectionRequirement | null =
+    p.requirement ??
+    (p.connectionOptions?.length
+      ? null
+      : p.requiredConnection
+        ? { provider: p.requiredConnection }
+        : null);
+  if (exact) return requirementDeny(p, exact);
+  if (!p.connectionOptions?.length) return null;
+  // No exact requirement could be bound: any one option will do; otherwise the most
+  // specific explanation (expired, then a missing capability, then missing).
+  const results = p.connectionOptions.map((o) => requirementDeny(p, o));
+  if (results.some((r) => r === null)) return null;
+  const denied = results as PolicyResult[];
+  return (
+    denied.find((r) => r.reasons.includes('CONNECTION_EXPIRED')) ??
+    denied.find((r) => r.reasons.includes('CONNECTION_SCOPE_MISSING')) ??
+    denied[0]!
+  );
+}
+
+function requirementDeny(p: PolicyInput, req: ConnectionRequirement): PolicyResult | null {
+  const params = {
+    provider: req.provider,
+    ...(req.capability ? { capability: req.capability } : {}),
+  };
+  if (!p.connectionStates) {
+    // Only the active providers are known: a capability cannot be confirmed.
+    return p.activeConnections.has(req.provider) && !req.capability
+      ? null
+      : deny(['CONNECTION_MISSING'], 'CONNECTION_REQUIRED', params);
+  }
+  const mine = p.connectionStates.filter((c) => c.provider === req.provider);
+  const active = mine.find((c) => c.status === 'active');
+  if (!active || !p.activeConnections.has(req.provider)) {
+    if (OAUTH_PROVIDERS.has(req.provider) && mine.some((c) => c.status === 'expired'))
+      return deny(['CONNECTION_EXPIRED'], 'CONNECTION_REQUIRED', params);
+    return deny(['CONNECTION_MISSING'], 'CONNECTION_REQUIRED', params);
+  }
+  if (req.capability && !active.capabilities.includes(req.capability))
+    return deny(['CONNECTION_SCOPE_MISSING'], 'CONNECTION_REQUIRED', params);
+  return null;
+}
 
 export const sameAddress = (a: string, b: string): boolean =>
   a.trim().toLowerCase() === b.trim().toLowerCase();
 
 export function evaluatePolicy(p: PolicyInput): PolicyResult {
-  // 1. Connections
-  if (p.requiredConnection && !p.activeConnections.has(p.requiredConnection)) {
-    return deny(['CONNECTION_MISSING'], 'CONNECTION_REQUIRED');
-  }
+  // 1. Connections (Phase C: the exact requirement; expired and missing scopes told apart)
+  const connection = connectionDeny(p);
+  if (connection) return connection;
   // 1b. Skill switched off by the user
   if (p.skillEnabled === false) return deny(['SKILL_DISABLED'], 'POLICY_DENIED');
   // 2. Privacy settings
@@ -109,6 +202,9 @@ export function evaluatePolicy(p: PolicyInput): PolicyResult {
   }
   // 3. Risk ceiling for this build
   if (p.risk === 'CRITICAL') return deny(['RISK_CRITICAL'], 'POLICY_DENIED');
+  // 3b. Phase C domain rules: purchases, binding commitments, invitations (restrict-only)
+  const domain = evaluateDomainRules(p);
+  if (domain.deny) return deny(domain.deny.reasons, domain.deny.code, domain.deny.params);
 
   // 4. Paid model availability
   const usesPaidModel =
@@ -165,6 +261,12 @@ export function evaluatePolicy(p: PolicyInput): PolicyResult {
     reasons.push('MEMORY_FROM_CONTENT');
     needsApproval = true;
   }
+  // 5b. Phase C domain approvals (PURCHASE, BINDING_COMMITMENT, RECIPIENT_EXTERNAL for invitations)
+  for (const r of domain.approval) {
+    if (!reasons.includes(r)) reasons.push(r);
+    needsApproval = true;
+  }
+  for (const r of domain.info) if (!reasons.includes(r)) reasons.push(r);
 
   // 6. Budget headroom
   if (usesPaidModel) {
@@ -197,6 +299,12 @@ export function evaluatePolicy(p: PolicyInput): PolicyResult {
 
 const DENY_REASONS = [
   'CONNECTION_MISSING',
+  // Phase C
+  'CONNECTION_EXPIRED',
+  'CONNECTION_SCOPE_MISSING',
+  'PURCHASES_DISABLED',
+  'PURCHASE_LIMIT',
+  'PURCHASE_CURRENCY',
   'SKILL_DISABLED',
   'MEMORY_DISABLED',
   'UNTRUSTED_MEMORY',
@@ -217,6 +325,16 @@ export function denyReason(code: ErrorCode, reasons: string[]): TaskErrorReason 
 
 /** English developer fallback for a deny (clients show copy for the reason). */
 export function denyMessage(code: ErrorCode, reasons: string[], toolTitle: string): string {
+  if (reasons.includes('CONNECTION_EXPIRED'))
+    return `“${toolTitle}” needs a connection that has expired. Reconnect it in Settings → Connections, then retry.`;
+  if (reasons.includes('CONNECTION_SCOPE_MISSING'))
+    return `“${toolTitle}” needs a permission the connection does not grant. Reconnect it and allow that permission, then retry.`;
+  if (reasons.includes('PURCHASES_DISABLED'))
+    return 'Purchases are turned off: your monthly purchase limit is $0. Set a limit in Settings to allow them.';
+  if (reasons.includes('PURCHASE_LIMIT'))
+    return 'This purchase would go over your monthly purchase limit, so JARVIS will not make it.';
+  if (reasons.includes('PURCHASE_CURRENCY'))
+    return 'This purchase is not in US dollars, the currency of your purchase limit, so JARVIS will not make it.';
   if (reasons.includes('CONNECTION_MISSING'))
     return `“${toolTitle}” needs a connection that is not set up or not active. Connect it in Settings → Connections, then retry.`;
   if (reasons.includes('SKILL_DISABLED'))

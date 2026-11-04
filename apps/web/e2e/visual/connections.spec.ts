@@ -204,7 +204,8 @@ for (const { theme, locale } of STATE_VARIANTS) {
     await form.locator('input[type="password"]').fill('app-password-1234');
     await form.locator('button[type="submit"]').click();
     await expect(page.locator('main form')).toHaveCount(0);
-    const emailCard = page.locator('main section').nth(1);
+    // Cards: Google, Microsoft, Email (SMTP), Web access.
+    const emailCard = page.locator('main section').nth(2);
     // Test connection, Update settings, then the quiet Disconnect last. Activated from the
     // keyboard: on phones the "connected" toast sits over the bottom of the card for a moment.
     await emailCard.locator('footer button').last().press('Enter');
@@ -234,7 +235,7 @@ test('connections — enable web access, connect, test and disconnect email', as
   await webButton.click();
   const disconnectWeb = page.getByRole('button', { name: 'Disconnect', exact: true }).first();
   await expect(disconnectWeb).toBeFocused();
-  await expect(page.locator('main section').first()).toContainText('Connected');
+  await expect(page.locator('main section').nth(3)).toContainText('Connected');
   await disconnectWeb.click();
   await expect(page.getByRole('button', { name: 'Enable web access' })).toBeFocused();
   expect(api.calls.filter((c) => c === 'enableWebAccess' || c === 'deleteConnection')).toEqual([
@@ -285,7 +286,7 @@ test('connections — enable web access, connect, test and disconnect email', as
   await expect(page.getByText('The mail server accepted the connection.')).toBeVisible();
 
   // Disconnect: the dialog explains the password is erased; confirming removes the mailbox.
-  await page.locator('main section').nth(1).getByRole('button', { name: 'Disconnect' }).click();
+  await page.locator('main section').nth(2).getByRole('button', { name: 'Disconnect' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toContainText('The stored password is erased from the server right away.');
   await dialog.getByRole('button', { name: 'Disconnect and erase password' }).click();

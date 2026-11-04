@@ -24,10 +24,14 @@ const skills: Catalog<typeof source> = {
     MODEL_REQUIRED: 'تحتاج إلى نموذج ذكاء اصطناعي، ولا يتوفر أي نموذج حاليًا.',
     MEMORY_DISABLED: 'الذاكرة متوقفة.',
     STORAGE_NOT_CONFIGURED: 'تخزين الملفات غير مُعَدّ على هذا الخادم.',
+    PROVIDER_NOT_CONFIGURED: 'لا يوجد اتصال بـ Google أو Microsoft مُعدّ على هذا الخادم.',
+    BROWSER_UNAVAILABLE: 'وكيل المتصفح لا يعمل على هذا الخادم.',
   },
   connections: {
     web: 'الوصول إلى الويب',
     smtp: 'اتصال بريد إلكتروني',
+    google: 'حساب Google',
+    microsoft: 'حساب Microsoft',
   },
   connect: 'فتح الاتصالات',
   risk: {

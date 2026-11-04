@@ -21,7 +21,7 @@
  * worker may own it by then, and claimExecution there deals with the
  * interrupted attempt.
  */
-import type { Evidence, Locale, VerificationCheck } from '@jarvis/contracts';
+import type { ConnectionProvider, Evidence, Locale, VerificationCheck } from '@jarvis/contracts';
 import { withContext, type DbContext } from '../../db/pool';
 import type { AttachmentRow, JobRow, StepRow, TaskRow, ToolExecutionRow } from '../../db/types';
 import { hashObject } from '../../lib/crypto';
@@ -29,11 +29,12 @@ import { redact, truncate } from '../../lib/redact';
 import { metrics } from '../../observability/metrics';
 import { withSpan } from '../../observability/tracing';
 import { audit } from '../audit/audit';
+import { enabledOrigins } from '../browser/sites';
 import { appendEvent, publishEphemeral } from '../events/events';
 import { createNotification } from '../notifications/create';
 import { requestApproval } from './approval-flow';
 import { insertAssistantMessage, questionOf, taskOutcome } from './completion';
-import { loadAgentContext, type AgentContext } from './context';
+import { loadAgentContext, stepCommittedSpend, type AgentContext } from './context';
 import { loadConversationContext, type PriorTurn } from './conversation-context';
 import { AgentError, asAgentError } from './errors';
 import type { ModelUsage } from './models/adapter';
@@ -166,7 +167,23 @@ async function prepareNext(deps: RuntimeDeps, ctx: DbContext, taskId: string): P
       );
       return { kind: 'stop' };
     }
-    const agent = await loadAgentContext(trx, deps.config, ctx.userId);
+    const loaded = await loadAgentContext(trx, deps.config, ctx.userId);
+    // A purchase step retried after an unknown outcome reconciles its own row: that row must
+    // not count against the limit it is checked against (nor in the approval's limit bar).
+    const own =
+      tool.purchase && loaded.purchases
+        ? await stepCommittedSpend(trx, step.id, loaded.account.timeZone)
+        : 0;
+    const agent: typeof loaded =
+      own > 0 && loaded.purchases
+        ? {
+            ...loaded,
+            purchases: {
+              ...loaded.purchases,
+              spentMicro: Math.max(0, loaded.purchases.spentMicro - own),
+            },
+          }
+        : loaded;
     const language = asLocale(task.language, agent.account.locale);
 
     // Resolve references from earlier steps' stored outputs.
@@ -279,6 +296,9 @@ async function prepareNext(deps: RuntimeDeps, ctx: DbContext, taskId: string): P
             ? `${smtpCfg.fromName} <${smtpCfg.fromAddress}>`
             : smtpCfg.fromAddress
           : null;
+        const accounts: Partial<Record<ConnectionProvider, string | null>> = {};
+        for (const c of agent.connectionStates ?? [])
+          if (c.status === 'active') accounts[c.provider] = c.accountIdentifier;
         const { details, summary, summaryMessage } = tool.approvalDetails(input, {
           language,
           stepTitle: step.title,
@@ -287,6 +307,14 @@ async function prepareNext(deps: RuntimeDeps, ctx: DbContext, taskId: string): P
           fromContent,
           recalledTaskId: recalledTaskId(steps, step),
           now: new Date(),
+          // Phase C: the accounts and limits approvals show (calendar, sender, purchases).
+          account: { email: agent.account.email, timeZone: agent.account.timeZone },
+          accounts,
+          purchases: agent.purchases ?? { limitMicro: 0, spentMicro: 0 },
+          siteHost: (siteId) => {
+            const origin = enabledOrigins(deps.config, siteId)?.[0];
+            return origin ? new URL(origin).host : null;
+          },
         });
         // Say what the suspected injection is about (never the flagged text itself).
         const untrusted = a.policy.reasons.includes('UNTRUSTED_CONTENT')

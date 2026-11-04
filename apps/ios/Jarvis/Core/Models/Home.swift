@@ -27,6 +27,20 @@ struct AssistantStatus: Decodable, Sendable, Equatable {
         var translation: Bool? = nil
         /// Schedules can be created (task-scheduling skill on).
         var schedules: Bool? = nil
+        // Phase C. Each is true only when the tools are built on the server, the skill is on
+        // and what it needs is connected / running; nil from older servers (unknown).
+        /// Reading, drafting and tracking mail through a Google / Microsoft account.
+        var mail: Bool? = nil
+        /// Reading and changing a connected calendar.
+        var calendar: Bool? = nil
+        /// The isolated browser agent is running.
+        var browser: Bool? = nil
+        /// Finding and booking appointments on supported sites.
+        var booking: Bool? = nil
+        /// Comparing products on supported shops.
+        var shopping: Bool? = nil
+        /// Purchases are possible at all (shopping available and a purchase limit above 0).
+        var purchases: Bool? = nil
     }
 
     let planner: Planner
@@ -64,4 +78,7 @@ struct HomeSnapshot: Decodable, Sendable, Equatable {
     let recentTasks: [TaskSummary]
     let unreadNotifications: Int
     let suggestions: [Suggestion]
+    /// Phase C: the next events of the connected calendars; nil (or absent, from older
+    /// servers) when no connection grants calendar.read — Home then shows no "Upcoming".
+    var upcoming: UpcomingEvents? = nil
 }

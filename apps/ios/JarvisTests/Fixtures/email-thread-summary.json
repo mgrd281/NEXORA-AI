@@ -1,0 +1,26 @@
+{
+  "id": "18c2f0a1b2c3d4e5",
+  "provider": "google",
+  "connectionId": "a1c2e3f4-5b6d-4e7f-8a9b-0c1d2e3f4a51",
+  "subject": "Quote for the kitchen",
+  "participants": [
+    {
+      "name": "Lin",
+      "address": "lin@example.org"
+    },
+    {
+      "name": null,
+      "address": "ada@gmail.example"
+    }
+  ],
+  "lastMessageFrom": {
+    "name": "Lin",
+    "address": "lin@example.org"
+  },
+  "lastMessageAt": "2026-11-04T07:45:00.000Z",
+  "snippet": "Could you confirm Thursday works for the installation?",
+  "messageCount": 3,
+  "unread": true,
+  "needsReply": true,
+  "webLink": "https://mail.google.com/mail/u/0/#inbox/18c2f0a1b2c3d4e5"
+}

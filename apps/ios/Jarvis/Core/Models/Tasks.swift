@@ -21,6 +21,9 @@ struct Evidence: Decodable, Sendable, Equatable {
         case contentHash = "content_hash"
         case modelOutput = "model_output"
         case note
+        // Phase C
+        case providerResponse = "provider_response"
+        case browserCapture = "browser_capture"
         case unknown
 
         init(from decoder: any Decoder) throws {
@@ -32,6 +35,13 @@ struct Evidence: Decodable, Sendable, Equatable {
     let label: String
     let value: String
     let at: Date
+    /// What the evidence records (`EvidenceCode`; a string so newer codes decode), with its
+    /// facts as parameters. Absent on evidence recorded before codes existed.
+    var code: String? = nil
+    var params: [String: JSONValue]? = nil
+
+    /// The stored evidence file this entry refers to (screenshots, extracts, ICS files).
+    var artifactId: String? { params?["artifactId"]?.stringValue }
 }
 
 struct PolicyDecision: Decodable, Sendable, Equatable {
@@ -216,6 +226,8 @@ struct TaskDetail: Decodable, Sendable, Equatable, Identifiable {
     let startedAt: Date?
     /// Files attached to the request (Phase B; absent from older servers).
     var attachments: [Attachment]? = nil
+    /// Phase C: the browser agent's sessions for this task, oldest first.
+    var browserSessions: [BrowserSession]? = nil
 
     private enum CodingKeys: String, CodingKey {
         case id, title, request, status, riskLevel, source, progress, pendingApprovalId
@@ -224,7 +236,7 @@ struct TaskDetail: Decodable, Sendable, Equatable, Identifiable {
         case pendingApprovalRef = "pendingApproval"
         case outcome, question, scheduleId, attachmentCount
         case objective, objectiveMessage, conversationId, planner, answer, steps, approvals
-        case events, cost, evidence, canCancel, canRetry, startedAt, attachments
+        case events, cost, evidence, canCancel, canRetry, startedAt, attachments, browserSessions
     }
 
     var displayTitle: String { titleMessage.rendered(or: title) }

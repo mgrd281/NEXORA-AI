@@ -17,10 +17,12 @@
  */
 import {
   AttachmentMediaType,
+  ConnectionCapability,
   ConnectionProvider,
   ConnectionStatus,
   Locale,
   MissingInfo,
+  OAuthProvider,
   RiskLevel,
   TaskErrorReason,
   TaskOutcome,
@@ -44,6 +46,12 @@ export const SUITES = [
   'documents',
   'schedules',
   'spec',
+  // Phase C (docs/architecture/phase-c.md §9): one suite per domain, each owned by its engineer.
+  'connections',
+  'email',
+  'calendar',
+  'booking',
+  'shopping',
 ] as const;
 export const Suite = z.enum(SUITES);
 export type Suite = z.infer<typeof Suite>;
@@ -89,6 +97,14 @@ export const Scenario = z
       connections: z.array(ConnectionProvider).default(['web', 'smtp']),
       /** Extension: a status other than active for a connection (e.g. smtp: expired). */
       connectionStatus: z.partialRecord(ConnectionProvider, ConnectionStatus).optional(),
+      /** Phase C: the capabilities each OAuth connection grants (default: none). */
+      connectionCapabilities: z
+        .partialRecord(OAuthProvider, z.array(ConnectionCapability))
+        .optional(),
+      /** Phase C: purchases already committed this month (USD); the limit is preferences.spending. */
+      purchases: z.object({ spentUsd: z.number().min(0) }).optional(),
+      /** Phase C: a browser worker is running (browser tools are offered to the planner). */
+      browserAvailable: z.boolean().default(false),
       conversation: z
         .array(
           z.object({
@@ -155,6 +171,15 @@ export const Scenario = z
             risk: RiskLevel,
             sideEffect: z.enum(['none', 'internal', 'external']),
             requiredConnection: ConnectionProvider.nullable().default(null),
+            /** Phase C facts a tool declares (docs/architecture/phase-c.md §4.1). */
+            requirement: z
+              .object({ provider: ConnectionProvider, capability: ConnectionCapability.optional() })
+              .optional(),
+            purchase: z
+              .object({ amountUsd: z.number().min(0).nullable(), currency: z.string().nullable() })
+              .optional(),
+            attendees: z.array(z.string()).optional(),
+            binding: z.boolean().optional(),
           }),
         )
         .optional(),
@@ -196,6 +221,18 @@ export const Scenario = z
            * occurrence): this many tasks with source "schedule" must exist.
            */
           scheduledTasksCreated: z.number().int().optional(),
+          /** Phase C: evidence files (screenshots, extracts, ICS) the task stored, at least. */
+          evidenceAtLeast: z.number().int().nonnegative().optional(),
+          /**
+           * Phase C (scenario 10): after the checks above, retry the task acknowledging the
+           * unknown outcome (approving again if asked) and check the task afterwards.
+           */
+          acknowledgedRetry: z
+            .object({
+              status: TaskStatus.optional(),
+              sideEffectsExactly: z.number().int().optional(),
+            })
+            .optional(),
         })
         .optional(),
     }),
@@ -278,10 +315,25 @@ export interface Placeholders {
   files: readonly string[];
 }
 
+/**
+ * `{{weekday+N}}`: the local date (Europe/Berlin, YYYY-MM-DD) N days from now, moved to the
+ * next weekday — a date that stays in the future whenever the suite runs (booking scenarios).
+ */
+export function weekdayAhead(days: number, now = new Date()): string {
+  let d = new Date(now.getTime() + days * 86_400_000);
+  for (;;) {
+    const local = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin' }).format(d);
+    const wd = new Date(`${local}T12:00:00Z`).getUTCDay();
+    if (wd !== 0 && wd !== 6) return local;
+    d = new Date(d.getTime() + 86_400_000);
+  }
+}
+
 /** Substitutes the placeholders in every string of a JSON value. */
 export function substitute<T>(value: T, p: Placeholders): T {
   const one = (s: string) =>
     s
+      .replace(/\{\{weekday\+(\d+)\}\}/g, (_m, n: string) => weekdayAhead(Number(n)))
       .replaceAll('{{me}}', p.me)
       .replaceAll('{{site}}', p.site)
       .replaceAll('{{down}}', p.down)

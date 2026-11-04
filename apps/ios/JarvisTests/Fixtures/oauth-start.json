@@ -1,0 +1,4 @@
+{
+  "authorizationUrl": "https://accounts.google.com/o/oauth2/v2/auth?client_id=jarvis.apps.googleusercontent.com&response_type=code&redirect_uri=https%3A%2F%2Fjarvis.example.net%2Fconnections%2Fcallback&scope=openid%20email%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.readonly&state=Qm9uZCB0byB0aGlzIHNlc3Npb24gb25seQ&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256&access_type=offline&prompt=consent&include_granted_scopes=true",
+  "expiresAt": "2026-11-04T09:22:00.000Z"
+}

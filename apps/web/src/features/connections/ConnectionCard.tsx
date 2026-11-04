@@ -2,22 +2,27 @@
 
 import type { ConnectionStatus } from '@jarvis/contracts';
 import type { LucideIcon } from 'lucide-react';
-import { CircleAlert, CircleCheck, CircleDashed, TimerOff } from 'lucide-react';
+import { Ban, CircleAlert, CircleCheck, CircleDashed, TimerOff } from 'lucide-react';
 import { forwardRef, useId, type ReactNode } from 'react';
 import { StatusPill, type Tone } from '@/components/ui/Badge';
 import { Icon } from '@/components/ui/Icon';
 import { useI18n } from '@/i18n/I18nProvider';
+import { cx } from '@/lib/cx';
 import styles from './connections.module.css';
 
-const STATUS: Record<ConnectionStatus | 'none', { tone: Tone; icon: LucideIcon }> = {
+/** A connection's status, or 'unconfigured' for a provider this server can't connect (Phase C). */
+export type CardStatus = ConnectionStatus | 'unconfigured';
+
+const STATUS: Record<CardStatus | 'none', { tone: Tone; icon: LucideIcon }> = {
   active: { tone: 'success', icon: CircleCheck },
   error: { tone: 'danger', icon: CircleAlert },
   expired: { tone: 'warning', icon: TimerOff },
   revoked: { tone: 'neutral', icon: CircleDashed },
+  unconfigured: { tone: 'neutral', icon: Ban },
   none: { tone: 'neutral', icon: CircleDashed },
 };
 
-export function ConnectionStatusPill({ status }: { status: ConnectionStatus | null }) {
+export function ConnectionStatusPill({ status }: { status: CardStatus | null }) {
   const { t } = useI18n();
   const s = STATUS[status ?? 'none'];
   return (
@@ -38,19 +43,26 @@ export const ConnectionCard = forwardRef<
   HTMLHeadingElement,
   {
     icon: LucideIcon;
+    /** A monogram instead of the icon (account providers: no brand logos). */
+    mark?: string;
     title: string;
     summary: string;
-    status: ConnectionStatus | null;
+    status: CardStatus | null;
     children?: ReactNode;
     footer?: ReactNode;
+    /** Quieter card (e.g. a provider this server can't connect). */
+    muted?: boolean;
   }
->(function ConnectionCard({ icon, title, summary, status, children, footer }, headingRef) {
+>(function ConnectionCard(
+  { icon, mark, title, summary, status, children, footer, muted },
+  headingRef,
+) {
   const titleId = useId();
   return (
-    <section className={styles.card} aria-labelledby={titleId}>
+    <section className={cx(styles.card, muted && styles.cardMuted)} aria-labelledby={titleId}>
       <header className={styles.header}>
-        <span className={styles.iconTile} aria-hidden="true">
-          <Icon icon={icon} size={20} />
+        <span className={cx(styles.iconTile, mark && styles.markTile)} aria-hidden="true">
+          {mark ? mark : <Icon icon={icon} size={20} />}
         </span>
         <div className={styles.titles}>
           <h2 id={titleId} ref={headingRef} tabIndex={-1} className={styles.title}>

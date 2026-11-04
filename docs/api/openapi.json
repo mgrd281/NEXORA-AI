@@ -69,6 +69,18 @@
       "name": "meta"
     },
     {
+      "name": "calendar"
+    },
+    {
+      "name": "email"
+    },
+    {
+      "name": "commerce"
+    },
+    {
+      "name": "evidence"
+    },
+    {
       "name": "events"
     },
     {
@@ -1730,6 +1742,16 @@
           },
           "404": {
             "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CONFLICT / INVALID_STATE / APPROVAL_EXPIRED / APPROVAL_MISMATCH — state does not allow this.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5241,6 +5263,1089 @@
         }
       }
     },
+    "/v1/connections/providers": {
+      "get": {
+        "operationId": "listConnectionProviders",
+        "summary": "Connection providers on this server: configured or not, capabilities and their scopes",
+        "tags": ["connections"],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListConnectionProvidersResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/connections/oauth/start": {
+      "post": {
+        "operationId": "startOAuthConnection",
+        "summary": "Start connecting (or reconnecting) a Google or Microsoft account: authorization code with PKCE",
+        "tags": ["connections"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthStartRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthStartResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — invalid body, or details.reason REDIRECT_URI_NOT_ALLOWED (not exactly one of the server’s redirect URIs) / CONNECTION_NOT_OAUTH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — connectionId is not this user’s connection of that provider.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests, or details.reason OAUTH_PENDING_LIMIT { max } (unfinished authorizations).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE — details.reason PROVIDER_NOT_CONFIGURED { provider }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/connections/oauth/callback": {
+      "post": {
+        "operationId": "completeOAuthConnection",
+        "summary": "Finish connecting: the provider redirect forwarded by the client (same session, single use)",
+        "tags": ["connections"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthCallbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthCallbackResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — invalid body, or details.reason OAUTH_STATE_INVALID (unknown, used, or started by another session; wrong iss) / OAUTH_STATE_EXPIRED / OAUTH_DENIED { provider } / OAUTH_SCOPE_NOT_GRANTED { capabilities }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CONFLICT — details.reason OAUTH_ACCOUNT_MISMATCH { provider } (signed in to another account than the connected one).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "CONNECTION_FAILED — details.reason OAUTH_EXCHANGE_FAILED { provider }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE — details.reason PROVIDER_NOT_CONFIGURED { provider }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/calendar/upcoming": {
+      "get": {
+        "operationId": "listUpcomingEvents",
+        "summary": "The next events of the connected calendars (upcoming null when none is connected)",
+        "tags": ["calendar"],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListUpcomingEventsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/calendar/events": {
+      "get": {
+        "operationId": "listCalendarEvents",
+        "summary": "Events of the connected calendars in a time window",
+        "tags": ["calendar"],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["google", "microsoft"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarEventList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — invalid query, or a window whose “to” is not after “from” or that is wider than 62 days.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CONNECTION_REQUIRED — details.reason CALENDAR_NOT_CONNECTED (no active calendar connection).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE — details.reason CALENDAR_UNAVAILABLE { provider } (no calendar answered).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/email/watches": {
+      "get": {
+        "operationId": "listEmailWatches",
+        "summary": "Threads JARVIS watches for replies",
+        "tags": ["email"],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEmailWatchesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/email/watches/{id}": {
+      "delete": {
+        "operationId": "deleteEmailWatch",
+        "summary": "Stop watching a thread for replies",
+        "tags": ["email"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orders": {
+      "get": {
+        "operationId": "listOrders",
+        "summary": "Orders JARVIS placed or tried to place, newest first",
+        "tags": ["commerce"],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["submitting", "placed", "failed", "unknown"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListOrdersResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orders/{id}": {
+      "get": {
+        "operationId": "getOrder",
+        "summary": "An order with its evidence",
+        "tags": ["commerce"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bookings": {
+      "get": {
+        "operationId": "listBookings",
+        "summary": "Appointments JARVIS booked or tried to book, newest first",
+        "tags": ["commerce"],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["submitting", "confirmed", "failed", "unknown", "cancelled"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListBookingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bookings/{id}": {
+      "get": {
+        "operationId": "getBooking",
+        "summary": "A booking with its evidence",
+        "tags": ["commerce"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Booking"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/evidence/{id}": {
+      "get": {
+        "operationId": "getEvidence",
+        "summary": "Evidence file metadata",
+        "tags": ["evidence"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceArtifact"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/evidence/{id}/content": {
+      "get": {
+        "operationId": "downloadEvidence",
+        "summary": "Download an evidence file (screenshot, extracted data, ICS) — its owner only",
+        "tags": ["evidence"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file",
+            "headers": {
+              "Content-Disposition": {
+                "description": "attachment; filename=\"…\" (RFC 6266, UTF-8 filename*)",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              }
+            },
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/calendar": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE — details.reason EVIDENCE_NOT_AVAILABLE (stored by another storage driver, or no storage) / STORAGE_UNAVAILABLE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/events": {
       "get": {
         "operationId": "streamEvents",
@@ -5406,7 +6511,11 @@
           "conversation.changed",
           "schedule.changed",
           "webhook.delivery_failed",
-          "webhook.endpoint_changed"
+          "webhook.endpoint_changed",
+          "email_watch.changed",
+          "browser_session.changed",
+          "order.changed",
+          "booking.changed"
         ]
       },
       "AdminAuditResponse": {
@@ -5701,7 +6810,20 @@
           "WEBHOOK_URL_BLOCKED",
           "WEBHOOK_DISABLED",
           "SKILL_NOT_TOGGLEABLE",
-          "SKILL_PLANNED"
+          "SKILL_PLANNED",
+          "PROVIDER_NOT_CONFIGURED",
+          "REDIRECT_URI_NOT_ALLOWED",
+          "OAUTH_STATE_INVALID",
+          "OAUTH_STATE_EXPIRED",
+          "OAUTH_DENIED",
+          "OAUTH_EXCHANGE_FAILED",
+          "OAUTH_SCOPE_NOT_GRANTED",
+          "OAUTH_ACCOUNT_MISMATCH",
+          "OAUTH_PENDING_LIMIT",
+          "CONNECTION_NOT_OAUTH",
+          "CALENDAR_NOT_CONNECTED",
+          "CALENDAR_UNAVAILABLE",
+          "EVIDENCE_NOT_AVAILABLE"
         ]
       },
       "Approval": {
@@ -5853,6 +6975,40 @@
               },
               "untrusted": {
                 "$ref": "#/components/schemas/UntrustedSource"
+              },
+              "mode": {
+                "type": "string",
+                "enum": ["send", "draft"]
+              },
+              "via": {
+                "type": "string",
+                "enum": ["smtp", "google", "microsoft"]
+              },
+              "cc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "inReplyTo": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "threadId": {
+                        "type": "string"
+                      },
+                      "subject": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["threadId", "subject"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": ["kind", "from", "to", "subject", "body"],
@@ -5954,6 +7110,416 @@
             },
             "required": ["kind", "content", "memoryKind", "sourceTaskId"],
             "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "calendar_event"
+              },
+              "action": {
+                "type": "string",
+                "enum": ["create", "update", "cancel"]
+              },
+              "provider": {
+                "$ref": "#/components/schemas/OAuthProvider"
+              },
+              "account": {
+                "type": "string"
+              },
+              "eventId": {
+                "type": ["string", "null"]
+              },
+              "title": {
+                "type": "string"
+              },
+              "start": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "end": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "timeZone": {
+                "type": "string"
+              },
+              "allDay": {
+                "type": "boolean"
+              },
+              "location": {
+                "type": ["string", "null"]
+              },
+              "description": {
+                "type": ["string", "null"]
+              },
+              "attendees": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "notifyAttendees": {
+                "type": "boolean"
+              },
+              "previous": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string"
+                      },
+                      "start": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "end": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "required": ["title", "start", "end"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "conflictCheck": {
+                "type": "boolean"
+              },
+              "untrusted": {
+                "$ref": "#/components/schemas/UntrustedSource"
+              }
+            },
+            "required": [
+              "kind",
+              "action",
+              "provider",
+              "account",
+              "eventId",
+              "title",
+              "start",
+              "end",
+              "timeZone",
+              "allDay",
+              "location",
+              "description",
+              "attendees",
+              "notifyAttendees",
+              "previous",
+              "conflictCheck"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "booking"
+              },
+              "siteId": {
+                "type": "string"
+              },
+              "siteName": {
+                "type": "string"
+              },
+              "siteHost": {
+                "type": "string"
+              },
+              "service": {
+                "type": "string"
+              },
+              "start": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "end": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "timeZone": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "personal": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["label", "value", "personal"],
+                  "additionalProperties": false
+                }
+              },
+              "price": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "binding": {
+                "type": "boolean"
+              },
+              "cancellationTerms": {
+                "type": ["string", "null"]
+              },
+              "evidenceArtifactId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "untrusted": {
+                "$ref": "#/components/schemas/UntrustedSource"
+              }
+            },
+            "required": [
+              "kind",
+              "siteId",
+              "siteName",
+              "siteHost",
+              "service",
+              "start",
+              "end",
+              "timeZone",
+              "fields",
+              "price",
+              "binding",
+              "cancellationTerms",
+              "evidenceArtifactId"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "purchase"
+              },
+              "siteId": {
+                "type": "string"
+              },
+              "merchant": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "host": {
+                    "type": "string"
+                  }
+                },
+                "required": ["name", "host"],
+                "additionalProperties": false
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "unitPrice": {
+                      "$ref": "#/components/schemas/Money"
+                    },
+                    "lineTotal": {
+                      "$ref": "#/components/schemas/Money"
+                    },
+                    "productUrl": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["title", "quantity", "unitPrice", "lineTotal", "productUrl"],
+                  "additionalProperties": false
+                }
+              },
+              "subtotal": {
+                "$ref": "#/components/schemas/Money"
+              },
+              "shipping": {
+                "$ref": "#/components/schemas/Money"
+              },
+              "tax": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "total": {
+                "$ref": "#/components/schemas/Money"
+              },
+              "delivery": {
+                "type": "object",
+                "properties": {
+                  "method": {
+                    "type": "string"
+                  },
+                  "estimate": {
+                    "type": ["string", "null"]
+                  },
+                  "address": {
+                    "type": "string"
+                  }
+                },
+                "required": ["method", "estimate", "address"],
+                "additionalProperties": false
+              },
+              "paymentMethod": {
+                "type": "string"
+              },
+              "limit": {
+                "type": "object",
+                "properties": {
+                  "monthly": {
+                    "$ref": "#/components/schemas/Money"
+                  },
+                  "spentThisMonth": {
+                    "$ref": "#/components/schemas/Money"
+                  },
+                  "remainingAfter": {
+                    "$ref": "#/components/schemas/Money"
+                  }
+                },
+                "required": ["monthly", "spentThisMonth", "remainingAfter"],
+                "additionalProperties": false
+              },
+              "evidenceArtifactId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "untrusted": {
+                "$ref": "#/components/schemas/UntrustedSource"
+              }
+            },
+            "required": [
+              "kind",
+              "siteId",
+              "merchant",
+              "items",
+              "subtotal",
+              "shipping",
+              "tax",
+              "total",
+              "delivery",
+              "paymentMethod",
+              "limit",
+              "evidenceArtifactId"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "form_submission"
+              },
+              "siteId": {
+                "type": "string"
+              },
+              "siteName": {
+                "type": "string"
+              },
+              "siteHost": {
+                "type": "string"
+              },
+              "form": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "personal": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["label", "value", "personal"],
+                  "additionalProperties": false
+                }
+              },
+              "binding": {
+                "type": "boolean"
+              },
+              "evidenceArtifactId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "untrusted": {
+                "$ref": "#/components/schemas/UntrustedSource"
+              }
+            },
+            "required": [
+              "kind",
+              "siteId",
+              "siteName",
+              "siteHost",
+              "form",
+              "fields",
+              "binding",
+              "evidenceArtifactId"
+            ],
+            "additionalProperties": false
           }
         ]
       },
@@ -6051,6 +7617,24 @@
                 "type": "boolean"
               },
               "schedules": {
+                "type": "boolean"
+              },
+              "mail": {
+                "type": "boolean"
+              },
+              "calendar": {
+                "type": "boolean"
+              },
+              "browser": {
+                "type": "boolean"
+              },
+              "booking": {
+                "type": "boolean"
+              },
+              "shopping": {
+                "type": "boolean"
+              },
+              "purchases": {
                 "type": "boolean"
               }
             },
@@ -6161,6 +7745,10 @@
           "text/csv"
         ]
       },
+      "AttendeeResponse": {
+        "type": "string",
+        "enum": ["accepted", "declined", "tentative", "needs_action"]
+      },
       "AuditEvent": {
         "type": "object",
         "properties": {
@@ -6219,6 +7807,674 @@
         ],
         "additionalProperties": false
       },
+      "Booking": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "taskId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "siteId": {
+            "type": "string"
+          },
+          "siteName": {
+            "type": "string"
+          },
+          "siteHost": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BookingStatus"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "reference": {
+            "type": ["string", "null"]
+          },
+          "price": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "binding": {
+            "type": "boolean"
+          },
+          "calendarEventId": {
+            "type": ["string", "null"]
+          },
+          "failureReason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskErrorReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EvidenceArtifact"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "taskId",
+          "siteId",
+          "siteName",
+          "siteHost",
+          "service",
+          "status",
+          "start",
+          "end",
+          "timeZone",
+          "reference",
+          "price",
+          "binding",
+          "calendarEventId",
+          "failureReason",
+          "evidence",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "BookingConfirmation": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "location": {
+            "type": ["string", "null"]
+          },
+          "siteId": {
+            "type": "string"
+          },
+          "siteHost": {
+            "type": "string"
+          },
+          "icsArtifactId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "screenshotArtifactId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "confirmedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "bookingId",
+          "reference",
+          "service",
+          "start",
+          "end",
+          "timeZone",
+          "location",
+          "siteId",
+          "siteHost",
+          "icsArtifactId",
+          "screenshotArtifactId",
+          "confirmedAt"
+        ],
+        "additionalProperties": false
+      },
+      "BookingSlot": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["id", "start", "end", "timeZone", "service", "price"],
+        "additionalProperties": false
+      },
+      "BookingSlots": {
+        "type": "object",
+        "properties": {
+          "siteId": {
+            "type": "string"
+          },
+          "siteName": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "slots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookingSlot"
+            }
+          },
+          "requiredFields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidenceArtifactId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "capturedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "siteId",
+          "siteName",
+          "service",
+          "slots",
+          "requiredFields",
+          "evidenceArtifactId",
+          "capturedAt"
+        ],
+        "additionalProperties": false
+      },
+      "BookingStatus": {
+        "type": "string",
+        "enum": ["submitting", "confirmed", "failed", "unknown", "cancelled"]
+      },
+      "BrowserSession": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "taskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "stepId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "siteId": {
+            "type": "string"
+          },
+          "siteName": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "operation": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BrowserSessionStatus"
+          },
+          "stopReason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BrowserStopReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "handoverUrl": {
+            "type": ["string", "null"]
+          },
+          "navigations": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "requests": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blockedRequests": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "endedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EvidenceArtifact"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "taskId",
+          "stepId",
+          "siteId",
+          "operation",
+          "status",
+          "stopReason",
+          "handoverUrl",
+          "navigations",
+          "requests",
+          "blockedRequests",
+          "startedAt",
+          "endedAt",
+          "createdAt",
+          "artifacts"
+        ],
+        "additionalProperties": false
+      },
+      "BrowserSessionStatus": {
+        "type": "string",
+        "enum": ["queued", "running", "succeeded", "failed", "handover", "interrupted"]
+      },
+      "BrowserStopReason": {
+        "type": "string",
+        "enum": [
+          "CAPTCHA_DETECTED",
+          "LOGIN_REQUIRED",
+          "BOT_PROTECTION",
+          "SITE_UNSUPPORTED",
+          "NAVIGATION_BLOCKED",
+          "PAGE_CHANGED",
+          "SITE_ERROR",
+          "BROWSER_BUDGET_EXCEEDED",
+          "BROWSER_TIMEOUT",
+          "BROWSER_CRASHED",
+          "CANCELLED"
+        ]
+      },
+      "BusyInterval": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["start", "end"],
+        "additionalProperties": false
+      },
+      "CalendarAttendee": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": ["string", "null"]
+          },
+          "response": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AttendeeResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "organizer": {
+            "type": "boolean"
+          },
+          "self": {
+            "type": "boolean"
+          }
+        },
+        "required": ["email", "name", "response", "organizer", "self"],
+        "additionalProperties": false
+      },
+      "CalendarEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/OAuthProvider"
+          },
+          "connectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "timeZone": {
+            "type": ["string", "null"]
+          },
+          "allDay": {
+            "type": "boolean"
+          },
+          "location": {
+            "type": ["string", "null"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["confirmed", "tentative", "cancelled"]
+          },
+          "organizer": {
+            "type": ["string", "null"]
+          },
+          "attendees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarAttendee"
+            }
+          },
+          "webLink": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "connectionId",
+          "title",
+          "start",
+          "end",
+          "timeZone",
+          "allDay",
+          "location",
+          "status",
+          "organizer",
+          "attendees",
+          "webLink"
+        ],
+        "additionalProperties": false
+      },
+      "CalendarEventList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarEvent"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarSource"
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": ["items", "sources", "truncated"],
+        "additionalProperties": false
+      },
+      "CalendarEventSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/OAuthProvider"
+          },
+          "connectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "timeZone": {
+            "type": ["string", "null"]
+          },
+          "allDay": {
+            "type": "boolean"
+          },
+          "location": {
+            "type": ["string", "null"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["confirmed", "tentative", "cancelled"]
+          },
+          "webLink": {
+            "type": ["string", "null"]
+          },
+          "attendeeCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "connectionId",
+          "title",
+          "start",
+          "end",
+          "timeZone",
+          "allDay",
+          "location",
+          "status",
+          "webLink",
+          "attendeeCount"
+        ],
+        "additionalProperties": false
+      },
+      "CalendarSource": {
+        "type": "object",
+        "properties": {
+          "connectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/OAuthProvider"
+          },
+          "accountIdentifier": {
+            "type": ["string", "null"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["ok", "expired", "scope_missing", "unavailable"]
+          }
+        },
+        "required": ["connectionId", "provider", "accountIdentifier", "status"],
+        "additionalProperties": false
+      },
+      "CartLine": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 10
+          },
+          "unitPrice": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "lineTotal": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "productUrl": {
+            "type": "string"
+          }
+        },
+        "required": ["title", "quantity", "unitPrice", "lineTotal", "productUrl"],
+        "additionalProperties": false
+      },
       "Connection": {
         "type": "object",
         "properties": {
@@ -6272,6 +8528,28 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConnectionCapability"
+            }
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "statusReason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConnectionStatusReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -6288,13 +8566,81 @@
         ],
         "additionalProperties": false
       },
+      "ConnectionCapability": {
+        "type": "string",
+        "enum": ["mail.read", "mail.compose", "mail.send", "calendar.read", "calendar.write"]
+      },
       "ConnectionProvider": {
         "type": "string",
-        "enum": ["web", "smtp"]
+        "enum": ["web", "smtp", "google", "microsoft"]
+      },
+      "ConnectionProviderInfo": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "$ref": "#/components/schemas/ConnectionProvider"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["oauth", "smtp", "web"]
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "capability": {
+                  "$ref": "#/components/schemas/ConnectionCapability"
+                },
+                "scopes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": ["capability", "scopes"],
+              "additionalProperties": false
+            }
+          },
+          "identityScopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "revocation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["provider", "local_only"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "provider",
+          "kind",
+          "configured",
+          "capabilities",
+          "identityScopes",
+          "revocation"
+        ],
+        "additionalProperties": false
       },
       "ConnectionStatus": {
         "type": "string",
         "enum": ["active", "error", "expired", "revoked"]
+      },
+      "ConnectionStatusReason": {
+        "type": "string",
+        "enum": ["GRANT_INVALID", "TOKEN_REJECTED", "SCOPE_MISSING", "PROVIDER_ERROR"]
       },
       "ConversationDetail": {
         "type": "object",
@@ -6779,6 +9125,10 @@
         },
         "required": ["url", "eventTypes"]
       },
+      "CurrencyCode": {
+        "type": "string",
+        "pattern": "^[A-Z]{3}$"
+      },
       "DeleteAccountRequest": {
         "type": "object",
         "properties": {
@@ -6803,6 +9153,249 @@
         },
         "required": ["deleted"],
         "additionalProperties": false
+      },
+      "EmailAddress": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": ["string", "null"]
+          },
+          "address": {
+            "type": "string"
+          }
+        },
+        "required": ["name", "address"],
+        "additionalProperties": false
+      },
+      "EmailMessageSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "threadId": {
+            "type": "string"
+          },
+          "from": {
+            "$ref": "#/components/schemas/EmailAddress"
+          },
+          "to": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmailAddress"
+            }
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmailAddress"
+            }
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "snippet": {
+            "type": "string"
+          },
+          "unread": {
+            "type": "boolean"
+          },
+          "hasAttachments": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "threadId",
+          "from",
+          "to",
+          "cc",
+          "date",
+          "subject",
+          "snippet",
+          "unread",
+          "hasAttachments"
+        ],
+        "additionalProperties": false
+      },
+      "EmailThreadSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/OAuthProvider"
+          },
+          "connectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmailAddress"
+            }
+          },
+          "lastMessageFrom": {
+            "$ref": "#/components/schemas/EmailAddress"
+          },
+          "lastMessageAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "snippet": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "messageCount": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "unread": {
+            "type": "boolean"
+          },
+          "needsReply": {
+            "type": "boolean"
+          },
+          "webLink": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "connectionId",
+          "subject",
+          "participants",
+          "lastMessageFrom",
+          "lastMessageAt",
+          "snippet",
+          "messageCount",
+          "unread",
+          "needsReply",
+          "webLink"
+        ],
+        "additionalProperties": false
+      },
+      "EmailWatch": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/OAuthProvider"
+          },
+          "connectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "threadId": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EmailWatchStatus"
+          },
+          "taskId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastCheckedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nextCheckAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "replyAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "replyFrom": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EmailAddress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "connectionId",
+          "threadId",
+          "subject",
+          "status",
+          "taskId",
+          "lastCheckedAt",
+          "nextCheckAt",
+          "replyAt",
+          "replyFrom",
+          "expiresAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "EmailWatchStatus": {
+        "type": "string",
+        "enum": ["watching", "replied", "stopped", "expired", "failed"]
       },
       "ErrorCode": {
         "type": "string",
@@ -6846,7 +9439,9 @@
               "record",
               "content_hash",
               "model_output",
-              "note"
+              "note",
+              "provider_response",
+              "browser_capture"
             ]
           },
           "label": {
@@ -6875,6 +9470,77 @@
         "required": ["kind", "label", "value", "at"],
         "additionalProperties": false
       },
+      "EvidenceArtifact": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/EvidenceArtifactKind"
+          },
+          "mediaType": {
+            "$ref": "#/components/schemas/EvidenceMediaType"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "pageUrl": {
+            "type": ["string", "null"]
+          },
+          "taskId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "browserSessionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "downloadPath": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "mediaType",
+          "sizeBytes",
+          "sha256",
+          "pageUrl",
+          "taskId",
+          "browserSessionId",
+          "downloadPath",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "EvidenceArtifactKind": {
+        "type": "string",
+        "enum": ["screenshot", "extract", "ics"]
+      },
       "EvidenceCode": {
         "type": "string",
         "enum": [
@@ -6888,8 +9554,26 @@
           "DOCUMENT_EXTRACTED",
           "SCHEDULE_RECORD",
           "RECALLED_RESULT",
-          "QUESTION_ASKED"
+          "QUESTION_ASKED",
+          "PROVIDER_RESPONSE",
+          "MAIL_SEARCH",
+          "MAIL_SENT",
+          "MAIL_DRAFT",
+          "EMAIL_WATCH",
+          "CALENDAR_EVENT",
+          "FREE_BUSY",
+          "SCREENSHOT",
+          "PAGE_EXTRACT",
+          "ICS_FILE",
+          "BOOKING_CONFIRMATION",
+          "ORDER_CONFIRMATION",
+          "CART_SNAPSHOT",
+          "HANDOVER"
         ]
+      },
+      "EvidenceMediaType": {
+        "type": "string",
+        "enum": ["image/png", "application/json", "text/calendar"]
       },
       "ExportAccountResponse": {
         "type": "object",
@@ -6930,6 +9614,56 @@
         },
         "required": ["request"]
       },
+      "FreeBusyResult": {
+        "type": "object",
+        "properties": {
+          "timeMin": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "timeMax": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "durationMinutes": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "calendars": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "email": {
+                  "type": "string"
+                },
+                "accessible": {
+                  "type": "boolean"
+                },
+                "busy": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BusyInterval"
+                  }
+                }
+              },
+              "required": ["email", "accessible", "busy"],
+              "additionalProperties": false
+            }
+          },
+          "slots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BusyInterval"
+            }
+          }
+        },
+        "required": ["timeMin", "timeMax", "timeZone", "durationMinutes", "calendars", "slots"],
+        "additionalProperties": false
+      },
       "HomeSnapshot": {
         "type": "object",
         "properties": {
@@ -6962,6 +9696,16 @@
             "items": {
               "$ref": "#/components/schemas/Suggestion"
             }
+          },
+          "upcoming": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UpcomingEvents"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -6981,6 +9725,35 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Approval"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "ListBookingsResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Booking"
+            }
+          },
+          "nextCursor": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["items", "nextCursor"],
+        "additionalProperties": false
+      },
+      "ListConnectionProvidersResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConnectionProviderInfo"
             }
           }
         },
@@ -7016,6 +9789,19 @@
         "required": ["items", "nextCursor"],
         "additionalProperties": false
       },
+      "ListEmailWatchesResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmailWatch"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
       "ListMemoriesResponse": {
         "type": "object",
         "properties": {
@@ -7039,6 +9825,22 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Notification"
+            }
+          },
+          "nextCursor": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["items", "nextCursor"],
+        "additionalProperties": false
+      },
+      "ListOrdersResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Order"
             }
           },
           "nextCursor": {
@@ -7114,6 +9916,23 @@
           }
         },
         "required": ["items"],
+        "additionalProperties": false
+      },
+      "ListUpcomingEventsResponse": {
+        "type": "object",
+        "properties": {
+          "upcoming": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UpcomingEvents"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["upcoming"],
         "additionalProperties": false
       },
       "ListWebhookDeliveriesResponse": {
@@ -7353,8 +10172,26 @@
           "schedule_time",
           "target_language",
           "previous_result",
-          "details"
+          "details",
+          "date_time",
+          "contact_details",
+          "product",
+          "site"
         ]
+      },
+      "Money": {
+        "type": "object",
+        "properties": {
+          "amountMicro": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "currency": {
+            "$ref": "#/components/schemas/CurrencyCode"
+          }
+        },
+        "required": ["amountMicro", "currency"],
+        "additionalProperties": false
       },
       "Notification": {
         "type": "object",
@@ -7414,8 +10251,228 @@
           "connection_error",
           "schedule_failed",
           "schedule_paused",
-          "webhook_disabled"
+          "webhook_disabled",
+          "connection_expired",
+          "email_reply_received"
         ]
+      },
+      "OAuthCallbackRequest": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 512
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "error": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "errorDescription": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "iss": {
+            "type": "string",
+            "maxLength": 2048
+          }
+        },
+        "required": ["state"]
+      },
+      "OAuthCallbackResult": {
+        "type": "object",
+        "properties": {
+          "connection": {
+            "$ref": "#/components/schemas/Connection"
+          },
+          "returnTo": {
+            "type": ["string", "null"]
+          },
+          "resumableTaskIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["connection", "returnTo", "resumableTaskIds"],
+        "additionalProperties": false
+      },
+      "OAuthProvider": {
+        "type": "string",
+        "enum": ["google", "microsoft"]
+      },
+      "OAuthStartRequest": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": ["google", "microsoft"]
+          },
+          "capabilities": {
+            "minItems": 1,
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["mail.read", "mail.compose", "mail.send", "calendar.read", "calendar.write"]
+            }
+          },
+          "redirectUri": {
+            "type": "string",
+            "maxLength": 2048,
+            "format": "uri"
+          },
+          "connectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "returnTo": {
+            "type": "string",
+            "maxLength": 512,
+            "pattern": "^\\/(?![/\\\\])[^\\s\\\\]*$"
+          }
+        },
+        "required": ["provider", "capabilities", "redirectUri"]
+      },
+      "OAuthStartResponse": {
+        "type": "object",
+        "properties": {
+          "authorizationUrl": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["authorizationUrl", "expiresAt"],
+        "additionalProperties": false
+      },
+      "Order": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "taskId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "siteId": {
+            "type": "string"
+          },
+          "merchantName": {
+            "type": "string"
+          },
+          "merchantHost": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OrderStatus"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CartLine"
+            }
+          },
+          "subtotal": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "shipping": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "tax": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "merchantOrderId": {
+            "type": ["string", "null"]
+          },
+          "placedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "failureReason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskErrorReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EvidenceArtifact"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "taskId",
+          "siteId",
+          "merchantName",
+          "merchantHost",
+          "status",
+          "items",
+          "subtotal",
+          "shipping",
+          "tax",
+          "total",
+          "merchantOrderId",
+          "placedAt",
+          "failureReason",
+          "evidence",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "OrderStatus": {
+        "type": "string",
+        "enum": ["submitting", "placed", "failed", "unknown"]
       },
       "PlannerInfo": {
         "type": "object",
@@ -7478,7 +10535,14 @@
           "SKILL_COST_LIMIT",
           "MEMORY_FROM_CONTENT",
           "UNTRUSTED_MEMORY",
-          "FUTURE_RUNS"
+          "FUTURE_RUNS",
+          "CONNECTION_EXPIRED",
+          "CONNECTION_SCOPE_MISSING",
+          "PURCHASES_DISABLED",
+          "PURCHASE_LIMIT",
+          "PURCHASE_CURRENCY",
+          "PURCHASE",
+          "BINDING_COMMITMENT"
         ]
       },
       "Preferences": {
@@ -7541,9 +10605,15 @@
                 "type": "number",
                 "minimum": 0,
                 "maximum": 10000
+              },
+              "monthlyPurchaseLimitUsd": {
+                "default": 0,
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10000
               }
             },
-            "required": ["monthlyAiBudgetUsd"],
+            "required": ["monthlyAiBudgetUsd", "monthlyPurchaseLimitUsd"],
             "additionalProperties": false
           },
           "memory": {
@@ -7579,6 +10649,229 @@
           "memory",
           "retention",
           "skills"
+        ],
+        "additionalProperties": false
+      },
+      "PreparedCart": {
+        "type": "object",
+        "properties": {
+          "siteId": {
+            "type": "string"
+          },
+          "merchantName": {
+            "type": "string"
+          },
+          "merchantHost": {
+            "type": "string"
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CartLine"
+            }
+          },
+          "subtotal": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "shipping": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "checkoutSupported": {
+            "type": "boolean"
+          },
+          "handoverUrl": {
+            "type": ["string", "null"]
+          },
+          "evidenceArtifactId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "preparedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "siteId",
+          "merchantName",
+          "merchantHost",
+          "lines",
+          "subtotal",
+          "shipping",
+          "total",
+          "checkoutSupported",
+          "handoverUrl",
+          "evidenceArtifactId",
+          "preparedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ProductOffer": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "siteId": {
+            "type": "string"
+          },
+          "merchantName": {
+            "type": "string"
+          },
+          "merchantHost": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "productUrl": {
+            "type": "string"
+          },
+          "price": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "shipping": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "delivery": {
+            "type": "object",
+            "properties": {
+              "minDays": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "maxDays": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "text": {
+                "type": ["string", "null"]
+              }
+            },
+            "required": ["minDays", "maxDays", "text"],
+            "additionalProperties": false
+          },
+          "inStock": {
+            "type": ["boolean", "null"]
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 5
+                  },
+                  "count": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": ["value", "count"],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "signals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReliabilitySignal"
+            }
+          },
+          "evidenceArtifactId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "capturedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "siteId",
+          "merchantName",
+          "merchantHost",
+          "title",
+          "productUrl",
+          "price",
+          "shipping",
+          "total",
+          "delivery",
+          "inStock",
+          "rating",
+          "signals",
+          "evidenceArtifactId",
+          "capturedAt"
         ],
         "additionalProperties": false
       },
@@ -7633,6 +10926,33 @@
         },
         "required": ["frequency", "interval", "time", "timeZone"],
         "additionalProperties": false
+      },
+      "ReliabilitySignal": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ReliabilitySignalCode"
+          },
+          "present": {
+            "type": "boolean"
+          },
+          "value": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["code", "present", "value"],
+        "additionalProperties": false
+      },
+      "ReliabilitySignalCode": {
+        "type": "string",
+        "enum": [
+          "https",
+          "return_policy",
+          "contact_details",
+          "legal_notice",
+          "customer_rating",
+          "delivery_terms"
+        ]
       },
       "RetentionPreferences": {
         "type": "object",
@@ -8180,7 +11500,66 @@
           "question.scheduleTime",
           "question.targetLanguage",
           "question.previousResult",
-          "question.details"
+          "question.details",
+          "plan.emailUnread",
+          "plan.emailNeedsReply",
+          "plan.draftReply",
+          "plan.calendarUpcoming",
+          "plan.findMeetingTime",
+          "plan.findSlots",
+          "plan.book",
+          "plan.compareProducts",
+          "plan.buy",
+          "objective.emailUnread",
+          "objective.emailNeedsReply",
+          "objective.draftReply",
+          "objective.calendarUpcoming",
+          "objective.findMeetingTime",
+          "objective.findSlots",
+          "objective.book",
+          "objective.compareProducts",
+          "objective.buy",
+          "step.searchEmail",
+          "step.readThreads",
+          "step.summarizeEmail",
+          "step.draftReply",
+          "step.trackReplies",
+          "step.listEvents",
+          "step.freeBusy",
+          "step.createEvent",
+          "step.updateEvent",
+          "step.cancelEvent",
+          "step.saveToCalendar",
+          "step.findSlots",
+          "step.book",
+          "step.readSite",
+          "step.fillForm",
+          "step.searchShops",
+          "step.compareOffers",
+          "step.prepareCart",
+          "step.checkout",
+          "approval.emailDraft",
+          "approval.eventCreate",
+          "approval.eventInvite",
+          "approval.eventUpdate",
+          "approval.eventCancel",
+          "approval.booking",
+          "approval.formSubmission",
+          "approval.cart",
+          "approval.purchase",
+          "result.draftCreated",
+          "result.watchingReplies",
+          "result.eventCreated",
+          "result.eventUpdated",
+          "result.eventCancelled",
+          "result.booked",
+          "result.formSubmitted",
+          "result.cartPrepared",
+          "result.orderPlaced",
+          "question.dateTime",
+          "question.contactDetails",
+          "question.product",
+          "question.site"
         ]
       },
       "SessionInfo": {
@@ -8225,6 +11604,63 @@
           "expiresAt",
           "current"
         ],
+        "additionalProperties": false
+      },
+      "ShoppingComparison": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "offers": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductOffer"
+            }
+          },
+          "ranking": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sites": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "siteId": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["ok", "failed", "handover"]
+                },
+                "reason": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/BrowserStopReason"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["siteId", "status", "reason"],
+              "additionalProperties": false
+            }
+          },
+          "mixedCurrencies": {
+            "type": "boolean"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["query", "offers", "ranking", "sites", "mixedCurrencies", "generatedAt"],
         "additionalProperties": false
       },
       "Skill": {
@@ -8283,6 +11719,22 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ConnectionProvider"
+            }
+          },
+          "connectionOptions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "provider": {
+                  "$ref": "#/components/schemas/ConnectionProvider"
+                },
+                "capability": {
+                  "$ref": "#/components/schemas/ConnectionCapability"
+                }
+              },
+              "required": ["provider"],
+              "additionalProperties": false
             }
           },
           "modelUse": {
@@ -8366,7 +11818,9 @@
           "CONNECTION_REQUIRED",
           "MODEL_REQUIRED",
           "MEMORY_DISABLED",
-          "STORAGE_NOT_CONFIGURED"
+          "STORAGE_NOT_CONFIGURED",
+          "PROVIDER_NOT_CONFIGURED",
+          "BROWSER_UNAVAILABLE"
         ]
       },
       "StepStatus": {
@@ -8692,6 +12146,12 @@
             "items": {
               "$ref": "#/components/schemas/Attachment"
             }
+          },
+          "browserSessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrowserSession"
+            }
           }
         },
         "required": [
@@ -8808,7 +12268,40 @@
           "SCHEDULE_LIMIT_REACHED",
           "INVALID_RECURRENCE",
           "SKILL_DISABLED",
-          "UNTRUSTED_MEMORY"
+          "UNTRUSTED_MEMORY",
+          "CONNECTION_EXPIRED",
+          "CONNECTION_SCOPE_MISSING",
+          "PROVIDER_RATE_LIMITED",
+          "PROVIDER_UNAVAILABLE",
+          "PROVIDER_REJECTED",
+          "EMAIL_THREAD_NOT_FOUND",
+          "WATCH_LIMIT_REACHED",
+          "CALENDAR_CONFLICT",
+          "EVENT_NOT_FOUND",
+          "EVENT_CHANGED",
+          "NO_FREE_SLOTS",
+          "INVALID_TIME_RANGE",
+          "CAPTCHA_DETECTED",
+          "LOGIN_REQUIRED",
+          "BOT_PROTECTION",
+          "SITE_UNSUPPORTED",
+          "NAVIGATION_BLOCKED",
+          "PAGE_CHANGED",
+          "SITE_ERROR",
+          "BROWSER_BUDGET_EXCEEDED",
+          "BROWSER_TIMEOUT",
+          "BROWSER_CRASHED",
+          "BROWSER_UNAVAILABLE",
+          "SLOT_TAKEN",
+          "BOOKING_DETAILS_MISSING",
+          "BOOKING_UNCONFIRMED",
+          "PRICE_CHANGED",
+          "OUT_OF_STOCK",
+          "CHECKOUT_UNSUPPORTED",
+          "ORDER_UNKNOWN",
+          "PURCHASES_DISABLED",
+          "PURCHASE_LIMIT",
+          "PURCHASE_CURRENCY"
         ]
       },
       "TaskEvent": {
@@ -9207,7 +12700,24 @@
           "text.translate",
           "schedule.create",
           "conversation.recall",
-          "assistant.clarify"
+          "assistant.clarify",
+          "email.search",
+          "email.read_thread",
+          "email.draft_reply",
+          "email.track_replies",
+          "calendar.list",
+          "calendar.free_busy",
+          "calendar.create_event",
+          "calendar.update_event",
+          "calendar.cancel_event",
+          "booking.find_slots",
+          "booking.book",
+          "browser.read",
+          "browser.fill",
+          "shop.search",
+          "shop.compare",
+          "shop.prepare_cart",
+          "shop.checkout"
         ]
       },
       "UntrustedSource": {
@@ -9235,6 +12745,37 @@
           }
         },
         "required": ["host", "excludedSentences", "signals"],
+        "additionalProperties": false
+      },
+      "UpcomingEvents": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarEventSummary"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarSource"
+            }
+          },
+          "rangeStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "rangeEnd": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fetchedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["events", "sources", "rangeStart", "rangeEnd", "fetchedAt"],
         "additionalProperties": false
       },
       "UpdateMemoryRequest": {
@@ -9321,6 +12862,11 @@
                 "type": "object",
                 "properties": {
                   "monthlyAiBudgetUsd": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 10000
+                  },
+                  "monthlyPurchaseLimitUsd": {
                     "type": "number",
                     "minimum": 0,
                     "maximum": 10000
@@ -9597,7 +13143,21 @@
           "scheduleStored",
           "nextRunComputed",
           "resultRecalled",
-          "questionAsked"
+          "questionAsked",
+          "providerAccepted",
+          "threadsRead",
+          "draftCreated",
+          "watchCreated",
+          "eventWritten",
+          "noConflict",
+          "slotsFound",
+          "liveSource",
+          "screenshotStored",
+          "confirmationReceived",
+          "totalMatches",
+          "orderPlaced",
+          "offersCompared",
+          "withinLimit"
         ]
       },
       "VoiceSession": {

@@ -19,6 +19,7 @@ const migrationsSrc = resolve(root, '../../db/migrations');
 const ENTRIES = {
   server: 'src/server.ts',
   worker: 'src/worker.ts',
+  'browser-worker': 'src/browser-worker.ts',
   cli: 'src/cli.ts',
   migrate: 'src/db/migrate.ts',
 };

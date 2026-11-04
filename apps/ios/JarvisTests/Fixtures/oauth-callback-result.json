@@ -1,0 +1,32 @@
+{
+  "connection": {
+    "id": "a1c2e3f4-5b6d-4e7f-8a9b-0c1d2e3f4a51",
+    "provider": "google",
+    "label": "Google",
+    "accountIdentifier": "ada@gmail.example",
+    "status": "active",
+    "permissions": [],
+    "lastVerifiedAt": "2026-11-04T09:15:00.000Z",
+    "lastError": null,
+    "expiresAt": null,
+    "createdAt": "2026-10-20T10:00:00.000Z",
+    "capabilities": [
+      "mail.read",
+      "mail.send",
+      "calendar.read"
+    ],
+    "scopes": [
+      "openid",
+      "email",
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/gmail.send",
+      "https://www.googleapis.com/auth/calendar.events.readonly",
+      "https://www.googleapis.com/auth/calendar.freebusy"
+    ],
+    "statusReason": null
+  },
+  "returnTo": null,
+  "resumableTaskIds": [
+    "d4f5a6b7-8e9a-4b0c-9d2e-3f4a5b6c7d84"
+  ]
+}

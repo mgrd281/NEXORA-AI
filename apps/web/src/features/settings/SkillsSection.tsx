@@ -171,11 +171,27 @@ function SkillRow({ skill }: { skill: Skill }) {
   });
 
   // Why it can't run now — including "turned off", which says what that means for requests.
+  // Phase C skills need any one of several accounts (connectionOptions: "a Google account or a
+  // Microsoft account"), on top of the connections every run needs (requiredConnections).
+  const options = [...new Set((skill.connectionOptions ?? []).map((o) => o.provider))].filter(
+    (p) => !skill.requiredConnections.includes(p),
+  );
+  const needed = [
+    ...skill.requiredConnections.map((c) => t(`skills.connections.${c}`)),
+    ...(options.length
+      ? [
+          f.list(
+            options.map((c) => t(`skills.connections.${c}`)),
+            'disjunction',
+          ),
+        ]
+      : []),
+  ];
   const reason = skill.unavailableReason
     ? skill.unavailableReason === 'CONNECTION_REQUIRED'
-      ? t('skills.reasons.CONNECTION_REQUIRED', {
-          connections: f.list(skill.requiredConnections.map((c) => t(`skills.connections.${c}`))),
-        })
+      ? needed.length > 0
+        ? t('skills.reasons.CONNECTION_REQUIRED', { connections: f.list(needed) })
+        : t('skills.status.needsConnection')
       : t(`skills.reasons.${skill.unavailableReason}`)
     : null;
   const description = (

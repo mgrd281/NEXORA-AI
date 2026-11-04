@@ -33,7 +33,8 @@ struct Connection: Decodable, Sendable, Equatable, Identifiable {
     let id: String
     let provider: ConnectionProvider
     let label: String
-    /// e.g. the sender address for SMTP; never a secret.
+    /// e.g. the sender address for SMTP, the account's address for Google / Microsoft;
+    /// never a secret.
     let accountIdentifier: String?
     let status: ConnectionStatus
     let permissions: [String]
@@ -41,6 +42,37 @@ struct Connection: Decodable, Sendable, Equatable, Identifiable {
     let lastError: String?
     let expiresAt: Date?
     let createdAt: Date
+    // Phase C. Always sent by the current API; nil from older servers.
+    /// OAuth connections: what JARVIS may do with it (every scope granted); [] otherwise.
+    var capabilities: [ConnectionCapability]? = nil
+    /// OAuth connections: the provider scopes actually granted (shown for transparency).
+    var scopes: [String]? = nil
+    /// Why it isn't active (nil while active); an expired connection is fixed by reconnecting.
+    var statusReason: ConnectionStatusReason? = nil
+
+    /// The OAuth provider of a Google or Microsoft connection.
+    var oauthProvider: OAuthProvider? {
+        switch provider {
+        case .google: .google
+        case .microsoft: .microsoft
+        case .web, .smtp, .unknown: nil
+        }
+    }
+
+    /// Capabilities this build knows (unknown ones from a newer server are never requested).
+    var knownCapabilities: [ConnectionCapability] {
+        let granted = Set(capabilities ?? [])
+        return ConnectionCapability.selectable.filter { granted.contains($0) }
+    }
+
+    /// Expired (or revoked at the provider): nothing works until the user reconnects.
+    var needsReconnect: Bool {
+        oauthProvider != nil && (status == .expired || status == .revoked)
+    }
+
+    func grants(_ capability: ConnectionCapability) -> Bool {
+        status == .active && (capabilities ?? []).contains(capability)
+    }
 }
 
 /// One message of `GET /v1/events` (Server-Sent Events).

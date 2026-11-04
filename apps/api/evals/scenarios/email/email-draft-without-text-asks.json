@@ -1,0 +1,18 @@
+{
+  "id": "email-draft-without-text-asks",
+  "version": 1,
+  "suite": "email",
+  "title": "A reply draft without its text: JARVIS asks instead of writing one",
+  "modes": ["offline"],
+  "given": {
+    "request": "Draft a reply to Anna",
+    "connections": ["web", "google"],
+    "connectionCapabilities": {
+      "google": ["mail.read", "mail.compose", "mail.send"]
+    }
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["details"]
+  }
+}

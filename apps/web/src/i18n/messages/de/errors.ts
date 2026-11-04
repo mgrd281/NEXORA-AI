@@ -99,6 +99,59 @@ const errors: Catalog<typeof source> = {
       'Dafür ist die Fähigkeit „{skill}“ nötig, die in den Einstellungen ausgeschaltet ist.',
     UNTRUSTED_MEMORY:
       'JARVIS speichert das nicht im Gedächtnis: Es stammt aus Inhalten, die versucht haben, KI-Assistenten Anweisungen zu geben.',
+    CONNECTION_EXPIRED:
+      'Deine Verbindung zu {provider} ist abgelaufen. Verbinde sie neu und versuche es dann noch einmal.',
+    CONNECTION_SCOPE_MISSING:
+      '{provider} hat JARVIS diese Berechtigung nicht erteilt: {capability}. Verbinde neu, erlaube sie und versuche es dann noch einmal.',
+    PROVIDER_RATE_LIMITED:
+      '{provider} begrenzt gerade die Anfragen. Versuche es in ein paar Minuten noch einmal.',
+    PROVIDER_UNAVAILABLE: '{provider} antwortet gerade nicht. Versuche es später noch einmal.',
+    PROVIDER_REJECTED: '{provider} hat die Anfrage abgelehnt (Fehler {status}).',
+    EMAIL_THREAD_NOT_FOUND: 'Diese Unterhaltung gibt es in deinem Postfach nicht mehr.',
+    WATCH_LIMIT_REACHED:
+      'JARVIS beobachtet schon {max} Unterhaltungen auf Antworten, mehr geht nicht.',
+    CALENDAR_CONFLICT:
+      'Zu dieser Zeit ist in deinem Kalender schon etwas eingetragen, daher hat JARVIS nichts eingetragen.',
+    EVENT_NOT_FOUND: 'Diesen Termin gibt es in deinem Kalender nicht mehr.',
+    EVENT_CHANGED:
+      'Der Termin hat sich geändert, nachdem JARVIS ihn gelesen hat, daher wurde nichts geändert. Frag noch einmal.',
+    NO_FREE_SLOTS: 'In diesem Zeitraum ist keine Zeit frei.',
+    INVALID_TIME_RANGE: 'Beginn und Ende ergeben keinen gültigen Zeitraum.',
+    CAPTCHA_DETECTED:
+      '{host} verlangt einen Nachweis, dass du ein Mensch bist. JARVIS löst so etwas nie: Mach selbst auf der Website weiter.',
+    LOGIN_REQUIRED:
+      '{host} verlangt eine Anmeldung. JARVIS meldet sich nicht für dich an: Mach selbst auf der Website weiter.',
+    BOT_PROTECTION:
+      '{host} blockiert automatisierte Besuche. JARVIS umgeht das nicht: Mach selbst auf der Website weiter.',
+    SITE_UNSUPPORTED: 'JARVIS unterstützt {host} noch nicht.',
+    NAVIGATION_BLOCKED:
+      'Die Website wollte JARVIS zu {host} führen. Das ist nicht erlaubt, daher wurde abgebrochen.',
+    PAGE_CHANGED:
+      '{host} sieht anders aus, als JARVIS erwartet, daher wurde abgebrochen statt zu raten.',
+    SITE_ERROR: '{host} hat einen Fehler angezeigt (Status {status}).',
+    BROWSER_BUDGET_EXCEEDED:
+      'Die Website brauchte mehr Schritte, als JARVIS erlaubt ({limit}), daher wurde abgebrochen.',
+    BROWSER_TIMEOUT: 'Die Website hat zu lange gebraucht, daher wurde abgebrochen.',
+    BROWSER_CRASHED: 'Der Browser wurde unerwartet beendet.',
+    BROWSER_UNAVAILABLE: 'Der Browser-Agent läuft auf diesem Server nicht.',
+    SLOT_TAKEN: 'Der Termin wurde inzwischen vergeben, daher wurde nichts gebucht.',
+    BOOKING_DETAILS_MISSING:
+      'Das Buchungsformular braucht Angaben, die JARVIS nicht hat: {fields}.',
+    BOOKING_UNCONFIRMED:
+      'Die Buchung wurde gesendet, aber die Website hat keine Bestätigung angezeigt. Prüfe das auf der Website, bevor du es noch einmal versuchst.',
+    PRICE_CHANGED:
+      'Der Preis hat sich von {expected} auf {actual} geändert, daher wurde nichts bestellt.',
+    OUT_OF_STOCK: 'Der Artikel ist nicht vorrätig, daher wurde nichts bestellt.',
+    CHECKOUT_UNSUPPORTED:
+      'JARVIS kann auf {host} nicht bestellen. Dein Warenkorb ist dort bereit: Schließ den Kauf selbst ab.',
+    ORDER_UNKNOWN:
+      'Die Bestellung wurde beim Absenden unterbrochen. Prüf deine Bestellungen beim Shop, bevor du es noch einmal versuchst.',
+    PURCHASES_DISABLED:
+      'Käufe sind ausgeschaltet. Leg in den Einstellungen ein monatliches Kauflimit fest, um sie zu erlauben.',
+    PURCHASE_LIMIT:
+      'Dieser Kauf ({amount}) würde dein monatliches Limit von {limit} überschreiten ({spent} schon ausgegeben).',
+    PURCHASE_CURRENCY:
+      'Der Preis ist in {currency}, dein Kauflimit aber in US-Dollar, daher kauft JARVIS das nicht.',
   },
   api: {
     FILE_TOO_LARGE: 'Dateien dürfen höchstens {limitMb} MB groß sein.',
@@ -137,6 +190,26 @@ const errors: Catalog<typeof source> = {
     SKILL_NOT_TOGGLEABLE:
       'Diese Fähigkeit gehört zur Grundfunktion von JARVIS und lässt sich nicht ausschalten.',
     SKILL_PLANNED: 'Diese Fähigkeit ist noch nicht verfügbar.',
+    PROVIDER_NOT_CONFIGURED: '{provider} ist auf diesem Server nicht eingerichtet.',
+    REDIRECT_URI_NOT_ALLOWED:
+      'Die Rücksprungadresse dieser App ist auf diesem Server nicht erlaubt.',
+    OAUTH_STATE_INVALID:
+      'Dieser Anmeldelink ist nicht mehr gültig. Starte die Verbindung noch einmal.',
+    OAUTH_STATE_EXPIRED: 'Die Anmeldung hat zu lange gedauert. Starte die Verbindung noch einmal.',
+    OAUTH_DENIED: 'Du hast den Zugriff bei {provider} nicht erlaubt, daher wurde nichts verbunden.',
+    OAUTH_EXCHANGE_FAILED:
+      '{provider} hat die Anmeldung nicht abgeschlossen. Versuche es noch einmal.',
+    OAUTH_SCOPE_NOT_GRANTED:
+      'Keine der angefragten Berechtigungen wurde erlaubt, daher wurde nichts verbunden.',
+    OAUTH_ACCOUNT_MISMATCH:
+      'Du hast dich mit einem anderen {provider}-Konto angemeldet. Trenne zuerst das alte, um zu wechseln.',
+    OAUTH_PENDING_LIMIT:
+      'Zu viele Anmeldungen sind noch offen. Schließ sie ab oder warte ein paar Minuten, dann versuche es noch einmal.',
+    CONNECTION_NOT_OAUTH: 'Diese Verbindung lässt sich so nicht neu verbinden.',
+    CALENDAR_NOT_CONNECTED: 'Es ist kein Kalender verbunden.',
+    CALENDAR_UNAVAILABLE: '{provider} hat nicht rechtzeitig geantwortet.',
+    EVIDENCE_NOT_AVAILABLE:
+      'Diese Nachweisdatei kann auf diesem Server gerade nicht gelesen werden.',
   },
   network: 'JARVIS ist nicht erreichbar. Internetverbindung prüfen.',
   badResponse: 'JARVIS hat eine unerwartete Antwort gesendet. Seite neu laden.',

@@ -1,0 +1,22 @@
+{
+  "id": "shopping-outlet-hands-over-cart",
+  "version": 1,
+  "suite": "shopping",
+  "title": "A shop whose recipe cannot order: the plan ends with the prepared cart (handed over), no checkout step",
+  "modes": ["offline"],
+  "given": {
+    "request": "Buy 2 FX-10 earbuds on Fixture Outlet",
+    "browserAvailable": true
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["shop.search", "shop.compare", "shop.prepare_cart"],
+    "policy": [
+      {
+        "step": 2,
+        "decision": "require_approval",
+        "reasonsInclude": ["RISK_MEDIUM"]
+      }
+    ]
+  }
+}

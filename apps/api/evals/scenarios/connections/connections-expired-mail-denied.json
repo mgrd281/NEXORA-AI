@@ -1,0 +1,28 @@
+{
+  "id": "connections-expired-mail-denied",
+  "version": 1,
+  "suite": "connections",
+  "title": "Scenario 9 (planning): unread summary with an expired Google connection is denied, Reconnect offered",
+  "modes": ["offline"],
+  "given": {
+    "request": "Summarize my unread emails",
+    "connections": ["web", "google"],
+    "connectionStatus": {
+      "google": "expired"
+    },
+    "connectionCapabilities": {
+      "google": ["mail.read"]
+    }
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "CONNECTION_EXPIRED",
+    "policy": [
+      {
+        "step": 0,
+        "decision": "deny",
+        "reasonsInclude": ["CONNECTION_EXPIRED"]
+      }
+    ]
+  }
+}

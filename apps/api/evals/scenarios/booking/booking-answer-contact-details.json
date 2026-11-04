@@ -1,0 +1,23 @@
+{
+  "id": "booking-answer-contact-details",
+  "version": 1,
+  "suite": "booking",
+  "title": "The answer to the contact-details question completes the booking request",
+  "modes": ["offline"],
+  "given": {
+    "request": "Alex Example, +49 30 1234567",
+    "browserAvailable": true,
+    "conversation": [
+      {
+        "request": "Book a check-up at Fixture Dental on 2026-11-12 at 10:00",
+        "outcome": "question",
+        "resultText": "Which details should I give the site? For example your phone number.",
+        "missing": ["contact_details"]
+      }
+    ]
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["booking.find_slots", "booking.book"]
+  }
+}

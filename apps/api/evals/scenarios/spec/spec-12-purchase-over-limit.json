@@ -1,0 +1,25 @@
+{
+  "id": "spec-12-purchase-over-limit",
+  "version": 1,
+  "suite": "spec",
+  "title": "Scenario 7 — a purchase over the monthly limit: the live cart total is checked against the limit before anything is submitted (PURCHASE_LIMIT), nothing is ordered",
+  "modes": ["pipeline"],
+  "given": {
+    "request": "Buy the FX-100 headphones on Fixture Shop",
+    "browserAvailable": true,
+    "preferences": { "spending": { "monthlyAiBudgetUsd": 20, "monthlyPurchaseLimitUsd": 50 } },
+    "approve": "all"
+  },
+  "expect": {
+    "result": "deny",
+    "toolSequence": ["shop.search", "shop.compare", "shop.prepare_cart", "shop.checkout"],
+    "errorReason": "PURCHASE_LIMIT",
+    "policy": [{ "step": 3, "decision": "deny", "reasonsInclude": ["PURCHASE_LIMIT"] }],
+    "pipeline": {
+      "status": "FAILED",
+      "errorReason": "PURCHASE_LIMIT",
+      "sideEffectsExactly": 0,
+      "executions": { "shop.checkout": 0 }
+    }
+  }
+}

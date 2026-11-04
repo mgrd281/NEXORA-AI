@@ -1,0 +1,24 @@
+{
+  "id": "shopping-purchases-off-by-default",
+  "version": 1,
+  "suite": "shopping",
+  "title": "Scenario 7 — with the default monthly purchase limit of $0 a purchase is refused (PURCHASES_DISABLED)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Buy the FX-100 headphones on the fixture shop",
+    "syntheticSteps": [
+      {
+        "toolId": "shop.checkout",
+        "risk": "HIGH",
+        "sideEffect": "external",
+        "requiredConnection": "web",
+        "purchase": { "amountUsd": 83.99, "currency": "USD" }
+      }
+    ]
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "PURCHASES_DISABLED",
+    "policy": [{ "step": 0, "decision": "deny", "reasonsInclude": ["PURCHASES_DISABLED"] }]
+  }
+}

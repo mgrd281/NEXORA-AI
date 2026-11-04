@@ -1,0 +1,169 @@
+{
+  "id": "c3e4f5a6-7d8f-4a9b-8c1d-2e3f4a5b6c73",
+  "title": "Newer server",
+  "request": "something new",
+  "status": "COMPLETED",
+  "riskLevel": "LOW",
+  "source": "text",
+  "progress": {
+    "completed": 1,
+    "total": 1
+  },
+  "pendingApprovalId": null,
+  "resultSummary": null,
+  "error": null,
+  "createdAt": "2026-11-04T09:11:58.000Z",
+  "updatedAt": "2026-11-04T09:12:06.000Z",
+  "completedAt": "2026-11-04T09:12:06.000Z",
+  "objective": null,
+  "conversationId": "07853474-1278-4b72-9b76-f4ce830ec68c",
+  "planner": null,
+  "answer": null,
+  "steps": [
+    {
+      "id": "f6b7c8d9-0a1c-4d2e-9f4a-5b6c7d8e9fa6",
+      "position": 0,
+      "title": "Read",
+      "titleMessage": null,
+      "toolId": "browser.read",
+      "riskLevel": "LOW",
+      "status": "SUCCEEDED",
+      "requiresApproval": false,
+      "policy": {
+        "decision": "allow",
+        "reasons": [
+          "RISK_LOW"
+        ]
+      },
+      "inputPreview": {},
+      "output": {
+        "siteId": "fixture-shop"
+      },
+      "evidence": [
+        {
+          "kind": "browser_capture",
+          "label": "Recording",
+          "value": "video",
+          "at": "2026-11-04T09:12:03.000Z",
+          "code": "VIDEO_RECORDING",
+          "params": {}
+        }
+      ],
+      "attempts": 1,
+      "startedAt": "2026-11-04T09:12:00.000Z",
+      "completedAt": "2026-11-04T09:12:05.000Z",
+      "error": null
+    }
+  ],
+  "approvals": [
+    {
+      "id": "d6e3f4b5-a4b7-4bc9-9d56-5f9876543260",
+      "taskId": "c3e4f5a6-7d8f-4a9b-8c1d-2e3f4a5b6c73",
+      "taskTitle": "Buy pour-over kettle on Fixture Kitchen Supply",
+      "taskTitleMessage": {
+        "key": "plan.buy",
+        "params": {
+          "product": "pour-over kettle",
+          "site": "Fixture Kitchen Supply"
+        }
+      },
+      "stepId": "c9e0f1a2-3d4f-4a5b-8c7d-8e9fabcd2139",
+      "toolId": "email.send",
+      "status": "PENDING",
+      "riskLevel": "MEDIUM",
+      "summary": "Send",
+      "summaryMessage": null,
+      "details": {
+        "kind": "email",
+        "from": "ada@gmail.example",
+        "to": [
+          "lin@example.org"
+        ],
+        "subject": "Hello",
+        "body": "Hi",
+        "mode": "schedule_send",
+        "via": "fax"
+      },
+      "actionHash": "c0ffee00a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c",
+      "reasons": [
+        "RISK_MEDIUM"
+      ],
+      "expiresAt": "2026-11-05T09:15:00.000Z",
+      "decidedAt": null,
+      "decisionNote": null,
+      "createdAt": "2026-11-04T09:15:00.000Z"
+    },
+    {
+      "id": "e7f4a5c6-b5c8-4cda-8e67-6a9876543271",
+      "taskId": "c3e4f5a6-7d8f-4a9b-8c1d-2e3f4a5b6c73",
+      "taskTitle": "Buy pour-over kettle on Fixture Kitchen Supply",
+      "taskTitleMessage": {
+        "key": "plan.buy",
+        "params": {
+          "product": "pour-over kettle",
+          "site": "Fixture Kitchen Supply"
+        }
+      },
+      "stepId": "c9e0f1a2-3d4f-4a5b-8c7d-8e9fabcd2139",
+      "toolId": "calendar.update_event",
+      "status": "PENDING",
+      "riskLevel": "MEDIUM",
+      "summary": "Move",
+      "summaryMessage": null,
+      "details": {
+        "kind": "calendar_event",
+        "action": "move",
+        "provider": "google",
+        "account": "ada@gmail.example",
+        "eventId": "evt-1",
+        "title": "Standup",
+        "start": "2026-11-10T09:00:00.000Z",
+        "end": "2026-11-10T09:15:00.000Z",
+        "timeZone": "Europe/Berlin",
+        "allDay": false,
+        "location": null,
+        "description": null,
+        "attendees": [],
+        "notifyAttendees": false,
+        "previous": null,
+        "conflictCheck": true
+      },
+      "actionHash": "c0ffee00a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c",
+      "reasons": [
+        "RISK_MEDIUM"
+      ],
+      "expiresAt": "2026-11-05T09:15:00.000Z",
+      "decidedAt": null,
+      "decisionNote": null,
+      "createdAt": "2026-11-04T09:15:00.000Z"
+    }
+  ],
+  "events": [],
+  "cost": {
+    "estimatedMicroUsd": 0,
+    "actualMicroUsd": 0
+  },
+  "evidence": [],
+  "canCancel": false,
+  "canRetry": false,
+  "startedAt": null,
+  "browserSessions": [
+    {
+      "id": "adb4c5e6-7b8d-4e9f-8abc-cdef6543217d",
+      "taskId": "c3e4f5a6-7d8f-4a9b-8c1d-2e3f4a5b6c73",
+      "stepId": "f6b7c8d9-0a1c-4d2e-9f4a-5b6c7d8e9fa6",
+      "siteId": "fixture-shop-b",
+      "operation": "search",
+      "status": "paused",
+      "stopReason": "PAYWALL",
+      "handoverUrl": "https://shop-b.fixture.test/captcha",
+      "navigations": 1,
+      "requests": 9,
+      "blockedRequests": 0,
+      "startedAt": "2026-11-04T09:12:00.600Z",
+      "endedAt": "2026-11-04T09:12:02.000Z",
+      "createdAt": "2026-11-04T09:12:00.120Z",
+      "artifacts": []
+    }
+  ]
+}

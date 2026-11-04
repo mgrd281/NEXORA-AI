@@ -1,11 +1,11 @@
 # Skill: web-research
 
-| Field   | Value                                                                                                                                                                       |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id      | `web-research`                                                                                                                                                              |
-| version | 0.2.0 (registry: `apps/api/src/modules/agent/skills/registry.ts`)                                                                                                           |
-| status  | Implemented — read and summarise a page the user names (`web.fetch`, `text.summarize`); switchable in Settings › Skills. Multi-source search and follow-up reading: planned |
-| tools   | `web.fetch` (1.0.0), `text.summarize` (1.0.0); planned: `web.search`                                                                                                        |
+| Field   | Value                                                                                                                                                                                                                                  |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id      | `web-research`                                                                                                                                                                                                                         |
+| version | 0.2.0 (registry: `apps/api/src/modules/agent/skills/registry.ts`)                                                                                                                                                                      |
+| status  | Implemented — read and summarise a page the user names (`web.fetch`, `text.summarize`); Phase C: read pages of supported sites in the isolated browser (`browser.read`); switchable in Settings › Skills. Multi-source search: planned |
+| tools   | `web.fetch` (1.0.0), `text.summarize` (1.0.0), `browser.read` (1.0.0); planned: `web.search`                                                                                                                                           |
 
 ## Description
 
@@ -30,6 +30,26 @@ webFetch → { url, finalUrl, status, title, text /* ≤ 20 000 chars */, conten
 textSummarize → { summary, method: 'model' | 'extractive', methodNote, model, language,
                   suspectedInjection }
 ```
+
+### Phase C: `browser.read` (supported sites, isolated browser)
+
+```ts
+browserRead: { siteId: string /* a recipe, or "schema-org" for any supported site */, url: string }
+→ { url, title, text /* ≤ 20 000 chars, untrusted */, data: { products, reservations, orders, ics },
+    evidenceArtifactId /* screenshot */, suspectedInjection, injectionSignals, sessionId }
+```
+
+For pages that need a real browser (JavaScript, structured shop data) on a site JARVIS supports
+through a recipe (`apps/api/src/modules/browser/sites/`). The URL must be on that recipe's exact
+origins on this server; anything else is `SITE_UNSUPPORTED` before a browser starts. It runs in the
+separate, secret-free browser worker ([ADR-0017](../adr/0017-browser-agent-isolation.md)): fresh
+ephemeral context, every request allow-listed and SSRF-checked (resolution pinned to validated
+addresses, a dead-end proxy for every other host — redirect hops included), budgets, and CAPTCHA /
+login / bot walls handed over (`CAPTCHA_DETECTED`, `LOGIN_REQUIRED`, `BOT_PROTECTION`), never
+bypassed. Evidence: a PNG screenshot and the extracted data (JSON), plus an ICS file the page links.
+`LOW`, read-only, outbound (flagged content feeding it needs approval). No offline intent: links the
+user writes are read with `web.fetch`; the model planner may choose `browser.read` for supported
+sites.
 
 ## Permissions and risk
 

@@ -8,16 +8,18 @@ gate that requires it.
 
 ## Assets
 
-| Asset                                                      | Why it matters                                              |
-| ---------------------------------------------------------- | ----------------------------------------------------------- |
-| Requests, messages, answers, task history                  | Private intentions and content                              |
-| Memories                                                   | Long-lived personal facts and preferences                   |
-| Email content and recipients                               | Sending on the owner's behalf; reputation; third-party data |
-| SMTP credentials (later OAuth tokens)                      | Account takeover of the owner's mailbox                     |
-| Session tokens                                             | Full account access                                         |
-| `SECRET_ENCRYPTION_KEY`, `ANTHROPIC_API_KEY`, DB passwords | Decrypt all credentials; spend money; read all data         |
-| Audit log                                                  | Accountability; must not be altered                         |
-| Model budget                                               | Real money                                                  |
+| Asset                                                       | Why it matters                                              |
+| ----------------------------------------------------------- | ----------------------------------------------------------- |
+| Requests, messages, answers, task history                   | Private intentions and content                              |
+| Memories                                                    | Long-lived personal facts and preferences                   |
+| Email content and recipients                                | Sending on the owner's behalf; reputation; third-party data |
+| SMTP credentials, OAuth tokens (Phase C: Google, Microsoft) | Account takeover of the owner's mailbox and calendar        |
+| Purchases and bookings (Phase C)                            | Real money and binding commitments in the owner's name      |
+| Evidence files (Phase C: screenshots, extracts, ICS)        | Pages as the owner saw them; may show personal data         |
+| Session tokens                                              | Full account access                                         |
+| `SECRET_ENCRYPTION_KEY`, `ANTHROPIC_API_KEY`, DB passwords  | Decrypt all credentials; spend money; read all data         |
+| Audit log                                                   | Accountability; must not be altered                         |
+| Model budget                                                | Real money                                                  |
 
 ## Trust boundaries
 
@@ -207,6 +209,27 @@ KMS-backed data keys, `ANTHROPIC_API_KEY` scoped per environment with spend aler
 | Runaway schedules                                            | Agent-created schedules always need approval; every run is planned and policy-checked; 3 failed runs or an exhausted budget pause the schedule; ≤ 20 per user; unique key per occurrence (exactly once)                                                                                                |
 | Skills used to widen permissions                             | Static registry, no third-party code; skills can only deny, hide tools or add approvals (unit-tested)                                                                                                                                                                                                  |
 | Telemetry leaking content                                    | Attribute and label sanitiser, Sentry `beforeSend` scrubbing, request logs without query strings, `/metrics` behind a bearer token; all off unless configured                                                                                                                                          |
+
+### Phase C surfaces (HTTP)
+
+Design and the full list: [Phase C §5](../architecture/phase-c.md#5-security-notes),
+[ADR-0016](../adr/0016-oauth-connections.md), [ADR-0017](../adr/0017-browser-agent-isolation.md),
+[ADR-0018](../adr/0018-commerce-safety.md). What the HTTP layer adds and tests
+(`test/integration/http/{oauth-connections,phase-c-reads}.int.test.ts`):
+
+| Threat                                                         | Defence (where)                                                                                                                                                                                                                                                                                                            | Status                           |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| Login CSRF / forwarding someone else's OAuth redirect          | The callback is an authenticated POST; the state is stored as SHA-256, bound to the user **and** the session that started it (another session or user gets `OAUTH_STATE_INVALID` without using it up), single use, 10 minutes; cookie POSTs pass the Origin check (`connections/routes.ts`, `integrations/oauth.ts`)       | Implemented                      |
+| Authorization-code interception / injection, mix-up            | PKCE S256 with the verifier sealed at rest; code exchanged server-side with the client secret; exact redirect-URI allow-list (trailing slash, query, port, scheme or host variations refused); `iss` checked against the provider's issuer                                                                                 | Implemented                      |
+| Open redirect after consent                                    | `returnTo` is a relative path (contract regex + DB CHECK); the client navigates to it, never the API                                                                                                                                                                                                                       | Implemented                      |
+| Token leakage through responses, errors, exports, logs, caches | `toConnection` sends capabilities / scopes / status only; error bodies carry a reason and the provider name, never a code, state or provider error text; export v4 omits tokens, envelopes, verifiers, pending states and the provider account id (tested against every token the mock issued); OAuth responses `no-store` | Implemented                      |
+| State churn / consent-screen spam                              | 10 starts and 10 callbacks per minute per user; ≤ 5 unfinished states (`OAUTH_PENDING_LIMIT`)                                                                                                                                                                                                                              | Implemented                      |
+| Grants left alive after disconnect or account deletion         | OAuth rows are deleted (not kept as `revoked`), so the definer trigger queues the Google envelope; the worker revokes it at Google (`drainRevocations`); Microsoft is honestly local-only (`revocation: 'local_only'`, the UI says where to remove the consent)                                                            | Implemented                      |
+| A queued revocation killing a newer grant of the same account  | Google revokes a whole grant; reconnecting the same account before the drain ran cancels this user's queued revocations of that account (`oauth_revocations_cancel`, migration 0007), never another account's or user's                                                                                                    | Implemented                      |
+| Reading another user's orders, bookings, evidence, watches     | Session + RLS lookups (404), list queries filtered by RLS; cross-tenant tests for every new route                                                                                                                                                                                                                          | Implemented                      |
+| Evidence file rendered in the app's origin (stored XSS)        | `Content-Disposition: attachment`, fixed ASCII file name, `nosniff`, `CSP: sandbox; default-src 'none'`, `Cache-Control: private, no-store`; storage keys fixed by a DB CHECK and the drivers' key check                                                                                                                   | Implemented                      |
+| Calendar invitations / page text as instructions               | Read models return them as data only (untrusted text for display); Home never fails on a slow provider (2.5 s per source)                                                                                                                                                                                                  | Implemented                      |
+| A stolen session raises the purchase limit and approves a buy  | Limit 0 by default; every purchase needs an explicit approval of the exact total; only the fixture shop can check out in this build; limit changes audited (`purchaseLimitChanged`, never the amounts). Step-up re-authentication for limit changes and real-merchant checkout                                             | Planned (Phase F gate, ADR-0018) |
 
 ### Abuse of email sending
 

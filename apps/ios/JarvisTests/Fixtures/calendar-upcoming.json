@@ -1,0 +1,51 @@
+{
+  "upcoming": {
+    "events": [
+      {
+        "id": "evt-standup-20261104",
+        "provider": "google",
+        "connectionId": "a1c2e3f4-5b6d-4e7f-8a9b-0c1d2e3f4a51",
+        "title": "Design review",
+        "start": "2026-11-04T13:00:00.000Z",
+        "end": "2026-11-04T14:00:00.000Z",
+        "timeZone": "Europe/Berlin",
+        "allDay": false,
+        "location": "Room 4",
+        "status": "confirmed",
+        "webLink": "https://calendar.google.com/calendar/event?eid=ZXZ0",
+        "attendeeCount": 3
+      },
+      {
+        "id": "AAMkAGI2THVSAAA=",
+        "provider": "microsoft",
+        "connectionId": "b2d3f4a5-6c7e-4f8a-9b0c-1d2e3f4a5b62",
+        "title": "Dentist (Fixture Dental)",
+        "start": "2026-11-05T23:00:00.000Z",
+        "end": "2026-11-06T23:00:00.000Z",
+        "timeZone": null,
+        "allDay": true,
+        "location": null,
+        "status": "tentative",
+        "webLink": null,
+        "attendeeCount": 0
+      }
+    ],
+    "sources": [
+      {
+        "connectionId": "a1c2e3f4-5b6d-4e7f-8a9b-0c1d2e3f4a51",
+        "provider": "google",
+        "accountIdentifier": "ada@gmail.example",
+        "status": "ok"
+      },
+      {
+        "connectionId": "b2d3f4a5-6c7e-4f8a-9b0c-1d2e3f4a5b62",
+        "provider": "microsoft",
+        "accountIdentifier": "ada@outlook.example",
+        "status": "unavailable"
+      }
+    ],
+    "rangeStart": "2026-11-04T09:00:00.000Z",
+    "rangeEnd": "2026-11-11T09:00:00.000Z",
+    "fetchedAt": "2026-11-04T09:00:01.250Z"
+  }
+}

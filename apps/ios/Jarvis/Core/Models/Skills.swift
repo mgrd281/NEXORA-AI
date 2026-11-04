@@ -25,12 +25,21 @@ struct Skill: Decodable, Sendable, Equatable, Identifiable {
     /// Highest risk any of its tools can have.
     let maxRisk: RiskLevel
     let requiredConnections: [ConnectionProvider]
+    /// Phase C: the skill also works with any ONE of these (a provider, optionally with a
+    /// capability it must grant). Nil from older servers; empty = only `requiredConnections`.
+    var connectionOptions: [ConnectionOption]? = nil
     let modelUse: SkillModelUse
     /// Projected model cost per run above which the policy asks first; nil = budget rules only.
     let maxCostPerRunMicroUsd: Int64?
     let docsPath: String
 
     var skillId: SkillId { SkillId(rawValue: id) ?? .unknown }
+}
+
+/// `Skill.connectionOptions` entry: e.g. Google with `mail.read`.
+struct ConnectionOption: Decodable, Sendable, Equatable {
+    let provider: ConnectionProvider
+    var capability: ConnectionCapability? = nil
 }
 
 /// `PATCH /v1/skills/:id`.

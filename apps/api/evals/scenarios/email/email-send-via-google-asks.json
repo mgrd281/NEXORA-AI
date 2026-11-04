@@ -1,0 +1,26 @@
+{
+  "id": "email-send-via-google-asks",
+  "version": 1,
+  "suite": "email",
+  "title": "Without SMTP, email to yourself goes through the Google account (mail.send) and asks first",
+  "modes": ["offline"],
+  "given": {
+    "request": "Email me: renew the parking permit",
+    "connections": ["web", "google"],
+    "connectionCapabilities": {
+      "google": ["mail.read", "mail.compose", "mail.send"]
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["email.send"],
+    "recipientsExactly": ["{{me}}"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "require_approval",
+        "reasonsInclude": ["RISK_MEDIUM", "RECIPIENT_SELF"]
+      }
+    ]
+  }
+}

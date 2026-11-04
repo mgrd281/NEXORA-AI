@@ -72,6 +72,13 @@ const CAPABILITY_FIX: Record<Capability, string | null> = {
   attachments: null,
   translation: null,
   schedules: '/settings#skills',
+  // Phase C
+  mail: '/connections',
+  calendar: '/connections',
+  browser: null,
+  booking: null,
+  shopping: null,
+  purchases: '/settings#spending',
 };
 
 function plannerReason(status: AssistantStatus, budgetUsd: number): MessageKey {

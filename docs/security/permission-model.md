@@ -45,6 +45,12 @@ codes (stored on the step, shown with approvals).
 | 6b  | Projected cost above the skill's per-run cost limit (Phase B)                                          | approval                          | `SKILL_COST_LIMIT`                                                 | —                                                   |
 | 7b  | `memory.save` from an earlier result ("remember that"): the exact text is approved (Phase B)           | approval (kind `memory`)          | `MEMORY_FROM_CONTENT`                                              | —                                                   |
 | 7c  | `schedule.create`: future side effects (Phase B)                                                       | approval, never auto-approved     | `FUTURE_RUNS`                                                      | —                                                   |
+| 1   | The exact connection of the bound input has expired (OAuth; Phase C)                                   | deny                              | `CONNECTION_EXPIRED`                                               | `CONNECTION_REQUIRED` (reason `CONNECTION_EXPIRED`) |
+| 1   | The connection does not grant the capability, e.g. `mail.send` (Phase C)                               | deny                              | `CONNECTION_SCOPE_MISSING`                                         | `CONNECTION_REQUIRED`                               |
+| 3b  | Purchase while `monthlyPurchaseLimitUsd` is 0, the default (Phase C)                                   | deny                              | `PURCHASES_DISABLED`                                               | `POLICY_DENIED`                                     |
+| 3b  | Purchase not in USD / over the month's remaining limit (Phase C)                                       | deny                              | `PURCHASE_CURRENCY` / `PURCHASE_LIMIT`                             | `POLICY_DENIED`                                     |
+| 5b  | Any purchase within the limit (Phase C)                                                                | approval, never auto-approved     | `PURCHASE`                                                         | —                                                   |
+| 5b  | Binding commitment on a site; invitation to anyone but the owner (Phase C)                             | approval                          | `BINDING_COMMITMENT`; `RECIPIENT_EXTERNAL`                         | —                                                   |
 
 Skills only ever deny, hide or add an approval: no skill setting can turn a deny into an allow,
 lower a risk or remove an approval (`test/unit/agent/skills-policy.test.ts`). The policy inputs for
@@ -127,6 +133,13 @@ Related privacy settings that act as policy inputs:
   the same budget, and alerts at 50 % / 80 % / 100 %.
 
 ## CRITICAL handling
+
+> Phase C ([ADR-0018](../adr/0018-commerce-safety.md)): checkout on a supported shop whose recipe
+> declares it (only the local fixture shop in this build) is `HIGH`, with a monthly purchase limit
+> (default 0 = off) enforced by the Policy Engine (`agent/policy-domain.ts`), an approval of the
+> exact items and total, a live re-check before submitting, and exactly-once orders. Money
+> transfers remain `CRITICAL` and denied, and no real merchant's checkout may be enabled before
+> step-up re-authentication exists. Domain rules, like skills, can only deny or add an approval.
 
 - Milestone 1 contains no `CRITICAL` tool, and the policy denies `CRITICAL` unconditionally
   (`RISK_CRITICAL`).

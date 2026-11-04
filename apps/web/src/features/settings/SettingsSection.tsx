@@ -13,7 +13,9 @@ export const SETTINGS_SECTIONS = [
   'assistant',
   'skills',
   'usage',
+  'spending',
   'notifications',
+  'replies',
   'security',
   'privacy',
 ] as const;

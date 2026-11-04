@@ -13,6 +13,7 @@ import type { ModelAdapter, ModelUsage } from './models/adapter';
 import { selectModel } from './models/router';
 import { recipientsParam } from './tools/email-send';
 import { quotable } from './tools/memory-save';
+import { getTool } from './tools/registry';
 
 const LANGUAGE_NAMES: Record<Locale, string> = { en: 'English', de: 'German', ar: 'Arabic' };
 
@@ -50,6 +51,10 @@ export function deterministicSummary(
       lines.push(msg('result.memorySaved', { text: quotable(str(out.content)) }));
     } else if (s.tool_id === 'schedule.create') {
       lines.push(msg('result.scheduleCreated', { title: str(out.title) || str(input.title) }));
+    } else {
+      // Phase C: tools with a side effect say what they did (tool.resultLine).
+      const line = getTool(s.tool_id)?.resultLine?.(input, out) ?? null;
+      if (line) lines.push(line);
     }
   }
   if (lines.length === 0) {
@@ -73,6 +78,13 @@ export function deterministicSummary(
     if (last?.tool_id === 'web.fetch') {
       const out = (last.output ?? {}) as Out;
       return { text: truncate(`${str(out.title)} — ${str(out.text)}`, 300), message: null };
+    }
+    // Phase C: the last step whose tool declares a text result (e.g. email.search's list).
+    const declared = [...done].reverse().find((s) => getTool(s.tool_id)?.resultTextField);
+    if (declared) {
+      const field = getTool(declared.tool_id)!.resultTextField!;
+      const text = str((declared.output as Out | null)?.[field]);
+      if (text) return { text: truncate(text, 600), message: null };
     }
   }
   return {
@@ -114,7 +126,11 @@ export async function modelSummary(
       facts.push(
         `Translation written into ${str(out.target)}: ${truncate(str(out.translation), 800)}`,
       );
-    else facts.push(`${s.title}: done`);
+    else {
+      const tool = getTool(s.tool_id);
+      const fact = tool?.resultFact?.((s.resolved_input ?? s.input) as Out, out);
+      facts.push(fact ? truncate(fact, 1_500) : `${s.title}: done`);
+    }
   }
   facts.push(`Outcome: ${r.fallback}`);
   const choice = selectModel(config, 'result_summary');

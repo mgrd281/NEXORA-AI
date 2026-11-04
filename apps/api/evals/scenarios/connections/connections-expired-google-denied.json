@@ -1,0 +1,26 @@
+{
+  "id": "connections-expired-google-denied",
+  "version": 1,
+  "suite": "connections",
+  "title": "Scenario 9 (policy) — a step that needs an expired Google connection is denied with CONNECTION_EXPIRED, offering Reconnect",
+  "modes": ["offline"],
+  "given": {
+    "request": "What is on my calendar tomorrow?",
+    "connections": ["web", "google"],
+    "connectionStatus": { "google": "expired" },
+    "connectionCapabilities": { "google": ["calendar.read"] },
+    "syntheticSteps": [
+      {
+        "toolId": "calendar.list",
+        "risk": "LOW",
+        "sideEffect": "none",
+        "requirement": { "provider": "google", "capability": "calendar.read" }
+      }
+    ]
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "CONNECTION_EXPIRED",
+    "policy": [{ "step": 0, "decision": "deny", "reasonsInclude": ["CONNECTION_EXPIRED"] }]
+  }
+}

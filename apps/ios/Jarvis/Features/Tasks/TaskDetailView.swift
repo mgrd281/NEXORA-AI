@@ -78,6 +78,13 @@ struct TaskDetailView: View {
 
     @ViewBuilder
     private func content(_ detail: TaskDetail) -> some View {
+        // Split in two so no builder block has more than ten children.
+        outcomeParts(detail)
+        detailParts(detail)
+    }
+
+    @ViewBuilder
+    private func outcomeParts(_ detail: TaskDetail) -> some View {
         header(detail)
 
         Card {
@@ -129,10 +136,23 @@ struct TaskDetailView: View {
             }
         }
 
-        if let error = detail.error {
-            errorCard(error, unknownOutcome: detail.hasUnknownOutcome)
+        ForEach(model.linkedOrders) { order in
+            OrderCard(order: order)
+        }
+        ForEach(model.linkedBookings) { booking in
+            BookingCard(booking: booking)
         }
 
+        if let error = detail.error {
+            errorCard(error, unknownOutcome: detail.hasUnknownOutcome)
+            TaskErrorActions(error: error, detail: detail) {
+                model.scheduleRefresh(api: app.api)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func detailParts(_ detail: TaskDetail) -> some View {
         actions(detail)
 
         links(detail)
@@ -144,6 +164,10 @@ struct TaskDetailView: View {
                     StepCard(step: step)
                 }
             }
+        }
+
+        if let sessions = detail.browserSessions, !sessions.isEmpty {
+            BrowserSessionsSection(sessions: sessions)
         }
 
         if !detail.evidence.isEmpty {
@@ -390,6 +414,7 @@ private struct StepCard: View {
                     }
                 }
             }
+            StepOutputView(step: step)
             ForEach(Array(step.evidence.enumerated()), id: \.offset) { item in
                 EvidenceRow(evidence: item.element)
             }
@@ -459,7 +484,7 @@ struct EvidenceRow: View {
                 .frame(width: 20)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
-                Text(evidence.label)
+                Text(EvidenceText.title(evidence))
                     .meridianFont(.label)
                     .foregroundStyle(MeridianColor.textPrimary)
                 Text(evidence.value)
@@ -470,10 +495,18 @@ struct EvidenceRow: View {
                 Text(MeridianFormat.dateTime(evidence.at))
                     .meridianFont(.caption)
                     .foregroundStyle(MeridianColor.textTertiary)
+                if let artifactId = evidence.artifactId {
+                    EvidenceFileButton(
+                        artifactId: artifactId,
+                        title: String(localized: "Open the file"),
+                        systemImage: evidence.code == "ICS_FILE" ? "calendar" : "doc.viewfinder"
+                    )
+                    .padding(.top, MeridianSpace.s1)
+                }
             }
             Spacer(minLength: 0)
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 }
 

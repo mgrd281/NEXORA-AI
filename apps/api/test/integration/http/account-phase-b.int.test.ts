@@ -77,7 +77,7 @@ describe('account export v3', () => {
     const res = await c.request('POST', '/v1/account/export');
     expect(res.statusCode).toBe(200);
     const doc = res.json<Record<string, unknown>>();
-    expect(doc.version).toBe(3);
+    expect(doc.version).toBe(4); // Phase C: version 4 (a superset of 3)
 
     const files = doc.attachments as (Attachment & {
       content: { encoding: string; data: string } | null;

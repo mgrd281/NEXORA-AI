@@ -126,6 +126,23 @@ extension ToolId {
         case .scheduleCreate: String(localized: "Create a schedule")
         case .conversationRecall: String(localized: "Use an earlier result")
         case .assistantClarify: String(localized: "Ask you a question")
+        case .emailSearch: String(localized: "Search email")
+        case .emailReadThread: String(localized: "Read an email thread")
+        case .emailDraftReply: String(localized: "Draft a reply")
+        case .emailTrackReplies: String(localized: "Watch for replies")
+        case .calendarList: String(localized: "Read the calendar")
+        case .calendarFreeBusy: String(localized: "Find free times")
+        case .calendarCreateEvent: String(localized: "Create an event")
+        case .calendarUpdateEvent: String(localized: "Change an event")
+        case .calendarCancelEvent: String(localized: "Cancel an event")
+        case .bookingFindSlots: String(localized: "Find free appointments")
+        case .bookingBook: String(localized: "Book an appointment")
+        case .browserRead: String(localized: "Read a supported site")
+        case .browserFill: String(localized: "Fill in a form")
+        case .shopSearch: String(localized: "Search shops")
+        case .shopCompare: String(localized: "Compare offers")
+        case .shopPrepareCart: String(localized: "Fill a cart")
+        case .shopCheckout: String(localized: "Place an order")
         case .unknown: String(localized: "Other action")
         }
     }
@@ -168,6 +185,8 @@ extension ConnectionProvider {
         switch self {
         case .web: String(localized: "Web access")
         case .smtp: String(localized: "Email (SMTP)")
+        case .google: String(localized: "Google")
+        case .microsoft: String(localized: "Microsoft")
         case .unknown: String(localized: "Other service")
         }
     }
@@ -176,6 +195,7 @@ extension ConnectionProvider {
         switch self {
         case .web: "globe"
         case .smtp: "envelope"
+        case .google, .microsoft: "person.crop.circle.badge.checkmark"
         case .unknown: MeridianIcon.connections
         }
     }
@@ -222,6 +242,8 @@ extension Evidence.Kind {
         case .contentHash: "number"
         case .modelOutput: "sparkles"
         case .note: "note.text"
+        case .providerResponse: "server.rack"
+        case .browserCapture: "camera.viewfinder"
         case .unknown: "questionmark.circle"
         }
     }
@@ -247,6 +269,10 @@ extension MissingInfo {
         case .targetLanguage: String(localized: "a language")
         case .previousResult: String(localized: "what to send or save")
         case .details: String(localized: "more details")
+        case .dateTime: String(localized: "a date and time")
+        case .contactDetails: String(localized: "your contact details")
+        case .product: String(localized: "which product")
+        case .site: String(localized: "which site or shop")
         case .unknown: String(localized: "more details")
         }
     }
@@ -296,12 +322,12 @@ extension SkillId {
 
     var summary: String {
         switch self {
-        case .webResearch: String(localized: "Reads public web pages you link to and summarizes them.")
-        case .emailManagement: String(localized: "Writes emails and sends them from your connected mailbox, each one after you approve it.")
-        case .calendarManagement: String(localized: "Reads your calendar and suggests or makes changes to it.")
-        case .appointmentBooking: String(localized: "Books appointments with businesses for you.")
+        case .webResearch: String(localized: "Reads public web pages you link to, and supported sites in an isolated browser, and summarizes them.")
+        case .emailManagement: String(localized: "Reads, summarizes and drafts replies to your mail, and sends emails from your connected account, each one after you approve it.")
+        case .calendarManagement: String(localized: "Reads your calendar, finds free times, and adds or changes events after you approve them.")
+        case .appointmentBooking: String(localized: "Finds free appointments on supported booking sites and books one after you approve the details.")
         case .phoneCalling: String(localized: "Makes phone calls for you and says that it is an AI.")
-        case .shoppingAssistant: String(localized: "Compares products and prepares purchases for you to confirm.")
+        case .shoppingAssistant: String(localized: "Compares prices, shipping and delivery on supported shops and prepares carts. Buying needs a purchase limit and your approval of the exact total.")
         case .documentAnalysis: String(localized: "Reads files you attach (PDF, Word, text, CSV) and summarizes them.")
         case .taskScheduling: String(localized: "Runs requests for you every day, week or month.")
         case .personalMemory: String(localized: "Remembers facts and preferences you share and uses them when planning.")
@@ -369,6 +395,12 @@ extension Skill {
         case .disabledByUser:
             return String(localized: "Turned off. JARVIS won't plan or run its actions.")
         case .connectionRequired:
+            let options = (connectionOptions ?? []).map(\.provider).filter { $0 != .unknown }
+            if !options.isEmpty {
+                var seen = Set<String>()
+                let names = options.filter { seen.insert($0.rawValue).inserted }.map(\.label)
+                return String(localized: "Needs one of these connections: \(names.formatted(.list(type: .or)))")
+            }
             let names = requiredConnections.filter { $0 != .unknown }.map(\.label)
             if names.isEmpty { return String(localized: "Needs a connection that isn't set up.") }
             return String(localized: "Needs a connection: \(names.formatted(.list(type: .and)))")
@@ -378,6 +410,10 @@ extension Skill {
             return String(localized: "Memory is turned off.")
         case .storageNotConfigured:
             return String(localized: "File storage isn't set up on this server.")
+        case .providerNotConfigured:
+            return String(localized: "None of the services this skill can use is set up on this server.")
+        case .browserUnavailable:
+            return String(localized: "The browser agent isn't running on this server.")
         case .unknown:
             return String(localized: "Not available right now.")
         }

@@ -193,7 +193,9 @@ describe('model mode', () => {
   });
 
   it('asks for approval when the projected cost exceeds the remaining budget', async () => {
-    const user = await newUser(h.db, { spending: { monthlyAiBudgetUsd: 0.03 } }); // 30,000 µ$
+    const user = await newUser(h.db, {
+      spending: { monthlyAiBudgetUsd: 0.03, monthlyPurchaseLimitUsd: 0 },
+    }); // 30,000 µ$
     model.script = {
       object: () => ({
         title: 'Explain',
@@ -247,7 +249,9 @@ describe('model mode', () => {
   });
 
   it('falls back to the offline planner once the monthly budget is used up', async () => {
-    const user = await newUser(h.db, { spending: { monthlyAiBudgetUsd: 1 } });
+    const user = await newUser(h.db, {
+      spending: { monthlyAiBudgetUsd: 1, monthlyPurchaseLimitUsd: 0 },
+    });
     await withContext(h.db, user, (trx) =>
       trx
         .insertInto('cost_records')

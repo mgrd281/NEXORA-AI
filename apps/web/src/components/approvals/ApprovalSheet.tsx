@@ -14,7 +14,8 @@ import { Sheet } from '@/components/ui/Dialog';
 import { useToast } from '@/components/ui/Toast';
 import { UserText } from '@/components/ui/UserText';
 import { useI18n } from '@/i18n/I18nProvider';
-import { serverText } from '@/i18n/server-message';
+import { PROVIDER_NAME, serverText } from '@/i18n/server-message';
+import { ltrMoney } from '@/lib/money';
 import { api, isApiError, newIdempotencyKey } from '@/lib/api/client';
 import { useApprovals } from '@/lib/api/hooks';
 import { qk } from '@/lib/api/query-keys';
@@ -24,6 +25,13 @@ import { zoneDisplayName } from '@/features/settings/timeZones';
 import { useNow } from '@/lib/hooks/useNow';
 import styles from './ApprovalSheet.module.css';
 import { ApprovalSentence } from './ApprovalSentence';
+import {
+  BookingDetails,
+  CalendarEventDetails,
+  FormSubmissionDetails,
+  PurchaseDetails,
+} from './PhaseCDetails';
+import { approvalLabelKind, reasonKey } from './labels';
 import {
   isUntrustedApproval,
   untrustedSourceFacts,
@@ -103,7 +111,10 @@ function ApprovalReview({
   // Prefer the freshest server copy (after a mismatch it carries the stored action and hash).
   const fresh = pending.data?.items.find((a) => a.id === initial.id);
   const approval = decided ?? fresh ?? initial;
-  const kind = approval.details.kind;
+  // Labels per kind; an email draft is its own kind of decision ("Save draft", nothing is sent).
+  const kind = approvalLabelKind(approval.details);
+  // A request this screen cannot show in full is never approvable here (only declinable).
+  const reviewable = isReviewable(approval.details);
   // The pending list no longer contains it: decided elsewhere, expired or replaced.
   const noLongerPending = pending.isSuccess && !fresh && !decided;
   const actionChanged = approval.actionHash !== initial.actionHash;
@@ -177,17 +188,26 @@ function ApprovalReview({
       >
         {t('approvals.decline')}
       </Button>
-      <Button
-        variant="primary"
-        size="lg"
-        icon={Check}
-        onClick={() => decide.mutate('approve')}
-        disabled={deciding !== null && deciding !== 'approve'}
-        loading={deciding === 'approve'}
-        aria-label={t(`approvals.approveLabel.${kind}`)}
-      >
-        {t(`approvals.approve.${kind}`)}
-      </Button>
+      {reviewable && (
+        <Button
+          variant="primary"
+          size="lg"
+          icon={Check}
+          onClick={() => decide.mutate('approve')}
+          disabled={deciding !== null && deciding !== 'approve'}
+          loading={deciding === 'approve'}
+          aria-label={
+            approval.details.kind === 'purchase'
+              ? t('approvals.approvePurchaseLabel', {
+                  total: ltrMoney(approval.details.total, i18n.f.intlLocale),
+                  merchant: approval.details.merchant.name,
+                })
+              : t(`approvals.approveLabel.${kind}`)
+          }
+        >
+          {t(`approvals.approve.${kind}`)}
+        </Button>
+      )}
     </>
   ) : undefined;
 
@@ -251,7 +271,7 @@ function ApprovalReview({
             <ul className={styles.reasons}>
               {reasons.map((code) => (
                 <li key={code}>
-                  {tDynamic(`approvals.reasons.${code}`, 'approvals.reasons.unknown', { code })}
+                  {tDynamic(reasonKey(kind, code), 'approvals.reasons.unknown', { code })}
                 </li>
               ))}
             </ul>
@@ -296,6 +316,27 @@ function ApprovalReview({
   );
 }
 
+/**
+ * Whether this screen shows everything the user must see for this request: every kind it has a
+ * full view for. A kind from a newer server (unknown here) can only be declined, never approved
+ * blindly.
+ */
+function isReviewable(details: Approval['details']): boolean {
+  switch (details.kind) {
+    case 'email':
+    case 'generic':
+    case 'schedule':
+    case 'memory':
+    case 'calendar_event':
+    case 'booking':
+    case 'purchase':
+    case 'form_submission':
+      return true;
+    default:
+      return false;
+  }
+}
+
 /** Exactly what the action does, by kind: the email, the schedule, the memory, or fields. */
 function ApprovalDetailsView({
   approval,
@@ -310,51 +351,87 @@ function ApprovalDetailsView({
   switch (details.kind) {
     case 'email':
       return (
-        <div className={styles.email}>
-          <dl className={styles.fields}>
-            <div className={styles.fieldRow}>
-              <dt>{t('approvals.fields.from')}</dt>
-              <dd>
-                <Sender from={details.from} />
-              </dd>
-            </div>
-            <div className={styles.fieldRow}>
-              <dt>
-                {t('approvals.fields.to')}
-                <span className="visually-hidden">
-                  {' '}
-                  ({t('approvals.recipients', { count: details.to.length })})
-                </span>
-              </dt>
-              <dd>
-                <ul className={styles.recipients}>
-                  {details.to.map((address) => (
-                    <li key={address} className={styles.recipient}>
-                      <span className="ltr">{address}</span>
-                    </li>
-                  ))}
-                </ul>
-              </dd>
-            </div>
-            <div className={styles.fieldRow}>
-              <dt>{t('approvals.fields.subject')}</dt>
-              {details.subject ? (
-                <UserText as="dd" className={styles.subject}>
-                  {details.subject}
-                </UserText>
-              ) : (
-                <dd className={styles.subject}>{t('approvals.fields.noSubject')}</dd>
+        <>
+          {details.mode === 'draft' && (
+            <Banner tone="info" title={t('approvals.draft.title')}>
+              <p>
+                {details.via && details.via !== 'smtp'
+                  ? t('approvals.draft.body', { provider: PROVIDER_NAME[details.via] })
+                  : t('approvals.draft.bodyGeneric')}
+              </p>
+            </Banner>
+          )}
+          <div className={styles.email}>
+            <dl className={styles.fields}>
+              <div className={styles.fieldRow}>
+                <dt>{t('approvals.fields.from')}</dt>
+                <dd>
+                  <Sender from={details.from} />
+                  {details.via && details.via !== 'smtp' && (
+                    <span className={styles.via}>
+                      {t('approvals.fields.via', { provider: PROVIDER_NAME[details.via] })}
+                    </span>
+                  )}
+                </dd>
+              </div>
+              <div className={styles.fieldRow}>
+                <dt>
+                  {t('approvals.fields.to')}
+                  <span className="visually-hidden">
+                    {' '}
+                    ({t('approvals.recipients', { count: details.to.length })})
+                  </span>
+                </dt>
+                <dd>
+                  <ul className={styles.recipients}>
+                    {details.to.map((address) => (
+                      <li key={address} className={styles.recipient}>
+                        <span className="ltr">{address}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </dd>
+              </div>
+              {details.cc && details.cc.length > 0 && (
+                <div className={styles.fieldRow}>
+                  <dt>{t('approvals.fields.cc')}</dt>
+                  <dd>
+                    <ul className={styles.recipients}>
+                      {details.cc.map((address) => (
+                        <li key={address} className={styles.recipient}>
+                          <span className="ltr">{address}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </dd>
+                </div>
               )}
+              {details.inReplyTo && (
+                <div className={styles.fieldRow}>
+                  <dt>{t('approvals.fields.inReplyTo')}</dt>
+                  <UserText as="dd">{details.inReplyTo.subject}</UserText>
+                </div>
+              )}
+              <div className={styles.fieldRow}>
+                <dt>{t('approvals.fields.subject')}</dt>
+                {details.subject ? (
+                  <UserText as="dd" className={styles.subject}>
+                    {details.subject}
+                  </UserText>
+                ) : (
+                  <dd className={styles.subject}>{t('approvals.fields.noSubject')}</dd>
+                )}
+              </div>
+            </dl>
+            <div className={styles.bodyBlock}>
+              <p className={styles.bodyLabel}>{t('approvals.fields.body')}</p>
+              {/* The message is the whole surface here, so it follows its own direction. */}
+              <pre className={styles.body} dir="auto">
+                {details.body}
+              </pre>
             </div>
-          </dl>
-          <div className={styles.bodyBlock}>
-            <p className={styles.bodyLabel}>{t('approvals.fields.body')}</p>
-            {/* The message is the whole surface here, so it follows its own direction. */}
-            <pre className={styles.body} dir="auto">
-              {details.body}
-            </pre>
           </div>
-        </div>
+        </>
       );
     case 'schedule': {
       const zone = details.recurrence.timeZone;
@@ -449,6 +526,16 @@ function ApprovalDetailsView({
           ))}
         </dl>
       );
+    case 'calendar_event':
+      return <CalendarEventDetails details={details} />;
+    case 'booking':
+      return <BookingDetails details={details} />;
+    case 'purchase':
+      return <PurchaseDetails details={details} />;
+    case 'form_submission':
+      return <FormSubmissionDetails details={details} />;
+    default:
+      return <Banner tone="warning" title={t('approvals.notReviewable')} />;
   }
 }
 

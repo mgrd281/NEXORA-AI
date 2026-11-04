@@ -1,0 +1,162 @@
+.heading {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 20px;
+  block-size: 20px;
+  padding-inline: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-hover);
+  font: var(--text-caption);
+  font-weight: var(--type-label-weight);
+  color: var(--color-text-secondary);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+}
+
+.emptyIcon {
+  color: var(--color-text-tertiary);
+}
+
+.days {
+  list-style: none;
+}
+
+.day + .day {
+  border-block-start: 1px solid var(--color-border);
+}
+
+.dayTitle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+  padding: var(--space-3) var(--space-5) var(--space-1);
+  font: var(--text-label);
+}
+
+.dayRelative {
+  color: var(--color-text-primary);
+}
+
+.dayDate {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+}
+
+.events {
+  list-style: none;
+  padding-block-end: var(--space-2);
+}
+
+.event {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-5);
+}
+
+@media (max-width: 639.98px) {
+  .event {
+    grid-template-columns: 3.75rem minmax(0, 1fr);
+    gap: var(--space-3);
+    padding-inline: var(--space-4);
+  }
+
+  .dayTitle {
+    padding-inline: var(--space-4);
+  }
+}
+
+.when {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-block-start: 1px;
+}
+
+.time {
+  font: var(--text-label);
+  color: var(--color-text-primary);
+}
+
+.end {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-inline-start: var(--space-4);
+  border-inline-start: 2px solid var(--color-accent-soft);
+}
+
+.titleRow {
+  font: var(--text-body-strong);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.titleLink {
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius-xs);
+}
+
+.titleLink:hover .title {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.linkIcon {
+  display: inline-block;
+  margin-inline-start: var(--space-1);
+  vertical-align: -2px;
+  color: var(--color-text-tertiary);
+}
+
+.title {
+  font: inherit;
+}
+
+.cancelled {
+  text-decoration: line-through;
+  color: var(--color-text-secondary);
+}
+
+.meta {
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-block-start: var(--space-1);
+}

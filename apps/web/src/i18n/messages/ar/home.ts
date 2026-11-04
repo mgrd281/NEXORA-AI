@@ -51,6 +51,28 @@ const home: Catalog<typeof source> = {
     remember: 'تذكّر أنني أفضّل المقاعد بجانب الممر في الرحلات',
     emailMe: 'أرسل لي: الاتصال بطبيب الأسنان يوم الجمعة',
   },
+  upcoming: {
+    title: 'القادم',
+    today: 'اليوم',
+    tomorrow: 'غدًا',
+    allDay: 'طوال اليوم',
+    empty: 'لا شيء في تقويمك خلال الأيام السبعة القادمة.',
+    people:
+      '{count, plural, zero {لا أحد} one {شخص واحد} two {شخصان} few {# أشخاص} many {# شخصًا} other {# شخص}}',
+    inZone: '{zone}: {time}',
+    openAt: '(يُفتح لدى {provider})',
+    now: 'الآن',
+    cancelled: 'ملغى',
+    tentative: 'مبدئي',
+    overlapsWith: 'يتعارض مع «{title}»',
+    overlapsMany:
+      '{count, plural, zero {لا تعارض} one {يتعارض مع موعد واحد} two {يتعارض مع موعدين} few {يتعارض مع # مواعيد} many {يتعارض مع # موعدًا} other {يتعارض مع # موعد}}',
+    sources: {
+      expired: 'تقويم {provider} ({account}) غير مُضمَّن: انتهت صلاحية الاتصال.',
+      scope_missing: 'تقويم {provider} ({account}) غير مُضمَّن: لا يُسمح لـ JARVIS بقراءته.',
+      unavailable: 'لم يستجب {provider} ({account}) في الوقت المحدد، لذا تنقص مواعيده هنا.',
+    },
+  },
   suggestionsLabel: 'اقتراحات',
   suggestionFills: 'يضع هذا الطلب في شريط الأوامر',
   suggest: {

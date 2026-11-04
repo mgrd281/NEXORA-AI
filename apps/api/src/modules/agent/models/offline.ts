@@ -19,6 +19,10 @@
  *                "email it" without an earlier result, "send it to Bob" without an address,
  *                a schedule without a time.
  *
+ * Phase C (docs/architecture/phase-c.md §4.2): the domain intents of
+ * intents/integrations and intents/browser (email, calendar, booking,
+ * shopping) are asked after the Phase B intents and before the Milestone 1 ones.
+ *
  * Everything else fails with PLANNER_UNSUPPORTED (translation included: there
  * is no offline translator). Recipients are only ever the owner or an
  * address the user wrote; nothing here reads results or documents (it only
@@ -36,7 +40,10 @@ import type {
 import { truncate } from '../../../lib/redact';
 import { latestRecallable, type PriorTurn } from '../conversation-context';
 import { msg, render, t, withoutFinalStop } from '../i18n';
+import { browserIntents } from '../intents/browser';
+import { integrationIntents } from '../intents/integrations';
 import type { Plan } from '../plan';
+import type { ConnectionState } from '../tools/types';
 
 /**
  * English developer fallback. Clients explain PLANNER_UNSUPPORTED /
@@ -104,6 +111,22 @@ const EMAIL_NOTE: RegExp[] = [
   /^\s*(?:bitte\s+)?(?:schick|schicke|sende|maile)\s+mir\b([^:：\n]*)[:：]\s*([\s\S]+)$/i,
   /^\s*(?:من\s+فضلك\s+)?(?:أرسل|ارسل|ابعث)\s+(?:لي|إلي|إليّ|الي)([^:：\n]*)[:：]\s*([\s\S]+)$/,
 ];
+
+/**
+ * Phase C: "email me via Gmail: …" — the account the user names in their own words sends it
+ * (email.send `via`); without one, bind picks (SMTP first). Only the provider is taken from
+ * the words, never an address.
+ */
+const EMAIL_VIA =
+  /(?:^|\s+)(?:via|through|from|with|using|über|mit|per|von)\s+(?:my\s+|meine[mnr]?\s+)?(gmail|google|outlook|microsoft|hotmail)(?:\s+(?:account|konto|mail))?\b|\s*(?:عبر|من\s+خلال|باستخدام)\s+(?:حساب\s+|بريد\s+)?(gmail|google|outlook|microsoft|جوجل|غوغل|مايكروسوفت|أوتلوك)/i;
+
+function emailVia(hint: string): { via: 'google' | 'microsoft' | null; rest: string } {
+  const m = EMAIL_VIA.exec(hint);
+  if (!m) return { via: null, rest: hint };
+  const name = (m[1] ?? m[2] ?? '').toLowerCase();
+  const via = /gmail|google|جوجل|غوغل/.test(name) ? 'google' : 'microsoft';
+  return { via, rest: (hint.slice(0, m.index) + hint.slice(m.index + m[0].length)).trim() };
+}
 
 // Likes, dislikes, wishes and habits. JS \b is ASCII-only: umlaut words and Arabic need no \b.
 const PREFERENCE =
@@ -188,13 +211,25 @@ export interface PlanningAttachment {
 export interface OfflinePlanContext {
   language: Locale;
   ownEmail: string;
+  /**
+   * Phase C: the account's display name (a booking form's "Full name" when the user does not
+   * write another one). Never a recipient or a search term.
+   */
+  ownName?: string | null;
   /** Phase B: the owner's time zone (schedules). Default UTC. */
   timeZone?: string;
   /** Phase B: earlier turns of the conversation, oldest first. */
   conversation?: readonly PriorTurn[];
   /** Phase B: files of the conversation (current request's and earlier ones). */
   attachments?: readonly PlanningAttachment[];
+  /** Phase C: the user's connections (no secrets), for intents that pick an account. */
+  connections?: readonly ConnectionState[];
+  /** Phase C: the isolated browser agent can run now. */
+  browserAvailable?: boolean;
 }
+
+/** Phase C: the domain intents, asked in this order (intents/*). */
+const DOMAIN_INTENTS = [...integrationIntents, ...browserIntents];
 
 /** The Milestone 1 intents (memory, summarize a link, email me: <text>). */
 function planBasic(request: string, ctx: OfflinePlanContext): OfflinePlanResult {
@@ -288,12 +323,13 @@ function planBasic(request: string, ctx: OfflinePlanContext): OfflinePlanResult 
   for (const re of EMAIL_NOTE) {
     const m = re.exec(text);
     if (!m) continue;
-    const hint = m[1]!.trim().replace(/^(?:a|an|the|eine?n?)\s+/i, '');
+    const { via, rest } = emailVia(m[1]!);
+    const hint = rest.trim().replace(/^(?:a|an|the|eine?n?)\s+/i, '');
     const body = m[2]!.trim();
     if (!body) break;
     const firstLine = body.split('\n')[0]!.trim();
     const subject = truncate(
-      FILLER_SUBJECT.test(m[1]!.trim()) || hint.length < 3 ? firstLine : capitalize(hint),
+      FILLER_SUBJECT.test(rest.trim()) || hint.length < 3 ? firstLine : capitalize(hint),
       120,
     );
     return {
@@ -310,6 +346,7 @@ function planBasic(request: string, ctx: OfflinePlanContext): OfflinePlanResult 
               to: [ctx.ownEmail],
               subject: subject || t(lang, 'email.noteSubject'),
               body,
+              ...(via ? { via } : {}),
             },
           },
         ],
@@ -493,6 +530,12 @@ const DOC_WORDS =
   /\b(document|doc|file|attachment|attached|pdf|docx|word\s+file|dokument\w*|datei\w*|anhang|angehängte?\w*|anlage)\b|المستند|الملف|المرفق|الوثيقة|مستند|ملف/i;
 const WHAT_IS_IN =
   /\b(what(?:'s|\s+is)\s+(?:in|this)|what\s+does\s+(?:it|this)\s+say|worum\s+geht|was\s+steht)\b|ما\s+محتوى|ماذا\s+يقول|عن\s+ماذا/i;
+/**
+ * A calendar or mailbox named in the request: "was steht in meinem Kalender" asks about the
+ * calendar, not about a document, so WHAT_IS_IN alone must not read it as a document question.
+ */
+const DOMAIN_NOUNS =
+  /\b(?:calendar|agenda|inbox|mailbox|kalender\w*|termine?|posteingang|postfach)\b|تقويم|التقويم|جدولي|بريدي|صندوق\s+الوارد/i;
 const PAGE_WORDS =
   /\b(page|website|site|article|link|web\s*page|seite|webseite|artikel)\b|الصفحة|الموقع|المقال|الرابط/i;
 
@@ -863,16 +906,24 @@ export function planOffline(request: string, ctx: OfflinePlanContext): OfflinePl
 
   // 5. Documents: a file attached to this request (or named, from earlier in the conversation).
   const hasUrl = URL_RE.test(text);
-  const docIntent = DOC_WORDS.test(text) || WHAT_IS_IN.test(text);
+  const whatIsIn = WHAT_IS_IN.test(text) && (DOC_WORDS.test(text) || !DOMAIN_NOUNS.test(text));
+  const docIntent = DOC_WORDS.test(text) || whatIsIn;
   const summarizeIntent = SUMMARIZE.test(text.replace(URL_RE, ' '));
   if (!hasUrl && current.length > 0 && (summarizeIntent || docIntent || !text)) {
     return documentPlan(text, lang, ctx, current);
   }
-  if (!hasUrl && docIntent && (summarizeIntent || WHAT_IS_IN.test(text))) {
+  if (!hasUrl && docIntent && (summarizeIntent || whatIsIn)) {
     const earlier = files.filter((f) => !f.attachedToRequest);
     return earlier.length > 0
       ? documentPlan(text, lang, ctx, [earlier.at(-1)!])
       : clarifyPlan(lang, ['document']);
+  }
+
+  // 5b. Phase C domain intents (email, calendar, booking, shopping): before the Milestone 1
+  // intents, which would read any request with a link as "summarize this page".
+  for (const intent of DOMAIN_INTENTS) {
+    const planned = intent.plan(text, ctx);
+    if (planned) return planned;
   }
 
   // 6. Milestone 1 intents.

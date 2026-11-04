@@ -92,7 +92,107 @@ const connections: Catalog<typeof source> = {
       },
     },
   },
+  oauth: {
+    providers: {
+      google: { summary: 'Gmail und Google Kalender.' },
+      microsoft: {
+        summary: 'Outlook-Mail und -Kalender für Microsoft-365- und Outlook.com-Konten.',
+      },
+    },
+    notConfigured: 'Auf diesem Server nicht eingerichtet',
+    notConfiguredBody:
+      'Die Anmeldung mit {provider} ist auf diesem JARVIS-Server noch nicht eingerichtet (dafür braucht es eine Client-ID und ein Secret). Deshalb lässt sich das Konto hier nicht verbinden.',
+    chooseTitle: 'Was JARVIS darf',
+    chooseHint:
+      'Erlaube nur, was du brauchst – mehr kannst du später hinzufügen. Alles, was schreibt oder sendet, wartet weiterhin auf deine Freigabe.',
+    groups: { mail: 'E-Mail', calendar: 'Kalender' },
+    hints: {
+      mailRead:
+        'Deine Nachrichten durchsuchen und lesen, um sie zusammenzufassen und zu finden, was eine Antwort braucht.',
+      mailCompose: 'Antwortentwürfe in deinem Postfach speichern. Es wird nichts gesendet.',
+      mailSend:
+        'E-Mails in deinem Namen senden – jedes Mal erst, nachdem du die genaue Nachricht freigegeben hast.',
+      calendarRead: 'Deine Termine sehen und wann du frei bist.',
+      calendarWrite:
+        'Termine anlegen, verschieben und absagen und Einladungen senden – jedes Mal erst nach deiner Freigabe.',
+    },
+    requiredBy: 'Enthalten, weil „{capability}“ es braucht.',
+    scopesToggle: 'Genaue Berechtigungen, die bei {provider} angefragt werden',
+    scopesGrantedToggle: 'Genaue Berechtigungen, die {provider} erteilt hat',
+    scopesIdentity: 'Immer dabei: ID und Adresse deines Kontos und eine dauerhafte Verbindung.',
+    connect: 'Weiter zu {provider}',
+    connectHint:
+      'Du meldest dich bei {provider} an und bestätigst dort. JARVIS sieht dein Passwort nie.',
+    noneSelected: 'Wähle mindestens eine Sache, die JARVIS darf.',
+    account: 'Konto',
+    connected: 'Verbunden {time}',
+    lastChecked: 'Zuletzt geprüft {time}',
+    canDoTitle: 'Was JARVIS darf',
+    pausedTitle: 'Pausiert, bis du neu verbindest',
+    addTitle: 'Mehr erlauben',
+    addHint: 'JARVIS fragt bei {provider} nur an, was du hier auswählst.',
+    add: 'Bei {provider} erlauben',
+    expired: {
+      title: 'Deine Verbindung mit {provider} ist abgelaufen',
+      GRANT_INVALID:
+        '{provider} akzeptiert den Zugriff von JARVIS nicht mehr: Er wurde widerrufen oder ist abgelaufen. Bis du neu verbindest, kann JARVIS dort nichts lesen oder ändern.',
+      TOKEN_REJECTED:
+        '{provider} hat den Zugriff von JARVIS abgelehnt. Bis du neu verbindest, kann JARVIS dort nichts lesen oder ändern.',
+      generic: 'Bis du neu verbindest, kann JARVIS dort nichts lesen oder ändern.',
+      reconnect: 'Neu verbinden',
+      reconnectLabel: '{provider} neu verbinden',
+      asksFor: 'Beim neuen Verbinden werden dieselben Berechtigungen angefragt wie bisher: {list}.',
+    },
+    scopeMissing: {
+      title: '{provider} hat eine Berechtigung entzogen',
+      body: 'JARVIS arbeitet mit dem weiter, was noch erlaubt ist. Erlaube den Rest unten wieder, wenn du ihn brauchst.',
+    },
+    error: {
+      title: '{provider} antwortet nicht zuverlässig',
+      body: 'Mehrere Anfragen hintereinander sind fehlgeschlagen. JARVIS versucht es bei der nächsten Anfrage erneut; passiert das weiter, kann neues Verbinden helfen.',
+    },
+    disconnect: 'Trennen',
+    disconnectDialog: {
+      title: '{provider} trennen?',
+      body: 'JARVIS kann dann in {account} nichts mehr lesen oder ändern.',
+      provider:
+        'JARVIS löscht seine Tokens sofort und bittet {provider}, den Zugriff zu widerrufen.',
+      local_only:
+        'JARVIS löscht seine Tokens sofort. Microsoft lässt Apps ihren eigenen Zugriff nicht widerrufen – entferne JARVIS deshalb auch in deinem Konto:',
+      localOnlyPersonal: 'Private Konten',
+      localOnlyWork: 'Geschäfts- oder Schulkonten',
+      watches:
+        'Threads, die JARVIS in diesem Konto auf Antworten beobachtet, werden nicht mehr beobachtet.',
+      confirm: 'Trennen und Tokens löschen',
+    },
+    disconnected: '{provider} getrennt. Die Tokens wurden gelöscht.',
+    revocation: {
+      provider: 'Beim Trennen wird der Zugriff von JARVIS bei {provider} widerrufen.',
+      local_only:
+        'Beim Trennen löscht JARVIS seine Tokens; die App kannst du zusätzlich bei Microsoft entfernen.',
+    },
+  },
+  callback: {
+    title: 'Konto verbinden',
+    working: 'Verbindung wird abgeschlossen …',
+    connectedTitle: '{provider} ist verbunden',
+    connectedBody: 'JARVIS darf jetzt mit {account}:',
+    missing:
+      'Diese Seite schließt das Verbinden eines Kontos ab, nachdem du dich bei Google oder Microsoft angemeldet hast. Starte unter „Verbindungen“.',
+    failedTitle: 'Es wurde nichts verbunden',
+    back: 'Zurück zu den Verbindungen',
+    continue: 'Weiter',
+    resumableTitle:
+      '{count, plural, one {# Aufgabe wurde gestoppt, weil die Verbindung abgelaufen war} other {# Aufgaben wurden gestoppt, weil die Verbindung abgelaufen war}}',
+    resumableBody: 'Die Verbindung funktioniert wieder, du kannst sie jetzt wiederholen.',
+    retry: 'Wiederholen',
+    retryLabel: '„{title}“ wiederholen',
+    retrying: 'Wird wiederholt …',
+    retried: 'Wiederholung gestartet',
+    openTask: 'Aufgabe öffnen',
+  },
   status: {
+    unconfigured: 'Nicht eingerichtet',
     active: 'Verbunden',
     error: 'Prüfen nötig',
     expired: 'Abgelaufen',

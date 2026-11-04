@@ -82,6 +82,14 @@ export async function buildApp(
                 '*.password',
                 '*.token',
                 '*.secret',
+                // Phase C (docs/architecture/phase-c.md §5): OAuth tokens and client secrets. (The
+                // callback's code and state travel in request bodies, which are never logged.)
+                '*.accessToken',
+                '*.refreshToken',
+                '*.access_token',
+                '*.refresh_token',
+                '*.code_verifier',
+                '*.client_secret',
               ],
               censor: '[redacted]',
             },

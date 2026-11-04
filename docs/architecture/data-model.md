@@ -262,14 +262,15 @@ erDiagram
 
 ### Tables by purpose
 
-| Group                            | Tables                                                                                                | Notes                                                              |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| Identity                         | `tenants`, `users`, `user_roles`, `devices`, `sessions`                                               | Email is `citext`, globally unique. Tokens stored only as SHA-256. |
-| Work                             | `conversations`, `messages`, `tasks`, `task_steps`, `tool_executions`, `approvals`, `task_events`     | `task_events` is the append-only history and SSE replay log.       |
-| Capabilities                     | `connections`, `memories`, `notifications`, `voice_sessions`                                          | One non-revoked connection per provider per user.                  |
-| Reserved (unused in Milestone 1) | `call_sessions` (Phase 5), `browser_sessions` (Phase 4), `scheduled_tasks`                            | Created now so the model is complete.                              |
-| Metering                         | `usage_events`, `cost_records`, `subscriptions`                                                       | `subscriptions` row created per tenant by `create-owner`.          |
-| Platform                         | `audit_events`, `jobs`, `worker_heartbeats`, `feature_flags`, `idempotency_keys`, `schema_migrations` | `schema_migrations` is created by the migrator.                    |
+| Group                            | Tables                                                                                                                                                      | Notes                                                              |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Identity                         | `tenants`, `users`, `user_roles`, `devices`, `sessions`                                                                                                     | Email is `citext`, globally unique. Tokens stored only as SHA-256. |
+| Work                             | `conversations`, `messages`, `tasks`, `task_steps`, `tool_executions`, `approvals`, `task_events`                                                           | `task_events` is the append-only history and SSE replay log.       |
+| Capabilities                     | `connections`, `memories`, `notifications`, `voice_sessions`                                                                                                | One non-revoked connection per provider per user.                  |
+| Reserved (unused in Milestone 1) | `call_sessions` (Phase 5), `browser_sessions` (Phase 4), `scheduled_tasks`                                                                                  | Created now so the model is complete.                              |
+| Phase C (0005)                   | `oauth_states`, `oauth_revocations`, `email_watches`, `browser_sessions` (reshaped), `evidence_artifacts`, `orders`, `bookings`, view `committed_purchases` | See [Phase C §7](phase-c.md#7-schema-reference-0005).              |
+| Metering                         | `usage_events`, `cost_records`, `subscriptions`                                                                                                             | `subscriptions` row created per tenant by `create-owner`.          |
+| Platform                         | `audit_events`, `jobs`, `worker_heartbeats`, `feature_flags`, `idempotency_keys`, `schema_migrations`                                                       | `schema_migrations` is created by the migrator.                    |
 
 ### Notable constraints and indexes
 
@@ -331,8 +332,32 @@ Phase B (`0004_phase_b.sql`) adds `scheduler_due_schedules(limit)` and
 `retention_due_users(after, limit)` (ids only) and the three storage-deletion functions; tables,
 constraints and invariants are listed in [Phase B §7](phase-b.md#7-schema-reference-0004).
 
-Verified by `apps/api/test/integration/rls.int.test.ts` and `rls-phase-b.int.test.ts` against a real
-database.
+Phase C (`0005_phase_c.sql`): `oauth_states`, `email_watches`, `evidence_artifacts`, `orders` and
+`bookings` are user-private like the 0004 tables; `oauth_revocations` has RLS on and **no** policy and
+no table privileges (only `oauth_revocations_claim/_complete/_failed`, filled by the definer trigger
+`connections_queue_revocation` on `DELETE FROM connections` of a Google row); `committed_purchases` is
+a `security_invoker` view (the caller's RLS applies). Definer functions added: `email_watches_due(limit)`
+(ids only), `oauth_states_purge()` (count). Everything else in [Phase C §7](phase-c.md#7-schema-reference-0005).
+
+Phase C integration (stage 3): `0006_phase_c_purchases.sql` makes `committed_purchases` count paid
+bookings (submitting / confirmed / unknown) as well as orders, and adds the columns `kind` (`order` |
+`booking`) and `step_id` (a step's own row is not counted against its own acknowledged retry).
+`0007_oauth_revocation_cancel.sql` records the provider account on each queued revocation and adds the
+definer function `oauth_revocations_cancel(provider, account)`: completing an OAuth connection cancels
+the caller's own pending revocations of the same account (Google revokes per grant, so a revocation
+queued by an earlier disconnect would otherwise kill the new connection).
+
+How the HTTP layer uses it: an OAuth connection is **deleted** on disconnect (so the trigger queues a
+Google grant for revocation at Google; watches and pending states cascade) while SMTP / web rows stay
+as `revoked` with their secrets wiped; orders and bookings are read-only records whose task link
+becomes `NULL` when the task is deleted (their evidence files follow the task); evidence file keys are
+`tenants/<t>/users/<u>/evidence/<id>`, which the storage drivers accept alongside attachment keys
+(`modules/storage/keys.ts`). No calendar or mail content is stored — Home "Upcoming" and the calendar
+routes read the provider live.
+
+Verified by `apps/api/test/integration/rls.int.test.ts`, `rls-phase-b.int.test.ts` and
+`rls-phase-c.int.test.ts` against a real database; the HTTP behaviour by
+`test/integration/http/{oauth-connections,phase-c-reads}.int.test.ts`.
 
 ## 3. Retention policy (proposal)
 
@@ -344,7 +369,11 @@ review):
 | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
 | Tasks, steps, messages, task events, tool executions, approvals | Until the user deletes them or the account; option "auto-delete after N months" (default off)                                      | User-facing setting + daily purge job |
 | Memories                                                        | Until the user deletes them                                                                                                        | Memory screen, `DELETE /v1/memories`  |
-| Connections                                                     | Until disconnected; secrets wiped on disconnect                                                                                    | Implemented                           |
+| Connections                                                     | Until disconnected; secrets wiped on disconnect (OAuth rows deleted; Google grants revoked at Google by the revocation drain)      | Implemented                           |
+| OAuth authorization requests (`oauth_states`)                   | 10 minutes valid; deleted 1 hour after expiry or use                                                                               | Implemented (purge timer, Phase C)    |
+| Email watches                                                   | At most 31 days watching; ended rows until the connection is removed                                                               | Implemented (Phase C)                 |
+| Orders, bookings                                                | Until the account is deleted (records of what the agent did; the task link is cleared with the task)                               | Implemented (Phase C)                 |
+| Browser sessions, evidence files                                | With their task (task retention / deletion cascades; stored files queued for deletion)                                             | Implemented (Phase C)                 |
 | Sessions                                                        | Revoked/expired rows deleted after 30 days                                                                                         | Purge job                             |
 | Notifications                                                   | 90 days                                                                                                                            | Purge job                             |
 | Voice session metadata                                          | 90 days                                                                                                                            | Purge job                             |

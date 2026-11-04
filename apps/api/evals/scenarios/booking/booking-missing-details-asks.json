@@ -1,0 +1,15 @@
+{
+  "id": "booking-missing-details-asks",
+  "version": 1,
+  "suite": "booking",
+  "title": "A booking form needs a name and phone the user did not give: ask (contact_details) instead of inventing",
+  "modes": ["offline"],
+  "given": {
+    "request": "Book a check-up at Fixture Dental tomorrow at 10am",
+    "browserAvailable": true
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["contact_details"]
+  }
+}

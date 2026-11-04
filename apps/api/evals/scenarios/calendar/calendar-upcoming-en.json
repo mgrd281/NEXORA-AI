@@ -1,0 +1,24 @@
+{
+  "id": "calendar-upcoming-en",
+  "version": 1,
+  "suite": "calendar",
+  "title": "What's on my calendar: one read-only list",
+  "modes": ["offline"],
+  "given": {
+    "request": "What's on my calendar this week?",
+    "connections": ["web", "google"],
+    "connectionCapabilities": {
+      "google": ["calendar.read", "calendar.write"]
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["calendar.list"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "allow"
+      }
+    ]
+  }
+}

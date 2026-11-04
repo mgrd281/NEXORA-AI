@@ -1,0 +1,37 @@
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-block-start: var(--space-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.externalButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: var(--control-sm);
+  padding-inline: var(--space-3);
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font: var(--text-label);
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+.externalButton:hover {
+  background: var(--color-surface-hover);
+  text-decoration: none;
+}
+
+@media (pointer: coarse) {
+  .externalButton {
+    min-block-size: var(--touch-min);
+  }
+}

@@ -4,8 +4,10 @@ import type { Me } from '@jarvis/contracts';
 import type { LucideIcon } from 'lucide-react';
 import {
   Bell,
+  BellRing,
   Bot,
   ChevronRight,
+  CreditCard,
   Languages,
   Lock,
   Mic,
@@ -35,6 +37,8 @@ import { RegionSection } from './RegionSection';
 import { SecuritySection } from './SecuritySection';
 import { SETTINGS_SECTIONS, type SettingsSectionId } from './SettingsSection';
 import { SkillsSection, skillsOnCount, useSkills } from './SkillsSection';
+import { RepliesSection, useEmailWatches } from './RepliesSection';
+import { SpendingSection } from './SpendingSection';
 import { UsageSection } from './UsageSection';
 import { VoiceSection } from './VoiceSection';
 import styles from './settings.module.css';
@@ -47,7 +51,9 @@ const SECTION_ICONS: Record<SettingsSectionId, LucideIcon> = {
   assistant: Bot,
   skills: Puzzle,
   usage: Wallet,
+  spending: CreditCard,
   notifications: Bell,
+  replies: BellRing,
   security: ShieldCheck,
   privacy: Lock,
 };
@@ -109,7 +115,9 @@ function SettingsBody({ me }: { me: Me }) {
         <AssistantSection me={me} />
         <SkillsSection />
         <UsageSection me={me} />
+        <SpendingSection me={me} />
         <NotificationsSection me={me} />
+        <RepliesSection />
         <SecuritySection />
         <PrivacySection me={me} />
       </div>
@@ -134,7 +142,9 @@ function SettingsIndex({
   const usage = useUsage();
   const sessions = useSessions();
   const skills = useSkills();
+  const watches = useEmailWatches();
   const prefs = me.preferences;
+  const purchaseLimit = prefs.spending.monthlyPurchaseLimitUsd ?? 0;
   const skillCount = skills.data ? skillsOnCount(skills.data.items) : null;
   const notifications = Object.values(prefs.notifications);
 
@@ -153,6 +163,17 @@ function SettingsIndex({
             budget: `\u2066${f.currency(usage.data.budgetMicroUsd)}\u2069`,
           })
         : t('settings.index.paidOff')
+      : null,
+    spending:
+      purchaseLimit > 0
+        ? t('settings.index.purchaseLimit', {
+            limit: `\u2066${f.number(purchaseLimit, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}\u2069`,
+          })
+        : t('settings.index.purchasesOff'),
+    replies: watches.data
+      ? t('settings.index.watching', {
+          count: watches.data.items.filter((w) => w.status === 'watching').length,
+        })
       : null,
     notifications: t('settings.index.notificationsOn', {
       on: notifications.filter(Boolean).length,

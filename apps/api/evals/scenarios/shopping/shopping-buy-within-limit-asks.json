@@ -1,0 +1,37 @@
+{
+  "id": "shopping-buy-within-limit-asks",
+  "version": 1,
+  "suite": "shopping",
+  "title": "A purchase within the limit: the cart (MEDIUM) and the checkout (HIGH, PURCHASE) both ask first — never automatic",
+  "modes": ["offline"],
+  "given": {
+    "request": "Buy the FX-100 headphones on Fixture Shop",
+    "browserAvailable": true,
+    "preferences": {
+      "spending": {
+        "monthlyAiBudgetUsd": 20,
+        "monthlyPurchaseLimitUsd": 200
+      },
+      "autonomy": {
+        "autoApproveEmailToSelf": true
+      }
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["shop.search", "shop.compare", "shop.prepare_cart", "shop.checkout"],
+    "policy": [
+      {
+        "step": 2,
+        "decision": "require_approval",
+        "reasonsInclude": ["RISK_MEDIUM"]
+      },
+      {
+        "step": 3,
+        "decision": "require_approval",
+        "reasonsInclude": ["RISK_HIGH", "PURCHASE"],
+        "reasonsExclude": ["AUTO_APPROVED_SELF"]
+      }
+    ]
+  }
+}

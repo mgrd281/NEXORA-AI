@@ -144,7 +144,7 @@ describe('GET /v1/usage', () => {
   it('sums this calendar month in the user’s time zone and reports the budget', async () => {
     const c = await newClient(h, {
       preferences: {
-        spending: { monthlyAiBudgetUsd: 12.5 },
+        spending: { monthlyAiBudgetUsd: 12.5, monthlyPurchaseLimitUsd: 0 },
       },
     });
     const tz = 'Pacific/Kiritimati'; // UTC+14: month boundaries differ from UTC

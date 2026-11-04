@@ -151,3 +151,8 @@
   inline-size: 14px;
   block-size: 14px;
 }
+
+/* Phase C: a screenshot thumbnail inside the proof list. */
+.shot {
+  margin-block-start: var(--space-2);
+}

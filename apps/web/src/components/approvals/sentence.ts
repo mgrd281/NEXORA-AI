@@ -19,12 +19,22 @@ const WJ = '\u2060';
  */
 export function approvalSentence(
   approval: Pick<Approval, 'details' | 'summary' | 'summaryMessage'>,
-  { t, f, messages }: { t: TranslateFn; f: Pick<Formatters, 'list'>; messages?: Messages },
+  {
+    t,
+    f,
+    messages,
+  }: {
+    t: TranslateFn;
+    f: Pick<Formatters, 'list'> & Partial<Pick<Formatters, 'intlLocale'>>;
+    messages?: Messages;
+  },
 ): { text: string; localized: boolean } {
   const details = approval.details;
   if (details.kind !== 'email') {
+    // With the locale, a total ("USD 129.99") reads in the viewer's notation.
+    const money = f.intlLocale ? { intlLocale: f.intlLocale } : undefined;
     const rendered = messages
-      ? renderServerMessage({ t, messages }, approval.summaryMessage)
+      ? renderServerMessage({ t, messages, f: money }, approval.summaryMessage)
       : null;
     return rendered !== null
       ? { text: rendered, localized: true }
@@ -35,5 +45,7 @@ export function approvalSentence(
   const recipients = f.list(
     details.to.map((address) => `${LRI}${address.replace(/-/g, `-${WJ}`)}${PDI}`),
   );
-  return { text: t('approvals.summary.email', { subject, recipients }), localized: true };
+  // A draft is saved in the mailbox, never sent: the sentence must not say "Send".
+  const key = details.mode === 'draft' ? 'approvals.summary.emailDraft' : 'approvals.summary.email';
+  return { text: t(key, { subject, recipients }), localized: true };
 }

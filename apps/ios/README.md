@@ -4,9 +4,13 @@ Native SwiftUI client for the JARVIS API: sign in, ask in text or by voice, foll
 live, review and approve exactly what JARVIS will do, manage memory, sessions and
 preferences. Phase B adds conversations with follow-ups, clarifying questions, attached
 documents (PDF, Word, text, Markdown, CSV), schedules, a read-only skills catalog,
-automatic-deletion (retention) settings and a time-zone picker. English, German and Arabic
-(right-to-left), light and dark, Dynamic Type, VoiceOver and Reduce Motion are supported
-throughout. Webhooks are managed on the web only.
+automatic-deletion (retention) settings and a time-zone picker. Phase C adds Google and
+Microsoft connections (connect, reconnect, allow more, disconnect), Home "Upcoming", the
+calendar-event, booking, purchase and form approvals, email drafts, browser-agent
+evidence, comparisons, orders, bookings, reply tracking and the monthly purchase limit.
+English, German and Arabic (right-to-left), light and dark, Dynamic Type, VoiceOver and
+Reduce Motion are supported throughout. Webhooks and SMTP / web-access connections are
+managed on the web only.
 
 > **Build status: not yet compiled.** This code was written in an environment without
 > Xcode or a Swift toolchain. It has been checked structurally (see
@@ -74,6 +78,41 @@ rejected, except plain HTTP to `localhost`/`127.0.0.1`. Release builds have no d
 show a configuration screen until an HTTPS address is set. A physical iPhone cannot reach
 `localhost` on your Mac — use an HTTPS tunnel or a deployed API.
 
+### Connecting Google and Microsoft from the iPhone (OAuth)
+
+The authorization code flow with PKCE runs on the **server** (ADR-0016): the app asks
+`POST /v1/connections/oauth/start` for the provider's page, opens it in
+`ASWebAuthenticationSession` (ephemeral: no cookies shared with Safari), receives the
+provider's redirect to the shared **https** redirect URI and forwards its query parameters
+verbatim to `POST /v1/connections/oauth/callback` with its own bearer session. No client
+secret, PKCE verifier or token is ever on the device. Out of the box this is **off** (the
+Connect buttons are disabled and say to connect on the web — the connection then works
+here too). To turn it on, all of this is needed and none of it can be done from code:
+
+1. `Config/Local.xcconfig`:
+
+   ```
+   JARVIS_OAUTH_REDIRECT_URI = https:/$()/jarvis.example.net/connections/callback
+   JARVIS_OAUTH_CALLBACK_HOST = jarvis.example.net
+   JARVIS_ENTITLEMENTS = Config/Jarvis.entitlements
+   ```
+
+   https only, no port, query or fragment (`ASWebAuthenticationSession`'s
+   `.https(host:path:)` callback matches host and path).
+2. The API's `OAUTH_REDIRECT_URIS` contains exactly that URI (else
+   `REDIRECT_URI_NOT_ALLOWED`). It is normally the web app's own callback page.
+3. The URI is an authorized redirect URI of the server's OAuth clients (the confidential
+   "Web application" client — not an iOS client): Google Cloud Console → APIs & Services →
+   Credentials; Microsoft Entra admin center → App registrations → Authentication → "Web".
+4. Associated Domains: enable the capability on the App ID (Apple Developer account),
+   keep `webcredentials:$(JARVIS_OAUTH_CALLBACK_HOST)` in `Config/Jarvis.entitlements`, and
+   serve `https://<host>/.well-known/apple-app-site-association` listing
+   `<Team ID>.ai.jarvis.app` under `webcredentials.apps`. Without it the system does not
+   hand the https callback to the app.
+
+A custom URL scheme is deliberately not used: the redirect URI is the web client's, and any
+app can claim a custom scheme.
+
 ## Tests
 
 ```sh
@@ -89,6 +128,8 @@ xcodebuild test -project Jarvis.xcodeproj -scheme Jarvis \
 | `SSEParserTests` | Server framing, multi-line `data`, comments/heartbeats, ids and resume position, `retry`, CR/LF/CRLF, BOM, UTF-8, reconnect back-off |
 | `PresenceStateTests` | Mapping of voice, connection, approvals, tasks and recent outcomes to Presence states; animation and VoiceOver labels |
 | `RequestBuildingTests` | URLs, headers (bearer, `Idempotency-Key`, `Content-Type` only with a body), request bodies, API address policy, task state machine |
+| `PhaseCDecodingTests` | Providers and OAuth connections (expired, capabilities, granted scopes), OAuth start / callback results, Home "Upcoming" and calendar events, email watches, orders and bookings (the contract's own `unknown` status vs. a newer value), evidence, browser sessions with handover, the purchase / calendar-event / booking / form approvals and email drafts, skills with connection options, the purchase limit (0 from older servers), the tool-output shapes (free/busy, mail summaries, comparison with reliability signals, prepared cart, booking slots and confirmation), and newer values decoding to `.unknown` / `.unrecognized` (never approvable) |
+| `PhaseCLogicTests` | The OAuth redirect URI policy and callback forwarding (exact host and path, state length, code xor error, repeated parameters refused), the provider page policy, OAuth and purchase-limit request bodies, money parameters ("USD 129.99"), error and server-sentence rendering with providers, capabilities and amounts, links the app opens, step previews, times in the event's own zone and Upcoming day headings |
 
 ## Verification without Xcode
 
@@ -97,16 +138,18 @@ These run with Node from the repository root and need no Apple tooling:
 ```sh
 # Fixtures parse with the Zod contract schemas, exactly (no stripped keys or defaults);
 # unknown-value fixtures fail only where intended; an older server's payload gets only
-# the contract defaults
+# the contract defaults (63 fixtures, one for every Phase C schema the app decodes)
 pnpm --filter @jarvis/api exec tsx ../ios/scripts/validate-fixtures.ts
-# Swift enums mirror the contract enums; server sentences match the API's en/de/ar
-# templates; every task-error, policy and API-error reason has copy
+# Swift enums (and nested Phase C enums) mirror the contract enums; server sentences match
+# the API's en/de/ar templates; every task-error, policy, API-error reason and evidence code
+# has copy; every Phase C route has an endpoint
 pnpm --filter @jarvis/api exec tsx ../ios/scripts/check-contract-copy.ts
 # Every localizable Swift literal has en/de/ar; specifiers, default values and App
 # Shortcut phrases match
 node apps/ios/scripts/lint-strings.mjs
 # Balanced delimiters, no try!/as!/fatalError/print in app code; with --tree-sitter, a
 # full syntax parse (tree-sitter-swift installed outside the repository, see the script)
+# and no SwiftUI view-builder block with more than ten children
 node apps/ios/scripts/check-swift.mjs [--tree-sitter <node_modules dir>]
 # Regenerate the app icon (1024×1024 PNG, no dependencies)
 node apps/ios/scripts/make-app-icon.mjs
@@ -160,3 +203,45 @@ approval wait for you in the app.
 - **Settings**: Skills (read-only catalog with real availability and the reason when a skill
   can't run; switching happens on the web), automatic deletion of memories and task history,
   and the account time zone (only zones the server accepts).
+
+## Phase C on iPhone
+
+- **Connections** (Settings › Connected services, or from a failed task / Home): Google and
+  Microsoft cards from `GET /v1/connections/providers` — "Not configured on this server"
+  when the server has no client for it; capability toggles in plain language with the
+  exact scopes behind a disclosure; **Continue to Google/Microsoft** (see the OAuth set-up
+  above); an expired connection shows why (`statusReason`) and **Reconnect**, asking for the
+  same permissions as before; **Allow at …** adds capabilities incrementally; **Disconnect**
+  says what happens at the provider (Google revokes; Microsoft is local-only, with where to
+  remove the app). After connecting, the server's answer is shown — never assumed — with
+  **Retry** for every task that had stopped because the connection expired (scenario 9).
+  SMTP and web access are listed read-only (set up on the web).
+- **Home "Upcoming"** appears only when the server sends `upcoming` (a calendar grants
+  calendar.read): events grouped by day in your zone, times in the event's own zone (its
+  zone name is added when it differs), all-day events, a calendar that is expired or didn't
+  answer named with its fix (Reconnect / Connections). Tapping an event opens it at the
+  provider (https links only).
+- **Approvals**: `calendar_event` (title, time and zone — also in yours when different —
+  location, description, calendar account, every guest and whether they are emailed, what an
+  update or cancellation replaces, the free/busy re-check), `booking` (service, site, slot in
+  the site's zone, every form field with personal ones marked, price or "states no price",
+  binding with the site's terms as shown, the screenshot JARVIS relied on), `purchase`
+  (merchant, items with quantities and unit prices, subtotal, shipping, tax, total, delivery
+  method, estimate and address, payment method, the monthly limit bar, the cart screenshot;
+  **Approve and buy**), `form_submission`, and email drafts (**Approve and save draft**,
+  "nothing is sent") and the sending route (`via`). A kind or value this build doesn't know is
+  still never approvable.
+- **Task detail**: the browser agent's sessions (site, operation, status, why it stopped,
+  **Continue on the site** for CAPTCHA / sign-in / bot walls, pages / requests / blocked
+  counts, screenshot thumbnails and evidence files opened in Quick Look), comparisons
+  (offers ranked by known total with shipping, "Lowest known total", mixed currencies never
+  converted, each shop's outcome), carts (and **Open the cart on the shop** where checkout
+  isn't supported), free appointments as the site showed them, mail and calendar text marked
+  as written by others (with the injection warning), drafts and reply tracking, and the
+  order / booking records the steps made (status, totals, reference, evidence). Every new
+  failure reason has copy and, where there is one, its next action (Reconnect, Open purchase
+  limit, Continue on the site, Open the cart, Check your orders / bookings).
+- **Settings › Spending**: the monthly purchase limit (0 = purchases off, the default; whole
+  dollars up to $10,000; raising it asks for confirmation and only the limit is sent), the AI
+  budget shown separately, and the **Orders** and **Bookings** history. **Reply tracking**
+  lists watched threads with **Stop watching**.

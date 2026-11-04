@@ -28,6 +28,29 @@ struct Preferences: Decodable, Sendable, Equatable {
     struct Spending: Decodable, Sendable, Equatable {
         /// Monthly ceiling for AI model costs, in USD.
         var monthlyAiBudgetUsd: Double
+        /// Phase C: the most JARVIS may spend on purchases per calendar month (account time
+        /// zone), in USD. 0 (the default, also for older servers) turns purchases off. Every
+        /// purchase still needs an approval of its exact total.
+        var monthlyPurchaseLimitUsd: Double
+
+        init(monthlyAiBudgetUsd: Double, monthlyPurchaseLimitUsd: Double = 0) {
+            self.monthlyAiBudgetUsd = monthlyAiBudgetUsd
+            self.monthlyPurchaseLimitUsd = monthlyPurchaseLimitUsd
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case monthlyAiBudgetUsd, monthlyPurchaseLimitUsd
+        }
+
+        init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            monthlyAiBudgetUsd = try container.decode(Double.self, forKey: .monthlyAiBudgetUsd)
+            // Defaults to 0 when absent, exactly as the contract's Zod default does.
+            monthlyPurchaseLimitUsd = try container.decodeIfPresent(Double.self, forKey: .monthlyPurchaseLimitUsd) ?? 0
+        }
+
+        /// Purchases are off while the limit is 0.
+        var purchasesEnabled: Bool { monthlyPurchaseLimitUsd > 0 }
     }
 
     struct MemorySettings: Decodable, Sendable, Equatable {
@@ -167,10 +190,17 @@ struct PreferencesPatch: Encodable, Sendable, Equatable {
         }
     }
 
+    /// `preferences.spending` (partial): a field left nil keeps its stored value.
+    struct Spending: Encodable, Sendable, Equatable {
+        var monthlyAiBudgetUsd: Double?
+        var monthlyPurchaseLimitUsd: Double?
+    }
+
     var voice: Voice?
     var autonomy: Autonomy?
     var ai: AI?
     var retention: Retention?
+    var spending: Spending?
 }
 
 /// `POST /v1/auth/login`.

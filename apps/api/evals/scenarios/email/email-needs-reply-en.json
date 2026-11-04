@@ -1,0 +1,25 @@
+{
+  "id": "email-needs-reply-en",
+  "version": 1,
+  "suite": "email",
+  "title": "What needs my reply: one read-only search",
+  "modes": ["offline"],
+  "given": {
+    "request": "What needs my reply?",
+    "connections": ["web", "google"],
+    "connectionCapabilities": {
+      "google": ["mail.read", "mail.compose", "mail.send"]
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["email.search"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "allow",
+        "reasonsInclude": ["RISK_LOW"]
+      }
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "siteId": "fixture-shop",
+  "merchantName": "Fixture Kitchen Supply",
+  "merchantHost": "shop.fixture.test",
+  "lines": [
+    {
+      "title": "Ceramic pour-over kettle 1.2 l",
+      "quantity": 2,
+      "unitPrice": {
+        "amountMicro": 24990000,
+        "currency": "USD"
+      },
+      "lineTotal": {
+        "amountMicro": 49980000,
+        "currency": "USD"
+      },
+      "productUrl": "https://shop.fixture.test/shop/products/KET-12"
+    }
+  ],
+  "subtotal": {
+    "amountMicro": 49980000,
+    "currency": "USD"
+  },
+  "shipping": null,
+  "total": null,
+  "checkoutSupported": false,
+  "handoverUrl": "https://shop.fixture.test/shop/cart",
+  "evidenceArtifactId": "bec5d6f7-8c9e-4fa1-9bcd-def76543218e",
+  "preparedAt": "2026-11-04T09:13:00.000Z"
+}

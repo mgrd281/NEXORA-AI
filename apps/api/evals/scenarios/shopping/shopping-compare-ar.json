@@ -1,0 +1,16 @@
+{
+  "id": "shopping-compare-ar",
+  "version": 1,
+  "suite": "shopping",
+  "title": "السيناريو 3 (ar) — «قارن أسعار سماعات FX-100»",
+  "modes": ["offline"],
+  "given": {
+    "request": "قارن أسعار سماعات FX-100",
+    "language": "ar",
+    "browserAvailable": true
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["shop.search", "shop.compare"]
+  }
+}

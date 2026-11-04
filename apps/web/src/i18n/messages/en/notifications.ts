@@ -17,6 +17,8 @@ const notifications = {
     schedule_paused:
       '{reason, select, budget {“{scheduleTitle}” is paused: this month’s AI budget is used up} other {“{scheduleTitle}” is paused after repeated failures}}',
     webhook_disabled: 'Webhook to {endpointHost} turned off after repeated failed deliveries',
+    connection_expired: 'Your {provider} connection expired: reconnect it',
+    email_reply_received: '{fromAddress} replied to “{subject}”',
   },
   kindsUntitled: {
     approval_requested: 'A task needs your approval',
@@ -26,6 +28,8 @@ const notifications = {
     schedule_failed: 'A scheduled run failed',
     schedule_paused: 'A schedule was paused',
     webhook_disabled: 'A webhook endpoint was turned off after repeated failed deliveries',
+    connection_expired: 'A connection expired: reconnect it',
+    email_reply_received: 'A reply arrived in a thread JARVIS watches',
   },
 };
 

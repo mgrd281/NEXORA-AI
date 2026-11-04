@@ -1,6 +1,8 @@
 import type {
   ApprovalDetails,
+  ConnectionCapability,
   ConnectionProvider,
+  ConnectionStatus,
   ErrorCode,
   Evidence,
   EvidenceCode,
@@ -104,6 +106,47 @@ export interface CostContext {
   attachments?: readonly { id: string; sizeBytes: number; textChars: number | null }[];
 }
 
+/**
+ * Phase C: a connection a step needs — a provider, and optionally a capability
+ * that connection must grant (OAuth). The Policy Engine checks it on the exact
+ * (bound) input: missing → CONNECTION_MISSING, expired → CONNECTION_EXPIRED,
+ * capability not granted → CONNECTION_SCOPE_MISSING.
+ */
+export interface ConnectionRequirement {
+  provider: ConnectionProvider;
+  capability?: ConnectionCapability;
+}
+
+/** Phase C: one of the user's connections as planning and policy see it (no secrets). */
+export interface ConnectionState {
+  connectionId: string;
+  provider: ConnectionProvider;
+  status: ConnectionStatus;
+  /** Granted capabilities (OAuth); [] for SMTP and web. */
+  capabilities: readonly ConnectionCapability[];
+  accountIdentifier: string | null;
+}
+
+/** Phase C: what `bind` may use to fill deterministic defaults into a planned input. */
+export interface BindContext {
+  /** Every non-revoked connection, in a fixed order (provider, then creation). */
+  connections: readonly ConnectionState[];
+  accountEmail: string;
+  /** The account's display name (forms that ask for the user's own name). */
+  ownName?: string | null;
+  timeZone: string;
+}
+
+/**
+ * Phase C: money a step commits (shop.checkout, a paid booking). Null fields
+ * are not known yet (planning time: the input still has {{refs}}); the
+ * execution-time policy decides on the resolved input.
+ */
+export interface PurchaseFacts {
+  amountMicro: number | null;
+  currency: string | null;
+}
+
 export interface ApprovalContext {
   language: Locale;
   stepTitle: string;
@@ -117,6 +160,17 @@ export interface ApprovalContext {
   recalledTaskId?: string | null;
   /** Phase B: when the approval is requested (schedule previews). */
   now?: Date;
+  /** Phase C: the account (calendar approvals show times in its zone by default). */
+  account?: { email: string; timeZone: string };
+  /** Phase C: the address of each connected account (the sender / calendar shown in approvals). */
+  accounts?: Partial<Record<ConnectionProvider, string | null>>;
+  /** Phase C: this month's committed purchases and the limit, in micro-USD (purchase approvals). */
+  purchases?: { limitMicro: number; spentMicro: number };
+  /**
+   * Phase C: the host a supported site's recipe loads on this server (its first enabled origin),
+   * or null when the recipe is not enabled here. Approvals show the real host, not a label.
+   */
+  siteHost?: (siteId: string) => string | null;
 }
 
 export interface ToolDefinition<I> {
@@ -181,6 +235,60 @@ export interface ToolDefinition<I> {
    * (input derived from suspected prompt injection needs approval).
    */
   urls?(input: I): string[];
+  /* ---------------------------------------------------------------- */
+  /* Phase C hooks (docs/architecture/phase-c.md §4). All optional:    */
+  /* a tool declares facts; the Policy Engine and the planner decide.  */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Connections the tool can work with (any one): the planner offers it only
+   * when one of them is active (availableTools) and skills report availability
+   * from them. Absent: `requiredConnection` alone.
+   */
+  connectionOptions?: readonly ConnectionRequirement[];
+  /**
+   * The exact connection this (bound) input uses — e.g. email.send `via`, a
+   * calendar tool's `provider`. Overrides `requiredConnection` for the policy.
+   * Must be a pure function of the input.
+   */
+  requires?(input: I): ConnectionRequirement | null;
+  /**
+   * Fills deterministic defaults into the planned input before it is
+   * validated and stored (e.g. which connected account sends), so the
+   * approval and its action hash bind the exact account. Never invents
+   * content, recipients, URLs or amounts; returns the input unchanged when
+   * there is nothing to choose.
+   */
+  bind?(input: I, ctx: BindContext): I;
+  /**
+   * People other than the account who receive an invitation / update
+   * (calendar tools). Plan validation requires each to be literal in the
+   * user's requests (or the owner); the policy adds RECIPIENT_EXTERNAL.
+   */
+  attendees?(input: I): string[];
+  /** Money the step commits (policy: PURCHASES_DISABLED / PURCHASE_LIMIT / PURCHASE_CURRENCY / PURCHASE). */
+  purchase?(input: I): PurchaseFacts | null;
+  /** The step makes a binding commitment on a site (policy: approval BINDING_COMMITMENT). */
+  binding?(input: I): boolean;
+  /**
+   * The step sends requests to a site (browser tools): untrusted content
+   * feeding its input needs approval (UNTRUSTED_CONTENT), as for web.fetch.
+   */
+  outbound?: boolean;
+  /** Runs in the isolated browser agent: hidden from the planner while none is available. */
+  runsInBrowser?: boolean;
+  /**
+   * The output field holding this tool's text result: JARVIS's answer message,
+   * the result line of read-only tasks and conversation.recall use it.
+   */
+  resultTextField?: string;
+  /** The one-sentence result line of a successful step with a side effect (e.g. result.eventCreated). */
+  resultLine?(input: I, output: Record<string, unknown>): ServerMessage | null;
+  /** A short fact for the model-written result line (no secrets; content truncated). */
+  resultFact?(input: I, output: Record<string, unknown>): string;
+  /** The host flagged content came from, for UNTRUSTED_CONTENT approvals (a page, a sender's domain). */
+  untrustedHost?(output: Record<string, unknown>): string | null;
+
   execute(input: I, rt: ToolRuntime, signal: AbortSignal): Promise<ToolResult>;
   verify(input: I, output: Record<string, unknown>): Verification;
   /** Security-relevant audit entry written when the execution succeeds (metadata only, never content). */

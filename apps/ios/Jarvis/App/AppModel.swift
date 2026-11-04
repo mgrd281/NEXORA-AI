@@ -138,6 +138,8 @@ final class AppModel {
     private func finishSignOut(notice: String?) {
         me = nil
         assistantStatus = nil
+        // Evidence screenshots shown in this session stay with this account only.
+        EvidenceImageCache.shared.removeAll()
         voiceTasks.removeAll()
         recentOutcome = nil
         isCapturingVoice = false

@@ -17,7 +17,13 @@
  * Adding a skill is a reviewed code change to this file (and its tools to
  * tools/registry.ts), covered by the unit tests in test/unit/agent.
  */
-import type { ConnectionProvider, RiskLevel, SkillId, ToolId } from '@jarvis/contracts';
+import type {
+  ConnectionCapability,
+  ConnectionProvider,
+  RiskLevel,
+  SkillId,
+  ToolId,
+} from '@jarvis/contracts';
 import { ToolId as ToolIdEnum } from '@jarvis/contracts';
 import { z } from 'zod';
 
@@ -38,7 +44,18 @@ export interface SkillDefinition {
   /** Declarative scopes (informational; the tools' own declarations are what the policy reads). */
   permissions: readonly string[];
   maxRisk: RiskLevel;
+  /** All of these must be active. */
   requiredConnections: readonly ConnectionProvider[];
+  /**
+   * Phase C: and at least one of these (a provider, optionally with a capability it must
+   * grant), e.g. email-management: SMTP, or Google / Microsoft with mail access.
+   */
+  connectionOptions?: readonly {
+    provider: ConnectionProvider;
+    capability?: ConnectionCapability;
+  }[];
+  /** Phase C: the skill runs in the isolated browser agent (BROWSER_UNAVAILABLE without it). */
+  needsBrowser?: boolean;
   modelUse: 'none' | 'optional' | 'required';
   /** Projected cost per step (micro-USD) above which the policy asks first; null = budget rules only. */
   maxCostPerRunMicroUsd: number | null;
@@ -86,7 +103,8 @@ export const SKILLS: readonly SkillDefinition[] = [
     id: 'web-research',
     version: '0.2.0',
     status: 'implemented',
-    tools: ['web.fetch', 'text.summarize'],
+    // Phase C: browser.read reads supported sites through the isolated browser agent.
+    tools: ['web.fetch', 'text.summarize', 'browser.read'],
     uses: [],
     plannedTools: ['web.search'],
     inputSchema: z.object({ url: z.string().url(), focus: z.string().optional(), language: lang }),
@@ -106,30 +124,124 @@ export const SKILLS: readonly SkillDefinition[] = [
   },
   {
     id: 'email-management',
-    version: '0.2.0',
+    version: '0.3.0',
     status: 'implemented',
-    tools: ['email.send'],
-    uses: [],
-    plannedTools: ['email.search', 'email.read', 'email.draft', 'email.reply'],
+    // Phase C: the email agent (Gmail API / Microsoft Graph); email.send gains `via`.
+    tools: [
+      'email.send',
+      'email.search',
+      'email.read_thread',
+      'email.draft_reply',
+      'email.track_replies',
+    ],
+    uses: ['text.summarize'],
+    plannedTools: [],
     inputSchema: z.object({ to: z.array(z.string()), subject: z.string(), body: z.string() }),
     outputSchema: z.object({ messageId: z.string(), accepted: z.array(z.string()) }),
-    permissions: ['email:send'],
+    permissions: ['email:send', 'email:read', 'email:compose'],
     maxRisk: 'HIGH',
-    requiredConnections: ['smtp'],
-    modelUse: 'none',
-    maxCostPerRunMicroUsd: null,
+    requiredConnections: [],
+    connectionOptions: [
+      { provider: 'smtp' },
+      { provider: 'google', capability: 'mail.read' },
+      { provider: 'google', capability: 'mail.compose' },
+      { provider: 'google', capability: 'mail.send' },
+      { provider: 'microsoft', capability: 'mail.read' },
+      { provider: 'microsoft', capability: 'mail.compose' },
+      { provider: 'microsoft', capability: 'mail.send' },
+    ],
+    modelUse: 'optional',
+    maxCostPerRunMicroUsd: 200_000,
     executionPolicy:
-      'Recipients literal from the user’s requests or the owner; MEDIUM (HIGH above 3 recipients); approval unless only to the owner with auto-approval on; exactly once per step.',
-    verification: 'Every recipient accepted, none rejected, SMTP 250, Message-ID recorded.',
+      'Recipients literal from the user’s requests or the owner; sending is MEDIUM (HIGH above 3 recipients) with approval of the exact recipients, subject and body; drafts are MEDIUM (written to the mailbox, nothing sent); mail content is untrusted, scanned for injected instructions, never followed and never forwarded without approval; exactly once per step.',
+    verification:
+      'Sends: every recipient accepted (SMTP) or the provider message id recorded (Gmail / Graph); drafts: the provider draft id; reads: threads and messages counted.',
     errorHandling:
-      'Failures before hand-over are retryable; an interrupted send is OUTCOME_UNKNOWN and never repeated without acknowledgement.',
+      'Expired grants fail with CONNECTION_EXPIRED and a reconnect; rate limits and 5xx are retried; an interrupted send is OUTCOME_UNKNOWN and is checked against the Sent folder, never repeated blindly.',
     canToggle: true,
     docsPath: 'docs/skills/email-management.md',
   },
-  planned('calendar-management', ['calendar.list_events', 'calendar.create_event'], 'HIGH'),
-  planned('appointment-booking', ['browser.open', 'browser.act', 'phone.call'], 'HIGH'),
+  {
+    id: 'calendar-management',
+    version: '0.1.0',
+    status: 'implemented',
+    tools: [
+      'calendar.list',
+      'calendar.free_busy',
+      'calendar.create_event',
+      'calendar.update_event',
+      'calendar.cancel_event',
+    ],
+    uses: [],
+    plannedTools: [],
+    inputSchema: null,
+    outputSchema: null,
+    permissions: ['calendar:read', 'calendar:write'],
+    maxRisk: 'HIGH',
+    requiredConnections: [],
+    connectionOptions: [
+      { provider: 'google', capability: 'calendar.read' },
+      { provider: 'microsoft', capability: 'calendar.read' },
+    ],
+    modelUse: 'none',
+    maxCostPerRunMicroUsd: null,
+    executionPolicy:
+      'Events are read live from the provider (never stored); creating, changing and cancelling is MEDIUM with approval of the exact title, times, time zone and attendees; inviting anyone but the owner adds RECIPIENT_EXTERNAL; attendees only from the user’s own words; free/busy is re-checked before writing.',
+    verification: 'Provider event id returned and read back; times match in the event’s time zone.',
+    errorHandling:
+      'Conflicts and changed events stop without writing; expired grants fail with CONNECTION_EXPIRED; rate limits and 5xx are retried.',
+    canToggle: true,
+    docsPath: 'docs/skills/calendar-management.md',
+  },
+  {
+    id: 'appointment-booking',
+    version: '0.1.0',
+    status: 'implemented',
+    tools: ['booking.find_slots', 'booking.book', 'browser.fill'],
+    uses: ['calendar.free_busy', 'calendar.create_event', 'assistant.clarify'],
+    plannedTools: ['phone.call'],
+    inputSchema: null,
+    outputSchema: null,
+    permissions: ['web:read', 'web:submit'],
+    maxRisk: 'HIGH',
+    requiredConnections: ['web'],
+    needsBrowser: true,
+    modelUse: 'none',
+    maxCostPerRunMicroUsd: null,
+    executionPolicy:
+      'Only supported sites (recipes); availability only from the site’s live page with a screenshot; missing personal details are asked for; booking needs approval of the slot and every field sent (HIGH when binding or paid); CAPTCHAs and logins are handed over to the user, never bypassed.',
+    verification:
+      'A confirmation reference read from the site’s confirmation (schema.org / ICS), with evidence; never assumed.',
+    errorHandling:
+      'A slot taken in the meantime fails with SLOT_TAKEN and nothing booked; a submission without confirmation is OUTCOME_UNKNOWN (BOOKING_UNCONFIRMED).',
+    canToggle: true,
+    docsPath: 'docs/skills/appointment-booking.md',
+  },
   planned('phone-calling', ['phone.call'], 'HIGH'),
-  planned('shopping-assistant', ['web.search', 'browser.extract', 'commerce.purchase'], 'CRITICAL'),
+  {
+    id: 'shopping-assistant',
+    version: '0.1.0',
+    status: 'implemented',
+    tools: ['shop.search', 'shop.compare', 'shop.prepare_cart', 'shop.checkout'],
+    uses: ['browser.read'],
+    plannedTools: [],
+    inputSchema: null,
+    outputSchema: null,
+    permissions: ['web:read', 'commerce:cart', 'commerce:purchase'],
+    maxRisk: 'HIGH',
+    requiredConnections: ['web'],
+    needsBrowser: true,
+    modelUse: 'none',
+    maxCostPerRunMicroUsd: null,
+    executionPolicy:
+      'Supported shops only; prices, shipping and delivery only as the merchant’s page states them, with evidence; a cart is MEDIUM (reversible); checkout is HIGH, always approved with the exact items, total, merchant and delivery, bounded by the monthly purchase limit (default 0: off), and placed exactly once; money transfers stay CRITICAL and denied.',
+    verification:
+      'Comparison: every offer with its source and screenshot; checkout: the merchant’s order id and a total equal to the approved one.',
+    errorHandling:
+      'A changed price or stock stops before submitting (PRICE_CHANGED / OUT_OF_STOCK); an interrupted checkout is OUTCOME_UNKNOWN (ORDER_UNKNOWN), reconciled with the merchant by its idempotency key; shops without checkout support hand over a prepared cart.',
+    canToggle: true,
+    docsPath: 'docs/skills/shopping-assistant.md',
+  },
   {
     id: 'document-analysis',
     version: '0.1.0',

@@ -25,10 +25,15 @@ const skills: Catalog<typeof source> = {
     MODEL_REQUIRED: 'Braucht ein KI-Modell, und gerade ist keines verfügbar.',
     MEMORY_DISABLED: 'Das Gedächtnis ist ausgeschaltet.',
     STORAGE_NOT_CONFIGURED: 'Auf diesem Server ist kein Dateispeicher eingerichtet.',
+    PROVIDER_NOT_CONFIGURED:
+      'Auf diesem Server ist keine Verbindung zu Google oder Microsoft eingerichtet.',
+    BROWSER_UNAVAILABLE: 'Der Browser-Agent läuft auf diesem Server nicht.',
   },
   connections: {
     web: 'Webzugriff',
     smtp: 'eine E-Mail-Verbindung',
+    google: 'ein Google-Konto',
+    microsoft: 'ein Microsoft-Konto',
   },
   connect: 'Verbindungen öffnen',
   risk: {

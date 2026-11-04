@@ -1,0 +1,18 @@
+{
+  "id": "calendar-find-time-without-window-asks",
+  "version": 1,
+  "suite": "calendar",
+  "title": "Find a time without saying when: JARVIS asks for the window",
+  "modes": ["offline"],
+  "given": {
+    "request": "Find a time to meet bob@example.org",
+    "connections": ["web", "google"],
+    "connectionCapabilities": {
+      "google": ["calendar.read", "calendar.write"]
+    }
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["date_time"]
+  }
+}

@@ -7,6 +7,8 @@ const settings: Catalog<typeof source> = {
   navLabel: 'Bereiche der Einstellungen',
   loading: 'Einstellungen werden geladen …',
   sections: {
+    spending: 'Ausgaben',
+    replies: 'Antworten beobachten',
     profile: 'Profil',
     language: 'Sprache und Region',
     appearance: 'Darstellung',
@@ -25,6 +27,10 @@ const settings: Catalog<typeof source> = {
   },
   language: 'Sprache',
   index: {
+    purchaseLimit: 'Bis {limit} pro Monat',
+    purchasesOff: 'Käufe aus',
+    watching:
+      '{count, plural, =0 {Keine beobachtet} one {# Thread beobachtet} other {# Threads beobachtet}}',
     voiceOn: 'Vorlesen an',
     voiceOff: 'Vorlesen aus',
     notificationsOn: '{on} von {total} an',
@@ -33,6 +39,53 @@ const settings: Catalog<typeof source> = {
     memoryOn: 'Gedächtnis an',
     memoryOff: 'Gedächtnis aus',
     skillsOn: '{on} von {total} an',
+  },
+  spending: {
+    description:
+      'Was JARVIS für dich kaufen darf, und jede Bestellung und Buchung, die es aufgegeben oder versucht hat.',
+    limit: 'Monatliches Kauflimit',
+    limitInvalid: 'Gib einen Betrag von 0 bis {max} US-Dollar ein.',
+    off: 'Käufe sind aus. JARVIS kann Angebote vergleichen und einen Warenkorb füllen, kauft aber nie etwas.',
+    on: 'Bis {limit} pro Monat · {spent} diesen Monat gebunden · {left} übrig',
+    onShort: 'Bis {limit} pro Monat',
+    facts: {
+      covers:
+        'Gilt für Käufe und kostenpflichtige Buchungen in einem Kalendermonat deiner Zeitzone. 0 schaltet Käufe aus.',
+      approval:
+        'Jeder Kauf wartet weiterhin auf deine Freigabe der genauen Artikel, des Gesamtbetrags und des Shops und wird genau einmal aufgegeben.',
+      counts:
+        'Bestellungen, die gerade aufgegeben werden oder deren Ergebnis unklar ist, zählen zum Limit, bis sie geklärt sind.',
+      currency:
+        'Das Limit gilt in US-Dollar. Preise in anderen Währungen werden abgelehnt, nie umgerechnet.',
+    },
+    orders: 'Bestellungen',
+    bookings: 'Buchungen',
+    noOrders: 'JARVIS hat noch nichts bestellt.',
+    noBookings: 'JARVIS hat noch keine Termine gebucht.',
+    more: 'Mehr anzeigen',
+    moreItems: '{count, plural, one {und # weiterer Artikel} other {und # weitere Artikel}}',
+    openTask: 'Aufgabe öffnen',
+  },
+  replies: {
+    description:
+      'E-Mail-Threads, die JARVIS alle {minutes} Minuten auf eine Antwort prüft und dir meldet. Gespeichert werden nur Betreff und Absender, nie die Nachrichten.',
+    empty:
+      'JARVIS beobachtet keine Threads. Bitte es, dir Bescheid zu geben, wenn jemand auf eine E-Mail antwortet, die es für dich gesendet hat.',
+    status: {
+      watching: 'Beobachtet',
+      replied: 'Beantwortet',
+      stopped: 'Beendet',
+      expired: 'Keine Antwort',
+      failed: 'Funktioniert nicht mehr',
+    },
+    stop: 'Beenden',
+    stopLabel: 'Beobachten von „{subject}“ beenden',
+    stopped: 'JARVIS beobachtet diesen Thread nicht mehr.',
+    until: 'Wird beobachtet bis {time}',
+    repliedBy: '{name} hat {time} geantwortet',
+    expired: 'Keine Antwort bis {time}',
+    failed: 'Die Verbindung funktioniert nicht mehr oder der Thread ist weg.',
+    stoppedLine: 'Du hast das Beobachten beendet.',
   },
   profile: {
     displayName: 'Anzeigename',
@@ -96,6 +149,12 @@ const settings: Catalog<typeof source> = {
       attachments: 'Angehängte Dateien lesen',
       translation: 'Texte übersetzen',
       schedules: 'Anfragen nach Zeitplan ausführen',
+      mail: 'E-Mails lesen und entwerfen (Google, Microsoft)',
+      calendar: 'Kalender nutzen',
+      browser: 'Unterstützte Websites nutzen',
+      booking: 'Termine auf unterstützten Websites buchen',
+      shopping: 'Produkte in unterstützten Shops vergleichen',
+      purchases: 'Mit deiner Freigabe kaufen',
     },
     capabilityOn: 'Verfügbar',
     capabilityOff: 'Nicht verfügbar',
@@ -108,6 +167,12 @@ const settings: Catalog<typeof source> = {
         'Braucht Dateispeicher auf diesem Server und die eingeschaltete Dokument-Fähigkeit',
       translation: 'Braucht ein KI-Modell',
       schedules: 'Zeitplan-Fähigkeit einschalten',
+      mail: 'Ein Google- oder Microsoft-Konto verbinden',
+      calendar: 'Einen Kalender verbinden',
+      browser: 'Braucht den Browser-Agent auf diesem Server',
+      booking: 'Braucht den Browser-Agent auf diesem Server',
+      shopping: 'Braucht den Browser-Agent auf diesem Server',
+      purchases: 'Ein monatliches Kauflimit festlegen',
     },
     statusFailed: 'JARVIS konnte den Status des Assistenten nicht laden.',
     externalModels: 'Externe KI-Modelle erlauben',

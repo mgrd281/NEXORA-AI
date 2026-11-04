@@ -1,0 +1,18 @@
+{
+  "id": "calendar-find-time-de",
+  "version": 1,
+  "suite": "calendar",
+  "title": "Einen Termin mit jemandem finden (German)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Finde einen Termin mit bob@example.org nächste Woche",
+    "connections": ["web", "google"],
+    "connectionCapabilities": {
+      "google": ["calendar.read", "calendar.write"]
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["calendar.free_busy"]
+  }
+}

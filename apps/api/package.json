@@ -7,8 +7,10 @@
   "scripts": {
     "dev": "tsx watch --env-file=.env --clear-screen=false src/server.ts",
     "dev:worker": "tsx watch --env-file=.env --clear-screen=false src/worker.ts",
+    "dev:browser-worker": "tsx watch --env-file=.env --clear-screen=false src/browser-worker.ts",
     "start": "node dist/server.js",
     "start:worker": "node dist/worker.js",
+    "start:browser-worker": "node dist/browser-worker.js",
     "build": "node scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint src test",

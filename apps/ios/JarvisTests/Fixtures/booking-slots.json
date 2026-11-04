@@ -1,0 +1,33 @@
+{
+  "siteId": "fixture-booking",
+  "siteName": "Fixture Dental",
+  "service": "Check-up",
+  "slots": [
+    {
+      "id": "slot-20261110-0830",
+      "start": "2026-11-10T08:30:00.000Z",
+      "end": "2026-11-10T09:00:00.000Z",
+      "timeZone": "Europe/Berlin",
+      "service": "Check-up",
+      "price": null
+    },
+    {
+      "id": "slot-20261110-1400",
+      "start": "2026-11-10T13:00:00.000Z",
+      "end": null,
+      "timeZone": "Europe/Berlin",
+      "service": "Check-up",
+      "price": {
+        "amountMicro": 0,
+        "currency": "USD"
+      }
+    }
+  ],
+  "requiredFields": [
+    "Name",
+    "Email",
+    "Phone"
+  ],
+  "evidenceArtifactId": "d0e7f8b9-aeb1-4bc3-9def-f9876543220a",
+  "capturedAt": "2026-11-04T10:00:05.000Z"
+}

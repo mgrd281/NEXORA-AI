@@ -1,0 +1,29 @@
+{
+  "id": "booking-binding-asks",
+  "version": 1,
+  "suite": "booking",
+  "title": "A binding booking on a site always asks first (BINDING_COMMITMENT, HIGH)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Book the check-up at Fixture Dental on Tuesday at 9",
+    "syntheticSteps": [
+      {
+        "toolId": "booking.book",
+        "risk": "HIGH",
+        "sideEffect": "external",
+        "requiredConnection": "web",
+        "binding": true
+      }
+    ]
+  },
+  "expect": {
+    "result": "plan",
+    "policy": [
+      {
+        "step": 0,
+        "decision": "require_approval",
+        "reasonsInclude": ["RISK_HIGH", "BINDING_COMMITMENT"]
+      }
+    ]
+  }
+}

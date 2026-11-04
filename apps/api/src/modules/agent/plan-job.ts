@@ -10,7 +10,7 @@ import { withContext, type DbContext, type Trx } from '../../db/pool';
 import type { AttachmentRow, JobRow, StepRow, TaskRow } from '../../db/types';
 import { audit } from '../audit/audit';
 import { appendEvent } from '../events/events';
-import { enqueue } from '../jobs/queue';
+import { enqueue, workerHealth } from '../jobs/queue';
 import { initialTitle } from '../tasks/service';
 import { loadAgentContext, relevantMemories, type AgentContext } from './context';
 import { loadConversationContext, type PriorTurn } from './conversation-context';
@@ -212,6 +212,8 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
   let outcome: PlanOutcome | null = null;
   if (!start.hasSteps) {
     const a = start.agent;
+    const browserAvailable =
+      deps.storage !== null && (await workerHealth(deps.db, 'browser')).healthy;
     const tools = availableTools({
       activeConnections: new Set(a.connections.keys()),
       memoryEnabled: a.preferences.memory.enabled,
@@ -219,6 +221,8 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
       disabledSkills: a.preferences.skills?.disabled ?? [],
       hasAttachments: deps.storage !== null && start.attachments.length > 0,
       hasRecallable: start.conversation.some((t) => t.recallable),
+      connections: a.connectionStates ?? [],
+      browserAvailable,
     });
     outcome = await planTask(
       { config: deps.config, adapter: deps.adapter, route: a.route, signal: deps.signal },
@@ -235,6 +239,8 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
         memories: start.memories,
         conversation: start.conversation,
         attachments: start.attachments,
+        connections: a.connectionStates ?? [],
+        browserAvailable,
       },
     ).catch((err: unknown): PlanOutcome => ({
       ok: false,

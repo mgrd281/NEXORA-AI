@@ -2,15 +2,27 @@ import { z } from 'zod';
 import {
   ApprovalStatus,
   AttachmentMediaType,
+  AttendeeResponse,
+  BookingStatus,
+  BrowserSessionStatus,
+  BrowserStopReason,
+  ConnectionCapability,
   ConnectionProvider,
   ConnectionStatus,
+  ConnectionStatusReason,
+  EmailWatchStatus,
   ErrorCode,
+  EvidenceArtifactKind,
+  EvidenceMediaType,
   Locale,
   MemoryKind,
   MessageKind,
   MissingInfo,
   NotificationKind,
+  OAuthProvider,
+  OrderStatus,
   Platform,
+  ReliabilitySignalCode,
   RiskLevel,
   Role,
   ScheduleFrequency,
@@ -37,7 +49,11 @@ import {
 } from './enums';
 import {
   ATTACHMENT_LIMITS,
+  CALENDAR_LIMITS,
+  COMMERCE_LIMITS,
+  EMAIL_LIMITS,
   MEMORY_RETENTION_DAYS,
+  OAUTH_LIMITS,
   SCHEDULE_LIMITS,
   TASK_HISTORY_RETENTION_DAYS,
 } from './limits';
@@ -119,6 +135,18 @@ export const Preferences = z.object({
   spending: z.object({
     /** Monthly ceiling for AI model costs, in USD. 0 blocks paid model usage. */
     monthlyAiBudgetUsd: z.number().min(0).max(10_000),
+    /**
+     * Phase C: the most JARVIS may spend on purchases (shop.checkout, paid
+     * bookings) per calendar month of the account's time zone, in USD. 0 (the
+     * default) turns purchases off (PURCHASES_DISABLED). Orders that are
+     * submitting, placed or of unknown outcome count against it. Every purchase
+     * still needs an explicit approval of its exact total (PURCHASE).
+     */
+    monthlyPurchaseLimitUsd: z
+      .number()
+      .min(0)
+      .max(COMMERCE_LIMITS.monthlyPurchaseLimitUsdMax)
+      .default(0),
   }),
   memory: z.object({
     /** When false, JARVIS neither reads nor writes long-term memory. */
@@ -135,7 +163,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   autonomy: { autoApproveEmailToSelf: false },
   ai: { allowExternalModels: true },
   notifications: { approvalRequested: true, taskCompleted: true, taskFailed: true },
-  spending: { monthlyAiBudgetUsd: 20 },
+  spending: { monthlyAiBudgetUsd: 20, monthlyPurchaseLimitUsd: 0 },
   memory: { enabled: true },
   retention: { memoryDays: null, taskHistoryDays: null },
   skills: { disabled: [] },
@@ -167,7 +195,16 @@ export const UpdateMeRequest = z
         autonomy: Preferences.shape.autonomy.partial(),
         ai: Preferences.shape.ai.partial(),
         notifications: Preferences.shape.notifications.partial(),
-        spending: Preferences.shape.spending.partial(),
+        // Spelled out without defaults: a PATCH that omits a field must keep its stored value.
+        spending: z
+          .object({
+            monthlyAiBudgetUsd: z.number().min(0).max(10_000),
+            monthlyPurchaseLimitUsd: z
+              .number()
+              .min(0)
+              .max(COMMERCE_LIMITS.monthlyPurchaseLimitUsdMax),
+          })
+          .partial(),
         memory: Preferences.shape.memory.partial(),
         retention: RetentionPreferences.partial(),
         // `skills` is written through PATCH /v1/skills/:id only.
@@ -245,6 +282,33 @@ export const DeleteAccountRequest = z.object({
  *   approval.memory                                       { text }
  *   plan.clarify, objective.clarify, objective.rememberResult, step.recall,
  *   step.emailResult, step.schedule, step.clarify, question.*   {}
+ * Phase C (docs/architecture/phase-c.md §6):
+ *   plan.emailUnread, plan.emailNeedsReply, plan.calendarUpcoming,
+ *   objective.emailUnread, objective.emailNeedsReply, objective.calendarUpcoming,
+ *   step.searchEmail, step.readThreads, step.summarizeEmail, step.trackReplies,
+ *   step.listEvents, step.freeBusy, step.saveToCalendar, step.compareOffers,
+ *   question.dateTime, question.contactDetails, question.product, question.site   {}
+ *   plan.draftReply, objective.draftReply, step.draftReply      { name }   (as the user wrote it)
+ *   plan.findMeetingTime, objective.findMeetingTime            { who }    (as the user wrote it)
+ *   step.createEvent, step.updateEvent, step.cancelEvent,
+ *   approval.eventCreate, approval.eventUpdate, approval.eventCancel,
+ *   result.eventCreated, result.eventUpdated, result.eventCancelled   { title }
+ *   approval.eventInvite                                       { title, recipients }
+ *   plan.findSlots, objective.findSlots, step.findSlots, step.book, step.readSite,
+ *   step.fillForm, step.prepareCart, step.checkout, approval.formSubmission,
+ *   approval.cart, result.formSubmitted, result.cartPrepared     { site }   (the site's name)
+ *   plan.book, objective.book, approval.booking                 { service, site }
+ *   result.booked                                              { service, site, reference }
+ *   plan.compareProducts, objective.compareProducts, step.searchShops   { query }
+ *   plan.buy, objective.buy                                    { product, site }
+ *   approval.emailDraft                                        { subject, recipients }
+ *   approval.purchase                                          { total, merchant }
+ *   result.orderPlaced                                         { merchant, orderId }
+ *   result.draftCreated, result.watchingReplies                { subject }
+ * Money parameters (`total`) are strings "<ISO 4217 code> <amount>" with a "."
+ * decimal separator (e.g. "USD 129.99"): unambiguous in every locale; clients
+ * may reformat them. Times are never sentence parameters: approvals carry them
+ * as data (ApprovalDetails), formatted by clients in the event's time zone.
  * A parameter is a string, a number or a nested message (e.g. `recipients`
  * is a nested approval.recipientsMany for more than two recipients, `title`
  * a nested step title, `action` the declined approval's summary).
@@ -301,6 +365,70 @@ export const ServerMessageKey = z.enum([
   'question.targetLanguage',
   'question.previousResult',
   'question.details',
+  // Phase C — offline plan titles and objectives
+  'plan.emailUnread',
+  'plan.emailNeedsReply',
+  'plan.draftReply',
+  'plan.calendarUpcoming',
+  'plan.findMeetingTime',
+  'plan.findSlots',
+  'plan.book',
+  'plan.compareProducts',
+  'plan.buy',
+  'objective.emailUnread',
+  'objective.emailNeedsReply',
+  'objective.draftReply',
+  'objective.calendarUpcoming',
+  'objective.findMeetingTime',
+  'objective.findSlots',
+  'objective.book',
+  'objective.compareProducts',
+  'objective.buy',
+  // Phase C — offline step titles
+  'step.searchEmail',
+  'step.readThreads',
+  'step.summarizeEmail',
+  'step.draftReply',
+  'step.trackReplies',
+  'step.listEvents',
+  'step.freeBusy',
+  'step.createEvent',
+  'step.updateEvent',
+  'step.cancelEvent',
+  'step.saveToCalendar',
+  'step.findSlots',
+  'step.book',
+  'step.readSite',
+  'step.fillForm',
+  'step.searchShops',
+  'step.compareOffers',
+  'step.prepareCart',
+  'step.checkout',
+  // Phase C — approval summaries
+  'approval.emailDraft',
+  'approval.eventCreate',
+  'approval.eventInvite',
+  'approval.eventUpdate',
+  'approval.eventCancel',
+  'approval.booking',
+  'approval.formSubmission',
+  'approval.cart',
+  'approval.purchase',
+  // Phase C — result lines
+  'result.draftCreated',
+  'result.watchingReplies',
+  'result.eventCreated',
+  'result.eventUpdated',
+  'result.eventCancelled',
+  'result.booked',
+  'result.formSubmitted',
+  'result.cartPrepared',
+  'result.orderPlaced',
+  // Phase C — clarifying questions
+  'question.dateTime',
+  'question.contactDetails',
+  'question.product',
+  'question.site',
 ]);
 export type ServerMessageKey = z.infer<typeof ServerMessageKey>;
 
@@ -425,6 +553,81 @@ export const AssistantQuestion = z.object({
 export type AssistantQuestion = z.infer<typeof AssistantQuestion>;
 
 /* ------------------------------------------------------------------ */
+/* Phase C building blocks (money, evidence files, browser sessions)   */
+/* ------------------------------------------------------------------ */
+
+/** ISO 4217 currency code, e.g. USD, EUR. */
+export const CurrencyCode = z.string().regex(/^[A-Z]{3}$/, 'an ISO 4217 code, e.g. USD');
+
+/**
+ * An amount of money as integer micro-units of its currency (1 USD =
+ * 1 000 000), like MicroUsd: no float drift, no table of minor-unit exponents.
+ * Every amount JARVIS shows comes from a verifiable source (the merchant's
+ * page, with evidence) — never estimated.
+ */
+export const Money = z.object({
+  amountMicro: z.number().int().nonnegative(),
+  currency: CurrencyCode,
+});
+export type Money = z.infer<typeof Money>;
+
+/**
+ * A file the browser agent kept as evidence (a screenshot of the live page, the
+ * data it extracted, a booking's ICS file). Stored in object storage under the
+ * owner's prefix; only its owner can download it (downloadPath).
+ */
+export const EvidenceArtifact = z.object({
+  id: Id,
+  kind: EvidenceArtifactKind,
+  mediaType: EvidenceMediaType,
+  sizeBytes: z.number().int().positive(),
+  /** Hex SHA-256 of the stored bytes. */
+  sha256: z.string(),
+  /** The page it was captured on (null for files the site sent, e.g. an ICS download). */
+  pageUrl: z.string().nullable(),
+  taskId: Id.nullable(),
+  browserSessionId: Id.nullable(),
+  /** API path that streams the file to its owner. */
+  downloadPath: z.string(),
+  createdAt: Timestamp,
+});
+export type EvidenceArtifact = z.infer<typeof EvidenceArtifact>;
+
+/**
+ * One run of the isolated browser agent: a fresh, ephemeral browser context
+ * on one supported site, for one tool execution. Its rows record the
+ * lifecycle; `handoverUrl` is set when it stopped at something only the user
+ * may do (CAPTCHA, login, bot protection) — JARVIS never works around those.
+ */
+export const BrowserSession = z.object({
+  id: Id,
+  taskId: Id,
+  stepId: Id,
+  /** The supported site's recipe id, e.g. 'fixture-shop'. */
+  siteId: z.string(),
+  /**
+   * The site's display name as its recipe declares it ('Fixture Shop'); null for a recipe this
+   * server no longer has. Optional: older servers do not send it.
+   */
+  siteName: z.string().min(1).max(200).nullable().optional(),
+  /** The recipe operation, e.g. 'search', 'slots', 'book', 'checkout'. */
+  operation: z.string(),
+  status: BrowserSessionStatus,
+  stopReason: BrowserStopReason.nullable(),
+  /** Where the user can continue themselves (handover only). */
+  handoverUrl: z.string().nullable(),
+  navigations: z.number().int().nonnegative(),
+  requests: z.number().int().nonnegative(),
+  /** Requests the agent refused (outside the site's allow-list, private addresses, downloads). */
+  blockedRequests: z.number().int().nonnegative(),
+  startedAt: Timestamp.nullable(),
+  endedAt: Timestamp.nullable(),
+  createdAt: Timestamp,
+  artifacts: z.array(EvidenceArtifact),
+});
+export type BrowserSession = z.infer<typeof BrowserSession>;
+
+/* ------------------------------------------------------------------ */
 /* Tasks                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -499,6 +702,46 @@ export const TaskErrorReason = z.enum([
   // policy (same names as the policy reason codes)
   'SKILL_DISABLED', // { skill }
   'UNTRUSTED_MEMORY',
+  // Phase C — OAuth connections (code CONNECTION_REQUIRED unless noted; offer "Reconnect")
+  'CONNECTION_EXPIRED', // { provider }   also the policy reason (deny)
+  'CONNECTION_SCOPE_MISSING', // { provider, capability }   also the policy reason (deny)
+  'PROVIDER_RATE_LIMITED', // { provider, seconds }   TOOL_FAILED, retryable
+  'PROVIDER_UNAVAILABLE', // { provider }   TOOL_FAILED, retryable (5xx, timeouts)
+  'PROVIDER_REJECTED', // { provider, status }   TOOL_FAILED (other 4xx)
+  // Phase C — email
+  'EMAIL_THREAD_NOT_FOUND',
+  'WATCH_LIMIT_REACHED', // { max }
+  // Phase C — calendars
+  'CALENDAR_CONFLICT', // { count }   the time is already busy; nothing was written
+  'EVENT_NOT_FOUND',
+  'EVENT_CHANGED', // the event changed since JARVIS read it; nothing was written
+  'NO_FREE_SLOTS',
+  'INVALID_TIME_RANGE',
+  // Phase C — browser agent (same names as BrowserStopReason)
+  'CAPTCHA_DETECTED', // { host }   handover: the user continues on the site
+  'LOGIN_REQUIRED', // { host }   handover
+  'BOT_PROTECTION', // { host }   handover
+  'SITE_UNSUPPORTED', // { host }
+  'NAVIGATION_BLOCKED', // { host }   left the site's allow-list or a private address
+  'PAGE_CHANGED', // { host }   the recipe no longer matches the page
+  'SITE_ERROR', // { host, status }
+  'BROWSER_BUDGET_EXCEEDED', // { limit }
+  'BROWSER_TIMEOUT', // { seconds }
+  'BROWSER_CRASHED',
+  'BROWSER_UNAVAILABLE',
+  // Phase C — booking
+  'SLOT_TAKEN', // the slot is no longer available; nothing was booked { alternatives: count of live free slots offered again }
+  'BOOKING_DETAILS_MISSING', // { fields }
+  'BOOKING_UNCONFIRMED', // OUTCOME_UNKNOWN: submitted, but the site showed no confirmation
+  // Phase C — shopping
+  'PRICE_CHANGED', // { expected, actual }   money strings; nothing was ordered
+  'OUT_OF_STOCK',
+  'CHECKOUT_UNSUPPORTED', // { host }   the site's recipe hands over a prepared cart instead
+  'ORDER_UNKNOWN', // OUTCOME_UNKNOWN: the checkout was interrupted after submission started
+  // Phase C — policy (same names as the policy reason codes; POLICY_DENIED)
+  'PURCHASES_DISABLED',
+  'PURCHASE_LIMIT', // { limit, spent, amount }   money strings
+  'PURCHASE_CURRENCY', // { currency }
 ]);
 export type TaskErrorReason = z.infer<typeof TaskErrorReason>;
 
@@ -529,6 +772,21 @@ export type TaskError = z.infer<typeof TaskError>;
  *   SCHEDULE_RECORD    { scheduleId, nextRunAt }
  *   RECALLED_RESULT    { taskId }
  *   QUESTION_ASKED     { missing }  (comma-separated MissingInfo values)
+ * Phase C (kind provider_response unless noted):
+ *   PROVIDER_RESPONSE  { provider, operation, status }      a Gmail / Graph / Calendar API call
+ *   MAIL_SEARCH        { provider, threads }                threads found (no content)
+ *   MAIL_SENT          { provider, messageId, threadId }    the provider's id of the sent message
+ *   MAIL_DRAFT         { provider, draftId, threadId }
+ *   EMAIL_WATCH        { watchId, expiresAt }               (kind record)
+ *   CALENDAR_EVENT     { provider, eventId, action }        action: create | update | cancel
+ *   FREE_BUSY          { provider, calendars, slots }
+ *   SCREENSHOT         { artifactId, url, sha256 }          (kind browser_capture)
+ *   PAGE_EXTRACT       { artifactId, url, items }           (kind browser_capture)
+ *   ICS_FILE           { artifactId, sha256 }               (kind browser_capture)
+ *   BOOKING_CONFIRMATION { bookingId, reference }           (kind record)
+ *   ORDER_CONFIRMATION { orderId, merchantOrderId, total }  (kind record; total a money string)
+ *   CART_SNAPSHOT      { artifactId, total }                (kind browser_capture)
+ *   HANDOVER           { host, reason, url }                (kind note) the user continues there
  */
 export const EvidenceCode = z.enum([
   'HTTP_RESPONSE',
@@ -542,11 +800,36 @@ export const EvidenceCode = z.enum([
   'SCHEDULE_RECORD',
   'RECALLED_RESULT',
   'QUESTION_ASKED',
+  // Phase C
+  'PROVIDER_RESPONSE',
+  'MAIL_SEARCH',
+  'MAIL_SENT',
+  'MAIL_DRAFT',
+  'EMAIL_WATCH',
+  'CALENDAR_EVENT',
+  'FREE_BUSY',
+  'SCREENSHOT',
+  'PAGE_EXTRACT',
+  'ICS_FILE',
+  'BOOKING_CONFIRMATION',
+  'ORDER_CONFIRMATION',
+  'CART_SNAPSHOT',
+  'HANDOVER',
 ]);
 export type EvidenceCode = z.infer<typeof EvidenceCode>;
 
 export const Evidence = z.object({
-  kind: z.enum(['http_response', 'smtp_receipt', 'record', 'content_hash', 'model_output', 'note']),
+  kind: z.enum([
+    'http_response',
+    'smtp_receipt',
+    'record',
+    'content_hash',
+    'model_output',
+    'note',
+    // Phase C
+    'provider_response',
+    'browser_capture',
+  ]),
   label: z.string(),
   value: z.string(),
   at: Timestamp,
@@ -568,6 +851,11 @@ export type Evidence = z.infer<typeof Evidence>;
  * Phase B: documentRead { pages, chars } · translationLength { count }
  *   translationLanguage { language } · numbersPreserved { count } · scheduleStored { id }
  *   nextRunComputed { at } · resultRecalled { taskId } · questionAsked
+ * Phase C: providerAccepted { provider, id } · threadsRead { count } · draftCreated { id }
+ *   watchCreated { id } · eventWritten { id } · noConflict · slotsFound { count }
+ *   liveSource { url } · screenshotStored { artifactId } · confirmationReceived { reference }
+ *   totalMatches { total } · orderPlaced { orderId } · offersCompared { count }
+ *   withinLimit { remaining }
  */
 export const VerificationCheckKey = z.enum([
   'http',
@@ -594,6 +882,21 @@ export const VerificationCheckKey = z.enum([
   'nextRunComputed',
   'resultRecalled',
   'questionAsked',
+  // Phase C
+  'providerAccepted',
+  'threadsRead',
+  'draftCreated',
+  'watchCreated',
+  'eventWritten',
+  'noConflict',
+  'slotsFound',
+  'liveSource',
+  'screenshotStored',
+  'confirmationReceived',
+  'totalMatches',
+  'orderPlaced',
+  'offersCompared',
+  'withinLimit',
 ]);
 export type VerificationCheckKey = z.infer<typeof VerificationCheckKey>;
 
@@ -660,6 +963,14 @@ export const ApprovalDetails = z.discriminatedUnion('kind', [
     subject: z.string(),
     body: z.string(),
     untrusted: UntrustedSource.optional(),
+    // Phase C (absent on older approvals: a send through SMTP)
+    /** 'draft': email.draft_reply creates a draft in the mailbox; nothing is sent. */
+    mode: z.enum(['send', 'draft']).optional(),
+    /** How it is sent: the SMTP connection, or the Google / Microsoft account itself. */
+    via: z.enum(['smtp', 'google', 'microsoft']).optional(),
+    cc: z.array(z.string()).optional(),
+    /** A reply in this thread (its subject as the provider reports it: untrusted text). */
+    inReplyTo: z.object({ threadId: z.string(), subject: z.string() }).nullable().optional(),
   }),
   z.object({
     kind: z.literal('generic'),
@@ -686,6 +997,111 @@ export const ApprovalDetails = z.discriminatedUnion('kind', [
     memoryKind: MemoryKind,
     /** The task whose result the text came from. */
     sourceTaskId: Id.nullable(),
+    untrusted: UntrustedSource.optional(),
+  }),
+  /**
+   * Phase C — calendar.create_event / update_event / cancel_event: exactly
+   * what is written to which calendar, and who is told. Clients format the
+   * instants in `timeZone`.
+   */
+  z.object({
+    kind: z.literal('calendar_event'),
+    action: z.enum(['create', 'update', 'cancel']),
+    provider: OAuthProvider,
+    /** The calendar's account (its address). */
+    account: z.string(),
+    /** The provider's event id (update, cancel); null when creating. */
+    eventId: z.string().nullable(),
+    title: z.string(),
+    start: Timestamp,
+    end: Timestamp,
+    /** IANA zone the event is stored in and shown in. */
+    timeZone: z.string(),
+    allDay: z.boolean(),
+    location: z.string().nullable(),
+    description: z.string().nullable(),
+    /** Everyone who receives the invitation, update or cancellation — exactly these addresses. */
+    attendees: z.array(z.string()),
+    /** The provider emails the attendees (sendUpdates). */
+    notifyAttendees: z.boolean(),
+    /** update / cancel: the event as JARVIS read it (what the change replaces); null when creating. */
+    previous: z.object({ title: z.string(), start: Timestamp, end: Timestamp }).nullable(),
+    /** JARVIS re-checks free/busy right before writing and stops if the time is taken. */
+    conflictCheck: z.boolean(),
+    untrusted: UntrustedSource.optional(),
+  }),
+  /**
+   * Phase C — booking.book on a supported site: the slot as the site offered
+   * it live (evidence), and exactly the personal details the form receives.
+   */
+  z.object({
+    kind: z.literal('booking'),
+    siteId: z.string(),
+    siteName: z.string(),
+    siteHost: z.string(),
+    service: z.string(),
+    start: Timestamp,
+    end: Timestamp.nullable(),
+    timeZone: z.string(),
+    /** Every field the form will submit, with its exact value. */
+    fields: z.array(z.object({ label: z.string(), value: z.string(), personal: z.boolean() })),
+    /** Price as the site states it; null when the site states none. */
+    price: Money.nullable(),
+    /** The site says it is binding (cancellation fees or payment due). */
+    binding: z.boolean(),
+    /** The site's cancellation terms as shown (untrusted text: display isolated); null if none. */
+    cancellationTerms: z.string().nullable(),
+    /** Screenshot of the live availability this booking relies on. */
+    evidenceArtifactId: Id.nullable(),
+    untrusted: UntrustedSource.optional(),
+  }),
+  /**
+   * Phase C — shop.checkout: the exact order (items, quantities, total,
+   * merchant, delivery) and the monthly limit it is checked against. Never
+   * auto-approved; the order is submitted exactly once.
+   */
+  z.object({
+    kind: z.literal('purchase'),
+    siteId: z.string(),
+    merchant: z.object({ name: z.string(), host: z.string() }),
+    items: z.array(
+      z.object({
+        title: z.string(),
+        quantity: z.number().int().positive(),
+        unitPrice: Money,
+        lineTotal: Money,
+        productUrl: z.string(),
+      }),
+    ),
+    subtotal: Money,
+    shipping: Money,
+    tax: Money.nullable(),
+    total: Money,
+    delivery: z.object({
+      method: z.string(),
+      /** As the merchant states it (e.g. "2–4 business days"); null when it states none. */
+      estimate: z.string().nullable(),
+      address: z.string(),
+    }),
+    /** As the merchant's checkout shows it (e.g. "Visa •••• 4242"). */
+    paymentMethod: z.string(),
+    /** preferences.spending.monthlyPurchaseLimitUsd and this month's committed purchases (USD). */
+    limit: z.object({ monthly: Money, spentThisMonth: Money, remainingAfter: Money }),
+    /** Screenshot of the cart / checkout page as checked before asking. */
+    evidenceArtifactId: Id.nullable(),
+    untrusted: UntrustedSource.optional(),
+  }),
+  /** Phase C — browser.fill on a supported site: exactly what the form receives. */
+  z.object({
+    kind: z.literal('form_submission'),
+    siteId: z.string(),
+    siteName: z.string(),
+    siteHost: z.string(),
+    /** The recipe's form, e.g. 'contact', 'reservation'. */
+    form: z.string(),
+    fields: z.array(z.object({ label: z.string(), value: z.string(), personal: z.boolean() })),
+    binding: z.boolean(),
+    evidenceArtifactId: Id.nullable(),
     untrusted: UntrustedSource.optional(),
   }),
 ]);
@@ -813,6 +1229,8 @@ export const TaskDetail = TaskSummary.extend({
   startedAt: Timestamp.nullable(),
   /** Files attached to the request (Phase B; always sent by this API). */
   attachments: z.array(Attachment).optional(),
+  /** Phase C: the browser agent's sessions for this task, oldest first (always sent by this API). */
+  browserSessions: z.array(BrowserSession).optional(),
 });
 export type TaskDetail = z.infer<typeof TaskDetail>;
 
@@ -861,6 +1279,16 @@ export const RetryTaskRequest = z.object({
  *   webhook.endpoint_changed { endpointId, change: 'created' | 'updated' | 'secret_rotated'
  *                              | 'deleted' | 'disabled', status, disabledReason }
  *                            (status and disabledReason are null for 'deleted')
+ * Phase C:
+ *   connection.changed       { connectionId, provider, status, statusReason?, change? }
+ *                            change: 'created' | 'reconnected' | 'capabilities' | 'expired'
+ *                            | 'error' | 'deleted' (absent on events of older servers)
+ *   email_watch.changed      { watchId, status, change: 'created' | 'replied' | 'stopped'
+ *                              | 'expired' | 'failed' }
+ *   browser_session.changed  { sessionId, taskId, stepId, status, stopReason }
+ *   order.changed            { orderId, taskId, status }
+ *   booking.changed          { bookingId, taskId, status }
+ * Ids, enums and times only: clients refetch what they show.
  */
 export const AccountEventType = z.enum([
   'notification.created',
@@ -871,6 +1299,11 @@ export const AccountEventType = z.enum([
   'schedule.changed',
   'webhook.delivery_failed',
   'webhook.endpoint_changed',
+  // Phase C
+  'email_watch.changed',
+  'browser_session.changed',
+  'order.changed',
+  'booking.changed',
 ]);
 export type AccountEventType = z.infer<typeof AccountEventType>;
 
@@ -891,7 +1324,7 @@ export const Connection = z.object({
   id: Id,
   provider: ConnectionProvider,
   label: z.string(),
-  /** e.g. the sender address for SMTP; never a secret. */
+  /** e.g. the sender address for SMTP, the account's address for Google / Microsoft; never a secret. */
   accountIdentifier: z.string().nullable(),
   status: ConnectionStatus,
   permissions: z.array(z.string()),
@@ -899,6 +1332,13 @@ export const Connection = z.object({
   lastError: z.string().nullable(),
   expiresAt: Timestamp.nullable(),
   createdAt: Timestamp,
+  // Phase C. Always sent by this API; optional only for older servers and fixtures.
+  /** OAuth connections: what JARVIS may do with it (every scope granted); [] for SMTP and web. */
+  capabilities: z.array(ConnectionCapability).optional(),
+  /** OAuth connections: the provider scopes actually granted (transparency); [] otherwise. */
+  scopes: z.array(z.string()).optional(),
+  /** Why it is not active (null while active). 'expired' connections are fixed by reconnecting. */
+  statusReason: ConnectionStatusReason.nullable().optional(),
 });
 export type Connection = z.infer<typeof Connection>;
 
@@ -914,6 +1354,287 @@ export const CreateSmtpConnectionRequest = z.object({
   fromName: z.string().trim().max(80).optional(),
 });
 export type CreateSmtpConnectionRequest = z.infer<typeof CreateSmtpConnectionRequest>;
+
+/* ------------------------------------------------------------------ */
+/* Phase C — OAuth connections (docs/architecture/phase-c.md §3.1)     */
+/* ------------------------------------------------------------------ */
+
+/** What a connection provider is on this server (GET /v1/connections/providers). */
+export const ConnectionProviderInfo = z.object({
+  provider: ConnectionProvider,
+  kind: z.enum(['oauth', 'smtp', 'web']),
+  /** OAuth: the server has a client id and secret for it. false = "not configured on this server". */
+  configured: z.boolean(),
+  /** OAuth: each capability with the exact provider scopes it requests (OAUTH_SCOPES); [] otherwise. */
+  capabilities: z.array(
+    z.object({ capability: ConnectionCapability, scopes: z.array(z.string()) }),
+  ),
+  /** OAuth: scopes requested with every capability (account identity, refresh token). */
+  identityScopes: z.array(z.string()),
+  /**
+   * OAuth: what disconnecting does at the provider. 'provider': the grant is
+   * revoked there (Google); 'local_only': the provider has no per-app revocation
+   * endpoint, so JARVIS erases its tokens and the user may also remove the app
+   * in their account settings (Microsoft). null for SMTP and web.
+   */
+  revocation: z.enum(['provider', 'local_only']).nullable(),
+});
+export type ConnectionProviderInfo = z.infer<typeof ConnectionProviderInfo>;
+
+/** A path of the client app to return to after the provider's consent screen. */
+const ReturnTo = z
+  .string()
+  .max(OAUTH_LIMITS.maxReturnToChars)
+  .regex(/^\/(?![/\\])[^\s\\]*$/, 'a path of this app, e.g. /connections (no scheme or host)');
+
+/**
+ * Starts an authorization (code + PKCE S256). The server stores the state
+ * (bound to this session, single use, OAUTH_LIMITS.stateTtlMinutes) and the
+ * PKCE verifier, and returns the provider URL to open. `connectionId` adds
+ * capabilities to, or reconnects, an existing connection of the same provider
+ * (incremental authorization); the provider account must stay the same.
+ */
+export const OAuthStartRequest = z.object({
+  provider: OAuthProvider,
+  capabilities: z
+    .array(ConnectionCapability)
+    .min(1)
+    .max(ConnectionCapability.options.length)
+    .refine((c) => new Set(c).size === c.length, 'capabilities must be unique'),
+  /** Exactly one of the server's allowed redirect URIs (OAUTH_REDIRECT_URIS). */
+  redirectUri: z.url({ protocol: /^https?$/ }).max(2048),
+  connectionId: Id.optional(),
+  returnTo: ReturnTo.optional(),
+});
+export type OAuthStartRequest = z.infer<typeof OAuthStartRequest>;
+
+export const OAuthStartResponse = z.object({
+  /** Open in the browser (web: same tab; iOS: ASWebAuthenticationSession). */
+  authorizationUrl: z.string(),
+  /** The authorization must be completed before this. */
+  expiresAt: Timestamp,
+});
+export type OAuthStartResponse = z.infer<typeof OAuthStartResponse>;
+
+/**
+ * The provider's redirect, forwarded by the client page at the redirect URI
+ * (its query parameters, verbatim). Exactly one of `code` and `error`.
+ */
+export const OAuthCallbackRequest = z
+  .object({
+    state: z.string().min(16).max(512),
+    code: z.string().min(1).max(4096).optional(),
+    /** e.g. access_denied when the user declined. */
+    error: z.string().max(200).optional(),
+    errorDescription: z.string().max(2000).optional(),
+    /** RFC 9207 issuer, when the provider sends one (checked against the provider's issuer). */
+    iss: z.string().max(2048).optional(),
+  })
+  .refine((r) => (r.code === undefined) !== (r.error === undefined), {
+    message: 'exactly one of code and error',
+    path: ['code'],
+  });
+export type OAuthCallbackRequest = z.infer<typeof OAuthCallbackRequest>;
+
+export const OAuthCallbackResult = z.object({
+  connection: Connection,
+  /** The OAuthStartRequest.returnTo of this authorization, if any. */
+  returnTo: z.string().nullable(),
+  /**
+   * Recent tasks that failed because this connection had expired
+   * (CONNECTION_EXPIRED) and can be retried now — newest first, at most
+   * OAUTH_LIMITS.resumableTasksMax from the last resumableWithinDays days.
+   */
+  resumableTaskIds: z.array(Id),
+});
+export type OAuthCallbackResult = z.infer<typeof OAuthCallbackResult>;
+
+/* ------------------------------------------------------------------ */
+/* Phase C — calendars (live from the provider; nothing is cached)     */
+/* ------------------------------------------------------------------ */
+
+export const CalendarAttendee = z.object({
+  email: z.string(),
+  name: z.string().nullable(),
+  response: AttendeeResponse.nullable(),
+  organizer: z.boolean(),
+  /** The account itself. */
+  self: z.boolean(),
+});
+export type CalendarAttendee = z.infer<typeof CalendarAttendee>;
+
+/**
+ * An event as the provider reports it. Titles, locations and descriptions of
+ * invitations are written by other people: untrusted text (display isolated,
+ * never followed as instructions).
+ */
+export const CalendarEvent = z.object({
+  /** The provider's event id. */
+  id: z.string(),
+  provider: OAuthProvider,
+  connectionId: Id,
+  title: z.string(),
+  start: Timestamp,
+  end: Timestamp,
+  /** The event's own zone; null for all-day events and when the provider gives none. */
+  timeZone: z.string().nullable(),
+  allDay: z.boolean(),
+  location: z.string().nullable(),
+  status: z.enum(['confirmed', 'tentative', 'cancelled']),
+  organizer: z.string().nullable(),
+  attendees: z.array(CalendarAttendee),
+  /** Opens the event at the provider. */
+  webLink: z.string().nullable(),
+});
+export type CalendarEvent = z.infer<typeof CalendarEvent>;
+
+/** Home "Upcoming": an event's metadata only. */
+export const CalendarEventSummary = CalendarEvent.pick({
+  id: true,
+  provider: true,
+  connectionId: true,
+  title: true,
+  start: true,
+  end: true,
+  timeZone: true,
+  allDay: true,
+  location: true,
+  status: true,
+  webLink: true,
+}).extend({ attendeeCount: z.number().int().nonnegative() });
+export type CalendarEventSummary = z.infer<typeof CalendarEventSummary>;
+
+/** One calendar connection that was asked, and what it answered. */
+export const CalendarSource = z.object({
+  connectionId: Id,
+  provider: OAuthProvider,
+  accountIdentifier: z.string().nullable(),
+  /** expired: reconnect; scope_missing: calendar.read not granted; unavailable: no answer in time / error. */
+  status: z.enum(['ok', 'expired', 'scope_missing', 'unavailable']),
+});
+export type CalendarSource = z.infer<typeof CalendarSource>;
+
+/**
+ * The next events of every connected calendar (CALENDAR_LIMITS.upcomingDays,
+ * at most upcomingMax), merged by start. HomeSnapshot.upcoming is null when no
+ * connection grants calendar.read — the section is then not shown at all.
+ */
+export const UpcomingEvents = z.object({
+  events: z.array(CalendarEventSummary),
+  sources: z.array(CalendarSource),
+  rangeStart: Timestamp,
+  rangeEnd: Timestamp,
+  fetchedAt: Timestamp,
+});
+export type UpcomingEvents = z.infer<typeof UpcomingEvents>;
+
+export const CalendarEventListQuery = z.object({
+  from: z.iso.datetime({ offset: true }),
+  /** At most CALENDAR_LIMITS.listMaxDays after `from`. */
+  to: z.iso.datetime({ offset: true }),
+  provider: OAuthProvider.optional(),
+});
+export type CalendarEventListQuery = z.infer<typeof CalendarEventListQuery>;
+
+export const CalendarEventList = z.object({
+  items: z.array(CalendarEvent),
+  sources: z.array(CalendarSource),
+  /** More than CALENDAR_LIMITS.listMaxEvents events: narrow the window. */
+  truncated: z.boolean(),
+});
+export type CalendarEventList = z.infer<typeof CalendarEventList>;
+
+export const BusyInterval = z.object({ start: Timestamp, end: Timestamp });
+
+/** calendar.free_busy output (`result`): busy times per calendar and proposed free slots. */
+export const FreeBusyResult = z.object({
+  timeMin: Timestamp,
+  timeMax: Timestamp,
+  timeZone: z.string(),
+  durationMinutes: z.number().int().positive(),
+  calendars: z.array(
+    z.object({
+      email: z.string(),
+      /** false: the provider does not share this person's free/busy with the account. */
+      accessible: z.boolean(),
+      busy: z.array(BusyInterval),
+    }),
+  ),
+  /**
+   * Times free in every accessible calendar, within working hours, at most
+   * CALENDAR_LIMITS.maxProposedSlots. Computed from the providers' answers
+   * only; inaccessible calendars are not assumed free.
+   */
+  slots: z.array(BusyInterval),
+});
+export type FreeBusyResult = z.infer<typeof FreeBusyResult>;
+
+/* ------------------------------------------------------------------ */
+/* Phase C — email agent                                               */
+/* ------------------------------------------------------------------ */
+
+export const EmailAddress = z.object({ name: z.string().nullable(), address: z.string() });
+export type EmailAddress = z.infer<typeof EmailAddress>;
+
+/** A message's metadata (no body). Subjects and snippets are untrusted text. */
+export const EmailMessageSummary = z.object({
+  id: z.string(),
+  threadId: z.string(),
+  from: EmailAddress,
+  to: z.array(EmailAddress),
+  cc: z.array(EmailAddress),
+  date: Timestamp,
+  subject: z.string(),
+  /** At most EMAIL_LIMITS.snippetChars. */
+  snippet: z.string(),
+  unread: z.boolean(),
+  hasAttachments: z.boolean(),
+});
+export type EmailMessageSummary = z.infer<typeof EmailMessageSummary>;
+
+/** email.search output (`threads`): one thread's metadata. */
+export const EmailThreadSummary = z.object({
+  id: z.string(),
+  provider: OAuthProvider,
+  connectionId: Id,
+  subject: z.string(),
+  participants: z.array(EmailAddress),
+  lastMessageFrom: EmailAddress,
+  lastMessageAt: Timestamp,
+  snippet: z.string().max(EMAIL_LIMITS.snippetChars),
+  messageCount: z.number().int().positive(),
+  unread: z.boolean(),
+  /**
+   * Deterministic, from headers only: the newest message is from someone else,
+   * in the inbox, and not automated (no List-Unsubscribe / List-Id, no
+   * Auto-Submitted, Precedence bulk/list, or no-reply sender).
+   */
+  needsReply: z.boolean(),
+  webLink: z.string().nullable(),
+});
+export type EmailThreadSummary = z.infer<typeof EmailThreadSummary>;
+
+/** A thread JARVIS watches for replies (GET /v1/email/watches). */
+export const EmailWatch = z.object({
+  id: Id,
+  provider: OAuthProvider,
+  connectionId: Id,
+  threadId: z.string(),
+  /** As the provider reports it (untrusted text). */
+  subject: z.string(),
+  status: EmailWatchStatus,
+  /** The task whose email.track_replies step created it. */
+  taskId: Id.nullable(),
+  lastCheckedAt: Timestamp.nullable(),
+  /** Null unless watching. */
+  nextCheckAt: Timestamp.nullable(),
+  replyAt: Timestamp.nullable(),
+  replyFrom: EmailAddress.nullable(),
+  expiresAt: Timestamp,
+  createdAt: Timestamp,
+  updatedAt: Timestamp,
+});
+export type EmailWatch = z.infer<typeof EmailWatch>;
 
 /* ------------------------------------------------------------------ */
 /* Memory                                                              */
@@ -983,6 +1704,21 @@ export const AssistantStatus = z.object({
      * direct action and always available; existing schedules keep running until paused.
      */
     schedules: z.boolean().optional(),
+    // Phase C. Always sent by this API; optional only for older servers and fixtures.
+    // Each is true only when the tools are built on this server, the skill is on and
+    // what it needs is connected / running (the same availability GET /v1/skills reports).
+    /** Reading, drafting and tracking mail through a Google / Microsoft account. */
+    mail: z.boolean().optional(),
+    /** Reading and changing a connected calendar. */
+    calendar: z.boolean().optional(),
+    /** The isolated browser agent is running (and storage for its evidence is configured). */
+    browser: z.boolean().optional(),
+    /** Finding and booking appointments on supported sites. */
+    booking: z.boolean().optional(),
+    /** Comparing products on supported shops. */
+    shopping: z.boolean().optional(),
+    /** Purchases are possible at all: shopping available and a monthly purchase limit above 0. */
+    purchases: z.boolean().optional(),
   }),
   version: z.string(),
 });
@@ -1007,6 +1743,12 @@ export const HomeSnapshot = z.object({
   recentTasks: z.array(TaskSummary),
   unreadNotifications: z.number().int(),
   suggestions: z.array(Suggestion),
+  /**
+   * Phase C: the next events of the connected calendars; null (or absent, from
+   * older servers) when no connection grants calendar.read — then the Home
+   * "Upcoming" section is not shown at all.
+   */
+  upcoming: UpcomingEvents.nullable().optional(),
 });
 export type HomeSnapshot = z.infer<typeof HomeSnapshot>;
 
@@ -1221,6 +1963,14 @@ export const Skill = z.object({
   /** Highest risk any of its tools can have. */
   maxRisk: RiskLevel,
   requiredConnections: z.array(ConnectionProvider),
+  /**
+   * Phase C: the skill also works with any ONE of these (a provider, optionally
+   * with a capability it must grant), e.g. email-management: SMTP, or Google /
+   * Microsoft with mail access. Empty: only requiredConnections apply.
+   */
+  connectionOptions: z
+    .array(z.object({ provider: ConnectionProvider, capability: ConnectionCapability.optional() }))
+    .optional(),
   modelUse: z.enum(['none', 'optional', 'required']),
   /** Projected model cost per run above which the policy asks first (SKILL_COST_LIMIT); null = budget rules only. */
   maxCostPerRunMicroUsd: MicroUsd.nullable(),
@@ -1483,3 +2233,202 @@ export const TimeZoneInfo = z.object({
   utcOffsetMinutes: z.number().int(),
 });
 export type TimeZoneInfo = z.infer<typeof TimeZoneInfo>;
+
+/* ------------------------------------------------------------------ */
+/* Phase C — shopping (docs/architecture/phase-c.md §3.6)              */
+/* ------------------------------------------------------------------ */
+
+/** A fact about a merchant read from its own pages (ReliabilitySignalCode). */
+export const ReliabilitySignal = z.object({
+  code: ReliabilitySignalCode,
+  present: z.boolean(),
+  /** e.g. "4.6 (1,203 ratings)" for customer_rating, as the page states it; null otherwise. */
+  value: z.string().nullable(),
+});
+export type ReliabilitySignal = z.infer<typeof ReliabilitySignal>;
+
+/**
+ * One product offer as a supported shop showed it live. Prices, shipping and
+ * delivery come only from the page (with evidence); null means the page did
+ * not state it — never an estimate.
+ */
+export const ProductOffer = z.object({
+  /** Stable within its search result (the tool's id for it). */
+  id: z.string(),
+  siteId: z.string(),
+  merchantName: z.string(),
+  merchantHost: z.string(),
+  /** As the page states it (untrusted text). */
+  title: z.string(),
+  productUrl: z.string(),
+  price: Money,
+  /** null: the page states no shipping cost for this offer. */
+  shipping: Money.nullable(),
+  /** price + shipping when both are known and in the same currency; null otherwise. */
+  total: Money.nullable(),
+  delivery: z.object({
+    minDays: z.number().int().nonnegative().nullable(),
+    maxDays: z.number().int().nonnegative().nullable(),
+    /** As the page states it. */
+    text: z.string().nullable(),
+  }),
+  inStock: z.boolean().nullable(),
+  rating: z
+    .object({ value: z.number().min(0).max(5), count: z.number().int().nonnegative() })
+    .nullable(),
+  signals: z.array(ReliabilitySignal),
+  /** Screenshot of the page the offer was read from. */
+  evidenceArtifactId: Id.nullable(),
+  capturedAt: Timestamp,
+});
+export type ProductOffer = z.infer<typeof ProductOffer>;
+
+/** shop.compare output (`comparison`): offers side by side, with where each came from. */
+export const ShoppingComparison = z.object({
+  query: z.string(),
+  offers: z.array(ProductOffer).max(COMMERCE_LIMITS.maxOffers),
+  /** Offer ids, lowest known total first; offers without a known total come last. */
+  ranking: z.array(z.string()),
+  /** Each shop that was asked and what happened there. */
+  sites: z.array(
+    z.object({
+      siteId: z.string(),
+      status: z.enum(['ok', 'failed', 'handover']),
+      reason: BrowserStopReason.nullable(),
+    }),
+  ),
+  /** Offers in different currencies are not converted (no verifiable exchange rate). */
+  mixedCurrencies: z.boolean(),
+  generatedAt: Timestamp,
+});
+export type ShoppingComparison = z.infer<typeof ShoppingComparison>;
+
+export const CartLine = z.object({
+  title: z.string(),
+  quantity: z.number().int().positive().max(COMMERCE_LIMITS.maxQuantityPerLine),
+  unitPrice: Money,
+  lineTotal: Money,
+  productUrl: z.string(),
+});
+export type CartLine = z.infer<typeof CartLine>;
+
+/** shop.prepare_cart output (`cart`): a cart on the merchant's site, nothing bought. */
+export const PreparedCart = z.object({
+  siteId: z.string(),
+  merchantName: z.string(),
+  merchantHost: z.string(),
+  lines: z.array(CartLine).min(1).max(COMMERCE_LIMITS.maxCartLines),
+  subtotal: Money,
+  shipping: Money.nullable(),
+  total: Money.nullable(),
+  /** The site's recipe can place the order (shop.checkout); otherwise use handoverUrl. */
+  checkoutSupported: z.boolean(),
+  /** Where the user finishes the purchase themselves (shops without checkout support). */
+  handoverUrl: z.string().nullable(),
+  evidenceArtifactId: Id.nullable(),
+  preparedAt: Timestamp,
+});
+export type PreparedCart = z.infer<typeof PreparedCart>;
+
+/** An order shop.checkout placed or tried to place (GET /v1/orders). */
+export const Order = z.object({
+  id: Id,
+  taskId: Id.nullable(),
+  siteId: z.string(),
+  merchantName: z.string(),
+  merchantHost: z.string(),
+  status: OrderStatus,
+  items: z.array(CartLine),
+  subtotal: Money,
+  shipping: Money,
+  tax: Money.nullable(),
+  total: Money,
+  /** The merchant's order number (placed only). */
+  merchantOrderId: z.string().nullable(),
+  placedAt: Timestamp.nullable(),
+  /** failed / unknown: why (a TaskErrorReason). */
+  failureReason: TaskErrorReason.nullable(),
+  evidence: z.array(EvidenceArtifact),
+  createdAt: Timestamp,
+  updatedAt: Timestamp,
+});
+export type Order = z.infer<typeof Order>;
+
+/* ------------------------------------------------------------------ */
+/* Phase C — booking (docs/architecture/phase-c.md §3.4)               */
+/* ------------------------------------------------------------------ */
+
+/** A free slot exactly as the site offered it live. */
+export const BookingSlot = z.object({
+  /** The site's own id of the slot. */
+  id: z.string(),
+  start: Timestamp,
+  end: Timestamp.nullable(),
+  timeZone: z.string(),
+  service: z.string(),
+  price: Money.nullable(),
+});
+export type BookingSlot = z.infer<typeof BookingSlot>;
+
+/** booking.find_slots output (`result`). */
+export const BookingSlots = z.object({
+  siteId: z.string(),
+  siteName: z.string(),
+  service: z.string(),
+  slots: z.array(BookingSlot),
+  /** Labels of the details the site's form requires (JARVIS asks for the ones it lacks). */
+  requiredFields: z.array(z.string()),
+  /** Screenshot of the live availability. */
+  evidenceArtifactId: Id.nullable(),
+  capturedAt: Timestamp,
+});
+export type BookingSlots = z.infer<typeof BookingSlots>;
+
+/**
+ * booking.book output (`confirmation`): what the site confirmed — read from
+ * its confirmation page (schema.org Reservation / ICS), never assumed.
+ */
+export const BookingConfirmation = z.object({
+  bookingId: Id,
+  reference: z.string(),
+  service: z.string(),
+  start: Timestamp,
+  end: Timestamp.nullable(),
+  timeZone: z.string(),
+  location: z.string().nullable(),
+  siteId: z.string(),
+  siteHost: z.string(),
+  icsArtifactId: Id.nullable(),
+  screenshotArtifactId: Id.nullable(),
+  confirmedAt: Timestamp,
+});
+export type BookingConfirmation = z.infer<typeof BookingConfirmation>;
+
+/** An appointment booking.book made or tried to make (GET /v1/bookings). */
+export const Booking = z.object({
+  id: Id,
+  taskId: Id.nullable(),
+  siteId: z.string(),
+  siteName: z.string(),
+  siteHost: z.string(),
+  service: z.string(),
+  status: BookingStatus,
+  start: Timestamp,
+  end: Timestamp.nullable(),
+  timeZone: z.string(),
+  reference: z.string().nullable(),
+  price: Money.nullable(),
+  binding: z.boolean(),
+  /** The calendar entry JARVIS created for it (calendar.create_event), if any. */
+  calendarEventId: z.string().nullable(),
+  failureReason: TaskErrorReason.nullable(),
+  evidence: z.array(EvidenceArtifact),
+  createdAt: Timestamp,
+  updatedAt: Timestamp,
+});
+export type Booking = z.infer<typeof Booking>;
+
+export const OrderListQuery = PageQuery.extend({ status: OrderStatus.optional() });
+export type OrderListQuery = z.infer<typeof OrderListQuery>;
+export const BookingListQuery = PageQuery.extend({ status: BookingStatus.optional() });
+export type BookingListQuery = z.infer<typeof BookingListQuery>;

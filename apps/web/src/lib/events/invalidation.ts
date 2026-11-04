@@ -41,7 +41,8 @@ export function queriesToInvalidate(
     case 'notification.created':
       return [qk.notifications, qk.home];
     case 'connection.changed':
-      return [qk.connections, qk.assistantStatus, qk.home, qk.skills];
+      // Connections decide what can run (skills, capabilities) and Home's "Upcoming".
+      return [qk.connections, qk.assistantStatus, qk.home, qk.skills, qk.calendar.all];
     case 'conversation.message': {
       const taskId = typeof event.data?.taskId === 'string' ? event.data.taskId : event.taskId;
       return taskId
@@ -55,6 +56,18 @@ export function queriesToInvalidate(
     case 'webhook.delivery_failed':
     case 'webhook.endpoint_changed':
       return [qk.webhooks.all];
+    // Phase C: a browser session belongs to a task (only its detail lists them; the task's own
+    // status changes arrive as task events) — a shopping run emits several per minute, so they
+    // must not refetch Home, lists and threads each time. Orders and bookings show in their task
+    // and in Settings › Spending; watches in Settings › Reply tracking.
+    case 'browser_session.changed':
+      return event.taskId ? [qk.tasks.detail(event.taskId)] : [];
+    case 'order.changed':
+      return [...taskKeys, qk.orders.all];
+    case 'booking.changed':
+      return [...taskKeys, qk.bookings.all];
+    case 'email_watch.changed':
+      return [qk.emailWatches];
     case 'task.answer.delta':
     case 'heartbeat':
       return [];
@@ -72,4 +85,8 @@ export const RECONNECT_INVALIDATIONS: QueryKey[] = [
   qk.conversations.all,
   qk.schedules.all,
   qk.webhooks.all,
+  qk.calendar.all,
+  qk.emailWatches,
+  qk.orders.all,
+  qk.bookings.all,
 ];

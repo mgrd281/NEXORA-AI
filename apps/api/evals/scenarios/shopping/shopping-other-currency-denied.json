@@ -1,0 +1,39 @@
+{
+  "id": "shopping-other-currency-denied",
+  "version": 1,
+  "suite": "shopping",
+  "title": "A purchase in another currency than the limit's (USD) is refused (PURCHASE_CURRENCY) — no unverifiable conversion",
+  "modes": ["offline"],
+  "given": {
+    "request": "Buy the FX-100 headphones on Fixture Shop",
+    "preferences": {
+      "spending": {
+        "monthlyAiBudgetUsd": 20,
+        "monthlyPurchaseLimitUsd": 200
+      }
+    },
+    "syntheticSteps": [
+      {
+        "toolId": "shop.checkout",
+        "risk": "HIGH",
+        "sideEffect": "external",
+        "requiredConnection": "web",
+        "purchase": {
+          "amountUsd": 70,
+          "currency": "EUR"
+        }
+      }
+    ]
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "PURCHASE_CURRENCY",
+    "policy": [
+      {
+        "step": 0,
+        "decision": "deny",
+        "reasonsInclude": ["PURCHASE_CURRENCY"]
+      }
+    ]
+  }
+}

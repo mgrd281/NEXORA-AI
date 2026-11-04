@@ -5,7 +5,11 @@ import type { LucideIcon } from 'lucide-react';
 import {
   ArrowRight,
   BookmarkPlus,
+  CalendarCheck,
+  CalendarPlus,
   Cpu,
+  CreditCard,
+  FilePen,
   FileText,
   Globe,
   Hand,
@@ -13,6 +17,7 @@ import {
   Mail,
   ShieldCheck,
   Sparkles,
+  TextCursorInput,
   TriangleAlert,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -46,6 +51,7 @@ import { useHome, useMe } from '@/lib/api/hooks';
 import { cx } from '@/lib/cx';
 import { useNow } from '@/lib/hooks/useNow';
 import styles from './HomeScreen.module.css';
+import { Upcoming } from './Upcoming';
 import {
   dayPeriod,
   firstName,
@@ -105,10 +111,15 @@ export function HomeScreen() {
       )}
       {home.data &&
         (isFirstRun(home.data) ? (
-          <FirstRun assistant={home.data.assistant} />
+          <div className={styles.sections}>
+            {/* Only with a connected calendar (upcoming is null otherwise): never an empty widget. */}
+            {home.data.upcoming && <Upcoming upcoming={home.data.upcoming} />}
+            <FirstRun assistant={home.data.assistant} />
+          </div>
         ) : (
           <div className={styles.sections}>
             <NeedsYou approvals={home.data.pendingApprovals} onReview={setReviewing} />
+            {home.data.upcoming && <Upcoming upcoming={home.data.upcoming} />}
             <TaskSection
               title={t('home.sections.active')}
               tasks={inProgressTasks(home.data)}
@@ -439,10 +450,22 @@ function NeedsYou({
   );
 }
 
+/** What kind of action waits: an email, a calendar change, a booking, a purchase, a form. */
+const APPROVAL_ICON: Partial<Record<Approval['details']['kind'], LucideIcon>> = {
+  email: Mail,
+  calendar_event: CalendarPlus,
+  booking: CalendarCheck,
+  purchase: CreditCard,
+  form_submission: TextCursorInput,
+};
+
 function ApprovalRow({ approval, onReview }: { approval: Approval; onReview: () => void }) {
   const i18n = useI18n();
   const { t } = i18n;
-  const icon = approval.toolId === 'email.send' ? Mail : Hand;
+  const icon =
+    approval.details.kind === 'email' && approval.details.mode === 'draft'
+      ? FilePen
+      : (APPROVAL_ICON[approval.details.kind] ?? Hand);
   const untrusted = isUntrustedApproval(approval);
   const title = serverText(i18n, approval.taskTitleMessage, approval.taskTitle);
   return (

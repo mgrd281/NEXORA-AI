@@ -1,0 +1,266 @@
+{
+  "id": "c3e4f5a6-7d8f-4a9b-8c1d-2e3f4a5b6c73",
+  "title": "Compare offers for pour-over kettle",
+  "titleMessage": {
+    "key": "plan.compareProducts",
+    "params": {
+      "query": "pour-over kettle"
+    }
+  },
+  "request": "compare pour-over kettle prices",
+  "status": "COMPLETED",
+  "riskLevel": "LOW",
+  "source": "text",
+  "progress": {
+    "completed": 2,
+    "total": 2
+  },
+  "pendingApprovalId": null,
+  "pendingApproval": null,
+  "resultSummary": "“pour-over kettle”: 1. Ceramic pour-over kettle 1.2 l — Fixture Kitchen Supply — USD 54.48 incl. shipping",
+  "resultSummaryMessage": null,
+  "error": null,
+  "createdAt": "2026-11-04T09:11:58.000Z",
+  "updatedAt": "2026-11-04T09:12:06.000Z",
+  "completedAt": "2026-11-04T09:12:06.000Z",
+  "conversationId": "07853474-1278-4b72-9b76-f4ce830ec68c",
+  "outcome": "answer",
+  "question": null,
+  "scheduleId": null,
+  "attachmentCount": 0,
+  "objective": "Compare prices, shipping and delivery times for pour-over kettle on the supported shops.",
+  "objectiveMessage": {
+    "key": "objective.compareProducts",
+    "params": {
+      "query": "pour-over kettle"
+    }
+  },
+  "planner": {
+    "mode": "offline",
+    "provider": null,
+    "model": null
+  },
+  "answer": null,
+  "steps": [
+    {
+      "id": "f6b7c8d9-0a1c-4d2e-9f4a-5b6c7d8e9fa6",
+      "position": 0,
+      "title": "Search the shops for pour-over kettle",
+      "titleMessage": {
+        "key": "step.searchShops",
+        "params": {
+          "query": "pour-over kettle"
+        }
+      },
+      "toolId": "shop.search",
+      "riskLevel": "LOW",
+      "status": "SUCCEEDED",
+      "requiresApproval": false,
+      "policy": {
+        "decision": "allow",
+        "reasons": [
+          "RISK_LOW"
+        ]
+      },
+      "inputPreview": {
+        "query": "pour-over kettle"
+      },
+      "output": {
+        "query": "pour-over kettle",
+        "offerCount": 2,
+        "offers": [
+          {
+            "title": "Ceramic pour-over kettle 1.2 l",
+            "merchant": "Fixture Kitchen Supply",
+            "total": {
+              "amountMicro": 29480000,
+              "currency": "USD"
+            },
+            "price": {
+              "amountMicro": 24990000,
+              "currency": "USD"
+            }
+          },
+          {
+            "title": "Steel gooseneck kettle",
+            "merchant": "Fixture Kitchen Supply",
+            "total": null,
+            "price": {
+              "amountMicro": 31000000,
+              "currency": "USD"
+            }
+          }
+        ],
+        "sites": [
+          {
+            "siteId": "fixture-shop",
+            "status": "ok",
+            "reason": null
+          },
+          {
+            "siteId": "fixture-shop-b",
+            "status": "handover",
+            "reason": "CAPTCHA_DETECTED"
+          }
+        ],
+        "suspectedInjection": false
+      },
+      "evidence": [
+        {
+          "kind": "browser_capture",
+          "label": "Screenshot of shop.fixture.test",
+          "value": "https://shop.fixture.test/shop?q=kettle",
+          "at": "2026-11-04T09:12:03.000Z",
+          "code": "SCREENSHOT",
+          "params": {
+            "artifactId": "bec5d6f7-8c9e-4fa1-9bcd-def76543218e",
+            "url": "https://shop.fixture.test/shop?q=kettle",
+            "sha256": "9f86d081"
+          }
+        },
+        {
+          "kind": "note",
+          "label": "Handed over to you",
+          "value": "shop-b.fixture.test asked for a CAPTCHA",
+          "at": "2026-11-04T09:12:02.000Z",
+          "code": "HANDOVER",
+          "params": {
+            "host": "shop-b.fixture.test",
+            "reason": "CAPTCHA_DETECTED",
+            "url": "https://shop-b.fixture.test/captcha"
+          }
+        }
+      ],
+      "attempts": 1,
+      "startedAt": "2026-11-04T09:12:00.000Z",
+      "completedAt": "2026-11-04T09:12:05.000Z",
+      "error": null
+    },
+    {
+      "id": "a7c8d9e0-1b2d-4e3f-8a5b-6c7d8e9fab17",
+      "position": 1,
+      "title": "Compare the offers",
+      "titleMessage": {
+        "key": "step.compareOffers",
+        "params": {}
+      },
+      "toolId": "shop.compare",
+      "riskLevel": "LOW",
+      "status": "SUCCEEDED",
+      "requiresApproval": false,
+      "policy": {
+        "decision": "allow",
+        "reasons": [
+          "RISK_LOW"
+        ]
+      },
+      "inputPreview": {
+        "searches": 1
+      },
+      "output": {
+        "offerCount": 2,
+        "ranking": [
+          {
+            "title": "Ceramic pour-over kettle 1.2 l",
+            "merchant": "Fixture Kitchen Supply",
+            "total": {
+              "amountMicro": 29480000,
+              "currency": "USD"
+            }
+          },
+          {
+            "title": "Steel gooseneck kettle",
+            "merchant": "Fixture Kitchen Supply",
+            "total": null
+          }
+        ],
+        "best": {
+          "title": "Ceramic pour-over kettle 1.2 l",
+          "merchant": "Fixture Kitchen Supply",
+          "total": {
+            "amountMicro": 29480000,
+            "currency": "USD"
+          }
+        },
+        "mixedCurrencies": false
+      },
+      "evidence": [],
+      "attempts": 1,
+      "startedAt": "2026-11-04T09:12:00.000Z",
+      "completedAt": "2026-11-04T09:12:05.000Z",
+      "error": null
+    }
+  ],
+  "approvals": [],
+  "events": [],
+  "cost": {
+    "estimatedMicroUsd": 0,
+    "actualMicroUsd": 0
+  },
+  "evidence": [],
+  "canCancel": false,
+  "canRetry": false,
+  "startedAt": "2026-11-04T09:11:59.000Z",
+  "attachments": [],
+  "browserSessions": [
+    {
+      "id": "fca3b4d5-6a7c-4d8e-9fab-bcdef543216c",
+      "taskId": "c3e4f5a6-7d8f-4a9b-8c1d-2e3f4a5b6c73",
+      "stepId": "f6b7c8d9-0a1c-4d2e-9f4a-5b6c7d8e9fa6",
+      "siteId": "fixture-shop",
+      "operation": "search",
+      "status": "succeeded",
+      "stopReason": null,
+      "handoverUrl": null,
+      "navigations": 3,
+      "requests": 41,
+      "blockedRequests": 2,
+      "startedAt": "2026-11-04T09:12:00.500Z",
+      "endedAt": "2026-11-04T09:12:04.000Z",
+      "createdAt": "2026-11-04T09:12:00.100Z",
+      "artifacts": [
+        {
+          "id": "bec5d6f7-8c9e-4fa1-9bcd-def76543218e",
+          "kind": "screenshot",
+          "mediaType": "image/png",
+          "sizeBytes": 48211,
+          "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+          "pageUrl": "https://shop.fixture.test/shop?q=kettle",
+          "taskId": "c3e4f5a6-7d8f-4a9b-8c1d-2e3f4a5b6c73",
+          "browserSessionId": "fca3b4d5-6a7c-4d8e-9fab-bcdef543216c",
+          "downloadPath": "/v1/evidence/bec5d6f7-8c9e-4fa1-9bcd-def76543218e/content",
+          "createdAt": "2026-11-04T09:12:03.000Z"
+        },
+        {
+          "id": "cfd6e7a8-9daf-4ab2-8cde-ef876543219f",
+          "kind": "extract",
+          "mediaType": "application/json",
+          "sizeBytes": 3021,
+          "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+          "pageUrl": "https://shop.fixture.test/shop?q=kettle",
+          "taskId": "c3e4f5a6-7d8f-4a9b-8c1d-2e3f4a5b6c73",
+          "browserSessionId": "fca3b4d5-6a7c-4d8e-9fab-bcdef543216c",
+          "downloadPath": "/v1/evidence/cfd6e7a8-9daf-4ab2-8cde-ef876543219f/content",
+          "createdAt": "2026-11-04T09:12:03.000Z"
+        }
+      ]
+    },
+    {
+      "id": "adb4c5e6-7b8d-4e9f-8abc-cdef6543217d",
+      "taskId": "c3e4f5a6-7d8f-4a9b-8c1d-2e3f4a5b6c73",
+      "stepId": "f6b7c8d9-0a1c-4d2e-9f4a-5b6c7d8e9fa6",
+      "siteId": "fixture-shop-b",
+      "operation": "search",
+      "status": "handover",
+      "stopReason": "CAPTCHA_DETECTED",
+      "handoverUrl": "https://shop-b.fixture.test/captcha",
+      "navigations": 1,
+      "requests": 9,
+      "blockedRequests": 0,
+      "startedAt": "2026-11-04T09:12:00.600Z",
+      "endedAt": "2026-11-04T09:12:02.000Z",
+      "createdAt": "2026-11-04T09:12:00.120Z",
+      "artifacts": []
+    }
+  ]
+}

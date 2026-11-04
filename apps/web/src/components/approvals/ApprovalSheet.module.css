@@ -227,3 +227,287 @@
   /* The rule is code: always left to right, aligned to the start of the panel. */
   text-align: start;
 }
+
+/* ------------------------------------------------------------- Phase C kinds */
+
+.muted {
+  color: var(--color-text-secondary);
+}
+
+.money {
+  display: inline-block;
+  white-space: nowrap;
+  /* Amounts read left to right but sit on the interface's end side in tables. */
+  unicode-bidi: isolate;
+}
+
+.via {
+  display: block;
+  margin-block-start: 2px;
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+}
+
+.when {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.whenMain {
+  font-weight: 500;
+}
+
+.whenZone {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+}
+
+.previous {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--color-text-secondary);
+}
+
+.rowNote {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-block-start: var(--space-2);
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+}
+
+.rowNote :global(.icon) {
+  flex: none;
+  margin-block-start: 1px;
+}
+
+.email > .bodyLabel {
+  padding-block-end: var(--space-1);
+}
+
+.fieldValue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+}
+
+.fieldValue > .genericValue {
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+
+.personal {
+  flex: none;
+}
+
+.site {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+}
+
+.host {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+}
+
+/* Items table: a data table may scroll inside its own container on narrow screens. */
+.tableWrap {
+  overflow-x: auto;
+  border-block-start: 1px solid var(--color-border);
+}
+
+.items {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font: var(--text-callout);
+}
+
+.items th,
+.items td {
+  padding: var(--space-2) var(--space-3);
+  text-align: start;
+  vertical-align: baseline;
+}
+
+.items th:first-child,
+.items td:first-child {
+  padding-inline-start: var(--space-4);
+}
+
+.items th:last-child,
+.items td:last-child {
+  padding-inline-end: var(--space-4);
+}
+
+.items thead th {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  font-weight: var(--type-label-weight);
+  color: var(--color-text-secondary);
+  border-block-end: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.items tbody tr + tr th,
+.items tbody tr + tr td {
+  border-block-start: 1px solid var(--color-border);
+}
+
+.items .num {
+  text-align: end;
+  white-space: nowrap;
+}
+
+.itemTitle {
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.unitInline {
+  display: none;
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  font-weight: normal;
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 479.98px) {
+  .items .unitCol {
+    display: none;
+  }
+
+  .unitInline {
+    display: block;
+  }
+}
+
+.totals {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-block-start: 1px solid var(--color-border);
+  background: var(--color-surface-sunken);
+}
+
+.totals > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+}
+
+.totals dd {
+  margin: 0;
+  color: var(--color-text-primary);
+}
+
+.grandTotal {
+  margin-block-start: var(--space-1);
+  padding-block-start: var(--space-2);
+  border-block-start: 1px solid var(--color-border);
+}
+
+.totals .grandTotal dt,
+.totals .grandTotal dd {
+  font: var(--text-body-strong);
+  color: var(--color-text-primary);
+}
+
+.purchaseFacts {
+  padding-inline: var(--space-4);
+  border-block-start: 1px solid var(--color-border);
+}
+
+.stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.limit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.limitHead {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+}
+
+.limitValue {
+  font: var(--text-label);
+  color: var(--color-text-primary);
+}
+
+.limitMeter {
+  display: flex;
+  block-size: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-hover);
+  overflow: hidden;
+}
+
+.limitSpent {
+  background: var(--color-text-tertiary);
+}
+
+.limitThis {
+  background: var(--color-accent);
+}
+
+.limitLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  list-style: none;
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+}
+
+.limitLegend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.limitLegend li:last-child {
+  margin-inline-start: auto;
+  font-weight: var(--type-label-weight);
+  color: var(--color-text-primary);
+}
+
+.swatch {
+  inline-size: 10px;
+  block-size: 10px;
+  border-radius: var(--radius-full);
+}
+
+.swatchSpent {
+  background: var(--color-text-tertiary);
+}
+
+.swatchThis {
+  background: var(--color-accent);
+}

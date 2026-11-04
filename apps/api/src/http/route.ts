@@ -272,9 +272,30 @@ async function withIdempotency(
 }
 
 /** Throws at boot if any route in the contract table has no handler. */
-export function assertAllRoutesRegistered(app: FastifyInstance): void {
+export function assertAllRoutesRegistered(
+  app: FastifyInstance,
+  opts: {
+    /**
+     * Phase C stage 1 → 2 (docs/architecture/phase-c.md §0): contract routes
+     * whose handlers have not landed yet. Tolerated only outside production
+     * (they answer 404 — never a placeholder); a production boot with any of
+     * them still fails. A pending route that has a handler is an error too, so
+     * the list only ever shrinks to empty.
+     */
+    pending?: ReadonlySet<RouteName>;
+    production?: boolean;
+  } = {},
+): void {
   const set = registered.get(app) ?? new Set();
-  const missing = (Object.keys(routes) as RouteName[]).filter((n) => !set.has(n));
+  const pending = opts.production ? new Set<RouteName>() : (opts.pending ?? new Set<RouteName>());
+  const stale = [...(opts.pending ?? [])].filter((n) => set.has(n));
+  if (stale.length)
+    throw new Error(
+      `Routes listed as pending but registered (remove them from the list): ${stale.join(', ')}`,
+    );
+  const missing = (Object.keys(routes) as RouteName[]).filter(
+    (n) => !set.has(n) && !pending.has(n),
+  );
   if (missing.length) throw new Error(`Routes without handlers: ${missing.join(', ')}`);
 }
 

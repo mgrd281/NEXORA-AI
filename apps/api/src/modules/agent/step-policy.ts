@@ -12,6 +12,7 @@ import type { AgentContext } from './context';
 import { denyMessage, denyReason, evaluatePolicy, type PolicyResult } from './policy';
 import { skillOfTool } from './skills/registry';
 import { findRefs } from './templates';
+import { getTool } from './tools/registry';
 import type { AnyTool, CostContext } from './tools/types';
 
 export interface StepAssessment {
@@ -64,12 +65,31 @@ export function assessStep(
     config,
     attachments: opts.attachments,
   });
-  let recipients: string[] | undefined;
-  try {
-    recipients = tool.recipients?.(input);
-  } catch {
-    recipients = undefined;
-  }
+  // Tool declarations are facts about the input; a hook that throws on an
+  // unexpected shape yields no fact (and never an allow): see each default.
+  const fact = <T>(f: () => T, fallback: T): T => {
+    try {
+      return f();
+    } catch {
+      return fallback;
+    }
+  };
+  const recipients = fact<string[] | undefined>(() => tool.recipients?.(input), undefined);
+  // Phase C facts (docs/architecture/phase-c.md §5).
+  const requirement = tool.requires ? fact(() => tool.requires!(input), null) : null;
+  const purchaseFacts = tool.purchase
+    ? fact(() => tool.purchase!(input), { amountMicro: null, currency: null })
+    : null;
+  const purchase = purchaseFacts
+    ? {
+        ...purchaseFacts,
+        limitMicro: agent.purchases?.limitMicro ?? 0,
+        spentMicro: agent.purchases?.spentMicro ?? 0,
+      }
+    : null;
+  // An unreadable attendee list must not hide invitations: treat it as external.
+  const attendees = tool.attendees ? fact(() => tool.attendees!(input), ['?']) : undefined;
+  const binding = tool.binding ? fact(() => tool.binding!(input), true) : false;
   const policy = evaluatePolicy({
     toolId: tool.id,
     risk,
@@ -79,7 +99,18 @@ export function assessStep(
     accountEmail: agent.account.email,
     recipients,
     sideEffect: tool.sideEffect,
-    outbound: tool.urls !== undefined,
+    outbound: tool.urls !== undefined || tool.outbound === true,
+    requirement,
+    connectionOptions: tool.connectionOptions
+      ? [
+          ...(tool.requiredConnection ? [{ provider: tool.requiredConnection }] : []),
+          ...tool.connectionOptions,
+        ]
+      : undefined,
+    connectionStates: agent.connectionStates,
+    purchase,
+    attendees,
+    binding,
     modelUse: tool.modelUse,
     model: { available: modelAvailable, offlineReason: agent.route.reason },
     projectedCostMicro: estimateMicro,
@@ -101,7 +132,7 @@ export function denyError(
   policy: PolicyResult,
 ): TaskError & { code: NonNullable<PolicyResult['denyCode']> } {
   const code = policy.denyCode ?? 'POLICY_DENIED';
-  const params: Record<string, string> = { step: stepTitle };
+  const params: Record<string, string | number> = { step: stepTitle, ...(policy.denyParams ?? {}) };
   if (policy.reasons.includes('SKILL_DISABLED')) params.skill = skillOfTool(tool.id).id;
   return {
     code,
@@ -167,7 +198,16 @@ export function untrustedSource(steps: StepRow[], target: StepRow): UntrustedSou
         : s.tool_id === 'conversation.recall'
           ? (s.output as Out)?.sourceUrl
           : null;
-    if (typeof url !== 'string') continue;
+    if (typeof url !== 'string') {
+      // Phase C: tools that read other sources say where flagged content came from.
+      const tool = getTool(s.tool_id);
+      const declared = tool?.untrustedHost?.((s.output as Out) ?? {}) ?? null;
+      if (declared) {
+        host = declared;
+        break;
+      }
+      continue;
+    }
     try {
       host = new URL(url).host;
       break;

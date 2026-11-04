@@ -29,6 +29,12 @@ const DENY_ONLY = new Set([
   'BUDGET_EXHAUSTED',
   'EXTERNAL_MODELS_DISABLED',
   'MODEL_UNAVAILABLE',
+  // Phase C
+  'CONNECTION_EXPIRED',
+  'CONNECTION_SCOPE_MISSING',
+  'PURCHASES_DISABLED',
+  'PURCHASE_LIMIT',
+  'PURCHASE_CURRENCY',
 ]);
 
 const KEYS: Array<[string, readonly string[], (value: string) => string]> = [

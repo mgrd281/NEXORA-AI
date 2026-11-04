@@ -1,15 +1,26 @@
 {
   "id": "spec-02-compare-products",
-  "version": 1,
+  "version": 2,
   "suite": "spec",
-  "title": "Spec 2 — compare products and buy: planned skill, honest unsupported",
-  "modes": ["offline", "model"],
+  "title": "Spec 2 / scenario 3 — compare products: offers read live from the supported shops, ranked with sources",
+  "modes": ["offline", "pipeline"],
   "given": {
-    "request": "Compare the prices of the Kindle Paperwhite and the Kobo Clara and buy the cheaper one"
+    "request": "Compare the prices of the FX-100 headphones",
+    "browserAvailable": true
   },
   "expect": {
-    "result": "unsupported",
+    "result": "plan",
+    "toolSequence": ["shop.search", "shop.compare"],
     "recipientsExactly": [],
-    "urlsExactly": []
+    "urlsExactly": [],
+    "pipeline": {
+      "status": "COMPLETED",
+      "sideEffectsExactly": 0,
+      "evidenceAtLeast": 2,
+      "executions": {
+        "shop.search": 1,
+        "shop.compare": 1
+      }
+    }
   }
 }

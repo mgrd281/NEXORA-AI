@@ -44,7 +44,8 @@ enum TaskEventText {
         case .taskRetried:
             return String(localized: "Retried")
         case .notificationCreated, .connectionChanged, .heartbeat, .conversationMessage,
-             .conversationChanged, .scheduleChanged, .webhookDeliveryFailed, .webhookEndpointChanged, .unknown:
+             .conversationChanged, .scheduleChanged, .webhookDeliveryFailed, .webhookEndpointChanged,
+             .emailWatchChanged, .browserSessionChanged, .orderChanged, .bookingChanged, .unknown:
             return String(localized: "Update")
         }
     }
@@ -62,7 +63,8 @@ enum TaskEventText {
         case .taskCancelRequested: "slash.circle"
         case .taskRetried: "arrow.clockwise.circle"
         case .taskAnswerDelta, .notificationCreated, .connectionChanged, .heartbeat, .conversationMessage,
-             .conversationChanged, .scheduleChanged, .webhookDeliveryFailed, .webhookEndpointChanged, .unknown: "circle"
+             .conversationChanged, .scheduleChanged, .webhookDeliveryFailed, .webhookEndpointChanged,
+             .emailWatchChanged, .browserSessionChanged, .orderChanged, .bookingChanged, .unknown: "circle"
         }
     }
 }
@@ -76,8 +78,8 @@ enum PolicyReasonText {
         case "RISK_HIGH": String(localized: "High-risk action: it always needs your approval.")
         case "RISK_CRITICAL": String(localized: "Critical-risk actions are not allowed in this version.")
         case "RECIPIENT_SELF": String(localized: "The email goes only to your own address.")
-        case "RECIPIENT_EXTERNAL": String(localized: "The email goes to someone other than you.")
-        case "MANY_RECIPIENTS": String(localized: "The email has many recipients.")
+        case "RECIPIENT_EXTERNAL": String(localized: "It goes to someone other than you.")
+        case "MANY_RECIPIENTS": String(localized: "It goes to more than three people.")
         case "AUTO_APPROVED_SELF": String(localized: "Approved automatically by your setting for emails to yourself.")
         case "CONNECTION_MISSING": String(localized: "A required service isn't connected.")
         case "MEMORY_DISABLED": String(localized: "Memory is turned off in your settings.")
@@ -92,6 +94,14 @@ enum PolicyReasonText {
         case "MEMORY_FROM_CONTENT": String(localized: "The text to remember comes from an earlier result, so you decide exactly what is kept.")
         case "UNTRUSTED_MEMORY": String(localized: "The text comes from content that tried to instruct JARVIS, so it can't be saved to memory.")
         case "FUTURE_RUNS": String(localized: "A schedule runs again in the future, so JARVIS asks before creating it.")
+        // Phase C
+        case "CONNECTION_EXPIRED": String(localized: "The connection it needs has expired. Reconnect it.")
+        case "CONNECTION_SCOPE_MISSING": String(localized: "The connection doesn't allow this yet.")
+        case "PURCHASES_DISABLED": String(localized: "Purchases are turned off (monthly purchase limit $0).")
+        case "PURCHASE_LIMIT": String(localized: "It would go over your monthly purchase limit.")
+        case "PURCHASE_CURRENCY": String(localized: "The price isn't in US dollars, the currency of your purchase limit.")
+        case "PURCHASE": String(localized: "This spends your money. JARVIS always asks, and shows the exact total.")
+        case "BINDING_COMMITMENT": String(localized: "This is binding with the site (for example, cancellation fees may apply).")
         default: nil
         }
     }

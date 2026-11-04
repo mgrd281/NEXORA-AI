@@ -12,6 +12,9 @@
  * - Each fixture in `olderServer` is a payload of a server before Phase B: it must parse,
  *   and the only differences after parsing are the listed contract defaults (the Swift
  *   tests check the app applies the same defaults).
+ * - Phase C adds a fixture for every new schema the app decodes (providers, OAuth start and
+ *   callback, calendars, email watches, orders, bookings, evidence, browser sessions, the four
+ *   new approval kinds and email drafts) and newer-server variants of each new enum family.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -21,12 +24,25 @@ import {
   ApiErrorBody,
   Approval,
   Attachment,
+  Booking,
+  BookingConfirmation,
+  BookingSlots,
+  CalendarEventList,
   ConversationDetail,
+  EmailMessageSummary,
+  EmailThreadSummary,
+  EvidenceArtifact,
+  FreeBusyResult,
   HomeSnapshot,
   LoginResponse,
   Me,
+  OAuthCallbackResult,
+  OAuthStartResponse,
+  Order,
+  PreparedCart,
   ScheduleDetail,
   SchedulePreview,
+  ShoppingComparison,
   StreamEvent,
   TaskDetail,
   routes,
@@ -71,6 +87,37 @@ const valid: Record<string, Schema> = {
   'schedule-detail.json': ScheduleDetail,
   'schedule-preview.json': SchedulePreview,
   'time-zones.json': routes.listTimeZones.response,
+  // Phase C
+  'connection-providers.json': routes.listConnectionProviders.response,
+  'connections-phase-c.json': routes.listConnections.response,
+  'oauth-start.json': OAuthStartResponse,
+  'oauth-callback-result.json': OAuthCallbackResult,
+  'calendar-upcoming.json': routes.listUpcomingEvents.response,
+  'calendar-events.json': CalendarEventList,
+  'email-watches.json': routes.listEmailWatches.response,
+  'orders-page.json': routes.listOrders.response,
+  'order.json': Order,
+  'bookings-page.json': routes.listBookings.response,
+  'booking.json': Booking,
+  'evidence-artifact.json': EvidenceArtifact,
+  'task-detail-shopping.json': TaskDetail,
+  'task-detail-connection-expired.json': TaskDetail,
+  'approval-purchase.json': Approval,
+  'approval-calendar-event.json': Approval,
+  'approval-booking.json': Approval,
+  'approval-form-submission.json': Approval,
+  'approval-email-draft.json': Approval,
+  'home-snapshot-upcoming.json': HomeSnapshot,
+  'skills-phase-c.json': routes.listSkills.response,
+  'stream-event-order.json': StreamEvent,
+  // Tool outputs the app models (step results), decoded leniently when a route sends them
+  'free-busy-result.json': FreeBusyResult,
+  'email-thread-summary.json': EmailThreadSummary,
+  'email-message-summary.json': EmailMessageSummary,
+  'shopping-comparison.json': ShoppingComparison,
+  'prepared-cart.json': PreparedCart,
+  'booking-slots.json': BookingSlots,
+  'booking-confirmation.json': BookingConfirmation,
 };
 
 /** Fixtures with values newer than this build, and the only paths allowed to fail. */
@@ -126,6 +173,26 @@ const unknownValues: Record<string, { schema: Schema; paths: string[] }> = {
       'items.0.modelUse',
     ],
   },
+  // Phase C
+  'unknown-values-connections.json': {
+    schema: routes.listConnections.response,
+    paths: ['items.0.provider', 'items.0.status', 'items.0.capabilities.0', 'items.0.statusReason'],
+  },
+  'unknown-values-commerce.json': {
+    schema: Order,
+    paths: ['status', 'failureReason', 'evidence.0.kind', 'evidence.0.mediaType'],
+  },
+  'unknown-values-phase-c.json': {
+    schema: TaskDetail,
+    paths: [
+      'steps.0.evidence.0.code',
+      'approvals.0.details.mode',
+      'approvals.0.details.via',
+      'approvals.1.details.action',
+      'browserSessions.0.status',
+      'browserSessions.0.stopReason',
+    ],
+  },
 };
 
 /** Payloads of a server before Phase B: parse, with exactly these contract defaults applied. */
@@ -135,6 +202,8 @@ const olderServer: Record<string, { schema: Schema; defaults: Record<string, unk
     defaults: {
       'preferences.retention': { memoryDays: null, taskHistoryDays: null },
       'preferences.skills': { disabled: [] },
+      // Phase C: purchases are off unless the user sets a limit.
+      'preferences.spending.monthlyPurchaseLimitUsd': 0,
     },
   },
 };

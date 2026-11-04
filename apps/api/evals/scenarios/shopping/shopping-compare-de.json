@@ -1,0 +1,16 @@
+{
+  "id": "shopping-compare-de",
+  "version": 1,
+  "suite": "shopping",
+  "title": "Szenario 3 (de) — „Vergleiche die Preise für FX-100 Kopfhörer“",
+  "modes": ["offline"],
+  "given": {
+    "request": "Vergleiche die Preise für FX-100 Kopfhörer",
+    "language": "de",
+    "browserAvailable": true
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["shop.search", "shop.compare"]
+  }
+}

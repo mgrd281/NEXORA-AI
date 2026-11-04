@@ -20,6 +20,26 @@ const unknownTimeZone = () =>
     issues: [{ path: 'timeZone', message: 'Unknown time zone' }],
   });
 
+/**
+ * Phase C (docs/adr/0018): the monthly purchase limit is an amount of money,
+ * so it is whole cents (the contract bounds it to 0…COMMERCE_LIMITS max). A
+ * value like 10.005 would be compared in micro-USD and shown rounded —
+ * refused instead of silently rounded.
+ */
+export function isWholeCents(amount: number): boolean {
+  return Number.isFinite(amount) && Math.abs(Math.round(amount * 100) - amount * 100) < 1e-6;
+}
+
+const purchaseLimitNotCents = () =>
+  new AppError('VALIDATION_FAILED', 'The purchase limit must be an amount in whole cents', {
+    issues: [
+      {
+        path: 'preferences.spending.monthlyPurchaseLimitUsd',
+        message: 'Use at most two decimal places',
+      },
+    ],
+  });
+
 /** Overlays a partial preferences patch (one level of groups) onto the resolved preferences. */
 export function mergePreferences(
   current: Preferences,
@@ -42,6 +62,8 @@ export function registerAccountRoutes(app: FastifyInstance, deps: AppDeps) {
   );
 
   defineRoute(app, deps, 'updateMe', async ({ ctx, body }) => {
+    const purchaseLimit = body.preferences?.spending?.monthlyPurchaseLimitUsd;
+    if (purchaseLimit !== undefined && !isWholeCents(purchaseLimit)) throw purchaseLimitNotCents();
     return withContext(db, ctx, async (trx) => {
       // Only zones both Node and Postgres understand, stored as Postgres spells them.
       const timeZone =
@@ -79,10 +101,14 @@ export function registerAccountRoutes(app: FastifyInstance, deps: AppDeps) {
         set.theme = body.theme;
         changed.push('theme');
       }
+      let purchaseLimitChanged = false;
       if (body.preferences !== undefined) {
-        const merged = mergePreferences(resolvePreferences(user.preferences), body.preferences);
+        const current = resolvePreferences(user.preferences);
+        const merged = mergePreferences(current, body.preferences);
         set.preferences = JSON.stringify(merged);
         for (const group of Object.keys(body.preferences)) changed.push(`preferences.${group}`);
+        purchaseLimitChanged =
+          merged.spending.monthlyPurchaseLimitUsd !== current.spending.monthlyPurchaseLimitUsd;
       }
       if (changed.length > 0) {
         await trx.updateTable('users').set(set).where('id', '=', ctx.userId).execute();
@@ -93,7 +119,9 @@ export function registerAccountRoutes(app: FastifyInstance, deps: AppDeps) {
           action: 'account.updated',
           targetType: 'user',
           targetId: ctx.userId,
-          metadata: { fields: changed },
+          // Whether the purchase limit changed, never the amounts (the policy reads the
+          // current value; the history of what a user allowed is not kept elsewhere).
+          metadata: { fields: changed, ...(purchaseLimitChanged ? { purchaseLimitChanged } : {}) },
         });
       }
       return loadMe(trx, ctx.userId);
@@ -161,11 +189,19 @@ export function registerAccountRoutes(app: FastifyInstance, deps: AppDeps) {
       const storedFiles = await withContext(db, ctx, async (trx) => {
         // Stored files: the attachments trigger queues each for deletion (storage_deletions,
         // drained by the worker); they are also deleted right after the commit below.
-        const files = await trx
-          .selectFrom('attachments')
-          .select(['storage_key', 'storage_driver'])
-          .where('user_id', '=', ctx.userId)
-          .execute();
+        const files = [
+          ...(await trx
+            .selectFrom('attachments')
+            .select(['storage_key', 'storage_driver'])
+            .where('user_id', '=', ctx.userId)
+            .execute()),
+          // Phase C: the browser agent's evidence files (same trigger, same immediate delete).
+          ...(await trx
+            .selectFrom('evidence_artifacts')
+            .select(['storage_key', 'storage_driver'])
+            .where('user_id', '=', ctx.userId)
+            .execute()),
+        ];
         // The audit record is written first and commits atomically with the deletion.
         await audit(trx, {
           tenantId: ctx.tenantId,
@@ -175,7 +211,10 @@ export function registerAccountRoutes(app: FastifyInstance, deps: AppDeps) {
           targetType: 'user',
           targetId: ctx.userId,
         });
-        // Cascades to every user-owned row (sessions, tasks, memories, connections, …).
+        // Cascades to every user-owned row (sessions, tasks, memories, connections, …). Phase C:
+        // the connections' AFTER DELETE trigger queues Google grants for revocation at Google
+        // (oauth_revocations, drained by the worker); orders, bookings, email watches, OAuth
+        // states, browser sessions and evidence (storage deletion queued) cascade as well.
         await trx.deleteFrom('users').where('id', '=', ctx.userId).execute();
         // Queued work for the user has no foreign key; drop it so the worker never runs it.
         await trx.deleteFrom('jobs').where('user_id', '=', ctx.userId).execute();

@@ -1,0 +1,15 @@
+{
+  "id": "booking-unknown-site-asks",
+  "version": 1,
+  "suite": "booking",
+  "title": "An appointment at a site JARVIS does not support: ask which supported site (never guess one)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Book an appointment at the dentist",
+    "browserAvailable": true
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["site"]
+  }
+}

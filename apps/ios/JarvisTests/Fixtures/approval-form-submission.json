@@ -1,0 +1,52 @@
+{
+  "id": "d6e3f4b5-a4b7-4bc9-9d56-5f9876543260",
+  "taskId": "e5a6b7c8-9f0b-4c1d-8e3f-4a5b6c7d8e95",
+  "taskTitle": "Buy pour-over kettle on Fixture Kitchen Supply",
+  "taskTitleMessage": {
+    "key": "plan.buy",
+    "params": {
+      "product": "pour-over kettle",
+      "site": "Fixture Kitchen Supply"
+    }
+  },
+  "stepId": "ebf2a3c4-5f6b-4c7d-8e9f-abcdef43215b",
+  "toolId": "browser.fill",
+  "status": "PENDING",
+  "riskLevel": "MEDIUM",
+  "summary": "Submit the form on Fixture Dental.",
+  "summaryMessage": {
+    "key": "approval.formSubmission",
+    "params": {
+      "site": "Fixture Dental"
+    }
+  },
+  "details": {
+    "kind": "form_submission",
+    "siteId": "fixture-booking",
+    "siteName": "Fixture Dental",
+    "siteHost": "booking.fixture.test",
+    "form": "contact",
+    "fields": [
+      {
+        "label": "Email",
+        "value": "ada@example.com",
+        "personal": true
+      },
+      {
+        "label": "Message",
+        "value": "Please call me back about my appointment.",
+        "personal": false
+      }
+    ],
+    "binding": false,
+    "evidenceArtifactId": null
+  },
+  "actionHash": "c0ffee00a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c",
+  "reasons": [
+    "RISK_MEDIUM"
+  ],
+  "expiresAt": "2026-11-05T09:15:00.000Z",
+  "decidedAt": null,
+  "decisionNote": null,
+  "createdAt": "2026-11-04T09:15:00.000Z"
+}

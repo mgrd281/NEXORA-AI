@@ -1,0 +1,50 @@
+{
+  "items": [
+    {
+      "id": "evt-standup-20261104",
+      "provider": "google",
+      "connectionId": "a1c2e3f4-5b6d-4e7f-8a9b-0c1d2e3f4a51",
+      "title": "Design review",
+      "start": "2026-11-04T13:00:00.000Z",
+      "end": "2026-11-04T14:00:00.000Z",
+      "timeZone": "Europe/Berlin",
+      "allDay": false,
+      "location": "Room 4",
+      "status": "confirmed",
+      "organizer": "lin@example.org",
+      "attendees": [
+        {
+          "email": "lin@example.org",
+          "name": "Lin",
+          "response": "accepted",
+          "organizer": true,
+          "self": false
+        },
+        {
+          "email": "ada@gmail.example",
+          "name": null,
+          "response": "needs_action",
+          "organizer": false,
+          "self": true
+        },
+        {
+          "email": "sam@example.org",
+          "name": "Sam",
+          "response": null,
+          "organizer": false,
+          "self": false
+        }
+      ],
+      "webLink": "https://calendar.google.com/calendar/event?eid=ZXZ0"
+    }
+  ],
+  "sources": [
+    {
+      "connectionId": "a1c2e3f4-5b6d-4e7f-8a9b-0c1d2e3f4a51",
+      "provider": "google",
+      "accountIdentifier": "ada@gmail.example",
+      "status": "ok"
+    }
+  ],
+  "truncated": false
+}

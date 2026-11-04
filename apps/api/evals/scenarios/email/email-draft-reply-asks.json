@@ -1,0 +1,29 @@
+{
+  "id": "email-draft-reply-asks",
+  "version": 1,
+  "suite": "email",
+  "title": "A reply draft is MEDIUM: it asks first (recipients, subject and body shown)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Draft a reply to anna@example.org saying Thursday works for me.",
+    "connections": ["web", "google"],
+    "connectionCapabilities": {
+      "google": ["mail.read", "mail.compose", "mail.send"]
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["email.search", "email.draft_reply"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "allow"
+      },
+      {
+        "step": 1,
+        "decision": "require_approval",
+        "reasonsInclude": ["RISK_MEDIUM"]
+      }
+    ]
+  }
+}

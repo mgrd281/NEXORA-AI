@@ -1,0 +1,101 @@
+{
+  "query": "pour-over kettle",
+  "offers": [
+    {
+      "id": "fixture-shop:KET-12",
+      "siteId": "fixture-shop",
+      "merchantName": "Fixture Kitchen Supply",
+      "merchantHost": "shop.fixture.test",
+      "title": "Ceramic pour-over kettle 1.2 l",
+      "productUrl": "https://shop.fixture.test/shop/products/KET-12",
+      "price": {
+        "amountMicro": 24990000,
+        "currency": "USD"
+      },
+      "shipping": {
+        "amountMicro": 4490000,
+        "currency": "USD"
+      },
+      "total": {
+        "amountMicro": 29480000,
+        "currency": "USD"
+      },
+      "delivery": {
+        "minDays": 2,
+        "maxDays": 4,
+        "text": "2–4 business days"
+      },
+      "inStock": true,
+      "rating": {
+        "value": 4.6,
+        "count": 1203
+      },
+      "signals": [
+        {
+          "code": "https",
+          "present": true,
+          "value": null
+        },
+        {
+          "code": "return_policy",
+          "present": true,
+          "value": null
+        },
+        {
+          "code": "customer_rating",
+          "present": true,
+          "value": "4.6 (1,203 ratings)"
+        },
+        {
+          "code": "legal_notice",
+          "present": false,
+          "value": null
+        }
+      ],
+      "evidenceArtifactId": "bec5d6f7-8c9e-4fa1-9bcd-def76543218e",
+      "capturedAt": "2026-11-04T09:12:03.000Z"
+    },
+    {
+      "id": "fixture-shop-b:GK-1",
+      "siteId": "fixture-shop-b",
+      "merchantName": "Fixture Home",
+      "merchantHost": "shop-b.fixture.test",
+      "title": "Steel gooseneck kettle",
+      "productUrl": "https://shop-b.fixture.test/p/GK-1",
+      "price": {
+        "amountMicro": 31000000,
+        "currency": "EUR"
+      },
+      "shipping": null,
+      "total": null,
+      "delivery": {
+        "minDays": null,
+        "maxDays": null,
+        "text": null
+      },
+      "inStock": null,
+      "rating": null,
+      "signals": [],
+      "evidenceArtifactId": null,
+      "capturedAt": "2026-11-04T09:12:03.000Z"
+    }
+  ],
+  "ranking": [
+    "fixture-shop:KET-12",
+    "fixture-shop-b:GK-1"
+  ],
+  "sites": [
+    {
+      "siteId": "fixture-shop",
+      "status": "ok",
+      "reason": null
+    },
+    {
+      "siteId": "fixture-shop-b",
+      "status": "handover",
+      "reason": "CAPTCHA_DETECTED"
+    }
+  ],
+  "mixedCurrencies": true,
+  "generatedAt": "2026-11-04T09:12:05.000Z"
+}

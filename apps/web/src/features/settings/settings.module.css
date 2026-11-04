@@ -939,3 +939,117 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* ------------------------------------------------------------- Phase C: spending, replies */
+
+.limitStatus {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font: var(--text-callout);
+  color: var(--color-text-primary);
+}
+
+.limitStatus :global(.icon) {
+  flex: none;
+  margin-block-start: 2px;
+  color: var(--color-success);
+}
+
+.limitOff :global(.icon) {
+  color: var(--color-text-secondary);
+}
+
+.limitFacts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-inline-start: var(--space-5);
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+  list-style: disc;
+  max-inline-size: 64ch;
+}
+
+.limitFacts li::marker {
+  color: var(--color-text-tertiary);
+}
+
+.records {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+}
+
+.record {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-3);
+  padding-block: var(--space-3);
+}
+
+.record + .record {
+  border-block-start: 1px solid var(--color-border);
+}
+
+@media (max-width: 639.98px) {
+  .record {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .recordEnd {
+    grid-column: 2;
+    align-items: flex-start;
+  }
+}
+
+.recordIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--control-sm);
+  block-size: var(--control-sm);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-secondary);
+}
+
+.recordMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.recordTitle {
+  font: var(--text-label);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.recordLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin-block-start: var(--space-1);
+}
+
+.recordLink {
+  align-self: flex-start;
+  font: var(--text-caption);
+  font-weight: var(--type-label-weight);
+}
+
+.recordEnd {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.recordAmount {
+  font: var(--text-label);
+  color: var(--color-text-primary);
+}

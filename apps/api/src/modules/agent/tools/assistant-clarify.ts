@@ -50,6 +50,11 @@ export const QUESTION_KEY: Record<MissingInfo, ServerMessageKey> = {
   target_language: 'question.targetLanguage',
   previous_result: 'question.previousResult',
   details: 'question.details',
+  // Phase C
+  date_time: 'question.dateTime',
+  contact_details: 'question.contactDetails',
+  product: 'question.product',
+  site: 'question.site',
 };
 
 /** The question a clarify step asks: model-written text, or the server sentence for `missing[0]`. */

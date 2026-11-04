@@ -57,7 +57,7 @@ enum ErrorText {
         case .approvalMismatch:
             return String(localized: "The action changed since you reviewed it. Review it again.")
         case .connectionRequired:
-            return String(localized: "This needs a connected service. Connect it in JARVIS on the web.")
+            return String(localized: "This needs a connected service. Connect it in Settings › Connections.")
         case .connectionFailed:
             return String(localized: "A connected service didn't respond. Check the connection and try again.")
         case .modelNotConfigured:
@@ -172,6 +172,33 @@ enum ApiErrorReasonText {
             text = String(localized: "error.api.SKILL_NOT_TOGGLEABLE", defaultValue: "This skill is part of how JARVIS works and can't be turned off.")
         case "SKILL_PLANNED":
             text = String(localized: "error.api.SKILL_PLANNED", defaultValue: "This skill isn't available yet.")
+        // Phase C: connections, calendar, evidence
+        case "PROVIDER_NOT_CONFIGURED":
+            text = String(localized: "error.api.PROVIDER_NOT_CONFIGURED", defaultValue: "\(p.provider) isn't set up on this server.")
+        case "REDIRECT_URI_NOT_ALLOWED":
+            text = String(localized: "error.api.REDIRECT_URI_NOT_ALLOWED", defaultValue: "This app's sign-in return address isn't allowed on this server.")
+        case "OAUTH_STATE_INVALID":
+            text = String(localized: "error.api.OAUTH_STATE_INVALID", defaultValue: "This sign-in link isn't valid any more. Start connecting again.")
+        case "OAUTH_STATE_EXPIRED":
+            text = String(localized: "error.api.OAUTH_STATE_EXPIRED", defaultValue: "The sign-in took too long. Start connecting again.")
+        case "OAUTH_DENIED":
+            text = String(localized: "error.api.OAUTH_DENIED", defaultValue: "You didn't allow access at \(p.provider), so nothing was connected.")
+        case "OAUTH_EXCHANGE_FAILED":
+            text = String(localized: "error.api.OAUTH_EXCHANGE_FAILED", defaultValue: "\(p.provider) didn't complete the sign-in. Try again.")
+        case "OAUTH_SCOPE_NOT_GRANTED":
+            text = String(localized: "error.api.OAUTH_SCOPE_NOT_GRANTED", defaultValue: "None of the permissions JARVIS asked for were allowed, so nothing was connected.")
+        case "OAUTH_ACCOUNT_MISMATCH":
+            text = String(localized: "error.api.OAUTH_ACCOUNT_MISMATCH", defaultValue: "You signed in to a different \(p.provider) account. Disconnect the old one first to switch.")
+        case "OAUTH_PENDING_LIMIT":
+            text = String(localized: "error.api.OAUTH_PENDING_LIMIT", defaultValue: "Too many sign-ins are still open. Finish them or wait a few minutes, then try again.")
+        case "CONNECTION_NOT_OAUTH":
+            text = String(localized: "error.api.CONNECTION_NOT_OAUTH", defaultValue: "This connection can't be reconnected this way.")
+        case "CALENDAR_NOT_CONNECTED":
+            text = String(localized: "error.api.CALENDAR_NOT_CONNECTED", defaultValue: "No calendar is connected.")
+        case "CALENDAR_UNAVAILABLE":
+            text = String(localized: "error.api.CALENDAR_UNAVAILABLE", defaultValue: "\(p.provider) didn't answer in time.")
+        case "EVIDENCE_NOT_AVAILABLE":
+            text = String(localized: "error.api.EVIDENCE_NOT_AVAILABLE", defaultValue: "This evidence file can't be read on this server right now.")
         default:
             // Webhook reasons are not reachable from this app (webhooks are managed on the web).
             return nil
@@ -311,6 +338,73 @@ enum TaskErrorText {
             text = String(localized: "error.reason.SKILL_DISABLED", defaultValue: "This needs the skill “\(p.skill)”, which is turned off in Settings.")
         case "UNTRUSTED_MEMORY":
             text = String(localized: "error.reason.UNTRUSTED_MEMORY", defaultValue: "JARVIS won't save this to memory: it comes from content that tried to give instructions to AI assistants.")
+        // Phase C: connections, email, calendars, browser agent, booking, shopping, purchases
+        case "CONNECTION_EXPIRED":
+            text = String(localized: "error.reason.CONNECTION_EXPIRED", defaultValue: "Your \(p.provider) connection has expired. Reconnect it, then retry.")
+        case "CONNECTION_SCOPE_MISSING":
+            text = String(localized: "error.reason.CONNECTION_SCOPE_MISSING", defaultValue: "\(p.provider) hasn't given JARVIS this permission: \(p.capability). Reconnect and allow it, then retry.")
+        case "PROVIDER_RATE_LIMITED":
+            text = String(localized: "error.reason.PROVIDER_RATE_LIMITED", defaultValue: "\(p.provider) is limiting requests right now. Try again in a few minutes.")
+        case "PROVIDER_UNAVAILABLE":
+            text = String(localized: "error.reason.PROVIDER_UNAVAILABLE", defaultValue: "\(p.provider) isn't responding right now. Try again later.")
+        case "PROVIDER_REJECTED":
+            text = String(localized: "error.reason.PROVIDER_REJECTED", defaultValue: "\(p.provider) refused the request (error \(p.status)).")
+        case "EMAIL_THREAD_NOT_FOUND":
+            text = String(localized: "error.reason.EMAIL_THREAD_NOT_FOUND", defaultValue: "That email thread no longer exists in your mailbox.")
+        case "WATCH_LIMIT_REACHED":
+            text = String(localized: "error.reason.WATCH_LIMIT_REACHED", defaultValue: "JARVIS already watches \(p.max) threads for replies, the most it can.")
+        case "CALENDAR_CONFLICT":
+            text = String(localized: "error.reason.CALENDAR_CONFLICT", defaultValue: "That time is already taken in your calendar, so JARVIS didn't add anything.")
+        case "EVENT_NOT_FOUND":
+            text = String(localized: "error.reason.EVENT_NOT_FOUND", defaultValue: "That event no longer exists in your calendar.")
+        case "EVENT_CHANGED":
+            text = String(localized: "error.reason.EVENT_CHANGED", defaultValue: "The event changed after JARVIS read it, so nothing was changed. Ask again.")
+        case "NO_FREE_SLOTS":
+            text = String(localized: "error.reason.NO_FREE_SLOTS", defaultValue: "There's no free time in that window.")
+        case "INVALID_TIME_RANGE":
+            text = String(localized: "error.reason.INVALID_TIME_RANGE", defaultValue: "The start and end times don't make a valid range.")
+        case "CAPTCHA_DETECTED":
+            text = String(localized: "error.reason.CAPTCHA_DETECTED", defaultValue: "\(p.host) asks to prove you're human. JARVIS never solves these: continue on the site yourself.")
+        case "LOGIN_REQUIRED":
+            text = String(localized: "error.reason.LOGIN_REQUIRED", defaultValue: "\(p.host) needs you to sign in. JARVIS doesn't sign in for you: continue on the site yourself.")
+        case "BOT_PROTECTION":
+            text = String(localized: "error.reason.BOT_PROTECTION", defaultValue: "\(p.host) blocks automated visits. JARVIS doesn't work around that: continue on the site yourself.")
+        case "SITE_UNSUPPORTED":
+            text = String(localized: "error.reason.SITE_UNSUPPORTED", defaultValue: "JARVIS doesn't support \(p.host) yet.")
+        case "NAVIGATION_BLOCKED":
+            text = String(localized: "error.reason.NAVIGATION_BLOCKED", defaultValue: "The site tried to lead JARVIS to \(p.host), which isn't allowed, so it stopped.")
+        case "PAGE_CHANGED":
+            text = String(localized: "error.reason.PAGE_CHANGED", defaultValue: "\(p.host) looks different than JARVIS expects, so it stopped rather than guess.")
+        case "SITE_ERROR":
+            text = String(localized: "error.reason.SITE_ERROR", defaultValue: "\(p.host) showed an error (status \(p.status)).")
+        case "BROWSER_BUDGET_EXCEEDED":
+            text = String(localized: "error.reason.BROWSER_BUDGET_EXCEEDED", defaultValue: "The site needed more steps than JARVIS allows (\(p.limit)), so it stopped.")
+        case "BROWSER_TIMEOUT":
+            text = String(localized: "error.reason.BROWSER_TIMEOUT", defaultValue: "The site took too long, so JARVIS stopped.")
+        case "BROWSER_CRASHED":
+            text = String(localized: "error.reason.BROWSER_CRASHED", defaultValue: "The browser stopped unexpectedly.")
+        case "BROWSER_UNAVAILABLE":
+            text = String(localized: "error.reason.BROWSER_UNAVAILABLE", defaultValue: "The browser agent isn't running on this server.")
+        case "SLOT_TAKEN":
+            text = String(localized: "error.reason.SLOT_TAKEN", defaultValue: "That appointment was taken in the meantime, so nothing was booked.")
+        case "BOOKING_DETAILS_MISSING":
+            text = String(localized: "error.reason.BOOKING_DETAILS_MISSING", defaultValue: "The booking form needs details JARVIS doesn't have: \(p.fields).")
+        case "BOOKING_UNCONFIRMED":
+            text = String(localized: "error.reason.BOOKING_UNCONFIRMED", defaultValue: "The booking was sent, but the site showed no confirmation. Check with the site before trying again.")
+        case "PRICE_CHANGED":
+            text = String(localized: "error.reason.PRICE_CHANGED", defaultValue: "The price changed from \(p.expected) to \(p.actual), so nothing was ordered.")
+        case "OUT_OF_STOCK":
+            text = String(localized: "error.reason.OUT_OF_STOCK", defaultValue: "It's out of stock, so nothing was ordered.")
+        case "CHECKOUT_UNSUPPORTED":
+            text = String(localized: "error.reason.CHECKOUT_UNSUPPORTED", defaultValue: "JARVIS can't order on \(p.host). Your cart is ready there: finish the purchase yourself.")
+        case "ORDER_UNKNOWN":
+            text = String(localized: "error.reason.ORDER_UNKNOWN", defaultValue: "The order was interrupted while it was being placed. Check your orders with the shop before trying again.")
+        case "PURCHASES_DISABLED":
+            text = String(localized: "error.reason.PURCHASES_DISABLED", defaultValue: "Purchases are turned off. Set a monthly purchase limit in Settings to allow them.")
+        case "PURCHASE_LIMIT":
+            text = String(localized: "error.reason.PURCHASE_LIMIT", defaultValue: "This purchase (\(p.amount)) would go over your monthly limit of \(p.limit) (\(p.spent) already spent).")
+        case "PURCHASE_CURRENCY":
+            text = String(localized: "error.reason.PURCHASE_CURRENCY", defaultValue: "The price is in \(p.currency), but your purchase limit is in US dollars, so JARVIS won't buy it.")
         default:
             return nil
         }
@@ -351,6 +445,21 @@ final class ErrorParams {
             return raw
         case ("language", .string(let raw)):
             return Locale.current.localizedString(forIdentifier: raw) ?? raw
+        // Phase C
+        case ("provider", .string(let raw)):
+            return OAuthProvider.named(raw)?.name ?? ConnectionProvider(rawValue: raw).map(\.label) ?? raw
+        case ("capability", .string(let raw)):
+            return ConnectionCapability.named(raw)?.label ?? raw
+        case ("capabilities", .string(let raw)):
+            let names = raw.split(separator: ",").map { part in
+                let id = part.trimmingCharacters(in: .whitespaces)
+                return ConnectionCapability.named(id)?.label ?? id
+            }
+            return names.formatted(.list(type: .and))
+        case ("expected", .string(let raw)), ("actual", .string(let raw)), ("limit", .string(let raw)),
+             ("spent", .string(let raw)), ("amount", .string(let raw)), ("total", .string(let raw)):
+            // Money parameters are "USD 129.99" (contracts moneyParam); shown in the app's locale.
+            return Money(param: raw)?.formatted ?? raw
         case (_, .string(let text)):
             return text
         case (_, .number(let number)):

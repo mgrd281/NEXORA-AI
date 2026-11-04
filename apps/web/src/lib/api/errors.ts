@@ -1,6 +1,13 @@
-import { ApiErrorReason, ErrorCode } from '@jarvis/contracts';
+import {
+  ApiErrorReason,
+  ConnectionCapability,
+  ConnectionProvider,
+  ErrorCode,
+} from '@jarvis/contracts';
 import type { I18n } from '@/i18n/I18nProvider';
 import type { MessageKey } from '@/i18n/catalog';
+import { CAPABILITY_LABEL, PROVIDER_NAME } from '@/i18n/server-message';
+import type { TranslateFn } from '@/i18n/translate';
 import type { MessageParams } from '@/i18n/types';
 import { ApiError } from './client';
 
@@ -25,12 +32,28 @@ export function apiReasonCatalogKey(reason: ApiErrorReason): MessageKey {
   return `errors.api.${reason}` as MessageKey;
 }
 
-/** Parameters of a reason's sentence from error.details (sizes in MB, counts, hosts). */
-export function apiReasonParams(details: Record<string, unknown> | undefined): MessageParams {
+/**
+ * Parameters of a reason's sentence from error.details (sizes in MB, counts, hosts). With `t`,
+ * a provider id reads as its name ("Google") and capabilities ("mail.read,calendar.read") as
+ * what they allow.
+ */
+export function apiReasonParams(
+  details: Record<string, unknown> | undefined,
+  t?: TranslateFn,
+): MessageParams {
   const params: MessageParams = {};
   for (const [name, value] of Object.entries(details ?? {})) {
     if (name === 'reason') continue;
     if (typeof value === 'string' || typeof value === 'number') params[name] = value;
+  }
+  const provider = ConnectionProvider.safeParse(details?.provider);
+  if (provider.success) params.provider = PROVIDER_NAME[provider.data];
+  if (t && typeof details?.capabilities === 'string') {
+    params.capabilities = details.capabilities
+      .split(',')
+      .map((c) => ConnectionCapability.safeParse(c.trim()))
+      .flatMap((c) => (c.success ? [t(CAPABILITY_LABEL[c.data])] : []))
+      .join(', ');
   }
   const bytes = details?.limitBytes;
   if (typeof bytes === 'number') params.limitMb = Math.round(bytes / (1024 * 1024));
@@ -47,7 +70,7 @@ export function describeError(error: unknown, i18n: Pick<I18n, 't'>): DescribedE
   if (error instanceof ApiError) {
     let message: string;
     const reason = apiErrorReason(error);
-    if (reason) message = t(apiReasonCatalogKey(reason), apiReasonParams(error.details));
+    if (reason) message = t(apiReasonCatalogKey(reason), apiReasonParams(error.details, t));
     else if (error.code === 'NETWORK') message = t('errors.network');
     else if (error.code === 'BAD_RESPONSE') message = t('errors.badResponse');
     else if (ErrorCode.safeParse(error.code).success) message = t(`errors.codes.${error.code}`);

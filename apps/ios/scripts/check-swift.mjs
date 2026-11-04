@@ -15,6 +15,9 @@
 // - App code (Jarvis/) contains no crash-prone shortcuts: try!, as!, fatalError,
 //   preconditionFailure, implicitly unwrapped optionals, print().
 // - Every file under Jarvis/ and JarvisTests/ ends with a newline and uses spaces.
+// - With --tree-sitter also: no SwiftUI view-builder block (a `some View` body or function,
+//   or the trailing closure of a view type such as VStack, Card or Section) has more than
+//   ten children, so the code doesn't depend on the iOS 17 variadic ViewBuilder.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, relative, resolve } from 'node:path';
@@ -183,8 +186,54 @@ function treeSitterCheck(dir) {
     };
     walk(tree.rootNode);
     for (const e of errors.slice(0, 5)) problems.push(`${file}: ${e} (tree-sitter-swift)`);
+    if (errors.length === 0) checkBuilderChildren(file, src, tree.rootNode);
   }
   return load('tree-sitter-swift/package.json').version;
+}
+
+/** Imperative closures that start with a capital letter (not view types). */
+const NOT_VIEWS = new Set(['Task', 'DispatchQueue', 'Binding', 'AsyncStream', 'Result']);
+const MAX_BUILDER_CHILDREN = 10;
+
+/** True when a `statements` node is the body of a SwiftUI view builder. */
+function isViewBuilder(node, src) {
+  const parent = node.parent;
+  if (!parent) return false;
+  if (parent.type === 'lambda_literal') {
+    let call = parent.parent;
+    while (call && call.type !== 'call_expression') call = call.parent;
+    if (!call || !call.firstChild) return false;
+    const callee = src.slice(call.firstChild.startIndex, call.firstChild.endIndex).split(/[\s(<]/)[0];
+    const name = callee.split('.').pop() ?? '';
+    return /^[A-Z]/.test(name) && !NOT_VIEWS.has(name);
+  }
+  if (parent.type === 'function_body' || parent.type === 'computed_property') {
+    let decl = parent.parent;
+    while (decl && decl.type !== 'function_declaration' && decl.type !== 'property_declaration') decl = decl.parent;
+    if (!decl) return false;
+    const header = src.slice(decl.startIndex, parent.startIndex);
+    return /\bsome View\b/.test(header);
+  }
+  return false;
+}
+
+function checkBuilderChildren(file, src, root) {
+  const walk = (node) => {
+    if (node.type === 'statements' && isViewBuilder(node, src)) {
+      let children = 0;
+      for (const child of node.namedChildren) {
+        if (child.type === 'property_declaration' || child.type.endsWith('comment')) continue;
+        children++;
+      }
+      if (children > MAX_BUILDER_CHILDREN) {
+        problems.push(
+          `${file}:${node.startPosition.row + 1}: view builder block has ${children} children (at most ${MAX_BUILDER_CHILDREN}; group them)`,
+        );
+      }
+    }
+    for (const child of node.children) walk(child);
+  };
+  walk(root);
 }
 
 const flag = process.argv.indexOf('--tree-sitter');
@@ -197,7 +246,10 @@ if (problems.length) {
 }
 console.log(`✓ ${files.length} Swift files (${lines} lines): delimiters balanced, no banned constructs in app code.`);
 if (grammarVersion) {
-  console.log(`✓ every file parses with tree-sitter-swift ${grammarVersion} (no ERROR or MISSING nodes).`);
+  console.log(
+    `✓ every file parses with tree-sitter-swift ${grammarVersion} (no ERROR or MISSING nodes); ` +
+      `no view builder block has more than ${MAX_BUILDER_CHILDREN} children.`,
+  );
 } else {
   console.log('  (syntax parse skipped: pass --tree-sitter <node_modules dir> to run it)');
 }

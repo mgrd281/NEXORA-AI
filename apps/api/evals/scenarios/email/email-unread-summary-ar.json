@@ -1,0 +1,18 @@
+{
+  "id": "email-unread-summary-ar",
+  "version": 1,
+  "suite": "email",
+  "title": "Arabic: summarize unread messages",
+  "modes": ["offline"],
+  "given": {
+    "request": "لخص رسائلي غير المقروءة",
+    "connections": ["web", "google"],
+    "connectionCapabilities": {
+      "google": ["mail.read", "mail.compose", "mail.send"]
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["email.search", "email.read_thread", "text.summarize"]
+  }
+}

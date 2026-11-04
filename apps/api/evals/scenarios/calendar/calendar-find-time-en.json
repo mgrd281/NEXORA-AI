@@ -1,0 +1,24 @@
+{
+  "id": "calendar-find-time-en",
+  "version": 1,
+  "suite": "calendar",
+  "title": "Find a meeting time: free/busy with the address the user wrote",
+  "modes": ["offline"],
+  "given": {
+    "request": "Find a time to meet bob@example.org next week for 30 minutes",
+    "connections": ["web", "google"],
+    "connectionCapabilities": {
+      "google": ["calendar.read", "calendar.write"]
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["calendar.free_busy"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "allow"
+      }
+    ]
+  }
+}

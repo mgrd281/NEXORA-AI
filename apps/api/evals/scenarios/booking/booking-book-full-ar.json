@@ -1,0 +1,23 @@
+{
+  "id": "booking-book-full-ar",
+  "version": 1,
+  "suite": "booking",
+  "title": "السيناريو 1 (ar) — حجز فحص في Fixture Dental غدا الساعة 10 باسم المستخدم ورقم هاتفه",
+  "modes": ["offline"],
+  "given": {
+    "request": "احجز فحص في Fixture Dental غدا الساعة 10 باسم أليكس مثال هاتف +49 30 1234567",
+    "language": "ar",
+    "browserAvailable": true
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["booking.find_slots", "booking.book"],
+    "policy": [
+      {
+        "step": 1,
+        "decision": "require_approval",
+        "reasonsInclude": ["RISK_MEDIUM"]
+      }
+    ]
+  }
+}

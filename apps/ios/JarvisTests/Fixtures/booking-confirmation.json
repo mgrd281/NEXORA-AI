@@ -1,0 +1,14 @@
+{
+  "bookingId": "a3b0c1e2-d1e4-4ef6-8a23-2c987654323d",
+  "reference": "FD-7Q2K",
+  "service": "Check-up",
+  "start": "2026-11-10T08:30:00.000Z",
+  "end": "2026-11-10T09:00:00.000Z",
+  "timeZone": "Europe/Berlin",
+  "location": "Example Street 5, Berlin",
+  "siteId": "fixture-booking",
+  "siteHost": "booking.fixture.test",
+  "icsArtifactId": "e1f8a9c0-bfc2-4cd4-8ef1-0a987654321b",
+  "screenshotArtifactId": "d0e7f8b9-aeb1-4bc3-9def-f9876543220a",
+  "confirmedAt": "2026-11-04T10:00:40.000Z"
+}

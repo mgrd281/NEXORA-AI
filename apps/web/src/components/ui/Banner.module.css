@@ -39,6 +39,26 @@
 }
 
 /*
+ * Phone widths: the action goes under the text (aligned with it) instead of squeezing the text
+ * into a narrow column beside a button.
+ */
+@media (max-width: 40rem) {
+  .banner {
+    flex-wrap: wrap;
+  }
+
+  .body {
+    flex-basis: calc(100% - 20px - var(--space-3));
+  }
+
+  .action {
+    flex-basis: 100%;
+    align-self: flex-start;
+    padding-inline-start: calc(20px + var(--space-3));
+  }
+}
+
+/*
  * Tone lives in the icon, the title and a tinted hairline; the background stays the surface,
  * so a banner never becomes a coloured slab (soft fills are for pills and icon discs).
  */

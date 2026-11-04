@@ -21,11 +21,34 @@
  * `downloadPath`); `scheduledTasks` (contract Schedule) with their runs;
  * `webhooks` (endpoints without any secret — not even the envelope — and the
  * delivery log without payloads).
+ *
+ * Version 4 (Phase C): `connections[]` carry `capabilities`, `scopes` (as
+ * granted) and `statusReason` — never OAuth tokens, their envelope, PKCE
+ * verifiers or the provider account id; pending authorization requests
+ * (oauth_states) are credentials in flight and are not exported. Added:
+ * `emailWatches` (contract EmailWatch: subject and sender, no mail content —
+ * none is stored), `orders` and `bookings` (contract Order / Booking with
+ * their evidence metadata), `browserSessions` (contract BrowserSession plus
+ * the recipe `request` and `result` the session stored), and `evidence`
+ * (contract EvidenceArtifact; the file itself, base64, within the same
+ * EXPORT_FILE_BYTES budget as attachments — attachments first — else
+ * `contentOmitted` says why). Calendar and mail content are not stored, so
+ * there is none to export (docs/architecture/phase-c.md §3.3).
  */
 import type { Readable } from 'node:stream';
 import type { Trx } from '../../db/pool';
-import type { AttachmentRow } from '../../db/types';
+import type { AttachmentRow, EvidenceArtifactRow } from '../../db/types';
 import { ATTACHMENT_COLUMNS, toAttachment } from '../attachments/mappers';
+import { BOOKING_COLUMNS, bookingEvidenceIds, toBooking } from '../bookings/mappers';
+import {
+  BROWSER_SESSION_COLUMNS,
+  EVIDENCE_COLUMNS,
+  pickEvidence,
+  toBrowserSession,
+  toEvidenceArtifact,
+} from '../evidence/mappers';
+import { toEmailWatch } from '../integrations';
+import { ORDER_COLUMNS, orderEvidenceIds, toOrder } from '../orders/mappers';
 import { toSchedule } from '../schedules/mappers';
 import type { ObjectStorage } from '../storage/types';
 import {
@@ -49,7 +72,7 @@ import { toNotification } from '../notifications/routes';
 import { loadMe } from './me';
 
 export const EXPORT_FORMAT = 'jarvis.account-export';
-export const EXPORT_VERSION = 3;
+export const EXPORT_VERSION = 4;
 /** Files embedded in one export at most (raw bytes); larger sets list the rest by download path. */
 export const EXPORT_FILE_BYTES = 20 * 1024 * 1024;
 
@@ -245,6 +268,46 @@ export async function buildAccountExport(
     .orderBy('id')
     .execute();
   const deliveriesByEndpoint = groupBy(webhookDeliveries, (d) => d.endpoint_id);
+  // Phase C
+  const emailWatches = await trx
+    .selectFrom('email_watches')
+    .selectAll()
+    .where('user_id', '=', userId)
+    .orderBy('created_at')
+    .orderBy('id')
+    .execute();
+  const evidenceRows = await trx
+    .selectFrom('evidence_artifacts')
+    .select(EVIDENCE_COLUMNS)
+    .where('user_id', '=', userId)
+    .orderBy('created_at')
+    .orderBy('id')
+    .execute();
+  const evidence = evidenceRows.map(toEvidenceArtifact);
+  const evidenceById = new Map(evidence.map((e) => [e.id, e]));
+  const evidenceBySession = groupBy(evidence, (e) => e.browserSessionId);
+  const browserSessions = await trx
+    .selectFrom('browser_sessions')
+    .select(BROWSER_SESSION_COLUMNS)
+    .select(['request', 'result'])
+    .where('user_id', '=', userId)
+    .orderBy('created_at')
+    .orderBy('id')
+    .execute();
+  const orders = await trx
+    .selectFrom('orders')
+    .select(ORDER_COLUMNS)
+    .where('user_id', '=', userId)
+    .orderBy('created_at')
+    .orderBy('id')
+    .execute();
+  const bookings = await trx
+    .selectFrom('bookings')
+    .select(BOOKING_COLUMNS)
+    .where('user_id', '=', userId)
+    .orderBy('created_at')
+    .orderBy('id')
+    .execute();
   const usageEvents = await trx
     .selectFrom('usage_events')
     .select([
@@ -397,6 +460,21 @@ export async function buildAccountExport(
       ...toWebhookEndpoint(e),
       deliveries: (deliveriesByEndpoint.get(e.id) ?? []).map(toWebhookDelivery),
     })),
+    // Phase C (version 4)
+    emailWatches: emailWatches.map(toEmailWatch),
+    orders: orders.map((o) => toOrder(o, pickEvidence(evidenceById, orderEvidenceIds(o)))),
+    bookings: bookings.map((b) => toBooking(b, pickEvidence(evidenceById, bookingEvidenceIds(b)))),
+    browserSessions: browserSessions.map((b) => ({
+      ...toBrowserSession(b, evidenceBySession.get(b.id) ?? []),
+      request: b.request ?? null,
+      result: b.result ?? null,
+    })),
+    // File contents are added by embedExportFiles (outside the database transaction).
+    evidence: evidence.map((e) => ({
+      ...e,
+      content: null as ExportFileContent | null,
+      contentOmitted: null as ExportFileOmission | null,
+    })),
     usage: {
       events: usageEvents.map((u) => ({
         id: u.id,
@@ -429,20 +507,31 @@ export interface ExportFileContent {
 /** Why a file's bytes are not in the export (it stays downloadable while the account exists). */
 export type ExportFileOmission = 'EXPORT_SIZE_LIMIT' | 'STORAGE_NOT_CONFIGURED' | 'NOT_AVAILABLE';
 
-/** Where the export's files are stored (read in the export's transaction, fetched after it). */
-export async function exportFileLocations(
-  trx: Trx,
-  userId: string,
-): Promise<
-  Pick<AttachmentRow, 'id' | 'size_bytes' | 'storage_driver' | 'storage_key' | 'sha256'>[]
-> {
-  return trx
+export type ExportFileLocation =
+  | Pick<AttachmentRow, 'id' | 'size_bytes' | 'storage_driver' | 'storage_key' | 'sha256'>
+  | Pick<EvidenceArtifactRow, 'id' | 'size_bytes' | 'storage_driver' | 'storage_key' | 'sha256'>;
+
+/**
+ * Where the export's files are stored (read in the export's transaction,
+ * fetched after it): attachments, then (Phase C) evidence files, each oldest first.
+ */
+export async function exportFileLocations(trx: Trx, userId: string): Promise<ExportFileLocation[]> {
+  const columns = ['id', 'size_bytes', 'storage_driver', 'storage_key', 'sha256'] as const;
+  const attachments = await trx
     .selectFrom('attachments')
-    .select(['id', 'size_bytes', 'storage_driver', 'storage_key', 'sha256'])
+    .select(columns)
     .where('user_id', '=', userId)
     .orderBy('created_at')
     .orderBy('id')
     .execute();
+  const evidence = await trx
+    .selectFrom('evidence_artifacts')
+    .select(columns)
+    .where('user_id', '=', userId)
+    .orderBy('created_at')
+    .orderBy('id')
+    .execute();
+  return [...attachments, ...evidence];
 }
 
 async function readAll(stream: Readable): Promise<Buffer> {
@@ -451,23 +540,29 @@ async function readAll(stream: Readable): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
+interface ExportFileEntry {
+  id: string;
+  content: ExportFileContent | null;
+  contentOmitted: ExportFileOmission | null;
+}
+
 /**
  * Embeds the files' bytes (base64) into an export built by buildAccountExport,
- * oldest first, up to EXPORT_FILE_BYTES in total. A file that is not embedded
- * says why (contentOmitted); none is ever silently dropped.
+ * attachments then evidence files (Phase C), oldest first, up to
+ * EXPORT_FILE_BYTES in total. A file that is not embedded says why
+ * (contentOmitted); none is ever silently dropped.
  */
 export async function embedExportFiles(
   doc: Record<string, unknown>,
-  files: Awaited<ReturnType<typeof exportFileLocations>>,
+  files: readonly ExportFileLocation[],
   storage: ObjectStorage | null,
   log: { warn(obj: object, msg: string): void },
   limitBytes = EXPORT_FILE_BYTES,
 ): Promise<void> {
-  const entries = doc.attachments as {
-    id: string;
-    content: ExportFileContent | null;
-    contentOmitted: ExportFileOmission | null;
-  }[];
+  const entries = [
+    ...((doc.attachments as ExportFileEntry[] | undefined) ?? []),
+    ...((doc.evidence as ExportFileEntry[] | undefined) ?? []),
+  ];
   const byId = new Map(files.map((f) => [f.id, f]));
   let used = 0;
   for (const entry of entries) {
@@ -486,7 +581,7 @@ export async function embedExportFiles(
       used += bytes.length;
       entry.content = { encoding: 'base64', data: bytes.toString('base64') };
     } catch (err) {
-      log.warn({ err, attachmentId: file.id }, 'export: file not readable');
+      log.warn({ err, fileId: file.id }, 'export: file not readable');
       entry.contentOmitted = 'NOT_AVAILABLE';
     }
   }

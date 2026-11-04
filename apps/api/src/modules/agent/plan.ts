@@ -6,8 +6,8 @@
 import { ServerMessage, ToolId } from '@jarvis/contracts';
 import { z } from 'zod';
 import { sameAddress } from './policy';
-import { findMalformedRefs, findRefs } from './templates';
-import type { AnyTool } from './tools/types';
+import { findMalformedRefs, findRefs, hasTemplate } from './templates';
+import type { AnyTool, BindContext } from './tools/types';
 
 export const MAX_STEPS = 8;
 export const MAX_TITLE = 80;
@@ -53,6 +53,12 @@ export interface PlanValidationContext {
   conversationTaskIds?: Iterable<string>;
   /** Phase B: files of the conversation document.analyze may read. */
   attachmentIds?: Iterable<string>;
+  /**
+   * Phase C: the user's connections, for tools that fill deterministic
+   * defaults (tool.bind: which connected account sends or holds the calendar)
+   * into the input before it is validated and stored.
+   */
+  bind?: BindContext;
 }
 
 export type PlanValidation = { ok: true; plan: Plan } | { ok: false; issues: string[] };
@@ -142,13 +148,22 @@ export function validatePlan(candidate: unknown, ctx: PlanValidationContext): Pl
     const planned = tool.validatePlanned?.(step.input) ?? [];
     for (const p of planned) issues.push(`${where}: ${p}`);
 
-    const parsed = tool.inputSchema.safeParse(step.input);
-    if (!parsed.success) {
-      for (const i of parsed.error.issues)
+    const first = tool.inputSchema.safeParse(step.input);
+    let parsed = first;
+    if (!first.success) {
+      for (const i of first.error.issues)
         issues.push(`${where}: input.${i.path.join('.')}: ${i.message}`);
     } else {
+      // Phase C: deterministic defaults from the user's connections (which account),
+      // validated again so a tool's bind can never smuggle in an invalid input.
+      if (tool.bind && ctx.bind) {
+        parsed = tool.inputSchema.safeParse(tool.bind(first.data, ctx.bind));
+        if (!parsed.success)
+          for (const i of parsed.error.issues)
+            issues.push(`${where}: input.${i.path.join('.')} (after binding): ${i.message}`);
+      }
       // Store the normalised input (defaults applied, unknown keys stripped).
-      step.input = parsed.data as Record<string, unknown>;
+      if (parsed.success) step.input = parsed.data as Record<string, unknown>;
     }
 
     for (const bad of findMalformedRefs(step.input))
@@ -204,6 +219,18 @@ export function validatePlan(candidate: unknown, ctx: PlanValidationContext): Pl
         if (!sameAddress(r, ctx.ownEmail) && !requestEmails.has(r.trim().toLowerCase()))
           issues.push(
             `${where}: recipient ${r} is neither the account owner nor an address written in the request`,
+          );
+      }
+    }
+    // Phase C: invitations go only to addresses the user wrote (or the owner) — never to
+    // addresses from mail, pages or other results.
+    if (parsed.success && tool.attendees && planned.length === 0) {
+      for (const a of tool.attendees(parsed.data)) {
+        if (hasTemplate(a))
+          issues.push(`${where}: attendees must be written literally, never as references`);
+        else if (!sameAddress(a, ctx.ownEmail) && !requestEmails.has(a.trim().toLowerCase()))
+          issues.push(
+            `${where}: attendee ${a} is neither the account owner nor an address written in the user's requests`,
           );
       }
     }

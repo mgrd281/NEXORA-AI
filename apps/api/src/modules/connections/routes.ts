@@ -9,6 +9,8 @@ import { AppError, notFound } from '../../lib/errors';
 import type { AppDeps } from '../../services';
 import { audit } from '../audit/audit';
 import { appendEvent } from '../events/events';
+import { integrations } from '../integrations';
+import { connectionChanged } from '../integrations/bus';
 import { openSecret, sealSecret, verifySmtp, type SmtpConfig, type SmtpSecret } from './smtp';
 
 /** Columns that are safe to return. Secrets and provider config never leave the server. */
@@ -23,6 +25,10 @@ export const CONNECTION_COLUMNS = [
   'last_error',
   'expires_at',
   'created_at',
+  // Phase C (OAuth): what JARVIS may do with it; never the tokens or the provider account id.
+  'capabilities',
+  'granted_scopes',
+  'status_reason',
 ] as const;
 
 type PublicConnectionRow = Pick<ConnectionRow, (typeof CONNECTION_COLUMNS)[number]>;
@@ -41,6 +47,9 @@ export function toConnection(r: PublicConnectionRow): Connection {
     lastError: r.last_error,
     expiresAt: iso(r.expires_at),
     createdAt: r.created_at.toISOString(),
+    capabilities: r.capabilities,
+    scopes: r.granted_scopes,
+    statusReason: r.status_reason,
   };
 }
 
@@ -61,6 +70,14 @@ const StoredSmtpConfig = z.object({
  */
 export const SMTP_PORTS = new Set([25, 465, 587, 2525]);
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+
+const OAUTH_PROVIDERS: ReadonlySet<string> = new Set(['google', 'microsoft']);
+
+/**
+ * OAuth start and callback: a few per minute per user is plenty for a person
+ * (each start is one consent screen), and it bounds state churn.
+ */
+const OAUTH_RATE_LIMIT = { max: 10, timeWindow: '1 minute' } as const;
 
 export function registerConnectionRoutes(app: FastifyInstance, deps: AppDeps) {
   const { db } = deps;
@@ -219,6 +236,11 @@ export function registerConnectionRoutes(app: FastifyInstance, deps: AppDeps) {
           .executeTakeFirst(),
       );
       if (!current) throw notFound('Connection');
+      // OAuth (Phase C): tokens are opened only by the integrations module, which asks the
+      // provider (identity endpoint with a valid token) — never "verified" without it. An
+      // expired grant comes back as status 'expired' with its reason (Reconnect).
+      if (OAUTH_PROVIDERS.has(current.provider))
+        return toConnection(await integrations.verifyConnection(deps, ctx, current.id));
 
       // Network verification runs outside any transaction.
       let error: string | null = null;
@@ -277,37 +299,100 @@ export function registerConnectionRoutes(app: FastifyInstance, deps: AppDeps) {
     { rateLimit: { max: 10, timeWindow: '1 minute' } },
   );
 
+  defineRoute(app, deps, 'listConnectionProviders', async ({ reply }) => {
+    reply.header('cache-control', 'private, no-store');
+    return { items: integrations.providers(deps.config) };
+  });
+
+  defineRoute(
+    app,
+    deps,
+    'startOAuthConnection',
+    async ({ ctx, body, reply }) => {
+      // The state, PKCE verifier and exact scopes are stored server-side (bound to this
+      // session); the response is the provider URL to open. Errors (details.reason):
+      // PROVIDER_NOT_CONFIGURED 503, REDIRECT_URI_NOT_ALLOWED / CONNECTION_NOT_OAUTH 400,
+      // NOT_FOUND 404 (connectionId), OAUTH_PENDING_LIMIT 429.
+      const started = await integrations.startOAuth(deps, ctx, body);
+      // The URL carries the state: never cached anywhere.
+      reply.header('cache-control', 'no-store');
+      return started;
+    },
+    { rateLimit: OAUTH_RATE_LIMIT },
+  );
+
+  defineRoute(
+    app,
+    deps,
+    'completeOAuthConnection',
+    async ({ ctx, body, reply }) => {
+      // Only the session that started the authorization can complete it (state bound to
+      // ctx.sessionId, single use, expiring); the code is exchanged server-side with the
+      // PKCE verifier. Errors (details.reason): OAUTH_STATE_INVALID / OAUTH_STATE_EXPIRED /
+      // OAUTH_DENIED / OAUTH_SCOPE_NOT_GRANTED 400, OAUTH_ACCOUNT_MISMATCH 409,
+      // OAUTH_EXCHANGE_FAILED 422, PROVIDER_NOT_CONFIGURED 503. Never a token in a response.
+      const result = await integrations.completeOAuth(deps, ctx, body);
+      reply.header('cache-control', 'no-store');
+      return result;
+    },
+    { rateLimit: OAUTH_RATE_LIMIT },
+  );
+
   defineRoute(app, deps, 'deleteConnection', async ({ ctx, params }) => {
-    await withContext(db, ctx, async (trx) => {
-      // Revoke and erase: ciphertext, key id and every stored setting are wiped.
-      const revoked = await trx
-        .updateTable('connections')
-        .set({
-          status: 'revoked',
-          secret_ciphertext: null,
-          secret_key_id: null,
-          config: '{}',
-          last_error: null,
-        })
+    const removed = await withContext(db, ctx, async (trx) => {
+      const current = await trx
+        .selectFrom('connections')
+        .select(['id', 'provider'])
         .where('id', '=', params.id)
         .where('status', '<>', 'revoked')
-        .returning(['id', 'provider'])
+        .forUpdate()
         .executeTakeFirst();
-      if (!revoked) throw notFound('Connection');
+      if (!current) throw notFound('Connection');
+
+      let revocation: 'provider' | 'local_only' | null = null;
+      if (OAUTH_PROVIDERS.has(current.provider)) {
+        // OAuth (docs/adr/0016): the row is deleted, never kept as 'revoked' — its AFTER
+        // DELETE trigger moves a Google envelope to the revocation outbox (the worker revokes
+        // the grant at Google), and Microsoft tokens are erased with the row (Microsoft has no
+        // per-app revocation endpoint). Email watches and pending authorizations cascade.
+        await trx.deleteFrom('connections').where('id', '=', current.id).execute();
+        revocation = current.provider === 'google' ? 'provider' : 'local_only';
+      } else {
+        // SMTP / web: revoke and erase — ciphertext, key id and every stored setting are wiped.
+        await trx
+          .updateTable('connections')
+          .set({
+            status: 'revoked',
+            secret_ciphertext: null,
+            secret_key_id: null,
+            config: '{}',
+            last_error: null,
+          })
+          .where('id', '=', current.id)
+          .execute();
+      }
       await audit(trx, {
         tenantId: ctx.tenantId,
         actorType: 'user',
         actorId: ctx.userId,
         action: 'connection.deleted',
         targetType: 'connection',
-        targetId: revoked.id,
-        metadata: { provider: revoked.provider },
+        targetId: current.id,
+        metadata: { provider: current.provider, ...(revocation ? { revocation } : {}) },
       });
       await appendEvent(trx, ctx, {
         taskId: null,
         type: 'connection.changed',
-        data: { connectionId: revoked.id, provider: revoked.provider, status: 'revoked' },
+        data: {
+          connectionId: current.id,
+          provider: current.provider,
+          status: 'revoked',
+          ...(revocation ? { change: 'disconnected' } : {}),
+        },
       });
+      return current;
     });
+    // In-memory caches (Home "Upcoming") drop what they hold for it.
+    connectionChanged(removed.id);
   });
 }

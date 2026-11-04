@@ -4,4 +4,9 @@
 // (plain HTTP is accepted only for localhost) instead of guessing one.
 JARVIS_API_BASE_URL =
 
+// OAuth redirect for connecting Google / Microsoft (https only); see Config/Debug.xcconfig.
+JARVIS_OAUTH_REDIRECT_URI =
+JARVIS_OAUTH_CALLBACK_HOST =
+JARVIS_ENTITLEMENTS =
+
 #include? "Local.xcconfig"

@@ -13,6 +13,7 @@ import { serverText } from '@/i18n/server-message';
 import { isApiError, type ApiError } from '@/lib/api/client';
 import { useCancelTask, useRetryTask } from './api';
 import { attemptOf, failedStep, nextAction, requiresAcknowledgement } from './model';
+import { hasNextStep } from './phase-c/NextStep';
 import styles from './TaskDetail.module.css';
 
 export interface TaskActionsView {
@@ -133,6 +134,8 @@ export function useTaskActions({
 
   const step = failedStep(task);
   const action = nextAction(task);
+  const fixKind = hasNextStep(task.error);
+  const fixFirst = fixKind === 'reconnect' || fixKind === 'allow' || fixKind === 'limit';
 
   const cancelButton = task.canCancel ? (
     <Button
@@ -156,7 +159,12 @@ export function useTaskActions({
     ) : action === 'retry' ? (
       <Button
         // Emphasised only when retrying is likely to help (otherwise the request needs a change).
-        variant={task.status === 'EXPIRED' || task.error?.retryable ? 'primary' : 'secondary'}
+        // A connection or the purchase limit has to be fixed first: that button leads (Phase C).
+        variant={
+          (task.status === 'EXPIRED' || task.error?.retryable) && !fixFirst
+            ? 'primary'
+            : 'secondary'
+        }
         icon={RotateCcw}
         onClick={onRetryClick}
         loading={retry.isPending && !ackOpen}

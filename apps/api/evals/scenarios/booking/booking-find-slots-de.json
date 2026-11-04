@@ -1,0 +1,22 @@
+{
+  "id": "booking-find-slots-de",
+  "version": 1,
+  "suite": "booking",
+  "title": "„Finde freie Termine bei Fixture Dental für eine Zahnreinigung“ liest nur die freien Termine (LOW)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Finde freie Termine bei Fixture Dental für eine Zahnreinigung",
+    "language": "de",
+    "browserAvailable": true
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["booking.find_slots"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "allow"
+      }
+    ]
+  }
+}

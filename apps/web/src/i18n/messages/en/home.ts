@@ -45,6 +45,28 @@ const home = {
     remember: 'Remember that I prefer aisle seats on flights',
     emailMe: 'Email me: call the dentist on Friday',
   },
+  /** Phase C: Home "Upcoming" (only with a connected calendar). */
+  upcoming: {
+    title: 'Upcoming',
+    today: 'Today',
+    tomorrow: 'Tomorrow',
+    allDay: 'All day',
+    empty: 'Nothing in your calendar for the next 7 days.',
+    people: '{count, plural, one {# person} other {# people}}',
+    inZone: '{time} {zone}',
+    openAt: '(opens at {provider})',
+    now: 'Now',
+    cancelled: 'Cancelled',
+    tentative: 'Tentative',
+    overlapsWith: 'Overlaps “{title}”',
+    overlapsMany: 'Overlaps {count} events',
+    sources: {
+      expired: 'Your {provider} calendar ({account}) isn’t included: the connection has expired.',
+      scope_missing:
+        'Your {provider} calendar ({account}) isn’t included: JARVIS isn’t allowed to read it.',
+      unavailable: '{provider} ({account}) didn’t answer in time, so its events are missing here.',
+    },
+  },
   suggestionsLabel: 'Suggestions',
   suggestionFills: 'Puts this request into the command bar',
   suggest: {

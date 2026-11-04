@@ -128,6 +128,11 @@ struct HomeView: View {
                 }
             }
 
+            // Only when a calendar is connected (spec §4A): nil means no section at all.
+            if let upcoming = snapshot.upcoming {
+                UpcomingSection(upcoming: upcoming)
+            }
+
             section(title: String(localized: "Recent"), count: nil) {
                 if snapshot.recentTasks.isEmpty {
                     Text("Finished tasks appear here.")
@@ -185,6 +190,8 @@ struct HomeView: View {
                     Button {
                         if let command = text.command {
                             composer.text = command
+                        } else if text.opensConnections {
+                            path.append(ConnectionsRoute())
                         } else if text.opensSettings {
                             app.selectedTab = .settings
                         }
@@ -205,7 +212,10 @@ struct HomeView: View {
                         .background(MeridianColor.surfaceSunken, in: RoundedRectangle(cornerRadius: MeridianRadius.md, style: .continuous))
                     }
                     .buttonStyle(.plain)
-                    .accessibilityHint(text.command != nil ? Text("Puts an example in the request field") : Text("Opens Settings"))
+                    .accessibilityHint(
+                        text.command != nil ? Text("Puts an example in the request field")
+                            : text.opensConnections ? Text("Opens Connections") : Text("Opens Settings")
+                    )
                 }
             }
         }
