@@ -1,0 +1,171 @@
+name: iOS
+
+# Builds the iPhone app on a GitHub macOS runner (no Mac or Xcode needed on your side).
+# 1. build: compiles for the simulator without signing; compiler errors show in the log
+#    (and in the job summary), so they can be fixed from a push.
+# 2. testflight: signs and uploads a build to TestFlight (manual run; needs the App Store
+#    Connect secrets, see docs/runbooks/ios-testflight.md).
+
+on:
+  push:
+    branches: [claude/sleepy-newton-ujozfm, main]
+    paths: ['apps/ios/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+    inputs:
+      testflight:
+        description: 'Also sign and upload to TestFlight'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The web app proxies /api/* to the API; the phone talks to it over https.
+  JARVIS_API_BASE_URL: https:/$()/jarvisweb-production-0026.up.railway.app/api
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+          brew install xcodegen
+      - name: Generate project
+        working-directory: apps/ios
+        run: |
+          printf 'JARVIS_API_BASE_URL = %s\n' "$JARVIS_API_BASE_URL" > Config/Local.xcconfig
+          xcodegen generate
+      - name: Build (simulator, unsigned)
+        working-directory: apps/ios
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Jarvis.xcodeproj -scheme Jarvis \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee build.log
+      - name: Errors
+        if: failure()
+        working-directory: apps/ios
+        run: |
+          {
+            echo '### Swift build errors'
+            echo '```'
+            grep -E "error:" build.log | sort -u | head -80
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          grep -E "error:" build.log | sort -u | head -80 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-build-log
+          path: apps/ios/build.log
+
+  tests:
+    needs: build
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - name: Generate project
+        working-directory: apps/ios
+        run: |
+          printf 'JARVIS_API_BASE_URL = %s\n' "$JARVIS_API_BASE_URL" > Config/Local.xcconfig
+          xcodegen generate
+      - name: Unit tests (simulator)
+        working-directory: apps/ios
+        run: |
+          set -o pipefail
+          DEST="$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k,v in d.items() if 'iOS' in k for x in v if 'iPhone' in x['name']))")"
+          xcodebuild test \
+            -project Jarvis.xcodeproj -scheme Jarvis \
+            -destination "id=$DEST" \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee test.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-test-log
+          path: apps/ios/test.log
+
+  testflight:
+    if: github.event_name == 'workflow_dispatch' && inputs.testflight
+    needs: build
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      IOS_BUNDLE_ID: ${{ secrets.IOS_BUNDLE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check secrets
+        run: |
+          for v in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 APPLE_TEAM_ID IOS_BUNDLE_ID; do
+            [ -n "${!v}" ] || { echo "::error::secret $v is not set"; exit 1; }
+          done
+      - run: brew install xcodegen
+      - name: Generate project
+        working-directory: apps/ios
+        run: |
+          printf 'JARVIS_API_BASE_URL = %s\n' "$JARVIS_API_BASE_URL" > Config/Local.xcconfig
+          xcodegen generate
+      - name: API key
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          printf '%s' "$ASC_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+      - name: Archive (cloud signing with the API key)
+        working-directory: apps/ios
+        run: |
+          set -o pipefail
+          BUILD="$GITHUB_RUN_NUMBER"
+          xcodebuild archive \
+            -project Jarvis.xcodeproj -scheme Jarvis \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
+            -archivePath build/Jarvis.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            PRODUCT_BUNDLE_IDENTIFIER="$IOS_BUNDLE_ID" \
+            CURRENT_PROJECT_VERSION="$BUILD" \
+            2>&1 | tee archive.log
+      - name: Export and upload to TestFlight
+        working-directory: apps/ios
+        run: |
+          cat > ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath build/Jarvis.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath build/export \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-archive-log
+          path: apps/ios/archive.log
