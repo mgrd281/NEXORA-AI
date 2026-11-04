@@ -142,7 +142,7 @@ const errors = {
     CALL_VOICEMAIL: 'A voicemail answered instead of a person. You can try again later.',
     CALL_HUNG_UP: 'The other person hung up before the goal was reached. Nothing was agreed.',
     CALL_DECLINED:
-      'The other person didn’t want to talk to an AI assistant. JARVIS won’t call again for this.',
+      'The other person didn’t want to go on — they asked not to be called again, or not to talk to an AI assistant. JARVIS won’t call this number again.',
     CALL_DURATION_LIMIT:
       'The call reached its maximum length of {seconds, plural, one {# second} other {# seconds}} before the goal was reached.',
     RECORDING_CONSENT_DECLINED:

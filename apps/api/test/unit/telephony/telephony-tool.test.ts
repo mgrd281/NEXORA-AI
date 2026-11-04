@@ -10,6 +10,7 @@ import { loadConfig } from '../../../src/config';
 import type { CallSessionRow } from '../../../src/db/types';
 import { phoneHashKey, phoneNumberHash } from '../../../src/lib/phone';
 import type { AgentContext } from '../../../src/modules/agent/context';
+import { callRequestHead } from '../../../src/modules/agent/intents/telephony';
 import { planOffline } from '../../../src/modules/agent/models/offline';
 import { validatePlan } from '../../../src/modules/agent/plan';
 import { assessStep } from '../../../src/modules/agent/step-policy';
@@ -115,6 +116,56 @@ describe('offline intents (en/de/ar)', () => {
       ok: false,
       reason: 'OFFLINE_UNSUPPORTED',
     });
+  });
+});
+
+describe('a call request and the schedule intent', () => {
+  it.each([
+    ['Call +44 20 7946 0958 and ask: do you deliver on Sundays?', 'en', 'questions'],
+    [
+      'Ruf +49 30 1234567 an und frag, ob sie freitags einen Termin frei haben',
+      'de',
+      'availability',
+    ],
+    ['اتصل بـ +49 30 1234567 واسأل: هل تفتحون كل يوم الساعة 9؟', 'ar', 'questions'],
+  ] as const)(
+    'timing words in what JARVIS asks never schedule the call: %s',
+    (request, language, purpose) => {
+      const v = offline(request, language);
+      expect(v.ok).toBe(true);
+      if (!v.ok || !('plan' in v)) return;
+      expect(v.plan.steps.map((x) => x.toolId)).toEqual(['phone.call']);
+      expect(v.plan.steps[0]!.input).toMatchObject({ purpose });
+    },
+  );
+  it("timing in the request's own words is a schedule (each run plans and approves its call)", () => {
+    const r = planOffline('Call +49 30 1234567 every Monday at 9 and tell them I am on my way', {
+      language: 'en',
+      ownEmail: OWN,
+      timeZone: 'Europe/Berlin',
+    });
+    expect(r).toMatchObject({
+      ok: true,
+      plan: {
+        steps: [
+          {
+            toolId: 'schedule.create',
+            input: {
+              request: 'Call +49 30 1234567 and tell them I am on my way',
+              recurrence: { frequency: 'weekly', byWeekday: ['MO'], time: '09:00' },
+            },
+          },
+        ],
+      },
+    });
+  });
+  it('callRequestHead is the part before what JARVIS is to say or ask', () => {
+    expect(callRequestHead('Call +49 30 1234567 every Monday at 9 and tell them hi')).toBe(
+      'Call +49 30 1234567 every Monday at 9 ',
+    );
+    expect(callRequestHead('Call +44 20 7946 0958 and ask: open on Sundays?')).toBe(
+      'Call +44 20 7946 0958 ',
+    );
   });
 });
 

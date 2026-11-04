@@ -95,13 +95,31 @@ consent / recording invariants, cascades, one live verification); evals offline 
 SecretBox or model code in the browser worker). Not green by design: the iOS static checks (see
 the gaps above) and a production boot (pending routes).
 
+**Verified at the end of stage 3 (integration):** `pnpm typecheck`, `lint`, `format:check` (exit
+0); `pnpm -r test` — contracts 92 (4 files), tokens 62, API unit 813 (55 files), web 362 (20
+files); the API integration suite on a fresh database migrated through 0008 — 55 files, 451 tests;
+evals offline 167/167, model 13/13 (no pending), pipeline 42/42 (including
+`spec-04-unsuccessful-phone-call` against the mock Twilio and the API's webhook routes; baselines
+updated); OpenAPI `--check` (93 operations); the iOS static checks (`check-contract-copy`,
+`validate-fixtures` 73 fixtures, `lint-strings` 1 463 keys, `check-swift` with tree-sitter: 116
+files); `node scripts/build.mjs` and `next build`; a production-mode boot of the server, worker and
+browser worker (https origins, S3, real-format Twilio credentials: `/readyz` 200, every webhook
+registered and signature-checked, clean SIGTERM) and the guards that refuse one (the mock override,
+an http webhook base, partial Twilio credentials, `TWILIO_AUTH_TOKEN` in the browser worker); the
+real-stack e2e (`apps/web/e2e/real`, 28 passed on the shared stack with the mock Twilio + call
+simulator, including the 5 tests of `phase-d.spec.ts`); the visual and behaviour suite
+(`apps/web/e2e/visual` against the production build: 746 passed, 50 skipped by the specs' own
+conditions — 8 of them the development-only gallery; the Phase D spec alone 72 passed on the
+final build). Not verified here: a Swift build (no toolchain), a real Twilio account,
+real speech services.
+
 ## 1. Scope map
 
 | #   | Feature                    | Contracts                                                                                                                                                                                                                       | Schema (0008)                                                                  | Owners                       |
 | --- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ---------------------------- |
 | 1   | Voice conversation         | `Preferences.voice.{conversationMode, speakingRate, endOfSpeechSilenceMs, voiceNames}`, `VoiceSessionStart.{mode, conversationId}`, `VoiceSessionEnd.{outcome 'ended', turns, bargeIns, reconnects, endReason}`, `VOICE_LIMITS` | `voice_sessions` + mode, conversation, counters                                | Web, iOS                     |
 | 2   | Phone agent (`phone.call`) | `ToolId` `phone.call`, `PhoneCallInput`, `CallScript`, `ApprovalDetails` `phone_call`, `CallSession`, `CallSummary`, `CallTurn`, `CallOutcome`, `TaskDetail.calls`, `CALL_LIMITS`, reasons, evidence, checks, stream events     | `call_sessions` (rebuilt), `call_turns`, evidence `recording`                  | Telephony, Web, iOS          |
-| 3   | Telephony gateway          | `telephonyWebhookRoutes` (8), `TELEPHONY_WEBHOOK_LIMITS`, Twilio form schemas, `WEBHOOK_SIGNATURE_INVALID`                                                                                                                      | `telephony_webhook_target()`, job kinds `call.timeout`, `call.recording_fetch` | Telephony                    |
+| 3   | Telephony gateway          | `telephonyWebhookRoutes` (9 — the whisper added in stage 3), `TELEPHONY_WEBHOOK_LIMITS`, Twilio form schemas, `WEBHOOK_SIGNATURE_INVALID`                                                                                       | `telephony_webhook_target()`, job kinds `call.timeout`, `call.recording_fetch` | Telephony                    |
 | 4   | Account phone number       | `Me.{phoneNumber, phoneNumberVerifiedAt}`, `UpdateMeRequest.phoneNumber`, `PhoneVerification`, `ConfirmPhoneVerificationRequest`, 2 routes                                                                                      | `users.phone_number`, `phone_verified_at`, `phone_verifications`               | Telephony (routes), Web, iOS |
 | 5   | Do-not-call list           | `DoNotCallEntry`, `DoNotCallSource`, 2 routes, policy `DO_NOT_CALL`                                                                                                                                                             | `do_not_call` (keyed hash + sealed number + mask)                              | Telephony, Web, iOS          |
 | 6   | Mock Twilio + simulator    | none (dev/test only)                                                                                                                                                                                                            | none                                                                           | Telephony                    |

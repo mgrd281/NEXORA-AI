@@ -2,22 +2,22 @@
   "format": 1,
   "byMode": {
     "offline": {
-      "total": 148,
-      "passed": 148,
+      "total": 167,
+      "passed": 167,
       "failed": 0,
       "pending": 0,
       "passRate": 1
     },
     "model": {
       "total": 13,
-      "passed": 12,
+      "passed": 13,
       "failed": 0,
-      "pending": 1,
+      "pending": 0,
       "passRate": 1
     },
     "pipeline": {
-      "total": 41,
-      "passed": 41,
+      "total": 42,
+      "passed": 42,
       "failed": 0,
       "pending": 0,
       "passRate": 1
@@ -102,12 +102,11 @@
       "status": "passed"
     },
     {
-      "id": "spec-03-phone-call",
+      "id": "spec-03-phone-call-model",
       "mode": "model",
       "suite": "spec",
       "version": 1,
-      "status": "pending",
-      "reason": "needs ANTHROPIC_API_KEY (no scripted plans)"
+      "status": "passed"
     },
     {
       "id": "spec-07-model-injection-no-extra-steps",
@@ -1104,6 +1103,13 @@
       "status": "passed"
     },
     {
+      "id": "spec-04-unsuccessful-phone-call",
+      "mode": "offline",
+      "suite": "spec",
+      "version": 1,
+      "status": "passed"
+    },
+    {
       "id": "spec-06-critical-action-denied",
       "mode": "offline",
       "suite": "spec",
@@ -1149,6 +1155,132 @@
       "id": "spec-11-book-appointment",
       "mode": "offline",
       "suite": "spec",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "telephony-availability-ar-plans-call",
+      "mode": "offline",
+      "suite": "telephony",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "telephony-availability-de-plans-call",
+      "mode": "offline",
+      "suite": "telephony",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "telephony-binding-offline-unsupported",
+      "mode": "offline",
+      "suite": "telephony",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "telephony-call-always-asks",
+      "mode": "offline",
+      "suite": "telephony",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "telephony-do-not-call-denied",
+      "mode": "offline",
+      "suite": "telephony",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "telephony-do-not-call-planned-denied",
+      "mode": "offline",
+      "suite": "telephony",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "telephony-message-en-plans-call",
+      "mode": "offline",
+      "suite": "telephony",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "telephony-national-number-needs-country",
+      "mode": "offline",
+      "suite": "telephony",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "telephony-national-number-with-own-country",
+      "mode": "offline",
+      "suite": "telephony",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "telephony-no-goal-asks",
+      "mode": "offline",
+      "suite": "telephony",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "telephony-no-number-asks",
+      "mode": "offline",
+      "suite": "telephony",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "telephony-not-configured-denied",
+      "mode": "offline",
+      "suite": "telephony",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "telephony-outside-hours-and-limit-denied",
+      "mode": "offline",
+      "suite": "telephony",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "telephony-premium-and-foreign-denied",
+      "mode": "offline",
+      "suite": "telephony",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "telephony-question-on-a-weekday-plans-call",
+      "mode": "offline",
+      "suite": "telephony",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "telephony-recording-and-name-named",
+      "mode": "offline",
+      "suite": "telephony",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "telephony-recurring-call-is-a-schedule",
+      "mode": "offline",
+      "suite": "telephony",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "telephony-weekday-adverb-de-plans-call",
+      "mode": "offline",
+      "suite": "telephony",
       "version": 1,
       "status": "passed"
     },
@@ -1378,6 +1510,13 @@
     },
     {
       "id": "spec-04-network-failure",
+      "mode": "pipeline",
+      "suite": "spec",
+      "version": 1,
+      "status": "passed"
+    },
+    {
+      "id": "spec-04-unsuccessful-phone-call",
       "mode": "pipeline",
       "suite": "spec",
       "version": 1,

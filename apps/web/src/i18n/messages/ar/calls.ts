@@ -38,7 +38,7 @@ const calls: Catalog<typeof source> = {
     failed: 'تعذّر الاتصال',
     voicemail: 'البريد الصوتي',
     hung_up: 'أُغلق الخط',
-    declined: 'رفض التحدث مع ذكاء اصطناعي',
+    declined: 'طلب عدم الاتصال مجددًا',
     canceled: 'أُلغيت',
   },
   timeline: {

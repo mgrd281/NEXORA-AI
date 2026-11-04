@@ -88,7 +88,7 @@ extension CallResult {
         case .failed: String(localized: "Couldn't connect")
         case .voicemail: String(localized: "Voicemail")
         case .hungUp: String(localized: "Hung up")
-        case .declined: String(localized: "Didn't want to talk to an AI")
+        case .declined: String(localized: "Asked not to be called again")
         case .canceled: String(localized: "Cancelled before it connected")
         case .unknown: String(localized: "Ended")
         }

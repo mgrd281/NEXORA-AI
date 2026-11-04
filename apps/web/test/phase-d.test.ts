@@ -11,6 +11,7 @@ import { displayOf } from '@/components/voice/display';
 import {
   classifySubmitError,
   pendingApprovalId,
+  plain,
   replyLine,
   taskView,
 } from '@/components/voice/replies';
@@ -451,5 +452,17 @@ describe('stream invalidation of calls', () => {
       qk.phoneVerification,
     ]);
     expect(RECONNECT_INVALIDATIONS).toEqual(expect.arrayContaining([qk.calls.all, qk.doNotCall]));
+  });
+});
+
+describe('spoken text of a multi-line result', () => {
+  it('reads each line as a sentence, without list markers', () => {
+    expect(
+      plain(
+        'Solar co-op report\n\n- By Hanna Lindqvist\n- The year ended on 30 September.\n2) Done',
+      ),
+    ).toBe('Solar co-op report. By Hanna Lindqvist. The year ended on 30 September. Done.');
+    expect(plain('  One line, kept as it is  ')).toBe('One line, kept as it is');
+    expect(plain('⁨Layla⁩ asked')).toBe('Layla asked');
   });
 });

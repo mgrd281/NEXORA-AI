@@ -12,7 +12,12 @@ import {
   type DecideContext,
   type DialogDecision,
 } from '../../../src/modules/telephony/dialog/offline';
-import { buildScript, confirmationLine, LINES } from '../../../src/modules/telephony/dialog/script';
+import {
+  buildScript,
+  confirmationLine,
+  LINES,
+  whisperLine,
+} from '../../../src/modules/telephony/dialog/script';
 import {
   computeOutcome,
   type ApprovedCall,
@@ -404,5 +409,24 @@ describe('replayed gathers re-render the stored lines', () => {
       'disclosure',
       'question',
     ]);
+  });
+});
+
+describe('the transfer whisper (what the user hears before being put through)', () => {
+  it.each([
+    [
+      'en',
+      /^This is JARVIS, with the call you asked for: my dentist\. They would like to speak with you\. It is about: Ask about Friday\. Connecting you now\.$/,
+    ],
+    [
+      'de',
+      /^Hier ist JARVIS, mit dem Anruf, um den du gebeten hast: my dentist\. Die Person möchte mit dir sprechen\. Es geht um: Ask about Friday\. Ich verbinde dich jetzt\.$/,
+    ],
+    ['ar', /^معك JARVIS بخصوص المكالمة التي طلبتها: my dentist\. .+ جارٍ وصل المكالمة الآن\.$/],
+  ] as const)("%s: in the user's language, who and why", (lang, expected) => {
+    expect(whisperLine(lang, 'my dentist', 'Ask about Friday')).toMatch(expected);
+  });
+  it('a long goal is shortened', () => {
+    expect(whisperLine('en', 'x', 'a'.repeat(400)).length).toBeLessThan(300);
   });
 });

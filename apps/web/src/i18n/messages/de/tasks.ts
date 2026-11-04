@@ -406,7 +406,7 @@ const tasks: Catalog<typeof source> = {
       callUnknown: 'Unklar, ob der Anruf getätigt wurde',
       doNotCall: 'Diese Nummer möchte nicht angerufen werden',
       callHours: 'Außerhalb der Anrufzeiten',
-      callDeclined: 'Kein Gespräch mit einer KI gewünscht',
+      callDeclined: 'Möchte nicht mehr angerufen werden',
       callRecording: 'Die Aufnahme wurde abgelehnt',
     },
     reconnect:

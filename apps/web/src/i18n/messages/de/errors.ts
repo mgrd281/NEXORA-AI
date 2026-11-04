@@ -163,7 +163,7 @@ const errors: Catalog<typeof source> = {
     CALL_HUNG_UP:
       'Die andere Person hat aufgelegt, bevor das Ziel erreicht war. Es wurde nichts vereinbart.',
     CALL_DECLINED:
-      'Die andere Person wollte nicht mit einem KI-Assistenten sprechen. JARVIS ruft dafür nicht erneut an.',
+      'Die andere Person wollte das Gespräch nicht fortsetzen – sie möchte nicht mehr angerufen werden oder nicht mit einem KI-Assistenten sprechen. JARVIS ruft diese Nummer nicht mehr an.',
     CALL_DURATION_LIMIT:
       'Der Anruf hat seine Höchstdauer von {seconds, plural, one {# Sekunde} other {# Sekunden}} erreicht, bevor das Ziel erreicht war.',
     RECORDING_CONSENT_DECLINED:

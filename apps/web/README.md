@@ -109,7 +109,7 @@ from the local fixture site in `e2e/support/evidence/`).
 | `phone_call` approval | Whom, number (readable + country), on whose behalf, caller id, language, purpose, the exact script, what may be shared, duration, hours, recording, voicemail, transfer, cost — approved by a click | `components/approvals/PhoneCallDetails`                                       |
 | Task detail: calls    | Latest attempt in full (status, live captions with speaker labels, outcome, notes, timeline, disclosure + consent, recording player only with consent), earlier attempts in short                   | `features/calls/CallCard`                                                     |
 | Unsuccessful calls    | One next step per reason (retry places a new attempt; unknown outcome asks to acknowledge; do-not-call → Settings › Privacy)                                                                        | `features/tasks/phase-c/NextStep`                                             |
-| Phone number          | Settings › Profile: E.164 input (spaces, `00`, Arabic-Indic digits normalised), verification by call with a code                                                                                    | `features/settings/PhoneNumberRow`                                            |
+| Phone number          | Settings › Profile: E.164 input (spaces, `00`, Arabic-Indic digits normalised), verification by call with a code (resumed after a reload: `GET /v1/me/phone/verification`)                          | `features/settings/PhoneNumberRow`                                            |
 | Do-not-call list      | Settings › Privacy: masked numbers, why each is there, removal states the callee’s wish first                                                                                                       | `features/settings/DoNotCallCard`                                             |
 | Task Center › Calls   | `/tasks/calls`: every call, newest first, each opening its task                                                                                                                                     | `features/calls/CallsScreen`                                                  |
 
@@ -167,3 +167,12 @@ mock providers with their control channel (`node tools/mock-providers/server.mjs
 `MOCK_CONTROL_PORT`, `E2E_MOCK_CONTROL_URL`), the fixture site (`E2E_FIXTURE_URL`) and a running
 browser worker; the API and workers get `GOOGLE_CLIENT_ID/SECRET`, `GOOGLE_BASE_URL_OVERRIDE`,
 `BROWSER_FIXTURE_ORIGIN` and `BROWSER_ALLOW_PRIVATE_HOSTS` (development only).
+`phase-d.spec.ts` covers a call from the approval sheet (exact number, script, cost) to the live
+call card (the AI disclosure first) and the collected times, scenario 4 (busy and no answer →
+FAILED with the localized reason → Retry → a new attempt), a forged webhook refused with 403
+without any change, do-not-call (the callee opts out → the next call is refused → the entry is
+removed in Settings › Privacy), and a voice conversation on the test-only fake speech service (two
+spoken turns, barge-in, an approval only by click, "stop" ends it). It needs the mock Twilio + call
+simulator (`node tools/mock-twilio/server.mjs`, control channel `E2E_TWILIO_CONTROL_URL`) and, on
+the API and worker, `TWILIO_*`, `TWILIO_BASE_URL_OVERRIDE` and `PUBLIC_WEBHOOK_BASE_URL` (the
+API's own origin; development only), with `CALL_ALLOWED_HOURS` covering the time of the run.

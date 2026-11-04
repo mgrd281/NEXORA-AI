@@ -133,7 +133,7 @@ function Verification({ me }: { me: Me }) {
   const verified = me.phoneNumberVerifiedAt ?? null;
   // Until something happens here, the verification shown is the server's (one started before a
   // reload or before leaving Settings); afterwards, what this screen started or learned.
-  const current = useCurrentPhoneVerification(!verified);
+  const current = useCurrentPhoneVerification(!verified, me.phoneNumber ?? null);
   const [local, setVerification] = useState<PhoneVerification | null | undefined>(undefined);
   const verification = local === undefined ? (current.data?.verification ?? null) : local;
   const [code, setCode] = useState('');

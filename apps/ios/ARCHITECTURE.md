@@ -251,7 +251,8 @@ apps/ios
   list.
 - **Settings › Phone.** The account's number (typed with its country code; Arabic-Indic digits
   and `00` accepted; the server validates again), Remove (explicit null), verification by a call
-  that reads a code (status from `phone_verification.changed`, tries left, expiry), the
+  that reads a code (status from `phone_verification.changed`, tries left, expiry; a
+  verification still running is resumed when the screen opens, `GET /v1/me/phone/verification`), the
   do-not-call list (masked; removing one the callee asked for warns first) and Calls (filter by
   result, paged).
 

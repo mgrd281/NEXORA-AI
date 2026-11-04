@@ -2443,6 +2443,28 @@
         }
       }
     },
+    "Asked not to be called again": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "طلب عدم الاتصال مجددًا"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Möchte nicht mehr angerufen werden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Asked not to be called again"
+          }
+        }
+      }
+    },
     "Asks about": {
       "localizations": {
         "ar": {
@@ -5387,28 +5409,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dialing"
-          }
-        }
-      }
-    },
-    "Didn't want to talk to an AI": {
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لم يرغب في التحدث مع ذكاء اصطناعي"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wollte nicht mit einer KI sprechen"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Didn't want to talk to an AI"
           }
         }
       }
@@ -26802,19 +26802,19 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "لم يرغب الطرف الآخر في التحدث مع مساعد ذكي. لن يعاود JARVIS الاتصال لهذا الغرض."
+            "value": "لم يرغب الطرف الآخر في مواصلة المكالمة، إذ طلب عدم الاتصال به مجددًا أو عدم التحدث مع مساعد ذكي. لن يتصل JARVIS بهذا الرقم مرة أخرى."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die andere Person wollte nicht mit einem KI-Assistenten sprechen. JARVIS ruft dafür nicht erneut an."
+            "value": "Die andere Person wollte das Gespräch nicht fortsetzen – sie möchte nicht mehr angerufen werden oder nicht mit einem KI-Assistenten sprechen. JARVIS ruft diese Nummer nicht mehr an."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The other person didn't want to talk to an AI assistant. JARVIS won't call again for this."
+            "value": "The other person didn't want to go on — they asked not to be called again, or not to talk to an AI assistant. JARVIS won't call this number again."
           }
         }
       }

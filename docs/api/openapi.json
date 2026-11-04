@@ -9134,6 +9134,9 @@
               "callerId": {
                 "type": ["string", "null"]
               },
+              "callerIdDisplay": {
+                "type": ["string", "null"]
+              },
               "language": {
                 "$ref": "#/components/schemas/Locale"
               },

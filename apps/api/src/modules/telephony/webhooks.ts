@@ -421,7 +421,8 @@ export function registerCallWebhooks(deps: AppDeps, define: DefineTelephonyWebho
     );
     const lang = asLocale(owner.locale);
     const input = row.request as unknown as ApprovedCall;
-    const who = row.callee_name ?? parsePhoneNumber(row.callee_number)?.international ?? row.callee_number;
+    const who =
+      row.callee_name ?? parsePhoneNumber(row.callee_number)?.international ?? row.callee_number;
     return { twiml: twiml.response(twiml.say(whisperLine(lang, who, input.goal), lang)) };
   });
 

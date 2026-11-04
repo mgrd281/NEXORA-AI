@@ -56,9 +56,10 @@ export function useDeleteDoNotCall() {
  * GET /v1/me/phone/verification: the verification still running (or that just failed), so the
  * code field comes back after a reload or after leaving Settings.
  */
-export function useCurrentPhoneVerification(enabled: boolean) {
+export function useCurrentPhoneVerification(enabled: boolean, number: string | null) {
   return useQuery({
-    queryKey: qk.phoneVerification,
+    // Per number: a verification of an earlier number is never shown for a new one.
+    queryKey: [...qk.phoneVerification, number],
     queryFn: ({ signal }) => api.call('getPhoneVerification', { signal }),
     enabled,
     retry: (count, error) => !isApiError(error, 'NOT_FOUND') && count < 2,

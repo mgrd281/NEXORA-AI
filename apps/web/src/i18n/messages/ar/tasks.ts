@@ -396,7 +396,7 @@ const tasks: Catalog<typeof source> = {
       callUnknown: 'لا يُعرف إن كانت المكالمة قد أُجريت',
       doNotCall: 'طلب هذا الرقم عدم الاتصال به',
       callHours: 'خارج أوقات الاتصال',
-      callDeclined: 'لم يرغبوا في التحدث مع ذكاء اصطناعي',
+      callDeclined: 'طلب الطرف الآخر عدم الاتصال مجددًا',
       callRecording: 'رُفض التسجيل',
     },
     reconnect:

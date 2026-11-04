@@ -39,7 +39,7 @@ const calls: Catalog<typeof source> = {
     failed: 'Keine Verbindung',
     voicemail: 'Mailbox',
     hung_up: 'Aufgelegt',
-    declined: 'Gespräch mit KI abgelehnt',
+    declined: 'Möchte nicht mehr angerufen werden',
     canceled: 'Abgebrochen',
   },
   timeline: {

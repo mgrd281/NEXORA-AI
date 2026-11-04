@@ -12,7 +12,9 @@
  *      of an external tool means the outcome is unknown → OUTCOME_UNKNOWN.
  *      safe_to_retry → key '<stepId>:a<n>'.
  *   3. execute with timeout (AbortController), no tx held.
- *   4. (tx) record outcome, usage and cost, events, audit.
+ *   4. (tx) record outcome, usage and cost, events, audit. A ToolCancelledError (the task was
+ *      cancelled while the step ran and the tool stopped for it) ends the step and the task
+ *      CANCELLED instead of FAILED.
  * After the last step: VERIFYING → verify every step → COMPLETED (or FAILED).
  *
  * The worker holds the job's lease for the whole run. If it is lost anyway

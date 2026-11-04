@@ -39,6 +39,10 @@ beforeAll(async () => {
   h = await createHarness({ adapter: model, env: { ANTHROPIC_API_KEY: 'sk-test-scripted' } });
   A = { ...h.worker, workerId: 'worker-A', leaseMs: LEASE };
   B = { ...h.worker, workerId: 'worker-B', leaseMs: LEASE };
+  // These tests lease "the next job" one at a time: jobs that earlier files (which run
+  // sequentially on this database and are finished) left queued — approval expiries, webhook
+  // deliveries, call watchdogs — must not be the job they lease.
+  await h.db.deleteFrom('jobs').where('status', 'in', ['queued', 'running']).execute();
 });
 afterAll(() => h.close());
 

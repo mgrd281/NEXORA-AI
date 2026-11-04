@@ -30,7 +30,6 @@ import { withContext } from '../../../../db/pool';
 import type { CallSessionRow } from '../../../../db/types';
 import { hashObject } from '../../../../lib/crypto';
 import { maskPhoneNumber, parsePhoneNumber, regionOfNumber } from '../../../../lib/phone';
-import { audit } from '../../../audit/audit';
 import {
   attemptDeadline,
   dial,
@@ -206,7 +205,11 @@ export function callError(row: CallSessionRow): AgentError | null {
             'The callee did not agree to the recording, so the call was ended politely.',
             false,
           )
-        : fail('CALL_DECLINED', 'The callee did not want to talk to an AI assistant.', false);
+        : fail(
+            'CALL_DECLINED',
+            'The callee asked not to be called again (or not to talk to an AI assistant).',
+            false,
+          );
     case 'failed':
       if (row.failure_reason === 'PROVIDER_REJECTED')
         return fail(

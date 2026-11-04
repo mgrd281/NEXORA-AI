@@ -434,7 +434,7 @@ enum TaskErrorText {
         case "CALL_HUNG_UP":
             text = String(localized: "error.reason.CALL_HUNG_UP", defaultValue: "The other person hung up before the goal was reached. Nothing was agreed.")
         case "CALL_DECLINED":
-            text = String(localized: "error.reason.CALL_DECLINED", defaultValue: "The other person didn't want to talk to an AI assistant. JARVIS won't call again for this.")
+            text = String(localized: "error.reason.CALL_DECLINED", defaultValue: "The other person didn't want to go on — they asked not to be called again, or not to talk to an AI assistant. JARVIS won't call this number again.")
         case "CALL_DURATION_LIMIT":
             text = String(localized: "error.reason.CALL_DURATION_LIMIT", defaultValue: "The call reached its maximum length (\(p.seconds)) before the goal was reached.")
         case "RECORDING_CONSENT_DECLINED":

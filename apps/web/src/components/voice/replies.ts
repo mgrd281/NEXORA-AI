@@ -25,8 +25,24 @@ export interface ReplyLangs {
   request: string;
 }
 
-/** Spoken text never carries the bidi isolation marks of rendered sentences. */
-const plain = (text: string) => stripIsolates(text).replace(/\s+/g, ' ').trim();
+/**
+ * Spoken text never carries the bidi isolation marks of rendered sentences, nor list markers:
+ * each line of a multi-line result (an extractive summary's heading and bullets) becomes its own
+ * sentence, so it is read — and captioned — as sentences rather than "report - By … - The …".
+ */
+export function plain(text: string): string {
+  const lines = stripIsolates(text)
+    .split(/\n+/)
+    .map((l) =>
+      l
+        .replace(/^\s*(?:[-–•*]|\d{1,2}[.)])\s+/, '')
+        .replace(/\s+/g, ' ')
+        .trim(),
+    )
+    .filter(Boolean);
+  if (lines.length <= 1) return lines[0] ?? '';
+  return lines.map((l) => (/[.!?;:…؟،,]$/.test(l) ? l : `${l}.`)).join(' ');
+}
 
 /**
  * The line for a task that asks, waits or ended; null while it works (and for an answer, which

@@ -35,7 +35,7 @@ const calls = {
     failed: 'Couldn’t connect',
     voicemail: 'Voicemail',
     hung_up: 'Hung up',
-    declined: 'Declined to talk to an AI',
+    declined: 'Asked not to be called again',
     canceled: 'Cancelled',
   },
   timeline: {

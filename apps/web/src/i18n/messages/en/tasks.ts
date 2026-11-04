@@ -395,7 +395,7 @@ const tasks = {
       callUnknown: 'It’s unclear whether the call was placed',
       doNotCall: 'This number asked not to be called',
       callHours: 'Outside the calling hours',
-      callDeclined: 'They didn’t want to talk to an AI',
+      callDeclined: 'They asked not to be called again',
       callRecording: 'The recording was refused',
     },
     reconnect:
