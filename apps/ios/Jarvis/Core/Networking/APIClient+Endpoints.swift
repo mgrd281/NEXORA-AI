@@ -48,6 +48,22 @@ extension APIClient {
         let _: EmptyResponse = try await send(.delete, "/v1/auth/sessions/\(Self.id(id))")
     }
 
+    // MARK: Natural voice
+
+    private struct SpeechRequest: Encodable, Sendable {
+        let text: String
+        let language: String
+    }
+
+    /// `POST /v1/voice/speech`: the text read aloud by the natural voice (MP3 bytes).
+    func speech(text: String, language: AppLocale) async throws -> Data {
+        let lang = language == .unknown ? AppLocale.current : language
+        return try await postForData(
+            "/v1/voice/speech",
+            body: SpeechRequest(text: String(text.prefix(1500)), language: lang.rawValue)
+        )
+    }
+
     // MARK: Account
 
     func me() async throws -> Me {

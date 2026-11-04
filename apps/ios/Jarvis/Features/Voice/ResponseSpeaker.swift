@@ -2,11 +2,28 @@ import AVFoundation
 import Foundation
 
 /// Reads a task's final result aloud after a voice request, when the user enabled
-/// "Speak responses". Uses the on-device system voice for the recognition language.
+/// "Speak responses": the natural voice's audio when the server provides it (`play`), else
+/// the on-device system voice for the recognition language (`speak`).
 @MainActor
 final class ResponseSpeaker {
     private let synthesizer = AVSpeechSynthesizer()
     private let audioSessionReleaser = AudioSessionReleaser()
+    private let natural = NaturalVoicePlayer()
+
+    /// Plays natural-voice audio; false when it could not be played (then use `speak`).
+    func play(_ audio: Data) -> Bool {
+        stop()
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+            try session.setActive(true)
+        } catch {
+            return false
+        }
+        return natural.play(audio) { _ in
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
+    }
 
     init() {
         synthesizer.delegate = audioSessionReleaser
@@ -27,6 +44,7 @@ final class ResponseSpeaker {
     }
 
     func stop() {
+        natural.stop()
         if synthesizer.isSpeaking {
             synthesizer.stopSpeaking(at: .immediate)
         }

@@ -107,10 +107,11 @@ The web service holds **no secrets**.
 
 ### Real AI planning (Anthropic)
 
-| Variable                                       | Services         | Secret | Notes                                                                                                    |
-| ---------------------------------------------- | ---------------- | ------ | -------------------------------------------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY`                            | `api` + `worker` | secret | The worker plans with it; the API reports the planner mode the UI shows. Both, or the UI says "offline"  |
-| `MODEL_FAST` / `MODEL_BALANCED` / `MODEL_DEEP` | `api` + `worker` |        | Repository defaults `claude-haiku-5-5` / `claude-sonnet-5-5` / `claude-opus-5-5`; change only on purpose |
+| Variable                                       | Services         | Secret | Notes                                                                                                                                                                                           |
+| ---------------------------------------------- | ---------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY`                            | `api` + `worker` | secret | The worker plans with it; the API reports the planner mode the UI shows. Both, or the UI says "offline"                                                                                         |
+| `OPENAI_API_KEY`                               | `api`            | secret | Optional natural voice (`POST /v1/voice/speech`, gpt-4o-mini-tts). Without it the apps use the device voice. `OPENAI_TTS_VOICE` (default `coral`) and `OPENAI_TTS_MODEL` change the voice/model |
+| `MODEL_FAST` / `MODEL_BALANCED` / `MODEL_DEEP` | `api` + `worker` |        | Repository defaults `claude-haiku-5-5` / `claude-sonnet-5-5` / `claude-opus-5-5`; change only on purpose                                                                                        |
 
 Set a spending limit in the Anthropic console; see [docs/costs.md](../../docs/costs.md).
 

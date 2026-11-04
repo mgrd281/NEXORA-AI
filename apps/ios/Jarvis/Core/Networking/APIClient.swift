@@ -178,6 +178,29 @@ actor APIClient {
         return (data: data, response: response)
     }
 
+    /// POSTs a JSON body and returns the binary response (e.g. synthesized speech).
+    func postForData(_ path: String, body: any Encodable & Sendable, timeout: TimeInterval = 30) async throws -> Data {
+        guard let url = Self.makeURL(baseURL: baseURL, path: path) else {
+            throw NetworkError.invalidResponse("Invalid URL for \(path)")
+        }
+        let token = try currentToken()
+        var request = Self.makeRequest(
+            url: url,
+            method: .post,
+            body: try encoder.encode(body),
+            token: token,
+            idempotencyKey: nil,
+            language: AppLocale.current.rawValue
+        )
+        request.setValue("*/*", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = timeout
+        let finalRequest = request
+        let (data, _) = try await execute(finalRequest, authenticated: true, signOutOnUnauthorized: true) {
+            try await self.transfer(finalRequest)
+        }
+        return data
+    }
+
     /// Uploads one file as multipart/form-data (an `upload` route) and decodes the JSON
     /// response. `onProgress` receives 0…1 as the body is sent (on a background queue).
     func upload<Response: Decodable & Sendable>(

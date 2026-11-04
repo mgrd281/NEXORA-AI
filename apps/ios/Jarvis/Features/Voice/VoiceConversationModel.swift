@@ -27,7 +27,8 @@ final class VoiceConversationModel {
 
     @ObservationIgnored private weak var app: AppModel?
     @ObservationIgnored private var recognizer: LiveConversationRecognizer?
-    @ObservationIgnored private var synthesizer: LiveConversationSynthesizer?
+    @ObservationIgnored private var synthesizer: (any ConversationSynthesizer)?
+    @ObservationIgnored private var shutdownSynthesizer: (() -> Void)?
     @ObservationIgnored private var voiceSessionRecord: Task<VoiceSession?, Never>?
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
     @ObservationIgnored private var presentedApprovals: Set<String> = []
@@ -61,7 +62,17 @@ final class VoiceConversationModel {
         app.speaker.stop()
         let voice = app.me?.preferences.voice
         let recognizer = LiveConversationRecognizer()
-        let synthesizer = LiveConversationSynthesizer()
+        // The natural voice when the server offers it, else the device voice.
+        let synthesizer: any ConversationSynthesizer
+        if app.assistantStatus?.voice?.natural == true {
+            let natural = NaturalConversationSynthesizer(api: app.api)
+            synthesizer = natural
+            shutdownSynthesizer = { natural.shutdown() }
+        } else {
+            let live = LiveConversationSynthesizer()
+            synthesizer = live
+            shutdownSynthesizer = { live.shutdown() }
+        }
         self.recognizer = recognizer
         self.synthesizer = synthesizer
         let locale = localeIdentifier
@@ -242,7 +253,8 @@ final class VoiceConversationModel {
     private func conversationEnded(_ end: ConversationEnd) {
         refreshTask?.cancel()
         recognizer?.shutdown()
-        synthesizer?.shutdown()
+        shutdownSynthesizer?()
+        shutdownSynthesizer = nil
         recordVoiceSessionEnd(end)
     }
 

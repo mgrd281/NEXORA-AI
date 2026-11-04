@@ -2626,6 +2626,100 @@
         }
       }
     },
+    "/v1/voice/speech": {
+      "post": {
+        "operationId": "synthesizeSpeech",
+        "summary": "Read text aloud with the natural voice (audio/mpeg)",
+        "tags": ["voice"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpeechRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The file",
+            "headers": {
+              "Content-Disposition": {
+                "description": "attachment; filename=\"…\" (RFC 6266, UTF-8 filename*)",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              }
+            },
+            "content": {
+              "audio/mpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/overview": {
       "get": {
         "operationId": "adminOverview",
@@ -9396,6 +9490,16 @@
             "required": ["webFetch", "email", "memory", "generalQuestions"],
             "additionalProperties": false
           },
+          "voice": {
+            "type": "object",
+            "properties": {
+              "natural": {
+                "type": "boolean"
+              }
+            },
+            "required": ["natural"],
+            "additionalProperties": false
+          },
           "version": {
             "type": "string"
           }
@@ -14791,6 +14895,21 @@
           "BROWSER_UNAVAILABLE",
           "TELEPHONY_NOT_CONFIGURED"
         ]
+      },
+      "SpeechRequest": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1500
+          },
+          "language": {
+            "type": "string",
+            "enum": ["en", "de", "ar"]
+          }
+        },
+        "required": ["text", "language"]
       },
       "StepStatus": {
         "type": "string",

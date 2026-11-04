@@ -423,7 +423,8 @@ describe('Phase B route table', () => {
         expect(r.upload.maxBytes, name).toBe(ATTACHMENT_LIMITS.maxBytes);
       }
       if (r.download) {
-        expect(r.method, name).toBe('GET');
+        // Synthesized speech is generated from the posted text, not a stored file.
+        expect(r.method, name).toBe(name === 'synthesizeSpeech' ? 'POST' : 'GET');
         expect(r.response, name).toBeNull();
         expect(r.successStatus, name).toBe(200);
       }

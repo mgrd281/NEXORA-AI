@@ -21,3 +21,18 @@ describe('preferences.ai.planningModel', () => {
     ).toBe(false);
   });
 });
+
+describe('natural voice', () => {
+  it('speech requests carry text and a language, bounded', async () => {
+    const { SpeechRequest, SPEECH_LIMITS } = await import('../src/schemas');
+    const { routes } = await import('../src/routes');
+    expect(SpeechRequest.safeParse({ text: 'Hallo', language: 'de' }).success).toBe(true);
+    expect(SpeechRequest.safeParse({ text: ' ', language: 'de' }).success).toBe(false);
+    expect(
+      SpeechRequest.safeParse({ text: 'x'.repeat(SPEECH_LIMITS.maxTextChars + 1), language: 'de' })
+        .success,
+    ).toBe(false);
+    expect(routes.synthesizeSpeech.download.mediaTypes).toEqual(['audio/mpeg']);
+    expect(routes.synthesizeSpeech.auth).toBe('user');
+  });
+});

@@ -1,8 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 import { withContext } from '../../db/pool';
 import { defineRoute } from '../../http/route';
-import { notFound } from '../../lib/errors';
+import { AppError, notFound } from '../../lib/errors';
 import type { AppDeps } from '../../services';
+import { loadMe } from '../account/me';
+import { monthlyAiSpend } from '../agent/context';
+import { usdToMicro } from '../agent/models/pricing';
+import { effectiveTimeZone } from '../../lib/period';
+import { speechConfigured, speechCostMicro, synthesizeSpeech } from './speech';
 
 /**
  * Voice sessions record metadata only (engine, locale, outcome, transcript
@@ -54,6 +59,54 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: AppDeps) {
     });
     return toVoiceSession(row);
   });
+
+  // Natural voice: one sentence group per request (the apps split replies into chunks).
+  defineRoute(
+    app,
+    deps,
+    'synthesizeSpeech',
+    async ({ ctx, body, reply }) => {
+      if (!speechConfigured(deps.config))
+        throw new AppError(
+          'SERVICE_UNAVAILABLE',
+          'The natural voice is not set up on this server.',
+        );
+      await withContext(db, ctx, async (trx) => {
+        const me = await loadMe(trx, ctx.userId);
+        if (!me.preferences.ai.allowExternalModels)
+          throw new AppError(
+            'SERVICE_UNAVAILABLE',
+            'External models are turned off in your settings, so the device voice is used.',
+          );
+        const spent = await monthlyAiSpend(trx, await effectiveTimeZone(trx, me.timeZone));
+        if (spent >= usdToMicro(me.preferences.spending.monthlyAiBudgetUsd))
+          throw new AppError('BUDGET_EXCEEDED', 'The monthly AI budget is used up.');
+      });
+      const speech = await synthesizeSpeech(deps.config, body);
+      // Metered as model spend (it counts toward the monthly AI budget).
+      await withContext(db, ctx, (trx) =>
+        trx
+          .insertInto('cost_records')
+          .values({
+            tenant_id: ctx.tenantId,
+            user_id: ctx.userId,
+            task_id: null,
+            category: 'model',
+            amount_micro: speechCostMicro(body.text.length),
+          })
+          .execute(),
+      );
+      reply
+        .code(200)
+        .header('content-type', speech.mediaType)
+        .header('content-length', String(speech.audio.length))
+        .header('cache-control', 'no-store')
+        .header('x-voice-model', speech.model)
+        .send(speech.audio);
+    },
+    // Replies are chunked per sentence group: allow a steady conversation, bound abuse.
+    { rateLimit: { max: 120, timeWindow: '1 minute' } },
+  );
 
   defineRoute(app, deps, 'endVoiceSession', async ({ ctx, params, body }) => {
     const row = await withContext(db, ctx, async (trx) => {

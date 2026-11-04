@@ -71,6 +71,7 @@ import {
   VoiceSession,
   VoiceSessionEnd,
   VoiceSessionStart,
+  SpeechRequest,
   WebhookDelivery,
   WebhookEndpoint,
   WebhookEndpointWithSecret,
@@ -435,6 +436,21 @@ export const routes = {
     params: IdParams,
     body: VoiceSessionEnd,
     response: VoiceSession,
+  },
+
+  // Natural voice: the text (never audio) goes to the configured speech provider; the reply is
+  // the MP3. SERVICE_UNAVAILABLE without a provider or when external models are off;
+  // BUDGET_EXCEEDED when the monthly AI budget is used up (the cost counts toward it).
+  synthesizeSpeech: {
+    method: 'POST',
+    path: '/v1/voice/speech',
+    summary: 'Read text aloud with the natural voice (audio/mpeg)',
+    tag: 'voice',
+    auth: 'user',
+    body: SpeechRequest,
+    download: { mediaTypes: ['audio/mpeg'] },
+    response: null,
+    successStatus: 200,
   },
 
   // Admin (platform_admin only; aggregates, never content)

@@ -7,6 +7,7 @@ import type { AgentDeps } from './index';
 import { getSkill } from './skills/registry';
 import { skillEntry, skillEnv } from './skills/service';
 import { TOOLS } from './tools/registry';
+import { speechConfigured } from '../voice/speech';
 
 /** Real status: planner route for this user, worker heartbeat, connected capabilities. */
 export function createStatusService(deps: AgentDeps): AssistantStatusService {
@@ -65,6 +66,10 @@ export function createStatusService(deps: AgentDeps): AssistantStatusService {
             shopping && registered('shop.checkout') && (agent.purchases?.limitMicro ?? 0) > 0,
           // Phase D: built here, the skill on, and a telephony gateway configured.
           phoneCalls: available('phone-calling') && registered('phone.call'),
+        },
+        // Natural voice: a speech provider is set up and the user allows external models.
+        voice: {
+          natural: speechConfigured(deps.config) && agent.preferences.ai.allowExternalModels,
         },
         version: deps.config.APP_VERSION,
       };

@@ -33,6 +33,14 @@ const Env = z.object({
   MODEL_DEEP: z.string().default('claude-opus-5-5'),
 
   /**
+   * Optional natural voice (POST /v1/voice/speech): an OpenAI key for text-to-speech. Only the
+   * text of JARVIS's replies is sent, never audio. Without it the apps use the device voice.
+   */
+  OPENAI_API_KEY: z.string().optional(),
+  OPENAI_TTS_MODEL: z.string().default('gpt-4o-mini-tts'),
+  OPENAI_TTS_VOICE: z.string().default('coral'),
+
+  /**
    * Development/test only: hosts (host:port) that web.fetch may reach even though
    * they resolve to private addresses. Refused in production.
    */
@@ -528,6 +536,7 @@ function resolvePhaseC(c: z.infer<typeof Env>, isProduction: boolean): PhaseCCon
 export const BROWSER_WORKER_FORBIDDEN_ENV = [
   'SECRET_ENCRYPTION_KEY',
   'ANTHROPIC_API_KEY',
+  'OPENAI_API_KEY',
   'GOOGLE_CLIENT_SECRET',
   'MICROSOFT_CLIENT_SECRET',
   'DATABASE_OWNER_URL',

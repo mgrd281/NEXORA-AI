@@ -245,6 +245,12 @@ final class AppModel {
         guard !isCapturingVoice, let detail = try? await api.task(id: taskId) else { return }
         let text = detail.answer ?? detail.question?.text ?? detail.resultSummary
         guard let text, !text.isEmpty, !isCapturingVoice else { return }
+        if assistantStatus?.voice?.natural == true,
+           let audio = try? await api.speech(text: text, language: AppLocale(recognitionIdentifier: locale)),
+           !isCapturingVoice,
+           speaker.play(audio) {
+            return
+        }
         speaker.speak(text, languageCode: locale)
     }
 }

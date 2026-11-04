@@ -46,9 +46,15 @@ struct AssistantStatus: Decodable, Sendable, Equatable {
         var phoneCalls: Bool? = nil
     }
 
+    /// Natural voice (server text-to-speech); nil from older servers.
+    struct Voice: Decodable, Sendable, Equatable {
+        let natural: Bool
+    }
+
     let planner: Planner
     let worker: Worker
     let capabilities: Capabilities
+    var voice: Voice? = nil
     let version: String
 }
 

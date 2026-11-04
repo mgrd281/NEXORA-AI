@@ -2256,9 +2256,25 @@ export const AssistantStatus = z.object({
     /** Phone calls can be placed: phone.call built, telephony configured, the skill on. */
     phoneCalls: z.boolean().optional(),
   }),
+  /**
+   * Natural voice: POST /v1/voice/speech can read JARVIS's replies aloud with a neural voice
+   * (a speech provider is configured and the user allows external models). Clients fall back
+   * to the device's system voice when false or absent.
+   */
+  voice: z.object({ natural: z.boolean() }).optional(),
   version: z.string(),
 });
 export type AssistantStatus = z.infer<typeof AssistantStatus>;
+
+/** Speech limits: one request reads one sentence group aloud. */
+export const SPEECH_LIMITS = { maxTextChars: 1_500 } as const;
+
+/** POST /v1/voice/speech: text to read aloud in the given language (answers audio/mpeg). */
+export const SpeechRequest = z.object({
+  text: z.string().trim().min(1).max(SPEECH_LIMITS.maxTextChars),
+  language: Locale,
+});
+export type SpeechRequest = z.infer<typeof SpeechRequest>;
 
 export const Suggestion = z.object({
   id: z.string(),
