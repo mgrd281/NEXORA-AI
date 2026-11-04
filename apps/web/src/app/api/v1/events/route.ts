@@ -11,8 +11,15 @@ export const dynamic = 'force-dynamic';
 
 const API_ORIGIN = (process.env.API_ORIGIN || 'http://127.0.0.1:4000').replace(/\/+$/, '');
 
-/** Request headers the API needs: the session cookie, resume position and request context. */
-const FORWARDED = ['cookie', 'last-event-id', 'user-agent', 'x-request-id', 'accept-language'];
+/** Request headers the API needs: the session cookie or bearer token (the iPhone app signs in with a token, not a cookie), resume position and request context. */
+const FORWARDED = [
+  'cookie',
+  'authorization',
+  'last-event-id',
+  'user-agent',
+  'x-request-id',
+  'accept-language',
+];
 
 export async function GET(request: NextRequest): Promise<Response> {
   const upstreamUrl = new URL(EVENTS_PATH, API_ORIGIN);
