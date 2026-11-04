@@ -1,0 +1,97 @@
+# syntax=docker/dockerfile:1
+# JARVIS browser worker image (docs/adr/0017): dist/browser-worker.js plus the Chromium build that
+# playwright-core drives. Build from the repository root:
+#
+#   docker build -f apps/api/Dockerfile.browser -t jarvis-browser-worker .
+#   docker run --rm -e DATABASE_URL=... -e STORAGE_DRIVER=s3 -e S3_BUCKET=... jarvis-browser-worker
+#
+# Chromium comes from the playwright-core CLI of the lockfile (1.63.0 → Chrome for Testing,
+# revision 1243), so the browser always matches the library that launches it, and lands in the
+# same place as in the development container: /opt/pw-browsers/chromium (a symlink to
+# chromium-<revision>/chrome-linux64/chrome).
+#
+# Why not FROM mcr.microsoft.com/playwright:v1.63.0-noble: that image (its config checked on MCR
+# on 2026-11-04) ships Node.js 24 while this repository builds for and tests on Node 22, adds
+# Firefox and WebKit, and makes the browser directories world-writable (chmod -R 777). Here the
+# same `playwright-core install --with-deps` that image uses installs only Chromium and its system
+# libraries into node:22-bookworm-slim, owned by root and read-only for the runtime user.
+#
+# The image holds no secrets, and the process must not be given any: in production the browser
+# worker refuses to start with SECRET_ENCRYPTION_KEY, ANTHROPIC_API_KEY, GOOGLE_CLIENT_SECRET,
+# MICROSOFT_CLIENT_SECRET, DATABASE_OWNER_URL, METRICS_TOKEN or TWILIO_AUTH_TOKEN set. It needs
+# DATABASE_URL (role jarvis_app) and S3 storage for its evidence (without storage every browser
+# job fails as BROWSER_CRASHED and the API does not offer the browser at all).
+#
+# Chromium runs with its sandbox on (production), which needs unprivileged user namespaces in the
+# container. A platform that forbids them makes every launch fail; do not turn the sandbox off —
+# see docs/runbooks/deploy-railway.md ("Browser worker").
+#
+# Railway (deploy/railway/browser-worker.json) uses this file's ENTRYPOINT and CMD (no start
+# command override), so tini stays PID 1 and reaps Chromium's child processes. No BuildKit cache
+# mounts (see apps/api/Dockerfile). Base images are pinned by tag; digest pinning is a README
+# follow-up.
+
+FROM node:22-bookworm-slim AS base
+ENV PNPM_HOME=/pnpm \
+    PATH=/pnpm:$PATH \
+    COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+    CI=true
+WORKDIR /repo
+# pnpm comes from the version pinned in package.json "packageManager".
+COPY package.json ./
+RUN corepack enable && corepack install
+
+# ---------------------------------------------------------------------------------------------
+# Same build as apps/api/Dockerfile (one bundle for every process type).
+FROM base AS build
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+COPY packages/contracts/package.json packages/contracts/
+COPY packages/tokens/package.json packages/tokens/
+RUN pnpm install --frozen-lockfile --filter "@jarvis/api..."
+
+COPY tsconfig.base.json ./
+COPY packages/contracts packages/contracts
+COPY db/migrations db/migrations
+COPY apps/api apps/api
+RUN pnpm --filter @jarvis/api build && ls apps/api/dist/browser-worker.js
+RUN pnpm --filter @jarvis/api deploy --prod --legacy /out \
+ && test -f /out/node_modules/playwright-core/cli.js
+
+# ---------------------------------------------------------------------------------------------
+FROM node:22-bookworm-slim AS runtime
+ARG APP_VERSION=0.1.0
+ARG DEBIAN_FRONTEND=noninteractive
+ENV NODE_ENV=production \
+    APP_VERSION=$APP_VERSION \
+    NODE_OPTIONS=--enable-source-maps \
+    PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
+    BROWSER_EXECUTABLE_PATH=/opt/pw-browsers/chromium
+WORKDIR /app
+# Code stays owned by root and read-only for the runtime user.
+COPY --from=build /out/package.json ./package.json
+COPY --from=build /out/node_modules ./node_modules
+COPY --from=build /repo/apps/api/dist ./dist
+# tini (PID 1, reaps Chromium's processes), CA certificates, then Chromium (no headless shell:
+# the development container also launches the full chrome binary) with the system libraries and
+# fonts it needs. The glob must match exactly one executable; the version check fails the build
+# when a library is missing.
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends tini ca-certificates; \
+    node node_modules/playwright-core/cli.js install --with-deps --no-shell chromium; \
+    rm -rf /var/lib/apt/lists/*; \
+    chrome="$(echo "$PLAYWRIGHT_BROWSERS_PATH"/chromium-*/chrome-linux64/chrome)"; \
+    test -x "$chrome"; \
+    ln -s "$chrome" "$BROWSER_EXECUTABLE_PATH"; \
+    chmod -R go-w "$PLAYWRIGHT_BROWSERS_PATH"; \
+    "$BROWSER_EXECUTABLE_PATH" --version
+USER node
+# The browser worker serves no HTTP; its health is its database heartbeat (kind "browser").
+HEALTHCHECK NONE
+LABEL org.opencontainers.image.title="jarvis-browser-worker" \
+      org.opencontainers.image.description="JARVIS browser worker (isolated, secret-free) with Chromium" \
+      org.opencontainers.image.source="https://github.com/mgrd281/NEXORA-AI"
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["node", "dist/browser-worker.js"]

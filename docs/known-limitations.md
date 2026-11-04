@@ -1,5 +1,11 @@
 # Known limitations
 
+> **Status note:** most of this page was written for Milestone 1. Phases B–D since added
+> conversations, attachments, schedules, webhooks, OAuth (Google/Microsoft), email and calendar
+> agents, booking, the browser and shopping agents, voice conversation and the phone agent — see
+> [phase-b](architecture/phase-b.md), [phase-c](architecture/phase-c.md) and
+> [phase-d](architecture/phase-d.md). A full reconciliation of this page is scheduled for the final phase.
+
 An honest list for Milestone 1. Items marked **issue** are defects to fix; the rest are scope limits
 by design or by environment. Last reviewed: 2026-11-03.
 
@@ -19,19 +25,13 @@ by design or by environment. Last reviewed: 2026-11-03.
 
 ## Known issues (at the time of writing)
 
-- **issue — SMTP to public IPv4 hosts refused.** `apps/api/src/lib/net.ts` registers `::ffff:0:0/96`
-  in the same `BlockList` as the IPv4 ranges; Node then matches every IPv4 address, so
-  `isPrivateAddress`/`assertPublicHost` treat public IPv4 hosts as private. `web.fetch` uses its own
-  guard (`tools/ssrf.ts`) and is unaffected; SMTP connections (connect, test, send) to providers
-  resolved only to IPv4 are refused with `FETCH_BLOCKED`/`CONNECTION_FAILED`. It fails safe (blocks,
-  never allows). Documented by a failing-by-design test in `test/unit/agent/net.test.ts`.
-- **issue — decryption failure reported as `OUTCOME_UNKNOWN`.** If a connection secret cannot be
-  decrypted at send time (e.g. after a key rotation), `email.send` classifies the error as
-  `OUTCOME_UNKNOWN` although nothing was sent. Workaround: reconnect SMTP before running email tasks
-  after a rotation ([operations](runbooks/operations.md#rotate-secret_encryption_key)).
-- **issue — budget month boundary.** Budget enforcement counts spend since the 1st of the month in
-  UTC (`agent/context.ts`), while `GET /v1/usage` reports the calendar month in the user's time zone;
-  around month boundaries the two can differ by a few hours of spend.
+- **resolved — SMTP to public IPv4 hosts refused.** Fixed in the integration round: `lib/net.ts`
+  now keeps separate IPv4/IPv6 BlockLists and checks IPv4-mapped addresses via the embedded IPv4
+  address; `web.fetch` delegates to the same classifier. Regression tests: `test/unit/agent/net.test.ts`.
+- **resolved — decryption failure reported as `OUTCOME_UNKNOWN`.** Failures before any SMTP data
+  (secret decryption, SSRF check, transport setup) are now definite `CONNECTION_FAILED` (retryable).
+- **resolved — budget month boundary.** Budget enforcement and the usage screen share one
+  time-zone-aware month boundary (`lib/period.ts`), resolved against `pg_timezone_names`.
 
 ## Agent and tools
 

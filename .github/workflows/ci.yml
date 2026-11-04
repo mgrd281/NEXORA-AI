@@ -411,9 +411,19 @@ jobs:
         run: docker build -f apps/api/Dockerfile --target devtools -t jarvis-devtools:ci .
       - name: Build web image
         run: docker build -f apps/web/Dockerfile --build-arg API_ORIGIN=http://127.0.0.1:4000 -t jarvis-web:ci .
+      - name: Build browser worker image
+        run: docker build -f apps/api/Dockerfile.browser -t jarvis-browser-worker:ci .
+      - name: Browser worker image has Chromium and refuses secrets
+        run: |
+          docker run --rm --entrypoint /opt/pw-browsers/chromium jarvis-browser-worker:ci --version
+          if out="$(docker run --rm -e DATABASE_URL -e SECRET_ENCRYPTION_KEY=must-be-refused \
+            --network host jarvis-browser-worker:ci 2>&1)"; then
+            echo "::error::the browser worker started with SECRET_ENCRYPTION_KEY"; exit 1
+          fi
+          grep -q 'must not be given SECRET_ENCRYPTION_KEY' <<<"$out" || { echo "$out"; exit 1; }
       - name: Images run as non-root and contain no .env
         run: |
-          for image in jarvis-api:ci jarvis-devtools:ci jarvis-web:ci; do
+          for image in jarvis-api:ci jarvis-devtools:ci jarvis-web:ci jarvis-browser-worker:ci; do
             uid="$(docker run --rm --entrypoint id "$image" -u)"
             [ "$uid" != 0 ] || { echo "::error::$image runs as root"; exit 1; }
             if docker run --rm --entrypoint grep "$image" -rlsF must-not-be-in-image /app /repo; then
@@ -436,6 +446,7 @@ jobs:
           docker run -d --name worker --network host -e DATABASE_URL -e SECRET_ENCRYPTION_KEY \
             -e WEB_ORIGIN=https://jarvis.example.test --no-healthcheck jarvis-api:ci node dist/worker.js
           docker run -d --name web --network host -e API_ORIGIN=http://127.0.0.1:4000 jarvis-web:ci
+          docker run -d --name browser --network host -e DATABASE_URL jarvis-browser-worker:ci
           for name in api web; do
             for _ in $(seq 1 60); do
               status="$(docker inspect -f '{{.State.Health.Status}}' "$name")"
@@ -446,11 +457,13 @@ jobs:
             [ "$status" = healthy ] || { docker logs "$name"; exit 1; }
           done
           [ "$(docker inspect -f '{{.State.Running}}' worker)" = true ] || { docker logs worker; exit 1; }
+          [ "$(docker inspect -f '{{.State.Running}}' browser)" = true ] || { docker logs browser; exit 1; }
+          docker logs browser 2>&1 | grep -q '"browser worker started"' || { docker logs browser; exit 1; }
           curl -fsS http://127.0.0.1:4000/readyz
           curl -fsS http://127.0.0.1:3000/api/readyz   # through the web image's /api proxy
       - name: Container logs
         if: ${{ !cancelled() }}
-        run: for name in api worker web; do echo "::group::$name"; docker logs "$name" 2>&1 | tail -n 100 || true; echo "::endgroup::"; done
+        run: for name in api worker web browser; do echo "::group::$name"; docker logs "$name" 2>&1 | tail -n 100 || true; echo "::endgroup::"; done
 
   security:
     name: Security

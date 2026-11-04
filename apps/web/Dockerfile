@@ -5,9 +5,16 @@
 #   docker run -p 3000:3000 -e API_ORIGIN=http://api:4000 jarvis-web
 #
 # API_ORIGIN is where the same-origin /api proxy forwards to (ADR-0012). It is passed at build
-# time too, because Next.js resolves next.config rewrites during `next build`; keep both equal.
-# Requires output: 'standalone' in apps/web/next.config. Base images are pinned by tag; pinning
-# by digest is a README follow-up.
+# time too, because Next.js resolves next.config rewrites during `next build` (they end up in
+# .next/routes-manifest.json); the streaming route for /api/v1/events reads it at run time. Keep
+# both equal, and rebuild after changing it. Requires output: 'standalone' in
+# apps/web/next.config. Base images are pinned by tag; pinning by digest is a README follow-up.
+#
+# Railway (deploy/railway/web.json): a service variable named API_ORIGIN is passed to the
+# `ARG API_ORIGIN` lines below as a build argument, and to the container at run time, e.g.
+# http://api.railway.internal:4000. The build log prints the value it used. PORT and HOSTNAME
+# are read by the standalone server.js. No BuildKit cache mounts: Railway accepts them only with
+# a service-specific id (see apps/api/Dockerfile).
 
 FROM node:22-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm \
@@ -26,15 +33,16 @@ COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY packages/contracts/package.json packages/contracts/
 COPY packages/tokens/package.json packages/tokens/
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile --filter "@jarvis/web..."
+RUN pnpm install --frozen-lockfile --filter "@jarvis/web..."
 
 COPY tsconfig.base.json ./
 COPY packages packages
 COPY apps/web apps/web
 ARG API_ORIGIN=http://api:4000
 ENV API_ORIGIN=$API_ORIGIN
-RUN pnpm --filter @jarvis/web build
+# The origin is not a secret; printing it makes a wrong or missing build argument visible.
+RUN echo "next.config rewrites /api/* to API_ORIGIN=${API_ORIGIN}" \
+ && pnpm --filter @jarvis/web build
 # Assemble a fixed layout under /out regardless of where Next placed server.js (it mirrors
 # the path from the file-tracing root, which is the monorepo root or apps/web).
 RUN set -eu; s=apps/web/.next/standalone; \

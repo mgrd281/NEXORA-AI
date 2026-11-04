@@ -88,6 +88,25 @@ stack runs in development mode for local use; it is not a production deployment.
 [apps/api/Dockerfile](apps/api/Dockerfile) (API, worker, migrations and CLI in one image; non-root,
 `HEALTHCHECK` on `/healthz`) and [apps/web/Dockerfile](apps/web/Dockerfile) (Next.js standalone).
 
+## Deploy (Railway, for testing)
+
+A test deployment for one owner on [Railway](https://railway.com): `web`, `api` (migrations run as
+its pre-deploy step), `worker` and PostgreSQL, optionally the isolated `browser-worker`. Step by
+step, from an empty account to signing in on your phone:
+[docs/runbooks/deploy-railway.md](docs/runbooks/deploy-railway.md)
+([بالعربية](docs/runbooks/deploy-railway.ar.md)).
+
+- Config as code, one file per service: [deploy/railway/](deploy/railway/) (`api.json`,
+  `worker.json`, `web.json`, `browser-worker.json`); every variable per service:
+  [deploy/railway/variables.md](deploy/railway/variables.md).
+- Database roles on Railway's PostgreSQL: [scripts/railway/bootstrap-db.sh](scripts/railway/bootstrap-db.sh).
+- Browser-worker image with Chromium: [apps/api/Dockerfile.browser](apps/api/Dockerfile.browser).
+- iPhone app against the deployed API: [docs/runbooks/ios-testing.md](docs/runbooks/ios-testing.md)
+  ([بالعربية](docs/runbooks/ios-testing.ar.md)).
+
+Railway's own documentation could not be checked while writing this kit and no image was built
+there; the guide lists what was verified and what to double-check.
+
 ## Testing
 
 | Command                                                | What                                                                       |
@@ -124,7 +143,8 @@ history, `pnpm audit --prod` blocking at `high`). Exceptions to the audit go in
 │   │   ├── src/             config, db (Kysely, RLS context), http, lib, modules/*
 │   │   ├── test/            unit/ and integration/ (Vitest), fixtures/
 │   │   ├── scripts/         build.mjs (esbuild), openapi.ts, dev-mailbox.ts
-│   │   └── Dockerfile
+│   │   ├── Dockerfile       API, worker, migrations, CLI
+│   │   └── Dockerfile.browser  browser worker + Chromium
 │   ├── web/                 Next.js web app + Playwright e2e
 │   └── ios/                 SwiftUI app (XcodeGen project)
 ├── packages/
@@ -132,8 +152,10 @@ history, `pnpm audit --prod` blocking at `high`). Exceptions to the audit go in
 │   └── tokens/              Meridian design tokens and generators
 ├── db/migrations/           Plain SQL migrations (applied in order, checksummed)
 ├── docker/                  Compose helpers: postgres init script, env example
+├── deploy/railway/          Railway config per service + variables reference
 ├── docs/                    Product, architecture, ADRs, security, design, runbooks
-├── scripts/                 db-setup.sh, ensure-postgres.sh, dev.sh, smoke.sh, fixture-site.mjs
+├── scripts/                 db-setup.sh, ensure-postgres.sh, dev.sh, smoke.sh, fixture-site.mjs,
+│                            railway/bootstrap-db.sh
 ├── .github/                 CI workflow, Dependabot, PR template, audit gate
 └── docker-compose.yml
 ```

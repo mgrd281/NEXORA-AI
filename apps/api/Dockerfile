@@ -10,7 +10,12 @@
 #   owner    docker run -it -e JARVIS_OWNER_PASSWORD ... jarvis-api node dist/cli.js create-owner ...
 #
 # Target "devtools" (local stacks only) adds the dev mailbox and fixture site; see docker-compose.yml.
+# The browser worker has its own image with Chromium: apps/api/Dockerfile.browser.
 # Base images are pinned by tag; pinning by digest is a README follow-up.
+#
+# Railway (deploy/railway/api.json, worker.json) builds this file as is. It uses no BuildKit cache
+# mounts: Railway accepts them only with a service-specific id (id=s/<service id>-<path>), which a
+# shared Dockerfile cannot know. The manifest-first layer order below still caches the install.
 
 FROM node:22-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm \
@@ -32,21 +37,20 @@ COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY packages/contracts/package.json packages/contracts/
 COPY packages/tokens/package.json packages/tokens/
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile --filter "@jarvis/api..."
+RUN pnpm install --frozen-lockfile --filter "@jarvis/api..."
 
 COPY tsconfig.base.json ./
 COPY packages/contracts packages/contracts
 COPY db/migrations db/migrations
 COPY apps/api apps/api
-# esbuild bundles @jarvis/* into dist/{server,worker,cli,migrate}.js; npm packages stay external.
-# build.mjs only warns when an entry point is missing, so check all four exist.
+# esbuild bundles @jarvis/* into dist/{server,worker,browser-worker,cli,migrate}.js; npm packages
+# stay external. build.mjs only warns when an entry point is missing, so check they all exist.
 RUN pnpm --filter @jarvis/api build \
- && ls apps/api/dist/server.js apps/api/dist/worker.js apps/api/dist/migrate.js apps/api/dist/cli.js
+ && ls apps/api/dist/server.js apps/api/dist/worker.js apps/api/dist/browser-worker.js \
+       apps/api/dist/migrate.js apps/api/dist/cli.js apps/api/dist/migrations/0001_init.sql
 # Production node_modules for the external imports (--legacy: the workspace does not use
 # inject-workspace-packages; only node_modules and package.json are taken from /out).
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm --filter @jarvis/api deploy --prod --legacy /out
+RUN pnpm --filter @jarvis/api deploy --prod --legacy /out
 
 # ---------------------------------------------------------------------------------------------
 # Local development helpers (dev mailbox needs tsx + smtp-server, which are dev dependencies).
@@ -61,6 +65,8 @@ CMD ["node", "/repo/scripts/fixture-site.mjs"]
 FROM node:22-bookworm-slim AS runtime
 # Reported by GET /v1/assistant/status; CI can pass the git tag or SHA.
 ARG APP_VERSION=0.1.0
+# HOST/PORT are defaults; a platform's variables override them (Railway: PORT=4000 and HOST=::,
+# the IPv6 wildcard, which also accepts IPv4, so the private network can reach the API).
 ENV NODE_ENV=production \
     APP_VERSION=$APP_VERSION \
     HOST=0.0.0.0 \
