@@ -17,6 +17,7 @@ import { emailSendTool } from './email-send';
 import { integrationTools } from './integrations';
 import { memorySaveTool } from './memory-save';
 import { scheduleCreateTool } from './schedule-create';
+import { telephonyTools } from './telephony';
 import { textSummarizeTool } from './text-summarize';
 import { textTranslateTool } from './text-translate';
 import type { AnyTool, ConnectionRequirement, ConnectionState } from './types';
@@ -40,6 +41,8 @@ const ALL: AnyTool[] = [
   // Phase C: one array per domain, each owned by one engineer (docs/architecture/phase-c.md §2).
   ...integrationTools,
   ...browserTools,
+  // Phase D (docs/architecture/phase-d.md §2): owned by the telephony engineer.
+  ...telephonyTools,
 ];
 
 // A domain array must not register an id twice or shadow a core tool.
@@ -101,6 +104,8 @@ export function availableTools(opts: {
   connections?: readonly ConnectionState[];
   /** Phase C: a browser worker is running and evidence storage is configured (default false). */
   browserAvailable?: boolean;
+  /** Phase D: a telephony gateway is configured on this server (default false). */
+  telephonyAvailable?: boolean;
 }): AnyTool[] {
   const disabled = new Set(opts.disabledSkills ?? []);
   return ALL.filter((t) => {
@@ -115,6 +120,7 @@ export function availableTools(opts: {
       return false;
     }
     if (t.runsInBrowser && !opts.browserAvailable) return false;
+    if (t.needsTelephony && !opts.telephonyAvailable) return false;
     if (t.id === 'memory.save' && !opts.memoryEnabled) return false;
     if (t.modelUse === 'required' && !opts.modelAvailable) return false;
     const skill = skillOfTool(t.id);

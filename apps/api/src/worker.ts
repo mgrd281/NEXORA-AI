@@ -19,6 +19,9 @@
  * secrets); it dispatches the integrations domain's job kinds
  * (agent/jobs/integrations) and runs that domain's timers.
  *
+ * Phase D (docs/architecture/phase-d.md §4.3): also the telephony domain's
+ * kinds (call.timeout, call.recording_fetch: agent/jobs/telephony) and timers.
+ *
  * processJob / runOnce / reclaimOnce are exported for tests (no timers involved).
  */
 import { randomUUID } from 'node:crypto';
@@ -29,7 +32,13 @@ import { createListener } from './db/listener';
 import { createDb, type Db } from './db/pool';
 import type { JobRow } from './db/types';
 import { SecretBox } from './lib/crypto';
-import { onJobDead, reconcileAfterJob, runJob, sweepStuckTasks } from './modules/agent/jobs';
+import {
+  AGENT_DOMAIN_JOBS,
+  onJobDead,
+  reconcileAfterJob,
+  runJob,
+  sweepStuckTasks,
+} from './modules/agent/jobs';
 import { drainStorageDeletions, enqueueRetentionSweeps } from './modules/agent/jobs/retention';
 import { schedulerTick } from './modules/agent/jobs/schedule-run';
 import {
@@ -38,7 +47,6 @@ import {
   type RuntimeDeps,
   type RuntimeLogger,
 } from './modules/agent/runtime';
-import { integrationJobs } from './modules/agent/jobs/integrations';
 import {
   BROWSER_JOB_KINDS,
   complete,
@@ -338,8 +346,8 @@ export async function startWorker(): Promise<void> {
   void retention();
   const retentionTimer = setInterval(retention, RETENTION_CHECK_MS);
 
-  // Phase C: the integrations domain's timers (email watches, token revocation, OAuth states).
-  const domainTimers = integrationJobs.timers.map((timer) => {
+  // Phase C / D: the domains' timers (email watches, token revocation, OAuth states; telephony).
+  const domainTimers = AGENT_DOMAIN_JOBS.flatMap((d) => d.timers).map((timer) => {
     let running = false;
     const round = () => {
       if (running) return;

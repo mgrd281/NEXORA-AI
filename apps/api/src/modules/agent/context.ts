@@ -7,7 +7,8 @@ import type { ConnectionProvider, Preferences } from '@jarvis/contracts';
 import { sql } from 'kysely';
 import type { Config } from '../../config';
 import type { Trx } from '../../db/pool';
-import { currentMonth, effectiveTimeZone } from '../../lib/period';
+import { currentDay, currentMonth, effectiveTimeZone } from '../../lib/period';
+import { regionOfNumber } from '../../lib/phone';
 import type { ConnectionRow } from '../../db/types';
 import { loadMe } from '../account/me';
 import { asLocale } from './i18n';
@@ -34,6 +35,62 @@ export interface AgentContext {
    * micro-USD. Absent = no purchases allowed (limit 0).
    */
   purchases?: { limitMicro: number; spentMicro: number };
+  /**
+   * Phase D: what the Policy Engine needs for phone calls — always set by
+   * loadAgentContext; absent (callers that build a context by hand) = telephony
+   * not configured, so every call step is denied.
+   */
+  telephony?: TelephonyContext;
+}
+
+/** Phase D: the server's telephony state and the account's call facts (no secrets). */
+export interface TelephonyContext {
+  /** A telephony gateway (Twilio) is configured on this server. */
+  configured: boolean;
+  /** ISO alpha-2 countries this server calls (CALL_ALLOWED_COUNTRIES). */
+  allowedCountries: ReadonlySet<string>;
+  /** Local times of the callee's zone ("HH:MM"). */
+  allowedHours: { start: string; end: string };
+  maxPerDay: number;
+  /** Call attempts created today in the account's zone. */
+  callsToday: number;
+  /** Hex HMACs (lib/phone.ts phoneNumberHash) of the account's do-not-call numbers. */
+  doNotCall: ReadonlySet<string>;
+  /** The account's own number; `region` is the default country of national numbers. */
+  ownPhone: { number: string; verified: boolean; region: string | null } | null;
+  /** The clock of the calling-hours check (tests); default: now. */
+  now?: Date;
+}
+
+/** Phase D: the call facts of the current user (RLS scopes every query to them). */
+export async function telephonyContext(
+  trx: Trx,
+  config: Config,
+  me: { phoneNumber?: string | null; phoneNumberVerifiedAt?: string | null },
+  timeZone: string,
+): Promise<TelephonyContext> {
+  const t = config.telephony;
+  const { start } = await currentDay(trx, timeZone);
+  const [calls, dnc] = await Promise.all([
+    trx
+      .selectFrom('call_sessions')
+      .select((eb) => eb.fn.countAll<number>().as('n'))
+      .where('created_at', '>=', start)
+      .executeTakeFirst(),
+    trx.selectFrom('do_not_call').select('number_hash').execute(),
+  ]);
+  const own = me.phoneNumber ?? null;
+  return {
+    configured: t !== null,
+    allowedCountries: t?.allowedCountries ?? new Set(),
+    allowedHours: t?.allowedHours ?? { start: '08:00', end: '20:00' },
+    maxPerDay: t?.maxCallsPerDay ?? 0,
+    callsToday: Number(calls?.n ?? 0),
+    doNotCall: new Set(dnc.map((r) => r.number_hash.toString('hex'))),
+    ownPhone: own
+      ? { number: own, verified: !!me.phoneNumberVerifiedAt, region: regionOfNumber(own) }
+      : null,
+  };
 }
 
 /** Phase C: every non-revoked connection as planning and policy see it (no secrets). */
@@ -131,11 +188,12 @@ export async function loadAgentContext(
   // A stored zone Postgres or Node cannot use (rows from before zones were
   // validated) runs in UTC rather than breaking the budget or the planner.
   const timeZone = await effectiveTimeZone(trx, me.timeZone);
-  const [connections, spentMicro, states, purchaseSpent] = await Promise.all([
+  const [connections, spentMicro, states, purchaseSpent, telephony] = await Promise.all([
     activeConnections(trx),
     monthlyAiSpend(trx, timeZone),
     connectionStates(trx),
     monthlyPurchaseSpend(trx, timeZone),
+    telephonyContext(trx, config, me, timeZone),
   ]);
   const limitMicro = usdToMicro(me.preferences.spending.monthlyAiBudgetUsd);
   const route = decideRoute({
@@ -162,6 +220,7 @@ export async function loadAgentContext(
       limitMicro: usdToMicro(me.preferences.spending.monthlyPurchaseLimitUsd),
       spentMicro: purchaseSpent,
     },
+    telephony,
   };
 }
 

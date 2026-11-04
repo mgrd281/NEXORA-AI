@@ -28,6 +28,8 @@ export async function loadMe(trx: Trx, userId: string): Promise<Me> {
       'u.theme',
       'u.preferences',
       'u.created_at',
+      'u.phone_number',
+      'u.phone_verified_at',
       't.id as tenant_id',
       't.name as tenant_name',
     ])
@@ -50,5 +52,8 @@ export async function loadMe(trx: Trx, userId: string): Promise<Me> {
     tenant: { id: u.tenant_id, name: u.tenant_name },
     preferences: resolvePreferences(u.preferences),
     createdAt: u.created_at.toISOString(),
+    // Phase D
+    phoneNumber: u.phone_number,
+    phoneNumberVerifiedAt: u.phone_verified_at ? new Date(u.phone_verified_at).toISOString() : null,
   };
 }

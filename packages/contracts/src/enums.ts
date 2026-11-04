@@ -66,7 +66,10 @@ export type TaskSource = z.infer<typeof TaskSource>;
  * email.read_thread, email.draft_reply, email.track_replies; email.send gains
  * `via` for sending through Gmail/Outlook), calendars (calendar.*), booking
  * (booking.*), the isolated browser agent (browser.read, browser.fill) and
- * shopping (shop.*). A ToolId being listed does not mean the tool is
+ * shopping (shop.*).
+ * Phase D (docs/architecture/phase-d.md §6): phone.call — an outbound call
+ * that discloses itself as an AI assistant and pursues one approved goal.
+ * A ToolId being listed does not mean the tool is
  * registered on this server: GET /v1/skills reports what can run.
  */
 export const ToolId = z.enum([
@@ -102,6 +105,8 @@ export const ToolId = z.enum([
   'shop.compare',
   'shop.prepare_cart',
   'shop.checkout',
+  // Phase D — outbound phone calls through the telephony gateway (docs/architecture/phase-d.md)
+  'phone.call',
 ]);
 export type ToolId = z.infer<typeof ToolId>;
 
@@ -245,6 +250,18 @@ export type ErrorCode = z.infer<typeof ErrorCode>;
  *   CALENDAR_NOT_CONNECTED                409: no connection grants calendar.read
  *   CALENDAR_UNAVAILABLE { provider }     503: the provider did not answer in time / failed
  *   EVIDENCE_NOT_AVAILABLE                503: the evidence file is in storage this server cannot read
+ * Phase D (docs/architecture/phase-d.md §6):
+ *   PHONE_NUMBER_INVALID                  400: not a valid, diallable number (E.164 after normalisation)
+ *   PHONE_NUMBER_REQUIRED                 409: verifying needs a phone number on the account first
+ *   PHONE_ALREADY_VERIFIED                409: this number is verified already
+ *   PHONE_VERIFICATION_INVALID { attemptsLeft }  400: the code is wrong (or no verification is running)
+ *   PHONE_VERIFICATION_EXPIRED            400: the code is older than CALL_LIMITS.verificationTtlMinutes
+ *                                         or was used up (start a new verification)
+ *   PHONE_VERIFICATION_LIMIT { max }      429: too many verification calls today
+ *   TELEPHONY_NOT_CONFIGURED              503: this server has no telephony provider (Twilio) configured
+ *   CALL_DESTINATION_BLOCKED { country }  400: premium-rate, shared-cost or other blocked numbers, or a
+ *                                         country this server does not call (CALL_ALLOWED_COUNTRIES)
+ *   WEBHOOK_SIGNATURE_INVALID             403: a telephony webhook without a valid provider signature
  */
 export const ApiErrorReason = z.enum([
   // attachments
@@ -291,6 +308,16 @@ export const ApiErrorReason = z.enum([
   'CALENDAR_NOT_CONNECTED',
   'CALENDAR_UNAVAILABLE',
   'EVIDENCE_NOT_AVAILABLE',
+  // Phase D — the account's phone number, its verification, telephony webhooks
+  'PHONE_NUMBER_INVALID',
+  'PHONE_NUMBER_REQUIRED',
+  'PHONE_ALREADY_VERIFIED',
+  'PHONE_VERIFICATION_INVALID',
+  'PHONE_VERIFICATION_EXPIRED',
+  'PHONE_VERIFICATION_LIMIT',
+  'TELEPHONY_NOT_CONFIGURED',
+  'CALL_DESTINATION_BLOCKED',
+  'WEBHOOK_SIGNATURE_INVALID',
 ]);
 export type ApiErrorReason = z.infer<typeof ApiErrorReason>;
 
@@ -326,6 +353,11 @@ export const MissingInfo = z.enum([
   'product',
   /** Which supported site or shop. */
   'site',
+  // Phase D
+  /** Which number to call — written with its country code (E.164), or the profile number's country is used. */
+  'phone_number',
+  /** What JARVIS should say or ask on the call. */
+  'call_goal',
 ]);
 export type MissingInfo = z.infer<typeof MissingInfo>;
 
@@ -381,6 +413,9 @@ export const SkillUnavailableReason = z.enum([
   'PROVIDER_NOT_CONFIGURED',
   /** The isolated browser agent is not running on this server (or storage for its evidence is missing). */
   'BROWSER_UNAVAILABLE',
+  // Phase D
+  /** This server has no telephony provider configured (phone calls are impossible here). */
+  'TELEPHONY_NOT_CONFIGURED',
 ]);
 export type SkillUnavailableReason = z.infer<typeof SkillUnavailableReason>;
 
@@ -508,6 +543,23 @@ export const PolicyReason = z.enum([
   'PURCHASE',
   /** approval: a binding commitment on a site (booking, form submission). */
   'BINDING_COMMITMENT',
+  // Phase D (docs/architecture/phase-d.md §5)
+  /** deny: the number asked not to be called again (do-not-call list). */
+  'DO_NOT_CALL',
+  /** deny: now is outside the allowed calling hours in the callee's time zone. */
+  'CALL_OUTSIDE_HOURS',
+  /** deny: the account placed CALL_MAX_PER_DAY calls today already. */
+  'CALL_LIMIT',
+  /** deny: premium-rate / shared-cost / unknown-type numbers, or a country this server does not call. */
+  'CALL_DESTINATION_BLOCKED',
+  /** deny: no telephony provider is configured on this server. */
+  'TELEPHONY_NOT_CONFIGURED',
+  /** approval: JARVIS speaks for the user to a third party (always asked, never auto-approved). */
+  'PHONE_CALL',
+  /** approval: the user asked for the call to be recorded (only with the callee's consent). */
+  'CALL_RECORDING',
+  /** approval: JARVIS may tell the callee personal details of the user (listed in the approval). */
+  'CALL_PERSONAL_INFO',
 ]);
 export type PolicyReason = z.infer<typeof PolicyReason>;
 
@@ -562,12 +614,21 @@ export const BrowserStopReason = z.enum([
 ]);
 export type BrowserStopReason = z.infer<typeof BrowserStopReason>;
 
-/** Files the browser agent keeps as evidence (object storage; owner-only download). */
-export const EvidenceArtifactKind = z.enum(['screenshot', 'extract', 'ics']);
+/**
+ * Files kept as evidence (object storage; owner-only download): the browser agent's screenshots,
+ * extracted data and ICS files (Phase C), and (Phase D) a call recording — only ever when the
+ * user asked for it for that call AND the callee was told and accepted.
+ */
+export const EvidenceArtifactKind = z.enum(['screenshot', 'extract', 'ics', 'recording']);
 export type EvidenceArtifactKind = z.infer<typeof EvidenceArtifactKind>;
 
-/** Media type per EvidenceArtifactKind: image/png, application/json, text/calendar. */
-export const EvidenceMediaType = z.enum(['image/png', 'application/json', 'text/calendar']);
+/** Media type per EvidenceArtifactKind: image/png, application/json, text/calendar, audio/mpeg. */
+export const EvidenceMediaType = z.enum([
+  'image/png',
+  'application/json',
+  'text/calendar',
+  'audio/mpeg',
+]);
 export type EvidenceMediaType = z.infer<typeof EvidenceMediaType>;
 
 /**
@@ -607,3 +668,167 @@ export type ReliabilitySignalCode = z.infer<typeof ReliabilitySignalCode>;
 /** Calendar attendee response as the provider reports it. */
 export const AttendeeResponse = z.enum(['accepted', 'declined', 'tentative', 'needs_action']);
 export type AttendeeResponse = z.infer<typeof AttendeeResponse>;
+
+/* ------------------------------------------------------------------ */
+/* Phase D enums (docs/architecture/phase-d.md)                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * What a phone call is for (phone.call `purpose`). The offline dialog engine
+ * runs a deterministic script for `message`, `availability` and `questions`;
+ * `appointment` (agreeing a binding time) needs the model and is HIGH risk.
+ *   message       deliver the user's message and record the reply
+ *   availability  ask which times are free on a given date; times extracted by rules
+ *   questions     ask the user's questions (at most CALL_LIMITS.maxQuestions) and record the answers
+ *   appointment   book an appointment within the approved window (date, time, name, reference)
+ */
+export const CallPurpose = z.enum(['message', 'availability', 'questions', 'appointment']);
+export type CallPurpose = z.infer<typeof CallPurpose>;
+
+/**
+ * Lifecycle of one call attempt (call_sessions.status).
+ *   queued       stored; the provider has not been asked yet
+ *   dialing      the create-call request was sent and accepted (provider call id known)
+ *   ringing      the provider reports the callee's phone ringing
+ *   in_progress  answered: the dialog is running
+ *   ended        finished — `result` says how (CallResult)
+ *   unknown      the create-call request's outcome is unknown (timeout after sending):
+ *                reconciled with the provider before anything is dialled again
+ */
+export const CallStatus = z.enum([
+  'queued',
+  'dialing',
+  'ringing',
+  'in_progress',
+  'ended',
+  'unknown',
+]);
+export type CallStatus = z.infer<typeof CallStatus>;
+
+/**
+ * How an ended call ended (CallOutcome.result). Only `completed` and
+ * `answered` count as a call that took place; every other result fails the
+ * step with the TaskErrorReason of the same meaning (CALL_BUSY …).
+ *   completed    answered and the approved goal was reached (evidence: the turns)
+ *   answered     answered, the conversation ended normally, the goal was not reached
+ *   busy · no_answer · failed (the provider could not connect it) · voicemail (a machine
+ *   answered: nothing is left unless the approval allowed a message) · hung_up (the callee hung
+ *   up before the goal was reached) · declined (the callee did not want to talk to an AI
+ *   assistant) · canceled (JARVIS ended it before it connected: task cancelled, limits)
+ */
+export const CallResult = z.enum([
+  'completed',
+  'answered',
+  'busy',
+  'no_answer',
+  'failed',
+  'voicemail',
+  'hung_up',
+  'declined',
+  'canceled',
+]);
+export type CallResult = z.infer<typeof CallResult>;
+
+/** Who spoke a call turn. `system` = a line JARVIS played that is not dialog (consent notice, transfer). */
+export const CallSpeaker = z.enum(['agent', 'callee', 'system']);
+export type CallSpeaker = z.infer<typeof CallSpeaker>;
+
+/** What a call turn is (for display and evidence). */
+export const CallTurnKind = z.enum([
+  'disclosure',
+  'consent_request',
+  'consent_reply',
+  'question',
+  'answer',
+  'statement',
+  'clarification',
+  'refusal',
+  'transfer',
+  'voicemail',
+  'goodbye',
+]);
+export type CallTurnKind = z.infer<typeof CallTurnKind>;
+
+/**
+ * Recording of a call (phone.call `recording`; default off).
+ *   off            never recorded; only the turns as text are kept (task data)
+ *   if_consented   asked at the start; recorded only after the callee accepted, else not recorded
+ *   required       asked at the start; without the callee's consent JARVIS ends the call politely
+ *                  (RECORDING_CONSENT_DECLINED)
+ */
+export const RecordingMode = z.enum(['off', 'if_consented', 'required']);
+export type RecordingMode = z.infer<typeof RecordingMode>;
+
+/** The callee's answer to the recording question (evidence RECORDING_CONSENT). */
+export const RecordingConsent = z.enum(['not_asked', 'accepted', 'declined']);
+export type RecordingConsent = z.infer<typeof RecordingConsent>;
+
+/** Answering-machine detection (the provider's AnsweredBy, simplified). */
+export const AnsweredBy = z.enum(['human', 'machine', 'fax', 'unknown']);
+export type AnsweredBy = z.infer<typeof AnsweredBy>;
+
+/** What JARVIS does when a machine answers (phone.call `voicemail`). */
+export const VoicemailAction = z.enum(['hang_up', 'leave_message']);
+export type VoicemailAction = z.infer<typeof VoicemailAction>;
+
+/**
+ * Facts noted during a call (CallOutcome.notes), for the result and the timeline.
+ *   OPTED_OUT                    the callee asked not to be called again (do-not-call entry made)
+ *   RECORDING_CONSENT_ACCEPTED / RECORDING_CONSENT_DECLINED
+ *   TRANSFER_REQUESTED           the callee asked for a person
+ *   TRANSFER_CONNECTED / TRANSFER_FAILED / TRANSFER_UNAVAILABLE (no verified number, or not approved)
+ *   OUTSIDE_PURPOSE_REFUSED      JARVIS refused something outside the approved purpose (e.g. card details)
+ *   INJECTION_FLAGGED            the callee's speech contained instructions to AI assistants (ignored)
+ *   LOW_CONFIDENCE               speech recognition was unsure; JARVIS asked again
+ *   DURATION_LIMIT               the call reached its maximum duration
+ *   VOICEMAIL_MESSAGE_LEFT       a machine answered and the approved message was left
+ */
+export const CallNoteCode = z.enum([
+  'OPTED_OUT',
+  'RECORDING_CONSENT_ACCEPTED',
+  'RECORDING_CONSENT_DECLINED',
+  'TRANSFER_REQUESTED',
+  'TRANSFER_CONNECTED',
+  'TRANSFER_FAILED',
+  'TRANSFER_UNAVAILABLE',
+  'OUTSIDE_PURPOSE_REFUSED',
+  'INJECTION_FLAGGED',
+  'LOW_CONFIDENCE',
+  'DURATION_LIMIT',
+  'VOICEMAIL_MESSAGE_LEFT',
+]);
+export type CallNoteCode = z.infer<typeof CallNoteCode>;
+
+/** Where a do-not-call entry came from: the callee asked during a call, or the user added it. */
+export const DoNotCallSource = z.enum(['callee_request', 'user']);
+export type DoNotCallSource = z.infer<typeof DoNotCallSource>;
+
+/** A verification call to the account's own number (POST /v1/me/phone/verification). */
+export const PhoneVerificationStatus = z.enum([
+  'calling',
+  'pending',
+  'verified',
+  'expired',
+  'failed',
+]);
+export type PhoneVerificationStatus = z.infer<typeof PhoneVerificationStatus>;
+
+/** Voice mode: one request (dictation, Milestone 1) or a continuous conversation (Phase D). */
+export const VoiceSessionMode = z.enum(['dictation', 'conversation']);
+export type VoiceSessionMode = z.infer<typeof VoiceSessionMode>;
+
+/**
+ * How a voice session ended (VoiceSessionEnd.endReason; metadata only).
+ *   end_button · escape_key · voice_command ("stop" / "stopp" / "توقف") · idle (no speech for
+ *   VOICE_LIMITS.idleEndSeconds) · switched_to_text · navigation (the overlay was left) · error
+ */
+export const VoiceEndReason = z.enum([
+  'end_button',
+  'escape_key',
+  'voice_command',
+  'idle',
+  'switched_to_text',
+  'navigation',
+  'error',
+]);
+export type VoiceEndReason = z.infer<typeof VoiceEndReason>;

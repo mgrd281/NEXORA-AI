@@ -63,6 +63,8 @@ export function createStatusService(deps: AgentDeps): AssistantStatusService {
           shopping,
           purchases:
             shopping && registered('shop.checkout') && (agent.purchases?.limitMicro ?? 0) > 0,
+          // Phase D: built here, the skill on, and a telephony gateway configured.
+          phoneCalls: available('phone-calling') && registered('phone.call'),
         },
         version: deps.config.APP_VERSION,
       };

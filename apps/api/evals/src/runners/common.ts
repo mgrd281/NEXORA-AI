@@ -17,7 +17,9 @@ import {
 import { createHash } from 'node:crypto';
 import { loadConfig, type Config } from '../../../src/config';
 import type { ConnectionRow } from '../../../src/db/types';
-import type { AgentContext } from '../../../src/modules/agent/context';
+import type { AgentContext, TelephonyContext } from '../../../src/modules/agent/context';
+import { localTimeOfDay } from '../../../src/lib/period';
+import { phoneHashKey, phoneNumberHash, regionOfNumber } from '../../../src/lib/phone';
 import type { PriorTurn } from '../../../src/modules/agent/conversation-context';
 import { extractText } from '../../../src/modules/agent/documents/extract';
 import { detectLanguage, type PlanningAttachment } from '../../../src/modules/agent/models/offline';
@@ -205,6 +207,53 @@ export async function prepare(
   };
 }
 
+/**
+ * Phase D: the telephony context (context.ts telephonyContext) of a scenario without a
+ * database. The do-not-call numbers are hashed with the eval config's key, as the server does.
+ */
+export function telephonyContextOf(p: Prepared): TelephonyContext {
+  const t = p.scenario.given.telephony;
+  if (!t)
+    return {
+      configured: false,
+      allowedCountries: new Set(),
+      allowedHours: { start: '08:00', end: '20:00' },
+      maxPerDay: 0,
+      callsToday: 0,
+      doNotCall: new Set(),
+      ownPhone: null,
+    };
+  const key = phoneHashKey(evalConfig().SECRET_ENCRYPTION_KEY);
+  return {
+    configured: t.configured,
+    allowedCountries: new Set(t.allowedCountries),
+    allowedHours: t.allowedHours,
+    maxPerDay: t.maxPerDay,
+    callsToday: t.callsToday,
+    doNotCall: new Set(t.doNotCall.map((n) => phoneNumberHash(key, n).toString('hex'))),
+    ownPhone: t.ownPhone
+      ? { ...t.ownPhone, region: regionOfNumber(t.ownPhone.number) }
+      : null,
+    // Inside the default calling hours unless the scenario sets the clock.
+    now: t.now ? new Date(t.now) : tenInTheMorning(p.account.timeZone),
+  };
+}
+
+/** Today about 10:00 in `timeZone` (inside the default calling window; deterministic per day). */
+function tenInTheMorning(timeZone: string): Date {
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone, dateStyle: 'short' }).format(new Date());
+  let at = new Date(`${day}T10:00:00Z`);
+  // Shift by the zone's offset at that instant (twice: once more across a DST change).
+  for (let i = 0; i < 2; i++) {
+    const [h, m] = (localTimeOfDay(at, timeZone) ?? '10:00').split(':').map(Number) as [
+      number,
+      number,
+    ];
+    at = new Date(at.getTime() - ((h - 10) * 60 + m) * 60_000);
+  }
+  return at;
+}
+
 /** The user's runtime context (context.ts loadAgentContext) without a database. */
 export function agentContext(p: Prepared, route: ModelRoute): AgentContext {
   const status = p.scenario.given.connectionStatus ?? {};
@@ -245,6 +294,8 @@ export function agentContext(p: Prepared, route: ModelRoute): AgentContext {
       limitMicro: usdToMicro(p.preferences.spending.monthlyPurchaseLimitUsd),
       spentMicro: usdToMicro(p.scenario.given.purchases?.spentUsd ?? 0),
     },
+    // Phase D
+    telephony: telephonyContextOf(p),
   };
 }
 
@@ -268,12 +319,17 @@ export function planningInput(p: Prepared, agent: AgentContext): PlanningInput {
       hasRecallable: p.turns.some((t) => t.recallable),
       connections: agent.connectionStates ?? [],
       browserAvailable: p.scenario.given.browserAvailable,
+      telephonyAvailable: agent.telephony?.configured === true,
     }),
     memories: [],
     conversation: p.turns,
     attachments: p.attachments,
     connections: agent.connectionStates ?? [],
     browserAvailable: p.scenario.given.browserAvailable,
+    // Phase D
+    telephonyAvailable: agent.telephony?.configured === true,
+    phoneRegion: agent.telephony?.ownPhone?.region ?? null,
+    ownPhoneVerified: agent.telephony?.ownPhone?.verified === true,
   };
 }
 

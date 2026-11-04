@@ -16,12 +16,16 @@
  *   binding commitments on a site (tool.binding) → approval BINDING_COMMITMENT
  *   invitations to people other than the owner (tool.attendees)
  *                                                → approval RECIPIENT_EXTERNAL (+ MANY_RECIPIENTS > 3)
+ *   Phase D: phone calls (tool.call; policy-telephony.ts)
+ *     TELEPHONY_NOT_CONFIGURED, CALL_DESTINATION_BLOCKED, DO_NOT_CALL, CALL_OUTSIDE_HOURS,
+ *     CALL_LIMIT deny; else approval PHONE_CALL (+ CALL_RECORDING, CALL_PERSONAL_INFO)
  *
  * Changing this file is a change of the security model: it goes through
  * docs/architecture/phase-c.md §0 (change control), like policy.ts.
  */
 import { COMMERCE_LIMITS, moneyParam, type ErrorCode } from '@jarvis/contracts';
 import type { PolicyInput } from './policy';
+import { callRule } from './policy-telephony';
 
 export interface DomainDeny {
   reasons: string[];
@@ -95,7 +99,13 @@ export const attendeesRule: DomainRule = (p): DomainVerdict | null => {
 };
 
 /** In order; the first deny wins, approval reasons accumulate. */
-export const DOMAIN_RULES: readonly DomainRule[] = [purchaseRule, bindingRule, attendeesRule];
+export const DOMAIN_RULES: readonly DomainRule[] = [
+  purchaseRule,
+  bindingRule,
+  attendeesRule,
+  // Phase D
+  callRule,
+];
 
 export interface DomainOutcome {
   deny: DomainDeny | null;

@@ -200,11 +200,14 @@ async function insertTask(
     i.attachmentIds ?? [],
   );
   if (i.voiceSessionId) {
+    // The session's first task, and (Phase D) the conversation its requests go to.
     await trx
       .updateTable('voice_sessions')
-      .set({ task_id: task.id })
+      .set({
+        task_id: sql<string>`coalesce(task_id, ${task.id}::uuid)`,
+        conversation_id: sql<string>`coalesce(conversation_id, ${i.conversationId}::uuid)`,
+      })
       .where('id', '=', i.voiceSessionId)
-      .where('task_id', 'is', null)
       .execute();
   }
   await trx

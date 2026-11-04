@@ -7,13 +7,16 @@ import {
 } from '@jarvis/contracts';
 import type { Config } from '../../config';
 import type { StepRow } from '../../db/types';
+import { localTimeOfDay } from '../../lib/period';
+import { checkDestination, maskPhoneNumber, phoneHashKey, phoneNumberHash } from '../../lib/phone';
 import { redact } from '../../lib/redact';
 import type { AgentContext } from './context';
 import { denyMessage, denyReason, evaluatePolicy, type PolicyResult } from './policy';
+import type { CallPolicyFacts } from './policy-telephony';
 import { skillOfTool } from './skills/registry';
 import { findRefs } from './templates';
 import { getTool } from './tools/registry';
-import type { AnyTool, CostContext } from './tools/types';
+import type { AnyTool, CallFacts, CostContext } from './tools/types';
 
 export interface StepAssessment {
   risk: RiskLevel;
@@ -36,6 +39,61 @@ export function skillPolicy(
   return {
     skillEnabled: !(skill.canToggle && skill.id !== 'personal-memory' && disabled.has(skill.id)),
     skillCostLimitMicro: skill.maxCostPerRunMicroUsd,
+  };
+}
+
+/** What an unreadable call declaration counts as: a call to no valid number (denied). */
+const UNREADABLE_CALL: CallFacts = {
+  to: '',
+  calleeTimeZone: null,
+  purpose: 'message',
+  recording: 'required',
+  sharedDetails: 1,
+  allowTransfer: true,
+};
+
+const hashKeys = new Map<string, Buffer>();
+/** The phone-number hash key of this server's secret (derived once per process). */
+function hashKeyOf(config: Pick<Config, 'SECRET_ENCRYPTION_KEY'>): Buffer {
+  let key = hashKeys.get(config.SECRET_ENCRYPTION_KEY);
+  if (!key) {
+    key = phoneHashKey(config.SECRET_ENCRYPTION_KEY);
+    hashKeys.set(config.SECRET_ENCRYPTION_KEY, key);
+  }
+  return key;
+}
+
+/**
+ * Phase D: the Policy Engine's facts of a call step, from the tool's declaration on the exact
+ * input and the account's telephony context. Missing context = not configured (deny);
+ * an unreadable declaration = an invalid number (deny): never an allow.
+ */
+export function callPolicyFacts(
+  facts: CallFacts,
+  agent: Pick<AgentContext, 'telephony' | 'account'>,
+  config: Pick<Config, 'SECRET_ENCRYPTION_KEY'>,
+): CallPolicyFacts {
+  const t = agent.telephony;
+  const to = typeof facts.to === 'string' ? facts.to : '';
+  const timeZone = facts.calleeTimeZone ?? agent.account.timeZone;
+  const hours = { ...(t?.allowedHours ?? { start: '08:00', end: '20:00' }), timeZone };
+  const local = localTimeOfDay(t?.now ?? new Date(), timeZone);
+  return {
+    configured: t?.configured === true,
+    to,
+    masked: to ? maskPhoneNumber(to) : '',
+    destination: to
+      ? checkDestination(to, t?.allowedCountries ?? new Set())
+      : { ok: false, reason: 'invalid', country: null },
+    doNotCall: to
+      ? (t?.doNotCall.has(phoneNumberHash(hashKeyOf(config), to).toString('hex')) ?? false)
+      : false,
+    withinHours: local === null ? null : local >= hours.start && local < hours.end,
+    hours,
+    callsToday: t?.callsToday ?? 0,
+    maxPerDay: t?.maxPerDay ?? 0,
+    recording: facts.recording !== 'off',
+    sharesPersonalInfo: facts.sharedDetails > 0,
   };
 }
 
@@ -90,6 +148,10 @@ export function assessStep(
   // An unreadable attendee list must not hide invitations: treat it as external.
   const attendees = tool.attendees ? fact(() => tool.attendees!(input), ['?']) : undefined;
   const binding = tool.binding ? fact(() => tool.binding!(input), true) : false;
+  // Phase D: a call's facts. A declaration that throws becomes a call to an invalid number
+  // (deny); `null` means this input places no call.
+  const callFacts = tool.call ? fact(() => tool.call!(input), UNREADABLE_CALL) : null;
+  const call = callFacts ? callPolicyFacts(callFacts, agent, config) : null;
   const policy = evaluatePolicy({
     toolId: tool.id,
     risk,
@@ -111,6 +173,7 @@ export function assessStep(
     purchase,
     attendees,
     binding,
+    call,
     modelUse: tool.modelUse,
     model: { available: modelAvailable, offlineReason: agent.route.reason },
     projectedCostMicro: estimateMicro,

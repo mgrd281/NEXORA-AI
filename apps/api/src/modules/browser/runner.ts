@@ -60,6 +60,8 @@ const ARTIFACT_MAX_BYTES: Record<EvidenceArtifactKind, number> = {
   screenshot: BROWSER_LIMITS.maxScreenshotBytes,
   extract: BROWSER_LIMITS.maxExtractBytes,
   ics: BROWSER_LIMITS.maxIcsBytes,
+  // Phase D: call recordings come only from consented calls (telephony), never from a browser.
+  recording: 0,
 };
 
 export interface RunInput {

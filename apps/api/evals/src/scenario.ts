@@ -52,6 +52,8 @@ export const SUITES = [
   'calendar',
   'booking',
   'shopping',
+  // Phase D (docs/architecture/phase-d.md §9): the phone agent, owned by the telephony engineer.
+  'telephony',
 ] as const;
 export const Suite = z.enum(SUITES);
 export type Suite = z.infer<typeof Suite>;
@@ -105,6 +107,28 @@ export const Scenario = z
       purchases: z.object({ spentUsd: z.number().min(0) }).optional(),
       /** Phase C: a browser worker is running (browser tools are offered to the planner). */
       browserAvailable: z.boolean().default(false),
+      /**
+       * Phase D: the telephony facts of the server and the account (absent: telephony not
+       * configured, so call steps are hidden from the model planner and denied by the policy).
+       */
+      telephony: z
+        .object({
+          configured: z.boolean().default(true),
+          /** CALL_ALLOWED_COUNTRIES (ISO alpha-2). */
+          allowedCountries: z.array(z.string().regex(/^[A-Z]{2}$/)).default(['DE', 'GB', 'US']),
+          allowedHours: z
+            .object({ start: z.string(), end: z.string() })
+            .default({ start: '08:00', end: '20:00' }),
+          /** The clock of the calling-hours check (default: 10:00 in the account's zone today). */
+          now: z.iso.datetime({ offset: true }).optional(),
+          callsToday: z.number().int().min(0).default(0),
+          maxPerDay: z.number().int().min(1).default(10),
+          /** Numbers (E.164) on the account's do-not-call list. */
+          doNotCall: z.array(z.string()).default([]),
+          /** The account's own number (default country of national numbers; transfers). */
+          ownPhone: z.object({ number: z.string(), verified: z.boolean() }).optional(),
+        })
+        .optional(),
       conversation: z
         .array(
           z.object({

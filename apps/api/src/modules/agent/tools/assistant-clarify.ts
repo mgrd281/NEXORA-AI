@@ -27,7 +27,7 @@ export const ClarifyInput = z.object({
     .min(1)
     .max(3)
     .describe(
-      'What the request lacks, most important first: email_content, recipient (an email address), url, document (a file to attach), schedule_time, target_language, previous_result, details.',
+      'What the request lacks, most important first: email_content, recipient (an email address), url, document (a file to attach), schedule_time, target_language, previous_result, details, date_time, contact_details, product, site, phone_number (the number to call, with its country code), call_goal (what to say or ask on a call).',
     ),
   question: z
     .string()
@@ -55,6 +55,9 @@ export const QUESTION_KEY: Record<MissingInfo, ServerMessageKey> = {
   contact_details: 'question.contactDetails',
   product: 'question.product',
   site: 'question.site',
+  // Phase D
+  phone_number: 'question.phoneNumber',
+  call_goal: 'question.callGoal',
 };
 
 /** The question a clarify step asks: model-written text, or the server sentence for `missing[0]`. */

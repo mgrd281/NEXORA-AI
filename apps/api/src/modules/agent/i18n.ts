@@ -566,6 +566,53 @@ const MESSAGES = {
     de: 'Wo soll ich nachsehen? Nenne eine der unterstützten Websites.',
     ar: 'أين ينبغي أن أبحث؟ اذكر أحد المواقع المدعومة.',
   },
+  // Phase D — phone calls (docs/architecture/phase-d.md §6). {who}: the callee as the user
+  // named them, else the number; {number}: E.164.
+  'plan.call': {
+    en: 'Call {who}',
+    de: '{who} anrufen',
+    ar: 'الاتصال هاتفيًا بـ{who}',
+  },
+  'objective.call': {
+    en: 'Call {who} as your AI assistant and report what was said.',
+    de: '{who} als KI-Assistent anrufen und berichten, was gesagt wurde.',
+    ar: 'الاتصال بـ{who} بصفتي مساعدك الذكي ونقل ما قيل.',
+  },
+  'step.call': {
+    en: 'Call {who}',
+    de: '{who} anrufen',
+    ar: 'الاتصال بـ{who}',
+  },
+  'approval.call': {
+    en: 'Call {who} ({number}) and speak for you as an AI assistant.',
+    de: '{who} ({number}) anrufen und als KI-Assistent für dich sprechen.',
+    ar: 'الاتصال بـ{who} ({number}) والتحدث نيابةً عنك بصفتي مساعدًا ذكيًا.',
+  },
+  'result.callCompleted': {
+    en: 'Called {who}; the call reached its goal.',
+    de: '{who} angerufen – das Ziel des Anrufs wurde erreicht.',
+    ar: 'تم الاتصال بـ{who} وتحقق هدف المكالمة.',
+  },
+  'result.callAnswered': {
+    en: 'Called {who}; they answered, but the goal was not reached.',
+    de: '{who} angerufen – der Anruf wurde angenommen, das Ziel aber nicht erreicht.',
+    ar: 'تم الاتصال بـ{who} وجرى الرد، لكن الهدف لم يتحقق.',
+  },
+  'result.callTransferred': {
+    en: 'Called {who} and put them through to you.',
+    de: '{who} angerufen und zu dir durchgestellt.',
+    ar: 'تم الاتصال بـ{who} وتحويل المكالمة إليك.',
+  },
+  'question.phoneNumber': {
+    en: 'Which number should I call? Write it with the country code, for example +49 30 1234567.',
+    de: 'Welche Nummer soll ich anrufen? Schreib sie mit Ländervorwahl, zum Beispiel +49 30 1234567.',
+    ar: 'بأي رقم ينبغي أن أتصل؟ اكتبه مع رمز الدولة، على سبيل المثال +49 30 1234567.',
+  },
+  'question.callGoal': {
+    en: 'What should I say or ask on the call?',
+    de: 'Was soll ich am Telefon sagen oder fragen?',
+    ar: 'ماذا ينبغي أن أقول أو أسأل في المكالمة؟',
+  },
 } satisfies Record<ServerMessageKey, Dict>;
 
 const CONTENT = {

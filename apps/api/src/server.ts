@@ -4,6 +4,7 @@ import { createListener } from './db/listener';
 import { buildApp } from './http/app';
 import { SecretBox } from './lib/crypto';
 import { createAgentServices } from './modules/agent';
+import { createModelAdapter } from './modules/agent/runtime';
 import { createStorage } from './modules/storage';
 import { initTelemetry } from './observability';
 import { registerRoutes } from './routes';
@@ -27,6 +28,8 @@ const app = await buildApp(
     agent: createAgentServices({ config, db, secrets, storage }),
     storage,
     listen: listener.listen,
+    // Phase D: the call dialog engine (telephony webhooks) in model mode.
+    modelAdapter: createModelAdapter(config),
   },
   registerRoutes,
 );

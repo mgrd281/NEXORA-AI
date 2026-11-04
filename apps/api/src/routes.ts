@@ -1,6 +1,7 @@
-import type { RouteName } from '@jarvis/contracts';
+import type { RouteName, TelephonyWebhookName } from '@jarvis/contracts';
 import type { FastifyInstance } from 'fastify';
 import { assertAllRoutesRegistered } from './http/route';
+import { assertAllWebhooksRegistered } from './http/webhook-route';
 import { registerAccountRoutes } from './modules/account/routes';
 import { registerAdminRoutes } from './modules/admin/routes';
 import { registerApprovalRoutes } from './modules/approvals/routes';
@@ -21,18 +22,43 @@ import { registerScheduleRoutes } from './modules/schedules/routes';
 import { registerSkillRoutes } from './modules/skills/routes';
 import { registerStreamRoutes } from './modules/stream/routes';
 import { registerTaskRoutes } from './modules/tasks/routes';
+import { registerTelephonyRoutes } from './modules/telephony/routes';
 import { registerUsageRoutes } from './modules/usage/routes';
 import { registerVoiceRoutes } from './modules/voice/routes';
 import { registerWebhookRoutes } from './modules/webhooks/routes';
 import type { AppDeps } from './services';
 
 /**
- * Phase C stage 1 → 2 (docs/architecture/phase-c.md §0, §9): contract routes
- * whose handlers had not landed yet. Every Phase C handler is registered now,
- * so the list is empty — and assertAllRoutesRegistered refuses any pending
- * route in production regardless.
+ * Contract routes whose handlers have not landed yet (Phase C's list ended empty).
+ * Phase D stage 1 → 2 (docs/architecture/phase-d.md §0, §9): the six telephony user
+ * routes are the telephony engineer's. They answer 404 outside production;
+ * assertAllRoutesRegistered refuses any pending route in production regardless.
+ * Remove each name in the change that registers its handler.
  */
-export const PENDING_ROUTES: ReadonlySet<RouteName> = new Set<RouteName>([]);
+export const PENDING_ROUTES: ReadonlySet<RouteName> = new Set<RouteName>([
+  'listCalls',
+  'getCall',
+  'listDoNotCall',
+  'deleteDoNotCall',
+  'startPhoneVerification',
+  'confirmPhoneVerification',
+]);
+
+/**
+ * Phase D stage 1 → 2: telephony webhooks (contracts telephonyWebhookRoutes) whose
+ * handlers have not landed yet — same rules as PENDING_ROUTES.
+ */
+export const PENDING_WEBHOOK_ROUTES: ReadonlySet<TelephonyWebhookName> =
+  new Set<TelephonyWebhookName>([
+    'twilioCallVoice',
+    'twilioCallGather',
+    'twilioCallStatus',
+    'twilioCallAmd',
+    'twilioCallDial',
+    'twilioCallRecording',
+    'twilioVerificationVoice',
+    'twilioVerificationStatus',
+  ]);
 
 /**
  * Registers every HTTP module. Boot fails if any route in the contract table
@@ -63,10 +89,17 @@ export async function registerRoutes(app: FastifyInstance, deps: AppDeps): Promi
   registerOrderRoutes(app, deps);
   registerBookingRoutes(app, deps);
   registerEvidenceRoutes(app, deps);
+  // Phase D: calls, do-not-call, phone verification, and the provider's webhooks (their own
+  // route group: no session, signature-validated — http/webhook-route.ts).
+  await registerTelephonyRoutes(app, deps);
   // Server-Sent Events (GET /v1/events) — outside the JSON route table.
   registerStreamRoutes(app, deps);
   assertAllRoutesRegistered(app, {
     pending: PENDING_ROUTES,
+    production: deps.config.isProduction,
+  });
+  assertAllWebhooksRegistered(app, {
+    pending: PENDING_WEBHOOK_ROUTES,
     production: deps.config.isProduction,
   });
 }

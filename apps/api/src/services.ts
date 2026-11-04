@@ -20,6 +20,7 @@ import type {
 import type { Config } from './config';
 import type { Db, DbContext } from './db/pool';
 import type { SecretBox } from './lib/crypto';
+import type { ModelAdapter } from './modules/agent/models/adapter';
 import type { ObjectStorage } from './modules/storage/types';
 
 export interface TaskService {
@@ -109,4 +110,11 @@ export interface AppDeps {
   storage: ObjectStorage | null;
   /** Dedicated LISTEN connection factory for the SSE stream. */
   listen: (channel: string, onMessage: (payload: string) => void) => Promise<() => Promise<void>>;
+  /**
+   * Phase D: the model adapter for request-time model use in the API process — the call
+   * dialog engine answering telephony webhooks in model mode (each user's route, budget and
+   * external-model setting still apply). null/absent = offline (no API key); tests inject
+   * the scripted adapter.
+   */
+  modelAdapter?: ModelAdapter | null;
 }

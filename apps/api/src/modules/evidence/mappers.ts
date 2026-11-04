@@ -20,6 +20,8 @@ export const EVIDENCE_COLUMNS = [
   'page_url',
   'task_id',
   'browser_session_id',
+  // Phase D: a call recording's call.
+  'call_session_id',
   'created_at',
 ] as const;
 
@@ -61,6 +63,7 @@ export function toEvidenceArtifact(row: EvidenceView): EvidenceArtifact {
     pageUrl: row.page_url,
     taskId: row.task_id,
     browserSessionId: row.browser_session_id,
+    callSessionId: row.call_session_id,
     downloadPath: evidenceDownloadPath(row.id),
     createdAt: new Date(row.created_at).toISOString(),
   };
@@ -145,6 +148,7 @@ export async function loadTaskBrowserSessions(trx: Trx, taskId: string): Promise
     .execute();
   const bySession = new Map<string, EvidenceArtifact[]>();
   for (const f of files) {
+    if (f.browser_session_id === null) continue; // Phase D: a call recording (TaskDetail.calls)
     const list = bySession.get(f.browser_session_id) ?? [];
     list.push(toEvidenceArtifact(f));
     bySession.set(f.browser_session_id, list);

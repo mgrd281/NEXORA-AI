@@ -1,5 +1,6 @@
 import type {
   ApprovalDetails,
+  CallPurpose,
   ConnectionCapability,
   ConnectionProvider,
   ConnectionStatus,
@@ -8,6 +9,7 @@ import type {
   EvidenceCode,
   Locale,
   Preferences,
+  RecordingMode,
   RiskLevel,
   ServerMessage,
   ToolId,
@@ -135,6 +137,32 @@ export interface BindContext {
   /** The account's display name (forms that ask for the user's own name). */
   ownName?: string | null;
   timeZone: string;
+  /**
+   * Phase D: an AI model can be used now (the planning route). phone.call binds its dialog
+   * mode from it: 'model' only when available, else 'scripted' — fixed in the approved input.
+   */
+  modelAvailable?: boolean;
+  /** Phase D: the account's language (the default call language when the user names none). */
+  locale?: Locale;
+}
+
+/**
+ * Phase D: the facts of a phone call a step would place (tool.call on the exact input).
+ * The Policy Engine decides with them and the server's / account's telephony state
+ * (policy-telephony.ts): destination, do-not-call, calling hours, daily limit, and the
+ * approval reasons PHONE_CALL, CALL_RECORDING, CALL_PERSONAL_INFO.
+ */
+export interface CallFacts {
+  /** E.164 as it would be dialled. */
+  to: string;
+  /** The callee's zone (allowed hours); null = the account's zone. */
+  calleeTimeZone: string | null;
+  purpose: CallPurpose;
+  recording: RecordingMode;
+  /** Personal details the approval lets JARVIS share (count). */
+  sharedDetails: number;
+  /** The call may transfer the callee to the account's own number. */
+  allowTransfer: boolean;
 }
 
 /**
@@ -171,6 +199,20 @@ export interface ApprovalContext {
    * or null when the recipe is not enabled here. Approvals show the real host, not a label.
    */
   siteHost?: (siteId: string) => string | null;
+  /**
+   * Phase D: what a phone-call approval shows besides the input: who JARVIS calls for, the
+   * caller id the callee sees, the account's own verified number (masked) a callee may be put
+   * through to, the calling window and the cost basis.
+   */
+  telephony?: {
+    configured: boolean;
+    callerId: string | null;
+    onBehalfOf: string;
+    transferTo: string | null;
+    allowedHours: { start: string; end: string };
+    pricePerMinuteMicroUsd: number | null;
+    maxCallSeconds: number;
+  };
 }
 
 export interface ToolDefinition<I> {
@@ -288,6 +330,21 @@ export interface ToolDefinition<I> {
   resultFact?(input: I, output: Record<string, unknown>): string;
   /** The host flagged content came from, for UNTRUSTED_CONTENT approvals (a page, a sender's domain). */
   untrustedHost?(output: Record<string, unknown>): string | null;
+
+  /* ---------------------------------------------------------------- */
+  /* Phase D hooks (docs/architecture/phase-d.md §4). All optional.    */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Phone numbers the tool dials (E.164). Plan validation requires each to be written in the
+   * user's own requests (normalised with lib/phone.ts; NUMBER_NOT_LITERAL otherwise) — never
+   * from results, pages, mail, memories or anything a callee said.
+   */
+  phoneNumbers?(input: I): string[];
+  /** The call this input would place (policy-telephony.ts decides on it). */
+  call?(input: I): CallFacts | null;
+  /** Needs the telephony gateway: hidden from the planner while none is configured. */
+  needsTelephony?: boolean;
 
   execute(input: I, rt: ToolRuntime, signal: AbortSignal): Promise<ToolResult>;
   verify(input: I, output: Record<string, unknown>): Verification;

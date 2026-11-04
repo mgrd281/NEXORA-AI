@@ -11,7 +11,15 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { z } from 'zod';
 import * as contracts from '@jarvis/contracts';
-import { EVENTS_PATH, routes, type RouteDef, type RouteName } from '@jarvis/contracts';
+import {
+  EVENTS_PATH,
+  routes,
+  telephonyWebhookRoutes,
+  TWILIO_SIGNATURE_HEADER,
+  type RouteDef,
+  type RouteName,
+  type TelephonyWebhookDef,
+} from '@jarvis/contracts';
 
 type Json = Record<string, unknown>;
 
@@ -57,6 +65,16 @@ const REQUEST_SCHEMAS = new Set([
   'CalendarEventListQuery',
   'OrderListQuery',
   'BookingListQuery',
+  // Phase D
+  'CallListQuery',
+  'ConfirmPhoneVerificationRequest',
+  'PhoneCallInput',
+  'TwilioVoiceForm',
+  'TwilioGatherForm',
+  'TwilioStatusForm',
+  'TwilioAmdForm',
+  'TwilioDialForm',
+  'TwilioRecordingForm',
 ]);
 /** Primitive building blocks that read better inline than as $refs. */
 const INLINE_PRIMITIVES = new Set(['Id', 'Timestamp', 'MicroUsd']);
@@ -77,6 +95,18 @@ const ERROR_DESCRIPTIONS: Record<string, string> = {
   '500': 'INTERNAL — unexpected server error.',
   '503':
     'MODEL_NOT_CONFIGURED / SERVICE_UNAVAILABLE — the requested capability is unavailable (details.reason).',
+};
+
+/** Phase D: the errors of the telephony webhooks (Twilio logs them; nothing else reads them). */
+const WEBHOOK_ERRORS: Record<string, string> = {
+  '400': 'VALIDATION_FAILED — the path, query or form parameters are invalid.',
+  '403':
+    'FORBIDDEN — details.reason WEBHOOK_SIGNATURE_INVALID (no or a wrong X-Twilio-Signature, or another account).',
+  '404':
+    'NOT_FOUND — telephony is not configured, or no call / verification matches the id and token.',
+  '415': 'UNSUPPORTED_MEDIA_TYPE — not application/x-www-form-urlencoded.',
+  '429': 'RATE_LIMITED — too many requests.',
+  '500': 'INTERNAL — unexpected server error.',
 };
 
 /** Route-specific error statuses beyond the generic rules. */
@@ -107,6 +137,10 @@ const EXTRA_ERRORS: Partial<Record<RouteName, string[]>> = {
   completeOAuthConnection: ['409', '422', '503'],
   listCalendarEvents: ['409', '503'],
   downloadEvidence: ['503'],
+  // Phase D (docs/architecture/phase-d.md §6)
+  deleteDoNotCall: ['404'],
+  startPhoneVerification: ['409', '503'],
+  confirmPhoneVerification: ['409'],
 };
 
 /** Route-specific wording where the generic description would mislead. */
@@ -141,6 +175,24 @@ const ERROR_DESCRIPTION_OVERRIDES: Partial<Record<RouteName, Record<string, stri
   downloadEvidence: {
     '503':
       'SERVICE_UNAVAILABLE — details.reason EVIDENCE_NOT_AVAILABLE (stored by another storage driver, or no storage) / STORAGE_UNAVAILABLE.',
+  },
+  // Phase D
+  updateMe: {
+    '400':
+      'VALIDATION_FAILED — invalid body, or details.reason PHONE_NUMBER_INVALID (not a valid number) / CALL_DESTINATION_BLOCKED (a premium-rate or similar number).',
+  },
+  startPhoneVerification: {
+    '400':
+      'VALIDATION_FAILED — details.reason CALL_DESTINATION_BLOCKED { country } (a country this server does not call).',
+    '409':
+      'INVALID_STATE — details.reason PHONE_NUMBER_REQUIRED (no number on the account) / PHONE_ALREADY_VERIFIED.',
+    '429': `RATE_LIMITED — too many requests, or details.reason PHONE_VERIFICATION_LIMIT { max } (${contracts.CALL_LIMITS.verificationMaxPerDay} verification calls a day).`,
+    '503': 'SERVICE_UNAVAILABLE — details.reason TELEPHONY_NOT_CONFIGURED.',
+  },
+  confirmPhoneVerification: {
+    '400':
+      'VALIDATION_FAILED — invalid body, or details.reason PHONE_VERIFICATION_INVALID { attemptsLeft } / PHONE_VERIFICATION_EXPIRED.',
+    '409': 'INVALID_STATE — details.reason PHONE_NUMBER_REQUIRED (the number changed meanwhile).',
   },
 };
 
@@ -390,6 +442,74 @@ export function buildOpenApi(): Json {
     },
   };
 
+  // Phase D: the telephony provider's webhooks — a separate route group (no session; every
+  // request carries X-Twilio-Signature and the call's URL token), never called by clients.
+  for (const [name, hook] of Object.entries(telephonyWebhookRoutes) as [
+    string,
+    TelephonyWebhookDef,
+  ][]) {
+    const parameters: Json[] = [];
+    for (const [param, schema] of Object.entries(hook.params.shape))
+      parameters.push({
+        name: param,
+        in: 'path',
+        required: true,
+        schema: inputSchema(schema as z.ZodType),
+      });
+    const q = inputSchema(hook.query) as { properties?: Record<string, Json>; required?: string[] };
+    for (const [param, schema] of Object.entries(q.properties ?? {}))
+      parameters.push({
+        name: param,
+        in: 'query',
+        required: q.required?.includes(param) ?? false,
+        description:
+          param === 't'
+            ? 'The call’s URL token (random, stored only as a hash): selects the owner of the call.'
+            : 'The turn this answer belongs to (processed once).',
+        schema,
+      });
+    const errors = (codes: string[]) =>
+      Object.fromEntries(
+        codes.map((code) => [
+          code,
+          {
+            description: WEBHOOK_ERRORS[code]!,
+            content: { 'application/json': { schema: { $ref: SCHEMA_REF('ApiErrorBody') } } },
+          },
+        ]),
+      );
+    const path = toOpenApiPath(hook.path);
+    paths[path] ??= {};
+    paths[path][hook.method.toLowerCase()] = {
+      operationId: name,
+      summary: hook.summary,
+      tags: ['telephony-webhooks'],
+      description:
+        'Called by Twilio only. Authenticated by X-Twilio-Signature (base64 HMAC-SHA1 of PUBLIC_WEBHOOK_BASE_URL + path + query followed by every form parameter name and value sorted by name, keyed with the account’s auth token) and the call’s URL token — not by a session.',
+      security: [{ twilioSignature: [] }],
+      parameters,
+      requestBody: {
+        required: true,
+        content: {
+          'application/x-www-form-urlencoded': {
+            schema: { $ref: SCHEMA_REF(requestRef(name, hook.form)) },
+          },
+        },
+      },
+      responses: {
+        ...(hook.responds === 'twiml'
+          ? {
+              '200': {
+                description: 'TwiML',
+                content: { 'text/xml': { schema: { type: 'string' } } },
+              },
+            }
+          : { '204': { description: 'No Content' } }),
+        ...errors(['400', '403', '404', '415', '429', '500']),
+      },
+    };
+  }
+
   // Liveness / readiness probes (unauthenticated, no data).
   paths['/healthz'] = {
     get: {
@@ -450,7 +570,14 @@ export function buildOpenApi(): Json {
   ))
     schemas[id] = tidy(schema);
 
-  const tags = [...new Set([...Object.values(routes).map((r) => r.tag), 'events', 'system'])];
+  const tags = [
+    ...new Set([
+      ...Object.values(routes).map((r) => r.tag),
+      'events',
+      'system',
+      'telephony-webhooks',
+    ]),
+  ];
   return {
     openapi: '3.1.0',
     info: {
@@ -476,6 +603,13 @@ export function buildOpenApi(): Json {
           name: 'jarvis_session',
           description:
             'httpOnly session cookie set for the web client. Mutations must send the web app Origin.',
+        },
+        twilioSignature: {
+          type: 'apiKey',
+          in: 'header',
+          name: TWILIO_SIGNATURE_HEADER,
+          description:
+            'Telephony webhooks only: Twilio’s request signature, validated against the configured auth token.',
         },
       },
       schemas,

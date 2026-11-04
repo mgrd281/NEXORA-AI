@@ -223,6 +223,8 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
       hasRecallable: start.conversation.some((t) => t.recallable),
       connections: a.connectionStates ?? [],
       browserAvailable,
+      // Phase D
+      telephonyAvailable: a.telephony?.configured === true,
     });
     outcome = await planTask(
       { config: deps.config, adapter: deps.adapter, route: a.route, signal: deps.signal },
@@ -241,6 +243,10 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
         attachments: start.attachments,
         connections: a.connectionStates ?? [],
         browserAvailable,
+        // Phase D
+        telephonyAvailable: a.telephony?.configured === true,
+        phoneRegion: a.telephony?.ownPhone?.region ?? null,
+        ownPhoneVerified: a.telephony?.ownPhone?.verified === true,
       },
     ).catch((err: unknown): PlanOutcome => ({
       ok: false,

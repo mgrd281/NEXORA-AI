@@ -9,6 +9,7 @@
  *   a required connection missing            → status needs_connection, CONNECTION_REQUIRED
  *   needs a model while the route is offline → MODEL_REQUIRED
  *   document-analysis without storage        → STORAGE_NOT_CONFIGURED
+ *   Phase D: phone-calling without telephony  → TELEPHONY_NOT_CONFIGURED
  *
  * Switching writes preferences.skills.disabled (personal-memory:
  * preferences.memory.enabled) under a row lock of the user, audits it, and
@@ -42,6 +43,8 @@ export interface SkillEnv {
   browserAvailable?: boolean;
   /** Tools registered on this server (default: the tool registry). */
   registered?: ReadonlySet<ToolId>;
+  /** Phase D: a telephony gateway (Twilio) is configured on this server. */
+  telephonyConfigured?: boolean;
 }
 
 const OAUTH: ReadonlySet<ConnectionProvider> = new Set(['google', 'microsoft']);
@@ -53,7 +56,12 @@ export async function skillEnv(deps: SkillServiceDeps): Promise<SkillEnv> {
   if (deps.config.oauth.microsoft) providersConfigured.add('microsoft');
   const browserAvailable =
     deps.storage !== null && (await workerHealth(deps.db, 'browser')).healthy;
-  return { storageConfigured: deps.storage !== null, providersConfigured, browserAvailable };
+  return {
+    storageConfigured: deps.storage !== null,
+    providersConfigured,
+    browserAvailable,
+    telephonyConfigured: deps.config.telephony !== null,
+  };
 }
 
 export interface SkillServiceDeps {
@@ -110,6 +118,7 @@ export function skillEntry(
   else if (unconfigurable && !missingRequired) reason = 'PROVIDER_NOT_CONFIGURED';
   else if (missingConnection) reason = 'CONNECTION_REQUIRED';
   else if (def.needsBrowser && !env.browserAvailable) reason = 'BROWSER_UNAVAILABLE';
+  else if (def.needsTelephony && !env.telephonyConfigured) reason = 'TELEPHONY_NOT_CONFIGURED';
   else if (def.modelUse === 'required' && agent.route.mode !== 'model') reason = 'MODEL_REQUIRED';
   else if (def.id === 'document-analysis' && !env.storageConfigured)
     reason = 'STORAGE_NOT_CONFIGURED';

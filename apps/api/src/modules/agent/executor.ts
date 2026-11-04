@@ -25,6 +25,7 @@ import type { ConnectionProvider, Evidence, Locale, VerificationCheck } from '@j
 import { withContext, type DbContext } from '../../db/pool';
 import type { AttachmentRow, JobRow, StepRow, TaskRow, ToolExecutionRow } from '../../db/types';
 import { hashObject } from '../../lib/crypto';
+import { maskPhoneNumber } from '../../lib/phone';
 import { redact, truncate } from '../../lib/redact';
 import { metrics } from '../../observability/metrics';
 import { withSpan } from '../../observability/tracing';
@@ -60,7 +61,7 @@ import {
 } from './task-state';
 import { findRefs, resolveTemplates } from './templates';
 import { getTool } from './tools/registry';
-import type { AnyTool, ToolResult, ToolRuntime } from './tools/types';
+import type { AnyTool, ApprovalContext, ToolResult, ToolRuntime } from './tools/types';
 
 const FINISHED = new Set(['SUCCEEDED', 'SKIPPED']);
 
@@ -315,6 +316,8 @@ async function prepareNext(deps: RuntimeDeps, ctx: DbContext, taskId: string): P
             const origin = enabledOrigins(deps.config, siteId)?.[0];
             return origin ? new URL(origin).host : null;
           },
+          // Phase D: who JARVIS calls for, the caller id, the transfer target and the limits.
+          telephony: telephonyApprovalContext(deps.config, agent),
         });
         // Say what the suspected injection is about (never the flagged text itself).
         const untrusted = a.policy.reasons.includes('UNTRUSTED_CONTENT')
@@ -360,6 +363,24 @@ type Claim =
   | { kind: 'stop' }
   | { kind: 'reuse'; exec: ToolExecutionRow }
   | { kind: 'run'; executionId: string; key: string };
+
+/** Phase D: the facts a phone-call approval shows besides the input (ApprovalContext.telephony). */
+function telephonyApprovalContext(
+  config: RuntimeDeps['config'],
+  agent: AgentContext,
+): NonNullable<ApprovalContext['telephony']> {
+  const t = config.telephony;
+  const own = agent.telephony?.ownPhone;
+  return {
+    configured: t !== null,
+    callerId: t?.fromNumber ?? null,
+    onBehalfOf: agent.account.displayName,
+    transferTo: own?.verified ? maskPhoneNumber(own.number) : null,
+    allowedHours: t?.allowedHours ?? { start: '08:00', end: '20:00' },
+    pricePerMinuteMicroUsd: t?.pricePerMinuteMicroUsd ?? null,
+    maxCallSeconds: t?.maxCallSeconds ?? 0,
+  };
+}
 
 async function claimExecution(
   deps: RuntimeDeps,

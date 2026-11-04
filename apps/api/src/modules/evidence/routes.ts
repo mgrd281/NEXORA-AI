@@ -21,6 +21,7 @@ const EXTENSION: Record<EvidenceArtifactKind, string> = {
   screenshot: 'png',
   extract: 'json',
   ics: 'ics',
+  recording: 'mp3',
 };
 
 /** The file cannot be served by this server (no storage, or stored with another driver). */

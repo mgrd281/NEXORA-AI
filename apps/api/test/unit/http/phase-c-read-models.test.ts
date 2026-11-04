@@ -31,6 +31,7 @@ const evidenceRow = (n: number): EvidenceArtifactRow => ({
   user_id: ID(91),
   task_id: ID(1),
   browser_session_id: ID(2),
+  call_session_id: null,
   kind: 'screenshot',
   media_type: 'image/png',
   size_bytes: 1234,
@@ -213,7 +214,22 @@ describe('Phase C read models', () => {
       expect(isWholeCents(bad), String(bad)).toBe(false);
   });
 
-  it('has no pending routes left (stage 2 complete)', () => {
-    expect([...PENDING_ROUTES]).toEqual([]);
+  it('has no pending Phase C routes left (stage 2 complete; Phase D lists its own)', () => {
+    const phaseC = new Set([
+      'listConnectionProviders',
+      'startOAuthConnection',
+      'completeOAuthConnection',
+      'listUpcomingEvents',
+      'listCalendarEvents',
+      'listEmailWatches',
+      'deleteEmailWatch',
+      'listOrders',
+      'getOrder',
+      'listBookings',
+      'getBooking',
+      'getEvidence',
+      'downloadEvidence',
+    ]);
+    expect([...PENDING_ROUTES].filter((n) => phaseC.has(n))).toEqual([]);
   });
 });

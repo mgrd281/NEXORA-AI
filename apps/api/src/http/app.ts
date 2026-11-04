@@ -90,6 +90,10 @@ export async function buildApp(
                 '*.refresh_token',
                 '*.code_verifier',
                 '*.client_secret',
+                // Phase D: the Twilio auth token, and webhook signatures (never needed in logs).
+                '*.authToken',
+                '*.auth_token',
+                'req.headers["x-twilio-signature"]',
               ],
               censor: '[redacted]',
             },

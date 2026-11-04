@@ -15,7 +15,7 @@ import type { ModelAdapter, ModelUsage } from './models/adapter';
 import { planOffline, type PlanningAttachment } from './models/offline';
 import type { ConnectionState } from './tools/types';
 import { selectModel, type ModelRoute } from './models/router';
-import { MAX_STEPS, validatePlan, type Plan } from './plan';
+import { MAX_STEPS, NUMBER_NOT_LITERAL_ISSUE, validatePlan, type Plan } from './plan';
 import { inputJsonSchema, TOOLS } from './tools/registry';
 import type { AnyTool } from './tools/types';
 
@@ -38,6 +38,12 @@ export interface PlanningInput {
   connections?: readonly ConnectionState[];
   /** Phase C: the isolated browser agent can run now. */
   browserAvailable?: boolean;
+  /** Phase D: phone calls can be placed on this server. */
+  telephonyAvailable?: boolean;
+  /** Phase D: the default country of numbers written without a country code (own number's). */
+  phoneRegion?: string | null;
+  /** Phase D: the account has a verified phone number (transfers). */
+  ownPhoneVerified?: boolean;
 }
 
 export type { PlanningAttachment };
@@ -183,6 +189,11 @@ function literalnessFailed(issues: string[]): boolean {
   );
 }
 
+/** Phase D: the validation issues include a phone number the user did not write. */
+function numberLiteralnessFailed(issues: string[]): boolean {
+  return issues.some((i) => i.includes(NUMBER_NOT_LITERAL_ISSUE));
+}
+
 export async function planTask(
   deps: { config: Config; adapter: ModelAdapter | null; route: ModelRoute; signal?: AbortSignal },
   input: PlanningInput,
@@ -201,7 +212,11 @@ export async function planTask(
       accountEmail: input.account.email,
       ownName: input.account.displayName || null,
       timeZone: input.account.timeZone,
+      // Phase D: phone.call binds its dialog mode ('model' only with a model) and language.
+      modelAvailable: deps.route.mode === 'model' && deps.adapter !== null,
+      locale: input.language,
     },
+    phoneRegion: input.phoneRegion ?? null,
   };
 
   if (deps.route.mode === 'offline' || !deps.adapter) {
@@ -214,6 +229,9 @@ export async function planTask(
       attachments: input.attachments ?? [],
       connections: input.connections ?? [],
       browserAvailable: input.browserAvailable ?? false,
+      telephonyAvailable: input.telephonyAvailable ?? false,
+      phoneRegion: input.phoneRegion ?? null,
+      ownPhoneVerified: input.ownPhoneVerified ?? false,
     });
     if (!offline.ok) {
       return {
@@ -235,7 +253,7 @@ export async function planTask(
         ok: false,
         error: new AgentError('PLANNER_UNSUPPORTED', checked.issues.join('; '), {
           retryable: false,
-          reason: 'INVALID_PLAN',
+          reason: numberLiteralnessFailed(checked.issues) ? 'NUMBER_NOT_LITERAL' : 'INVALID_PLAN',
         }),
         planner: OFFLINE_PLANNER,
         usage: [],
@@ -279,6 +297,10 @@ export async function planTask(
             literalnessFailed(issues)
               ? ' If the user did not write the recipient’s address or the link, do not guess it: plan a single assistant.clarify step with missing ["recipient"] or ["url"].'
               : ''
+          }${
+            numberLiteralnessFailed(issues)
+              ? ' If the user did not write the phone number (with its country code), do not guess or look it up: plan a single assistant.clarify step with missing ["phone_number"].'
+              : ''
           }`;
     let result;
     try {
@@ -313,6 +335,18 @@ export async function planTask(
       previous = result.raw;
     }
   }
+  // Phase D: a number the model kept inventing is the precise reason, not a generic one.
+  if (numberLiteralnessFailed(issues))
+    return {
+      ok: false,
+      error: new AgentError(
+        'PLANNER_UNSUPPORTED',
+        'JARVIS calls only numbers you wrote yourself. Write the number with its country code and try again.',
+        { retryable: false, reason: 'NUMBER_NOT_LITERAL' },
+      ),
+      planner,
+      usage,
+    };
   return {
     ok: false,
     error: new AgentError(

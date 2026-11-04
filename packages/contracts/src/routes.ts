@@ -13,6 +13,10 @@ import {
   BookingListQuery,
   CalendarEventList,
   CalendarEventListQuery,
+  CallListQuery,
+  CallSession,
+  CallSummary,
+  ConfirmPhoneVerificationRequest,
   Connection,
   ConnectionProviderInfo,
   ConversationDetail,
@@ -25,6 +29,7 @@ import {
   CreateTaskRequest,
   CreateWebhookRequest,
   DeleteAccountRequest,
+  DoNotCallEntry,
   EmailWatch,
   EvidenceArtifact,
   FollowUpRequest,
@@ -43,6 +48,7 @@ import {
   OrderListQuery,
   Page,
   PageQuery,
+  PhoneVerification,
   RetryTaskRequest,
   Schedule,
   ScheduleDetail,
@@ -859,6 +865,72 @@ export const routes = {
     download: { mediaTypes: EvidenceMediaType.options },
     response: null,
     successStatus: 200,
+  },
+
+  /* ---------------------------------------------------------------- */
+  /* Phase D (docs/architecture/phase-d.md). The provider's webhooks    */
+  /* (unauthenticated, signature-validated) are a separate table:       */
+  /* telephonyWebhookRoutes (telephony-webhooks.ts).                    */
+  /* ---------------------------------------------------------------- */
+
+  // Calls JARVIS placed (records of what the agent did; read-only)
+  listCalls: {
+    method: 'GET',
+    path: '/v1/calls',
+    summary: 'Phone calls JARVIS placed or tried to place, newest first',
+    tag: 'calls',
+    auth: 'user',
+    query: CallListQuery,
+    response: Page(CallSummary),
+  },
+  getCall: {
+    method: 'GET',
+    path: '/v1/calls/:id',
+    summary: 'A call with its status timeline, every turn, outcome and evidence',
+    tag: 'calls',
+    auth: 'user',
+    params: IdParams,
+    response: CallSession,
+  },
+
+  // Numbers JARVIS will not call (only hashes are stored)
+  listDoNotCall: {
+    method: 'GET',
+    path: '/v1/do-not-call',
+    summary: 'Numbers JARVIS will not call for you (masked), and why',
+    tag: 'calls',
+    auth: 'user',
+    response: z.object({ items: z.array(DoNotCallEntry) }),
+  },
+  deleteDoNotCall: {
+    method: 'DELETE',
+    path: '/v1/do-not-call/:id',
+    summary: 'Remove a number from the do-not-call list (audited)',
+    tag: 'calls',
+    auth: 'user',
+    params: IdParams,
+    response: null,
+    successStatus: 204,
+  },
+
+  // The account's own phone number: verification by a call that reads a code
+  startPhoneVerification: {
+    method: 'POST',
+    path: '/v1/me/phone/verification',
+    summary: 'Call the account’s phone number and read out a verification code',
+    tag: 'account',
+    auth: 'user',
+    response: PhoneVerification,
+    successStatus: 201,
+  },
+  confirmPhoneVerification: {
+    method: 'POST',
+    path: '/v1/me/phone/verification/confirm',
+    summary: 'Confirm the code from the verification call (the number becomes verified)',
+    tag: 'account',
+    auth: 'user',
+    body: ConfirmPhoneVerificationRequest,
+    response: Me,
   },
 } as const satisfies Record<string, RouteDef>;
 

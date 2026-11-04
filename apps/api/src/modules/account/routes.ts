@@ -4,6 +4,7 @@ import { withContext } from '../../db/pool';
 import { defineRoute } from '../../http/route';
 import { AppError, notFound } from '../../lib/errors';
 import { canonicalTimeZone } from '../../lib/period';
+import { BLOCKED_NUMBER_TYPES, parsePhoneNumber } from '../../lib/phone';
 import type { AppDeps } from '../../services';
 import { audit } from '../audit/audit';
 import { verifyPassword } from '../auth/password';
@@ -40,7 +41,34 @@ const purchaseLimitNotCents = () =>
     ],
   });
 
-/** Overlays a partial preferences patch (one level of groups) onto the resolved preferences. */
+/**
+ * Phase D: the account's phone number as stored — E.164 of a valid number of a type JARVIS
+ * would put a callee through to (never premium-rate / shared-cost …). The contract checks
+ * the shape; this checks the number exists.
+ */
+export function profilePhoneNumber(raw: string): string {
+  const parsed = parsePhoneNumber(raw);
+  if (!parsed || parsed.e164 !== raw)
+    throw new AppError('VALIDATION_FAILED', 'Not a valid phone number', {
+      reason: 'PHONE_NUMBER_INVALID',
+      issues: [{ path: 'phoneNumber', message: 'Not a valid phone number' }],
+    });
+  if (parsed.type && BLOCKED_NUMBER_TYPES.has(parsed.type))
+    throw new AppError('VALIDATION_FAILED', 'JARVIS does not use numbers of this type', {
+      reason: 'CALL_DESTINATION_BLOCKED',
+      country: parsed.country ?? '',
+      issues: [{ path: 'phoneNumber', message: 'Premium-rate and similar numbers are not allowed' }],
+    });
+  return parsed.e164;
+}
+
+const isPlainObject = (v: unknown): v is Record<string, unknown> =>
+  !!v && typeof v === 'object' && !Array.isArray(v);
+
+/**
+ * Overlays a partial preferences patch onto the resolved preferences: per group, and one level
+ * deeper for nested objects (Phase D voice.voiceNames: an omitted language keeps its voice).
+ */
 export function mergePreferences(
   current: Preferences,
   patch: NonNullable<UpdateMeRequest['preferences']>,
@@ -48,8 +76,19 @@ export function mergePreferences(
   const next: Record<string, Record<string, unknown>> = { ...current };
   for (const [group, values] of Object.entries(patch)) {
     if (!values || !(group in current)) continue;
-    const defined = Object.fromEntries(Object.entries(values).filter(([, v]) => v !== undefined));
-    next[group] = { ...current[group as keyof Preferences], ...defined };
+    const base = current[group as keyof Preferences] as Record<string, unknown>;
+    const merged: Record<string, unknown> = { ...base };
+    for (const [k, v] of Object.entries(values)) {
+      if (v === undefined) continue;
+      merged[k] =
+        isPlainObject(v) && isPlainObject(base[k])
+          ? {
+              ...base[k],
+              ...Object.fromEntries(Object.entries(v).filter(([, x]) => x !== undefined)),
+            }
+          : v;
+    }
+    next[group] = merged;
   }
   return Preferences.parse(next);
 }
@@ -71,7 +110,7 @@ export function registerAccountRoutes(app: FastifyInstance, deps: AppDeps) {
       if (timeZone === null) throw unknownTimeZone();
       const user = await trx
         .selectFrom('users')
-        .select('preferences')
+        .select(['preferences', 'phone_number'])
         .where('id', '=', ctx.userId)
         .forUpdate()
         .executeTakeFirst();
@@ -84,6 +123,8 @@ export function registerAccountRoutes(app: FastifyInstance, deps: AppDeps) {
         time_zone?: string;
         theme?: 'system' | 'light' | 'dark';
         preferences?: string;
+        phone_number?: string | null;
+        phone_verified_at?: Date | null;
       } = {};
       if (body.displayName !== undefined) {
         set.display_name = body.displayName;
@@ -100,6 +141,15 @@ export function registerAccountRoutes(app: FastifyInstance, deps: AppDeps) {
       if (body.theme !== undefined) {
         set.theme = body.theme;
         changed.push('theme');
+      }
+      // Phase D: a new number (or none) is unverified until a verification call confirms it.
+      if (body.phoneNumber !== undefined) {
+        const next = body.phoneNumber === null ? null : profilePhoneNumber(body.phoneNumber);
+        if (next !== user.phone_number) {
+          set.phone_number = next;
+          set.phone_verified_at = null;
+          changed.push('phoneNumber');
+        }
       }
       let purchaseLimitChanged = false;
       if (body.preferences !== undefined) {

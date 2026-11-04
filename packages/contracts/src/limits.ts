@@ -3,6 +3,7 @@ import type {
   ConnectionCapability,
   EvidenceArtifactKind,
   EvidenceMediaType,
+  Locale,
   OAuthProvider,
 } from './enums';
 
@@ -258,6 +259,8 @@ export const EVIDENCE_MEDIA_TYPE: Readonly<Record<EvidenceArtifactKind, Evidence
   screenshot: 'image/png',
   extract: 'application/json',
   ics: 'text/calendar',
+  // Phase D: a call recording (only with the callee's consent; docs/security/telephony.md).
+  recording: 'audio/mpeg',
 };
 
 /* ------------------------------------------------------------------ */
@@ -273,4 +276,95 @@ export const COMMERCE_LIMITS = {
   monthlyPurchaseLimitUsdMax: 10_000,
   /** The currency of the purchase limit; purchases in other currencies are refused (PURCHASE_CURRENCY). */
   limitCurrency: 'USD',
+} as const;
+
+/* ------------------------------------------------------------------ */
+/* Phase D — phone calls (docs/architecture/phase-d.md §3.2)           */
+/* ------------------------------------------------------------------ */
+
+export const CALL_LIMITS = {
+  /** phone.call maxDurationSeconds bounds; the server's CALL_MAX_SECONDS caps it further. */
+  minDurationSeconds: 30,
+  maxDurationSeconds: 1_800,
+  /** How long the callee's phone rings before the attempt counts as no_answer (provider Timeout). */
+  ringTimeoutSeconds: 30,
+  /** Default calling window in the callee's time zone (CALL_ALLOWED_HOURS overrides it per server). */
+  defaultAllowedHours: { start: '08:00', end: '20:00' },
+  /** Questions one call asks (purpose 'questions'); details JARVIS may share. */
+  maxQuestions: 5,
+  maxShareInfo: 6,
+  /** Characters: the goal, a message to deliver, one question, one shared detail's value. */
+  maxGoalChars: 300,
+  maxMessageChars: 600,
+  maxQuestionChars: 200,
+  maxShareValueChars: 200,
+  /** One spoken line of JARVIS, and one recognised utterance of the callee kept as a turn. */
+  maxAgentUtteranceChars: 600,
+  maxCalleeUtteranceChars: 1_000,
+  /** Turns of one call (agent + callee); the dialog ends politely at the limit. */
+  maxTurns: 40,
+  /** Times collected for one date (purpose 'availability'). */
+  maxCollectedTimes: 12,
+  /** The callee says nothing / is not understood this often in a row → JARVIS ends politely. */
+  maxSilentPrompts: 2,
+  /** Speech recognised with less confidence than this is confirmed ("Did you say …?"). */
+  minConfidence: 0.5,
+  /** The model dialog gets this long per turn; then the deterministic line is used. */
+  dialogModelTimeoutMs: 6_000,
+  /** Transfer to the user's own verified number: how long it rings there. */
+  transferRingSeconds: 25,
+  /** Verification call to the account's own number. */
+  verificationCodeLength: 6,
+  verificationTtlMinutes: 10,
+  verificationMaxAttempts: 5,
+  verificationMaxPerDay: 3,
+  /** Turns kept in the CallSession.turns of a TaskDetail (all turns are in GET /v1/calls/:id). */
+  turnsInTaskDetail: 40,
+  /** A stored call recording (evidence file of kind 'recording'). */
+  maxRecordingBytes: 32 * 1024 * 1024,
+} as const;
+
+/**
+ * Telephony webhooks (POST /v1/telephony/twilio/…; docs/architecture/phase-d.md §3.3). Every
+ * request must carry a valid X-Twilio-Signature (HMAC-SHA1 of the full URL and the sorted form
+ * parameters with the account's auth token) and the call's own URL token.
+ */
+export const TELEPHONY_WEBHOOK_LIMITS = {
+  /** Form bodies larger than this are refused (Twilio sends a few KiB). */
+  maxBodyBytes: 64 * 1024,
+  /** Status callbacks whose Timestamp parameter is older than this are ignored (replay window). */
+  maxEventAgeSeconds: 600,
+  /** Webhooks of an ended call are accepted this long (late status callbacks); later: ignored. */
+  lateEventGraceSeconds: 3_600,
+  /** The per-call URL token (random bytes, base64url) that every webhook URL of the call carries. */
+  urlTokenBytes: 32,
+} as const;
+
+/* ------------------------------------------------------------------ */
+/* Phase D — voice conversation (docs/architecture/phase-d.md §3.1)    */
+/* ------------------------------------------------------------------ */
+
+export const VOICE_LIMITS = {
+  /** End of an utterance: this much silence after the last final result (preference, adjustable). */
+  endOfSpeechSilenceMs: { default: 1_200, min: 600, max: 4_000 },
+  /** speechSynthesis / AVSpeechSynthesizer rate multiplier (1 = normal). */
+  speakingRate: { default: 1, min: 0.5, max: 2 },
+  /** A conversation ends by itself after this long without speech (announced first). */
+  idleEndSeconds: 120,
+  /** Stream / recognition reconnect delays (ms); then the session ends with the error shown. */
+  reconnectDelaysMs: [500, 1_000, 2_000, 5_000, 10_000],
+  /** Characters spoken per utterance chunk (sentence-split; longer sentences are split at commas). */
+  maxSpokenChunkChars: 300,
+  /**
+   * Spoken commands that end the conversation (whole utterance, case- and punctuation-
+   * insensitive, after trimming). Never sent as a request. Saying "stop" ends voice mode only:
+   * a running task keeps running (cancelling it is a separate, explicit control).
+   */
+  stopPhrases: {
+    en: ['stop', 'stop listening', 'end conversation', 'goodbye jarvis'],
+    de: ['stopp', 'stop', 'aufhören', 'gespräch beenden', 'tschüss jarvis'],
+    ar: ['توقف', 'قف', 'أنهِ المحادثة', 'إنهاء المحادثة', 'مع السلامة جارفيس'],
+  } satisfies Record<Locale, readonly string[]>,
+  /** Voice names stored per locale (platform voice identifiers). */
+  maxVoiceNameChars: 200,
 } as const;

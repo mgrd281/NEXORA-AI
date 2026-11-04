@@ -91,3 +91,38 @@ export async function currentMonth(
   const row = res.rows[0]!;
   return { start: new Date(row.start), end: new Date(row.end) };
 }
+
+/**
+ * Phase D: the current calendar day in the user's time zone, as absolute instants (the
+ * period of CALL_MAX_PER_DAY). Same rules as currentMonth.
+ */
+export async function currentDay(
+  db: Kysely<Database>,
+  timeZone: string,
+): Promise<{ start: Date; end: Date }> {
+  const tz = await effectiveTimeZone(db, timeZone);
+  const res = await sql<{ start: Date; end: Date }>`
+    select date_trunc('day', now() at time zone ${tz}) at time zone ${tz} as start,
+           (date_trunc('day', now() at time zone ${tz}) + interval '1 day') at time zone ${tz} as end`.execute(
+    db,
+  );
+  const row = res.rows[0]!;
+  return { start: new Date(row.start), end: new Date(row.end) };
+}
+
+/**
+ * Phase D: the wall-clock time "HH:MM" (24 h) of `at` in `timeZone`, or null when Node
+ * cannot use the zone. Pure (Intl), so the Policy Engine's facts can be computed with it.
+ */
+export function localTimeOfDay(at: Date, timeZone: string): string | null {
+  if (!isValidTimeZone(timeZone)) return null;
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(at);
+  const hour = parts.find((p) => p.type === 'hour')?.value;
+  const minute = parts.find((p) => p.type === 'minute')?.value;
+  return hour && minute ? `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}` : null;
+}

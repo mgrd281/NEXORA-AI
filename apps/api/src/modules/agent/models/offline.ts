@@ -42,6 +42,7 @@ import { latestRecallable, type PriorTurn } from '../conversation-context';
 import { msg, render, t, withoutFinalStop } from '../i18n';
 import { browserIntents } from '../intents/browser';
 import { integrationIntents } from '../intents/integrations';
+import { telephonyIntents } from '../intents/telephony';
 import type { Plan } from '../plan';
 import type { ConnectionState } from '../tools/types';
 
@@ -226,10 +227,22 @@ export interface OfflinePlanContext {
   connections?: readonly ConnectionState[];
   /** Phase C: the isolated browser agent can run now. */
   browserAvailable?: boolean;
+  /** Phase D: phone calls can be placed on this server (a telephony gateway is configured). */
+  telephonyAvailable?: boolean;
+  /**
+   * Phase D: the default country (ISO alpha-2) of numbers written without a country code —
+   * the country of the account's own phone number; null = only numbers with "+" / "00".
+   */
+  phoneRegion?: string | null;
+  /** Phase D: the account has a verified phone number (a callee can be put through to it). */
+  ownPhoneVerified?: boolean;
 }
 
-/** Phase C: the domain intents, asked in this order (intents/*). */
-const DOMAIN_INTENTS = [...integrationIntents, ...browserIntents];
+/**
+ * Phase C: the domain intents, asked in this order (intents/*). Phase D: telephony before the
+ * browser's (a phone booking names a number, a site booking a supported site).
+ */
+const DOMAIN_INTENTS = [...integrationIntents, ...telephonyIntents, ...browserIntents];
 
 /** The Milestone 1 intents (memory, summarize a link, email me: <text>). */
 function planBasic(request: string, ctx: OfflinePlanContext): OfflinePlanResult {

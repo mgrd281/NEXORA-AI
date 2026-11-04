@@ -207,7 +207,8 @@ describe('Phase C: enums', () => {
         'shop.checkout',
       ]),
     );
-    expect(ToolId.options).toHaveLength(10 + 17);
+    // + Phase D's phone.call (test/phase-d.test.ts).
+    expect(ToolId.options).toHaveLength(10 + 17 + 1);
   });
 
   it('every browser stop reason (but a cancellation) is a task error reason clients explain', () => {
@@ -734,7 +735,8 @@ describe('Phase C route table', () => {
 
   it('includes every Phase C endpoint, all for signed-in users', () => {
     expect(Object.keys(routes)).toEqual(expect.arrayContaining([...PHASE_C]));
-    expect(all).toHaveLength(35 + 26 + PHASE_C.length);
+    // + the 6 Phase D routes (test/phase-d.test.ts).
+    expect(all).toHaveLength(35 + 26 + PHASE_C.length + 6);
     for (const name of PHASE_C) expect((routes[name] as RouteDef).auth, name).toBe('user');
   });
 
@@ -757,6 +759,8 @@ describe('Phase C route table', () => {
       'image/png',
       'application/json',
       'text/calendar',
+      // Phase D: call recordings (only with the callee's consent).
+      'audio/mpeg',
     ]);
   });
 });

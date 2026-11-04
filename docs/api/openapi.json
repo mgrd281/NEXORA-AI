@@ -81,10 +81,16 @@
       "name": "evidence"
     },
     {
+      "name": "calls"
+    },
+    {
       "name": "events"
     },
     {
       "name": "system"
+    },
+    {
+      "name": "telephony-webhooks"
     }
   ],
   "paths": {
@@ -416,7 +422,7 @@
             }
           },
           "400": {
-            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "description": "VALIDATION_FAILED — invalid body, or details.reason PHONE_NUMBER_INVALID (not a valid number) / CALL_DESTINATION_BLOCKED (a premium-rate or similar number).",
             "content": {
               "application/json": {
                 "schema": {
@@ -6280,6 +6286,12 @@
                   "type": "string",
                   "format": "binary"
                 }
+              },
+              "audio/mpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },
@@ -6346,6 +6358,486 @@
         }
       }
     },
+    "/v1/calls": {
+      "get": {
+        "operationId": "listCalls",
+        "summary": "Phone calls JARVIS placed or tried to place, newest first",
+        "tags": ["calls"],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "result",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "completed",
+                "answered",
+                "busy",
+                "no_answer",
+                "failed",
+                "voicemail",
+                "hung_up",
+                "declined",
+                "canceled"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListCallsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/calls/{id}": {
+      "get": {
+        "operationId": "getCall",
+        "summary": "A call with its status timeline, every turn, outcome and evidence",
+        "tags": ["calls"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/do-not-call": {
+      "get": {
+        "operationId": "listDoNotCall",
+        "summary": "Numbers JARVIS will not call for you (masked), and why",
+        "tags": ["calls"],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListDoNotCallResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/do-not-call/{id}": {
+      "delete": {
+        "operationId": "deleteDoNotCall",
+        "summary": "Remove a number from the do-not-call list (audited)",
+        "tags": ["calls"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/phone/verification": {
+      "post": {
+        "operationId": "startPhoneVerification",
+        "summary": "Call the account’s phone number and read out a verification code",
+        "tags": ["account"],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhoneVerification"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "INVALID_STATE — details.reason PHONE_NUMBER_REQUIRED (no number on the account) / PHONE_ALREADY_VERIFIED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests, or details.reason PHONE_VERIFICATION_LIMIT { max } (3 verification calls a day).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE — details.reason TELEPHONY_NOT_CONFIGURED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/phone/verification/confirm": {
+      "post": {
+        "operationId": "confirmPhoneVerification",
+        "summary": "Confirm the code from the verification call (the number becomes verified)",
+        "tags": ["account"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmPhoneVerificationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — invalid body, or details.reason PHONE_VERIFICATION_INVALID { attemptsLeft } / PHONE_VERIFICATION_EXPIRED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "INVALID_STATE — details.reason PHONE_NUMBER_REQUIRED (the number changed meanwhile).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/events": {
       "get": {
         "operationId": "streamEvents",
@@ -6400,6 +6892,917 @@
           },
           "429": {
             "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/telephony/twilio/calls/{callId}/voice": {
+      "post": {
+        "operationId": "twilioCallVoice",
+        "summary": "Twilio: the call was answered — TwiML with the AI disclosure and the first question",
+        "tags": ["telephony-webhooks"],
+        "description": "Called by Twilio only. Authenticated by X-Twilio-Signature (base64 HMAC-SHA1 of PUBLIC_WEBHOOK_BASE_URL + path + query followed by every form parameter name and value sorted by name, keyed with the account’s auth token) and the call’s URL token — not by a session.",
+        "security": [
+          {
+            "twilioSignature": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "callId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "t",
+            "in": "query",
+            "required": true,
+            "description": "The call’s URL token (random, stored only as a hash): selects the owner of the call.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/TwilioVoiceForm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "TwiML",
+            "content": {
+              "text/xml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or form parameters are invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN — details.reason WEBHOOK_SIGNATURE_INVALID (no or a wrong X-Twilio-Signature, or another account).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — telephony is not configured, or no call / verification matches the id and token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "UNSUPPORTED_MEDIA_TYPE — not application/x-www-form-urlencoded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/telephony/twilio/calls/{callId}/gather": {
+      "post": {
+        "operationId": "twilioCallGather",
+        "summary": "Twilio: what the callee said (speech) — TwiML with JARVIS’s next line",
+        "tags": ["telephony-webhooks"],
+        "description": "Called by Twilio only. Authenticated by X-Twilio-Signature (base64 HMAC-SHA1 of PUBLIC_WEBHOOK_BASE_URL + path + query followed by every form parameter name and value sorted by name, keyed with the account’s auth token) and the call’s URL token — not by a session.",
+        "security": [
+          {
+            "twilioSignature": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "callId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "t",
+            "in": "query",
+            "required": true,
+            "description": "The call’s URL token (random, stored only as a hash): selects the owner of the call.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$"
+            }
+          },
+          {
+            "name": "n",
+            "in": "query",
+            "required": true,
+            "description": "The turn this answer belongs to (processed once).",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/TwilioGatherForm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "TwiML",
+            "content": {
+              "text/xml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or form parameters are invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN — details.reason WEBHOOK_SIGNATURE_INVALID (no or a wrong X-Twilio-Signature, or another account).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — telephony is not configured, or no call / verification matches the id and token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "UNSUPPORTED_MEDIA_TYPE — not application/x-www-form-urlencoded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/telephony/twilio/calls/{callId}/status": {
+      "post": {
+        "operationId": "twilioCallStatus",
+        "summary": "Twilio: call progress (initiated, ringing, answered, completed and final status)",
+        "tags": ["telephony-webhooks"],
+        "description": "Called by Twilio only. Authenticated by X-Twilio-Signature (base64 HMAC-SHA1 of PUBLIC_WEBHOOK_BASE_URL + path + query followed by every form parameter name and value sorted by name, keyed with the account’s auth token) and the call’s URL token — not by a session.",
+        "security": [
+          {
+            "twilioSignature": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "callId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "t",
+            "in": "query",
+            "required": true,
+            "description": "The call’s URL token (random, stored only as a hash): selects the owner of the call.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/TwilioStatusForm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or form parameters are invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN — details.reason WEBHOOK_SIGNATURE_INVALID (no or a wrong X-Twilio-Signature, or another account).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — telephony is not configured, or no call / verification matches the id and token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "UNSUPPORTED_MEDIA_TYPE — not application/x-www-form-urlencoded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/telephony/twilio/calls/{callId}/amd": {
+      "post": {
+        "operationId": "twilioCallAmd",
+        "summary": "Twilio: answering-machine detection result",
+        "tags": ["telephony-webhooks"],
+        "description": "Called by Twilio only. Authenticated by X-Twilio-Signature (base64 HMAC-SHA1 of PUBLIC_WEBHOOK_BASE_URL + path + query followed by every form parameter name and value sorted by name, keyed with the account’s auth token) and the call’s URL token — not by a session.",
+        "security": [
+          {
+            "twilioSignature": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "callId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "t",
+            "in": "query",
+            "required": true,
+            "description": "The call’s URL token (random, stored only as a hash): selects the owner of the call.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/TwilioAmdForm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or form parameters are invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN — details.reason WEBHOOK_SIGNATURE_INVALID (no or a wrong X-Twilio-Signature, or another account).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — telephony is not configured, or no call / verification matches the id and token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "UNSUPPORTED_MEDIA_TYPE — not application/x-www-form-urlencoded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/telephony/twilio/calls/{callId}/dial": {
+      "post": {
+        "operationId": "twilioCallDial",
+        "summary": "Twilio: result of putting the callee through to the account’s own number",
+        "tags": ["telephony-webhooks"],
+        "description": "Called by Twilio only. Authenticated by X-Twilio-Signature (base64 HMAC-SHA1 of PUBLIC_WEBHOOK_BASE_URL + path + query followed by every form parameter name and value sorted by name, keyed with the account’s auth token) and the call’s URL token — not by a session.",
+        "security": [
+          {
+            "twilioSignature": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "callId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "t",
+            "in": "query",
+            "required": true,
+            "description": "The call’s URL token (random, stored only as a hash): selects the owner of the call.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/TwilioDialForm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "TwiML",
+            "content": {
+              "text/xml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or form parameters are invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN — details.reason WEBHOOK_SIGNATURE_INVALID (no or a wrong X-Twilio-Signature, or another account).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — telephony is not configured, or no call / verification matches the id and token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "UNSUPPORTED_MEDIA_TYPE — not application/x-www-form-urlencoded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/telephony/twilio/calls/{callId}/recording": {
+      "post": {
+        "operationId": "twilioCallRecording",
+        "summary": "Twilio: recording status (only for calls recorded with the callee’s consent)",
+        "tags": ["telephony-webhooks"],
+        "description": "Called by Twilio only. Authenticated by X-Twilio-Signature (base64 HMAC-SHA1 of PUBLIC_WEBHOOK_BASE_URL + path + query followed by every form parameter name and value sorted by name, keyed with the account’s auth token) and the call’s URL token — not by a session.",
+        "security": [
+          {
+            "twilioSignature": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "callId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "t",
+            "in": "query",
+            "required": true,
+            "description": "The call’s URL token (random, stored only as a hash): selects the owner of the call.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/TwilioRecordingForm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or form parameters are invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN — details.reason WEBHOOK_SIGNATURE_INVALID (no or a wrong X-Twilio-Signature, or another account).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — telephony is not configured, or no call / verification matches the id and token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "UNSUPPORTED_MEDIA_TYPE — not application/x-www-form-urlencoded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/telephony/twilio/verifications/{verificationId}/voice": {
+      "post": {
+        "operationId": "twilioVerificationVoice",
+        "summary": "Twilio: the verification call was answered — TwiML that reads the code",
+        "tags": ["telephony-webhooks"],
+        "description": "Called by Twilio only. Authenticated by X-Twilio-Signature (base64 HMAC-SHA1 of PUBLIC_WEBHOOK_BASE_URL + path + query followed by every form parameter name and value sorted by name, keyed with the account’s auth token) and the call’s URL token — not by a session.",
+        "security": [
+          {
+            "twilioSignature": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "verificationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "t",
+            "in": "query",
+            "required": true,
+            "description": "The call’s URL token (random, stored only as a hash): selects the owner of the call.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/TwilioVoiceForm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "TwiML",
+            "content": {
+              "text/xml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or form parameters are invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN — details.reason WEBHOOK_SIGNATURE_INVALID (no or a wrong X-Twilio-Signature, or another account).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — telephony is not configured, or no call / verification matches the id and token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "UNSUPPORTED_MEDIA_TYPE — not application/x-www-form-urlencoded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/telephony/twilio/verifications/{verificationId}/status": {
+      "post": {
+        "operationId": "twilioVerificationStatus",
+        "summary": "Twilio: verification call progress and final status",
+        "tags": ["telephony-webhooks"],
+        "description": "Called by Twilio only. Authenticated by X-Twilio-Signature (base64 HMAC-SHA1 of PUBLIC_WEBHOOK_BASE_URL + path + query followed by every form parameter name and value sorted by name, keyed with the account’s auth token) and the call’s URL token — not by a session.",
+        "security": [
+          {
+            "twilioSignature": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "verificationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "t",
+            "in": "query",
+            "required": true,
+            "description": "The call’s URL token (random, stored only as a hash): selects the owner of the call.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/TwilioStatusForm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or form parameters are invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN — details.reason WEBHOOK_SIGNATURE_INVALID (no or a wrong X-Twilio-Signature, or another account).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — telephony is not configured, or no call / verification matches the id and token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "UNSUPPORTED_MEDIA_TYPE — not application/x-www-form-urlencoded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6498,6 +7901,12 @@
         "in": "cookie",
         "name": "jarvis_session",
         "description": "httpOnly session cookie set for the web client. Mutations must send the web app Origin."
+      },
+      "twilioSignature": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-twilio-signature",
+        "description": "Telephony webhooks only: Twilio’s request signature, validated against the configured auth token."
       }
     },
     "schemas": {
@@ -6515,7 +7924,10 @@
           "email_watch.changed",
           "browser_session.changed",
           "order.changed",
-          "booking.changed"
+          "booking.changed",
+          "call.status_changed",
+          "call.turn",
+          "phone_verification.changed"
         ]
       },
       "AdminAuditResponse": {
@@ -6754,6 +8166,10 @@
         "required": ["items", "nextCursor"],
         "additionalProperties": false
       },
+      "AnsweredBy": {
+        "type": "string",
+        "enum": ["human", "machine", "fax", "unknown"]
+      },
       "ApiErrorBody": {
         "type": "object",
         "properties": {
@@ -6823,7 +8239,16 @@
           "CONNECTION_NOT_OAUTH",
           "CALENDAR_NOT_CONNECTED",
           "CALENDAR_UNAVAILABLE",
-          "EVIDENCE_NOT_AVAILABLE"
+          "EVIDENCE_NOT_AVAILABLE",
+          "PHONE_NUMBER_INVALID",
+          "PHONE_NUMBER_REQUIRED",
+          "PHONE_ALREADY_VERIFIED",
+          "PHONE_VERIFICATION_INVALID",
+          "PHONE_VERIFICATION_EXPIRED",
+          "PHONE_VERIFICATION_LIMIT",
+          "TELEPHONY_NOT_CONFIGURED",
+          "CALL_DESTINATION_BLOCKED",
+          "WEBHOOK_SIGNATURE_INVALID"
         ]
       },
       "Approval": {
@@ -7520,6 +8945,167 @@
               "evidenceArtifactId"
             ],
             "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "phone_call"
+              },
+              "to": {
+                "type": "string"
+              },
+              "toDisplay": {
+                "type": "string"
+              },
+              "country": {
+                "type": ["string", "null"]
+              },
+              "calleeName": {
+                "type": ["string", "null"]
+              },
+              "onBehalfOf": {
+                "type": "string"
+              },
+              "callerId": {
+                "type": ["string", "null"]
+              },
+              "language": {
+                "$ref": "#/components/schemas/Locale"
+              },
+              "purpose": {
+                "$ref": "#/components/schemas/CallPurpose"
+              },
+              "goal": {
+                "type": "string"
+              },
+              "script": {
+                "$ref": "#/components/schemas/CallScript"
+              },
+              "dialog": {
+                "type": "string",
+                "enum": ["scripted", "model"]
+              },
+              "date": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "window": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "start": {
+                        "$ref": "#/components/schemas/LocalTime"
+                      },
+                      "end": {
+                        "$ref": "#/components/schemas/LocalTime"
+                      }
+                    },
+                    "required": ["start", "end"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "shareInfo": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CallShareItem"
+                }
+              },
+              "maxDurationSeconds": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "allowedHours": {
+                "type": "object",
+                "properties": {
+                  "start": {
+                    "$ref": "#/components/schemas/LocalTime"
+                  },
+                  "end": {
+                    "$ref": "#/components/schemas/LocalTime"
+                  },
+                  "timeZone": {
+                    "type": "string"
+                  }
+                },
+                "required": ["start", "end", "timeZone"],
+                "additionalProperties": false
+              },
+              "recording": {
+                "$ref": "#/components/schemas/RecordingMode"
+              },
+              "voicemail": {
+                "$ref": "#/components/schemas/VoicemailAction"
+              },
+              "transfer": {
+                "type": "object",
+                "properties": {
+                  "allowed": {
+                    "type": "boolean"
+                  },
+                  "to": {
+                    "type": ["string", "null"]
+                  }
+                },
+                "required": ["allowed", "to"],
+                "additionalProperties": false
+              },
+              "binding": {
+                "type": "boolean"
+              },
+              "costEstimate": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "untrusted": {
+                "$ref": "#/components/schemas/UntrustedSource"
+              }
+            },
+            "required": [
+              "kind",
+              "to",
+              "toDisplay",
+              "country",
+              "calleeName",
+              "onBehalfOf",
+              "callerId",
+              "language",
+              "purpose",
+              "goal",
+              "script",
+              "dialog",
+              "date",
+              "window",
+              "shareInfo",
+              "maxDurationSeconds",
+              "allowedHours",
+              "recording",
+              "voicemail",
+              "transfer",
+              "binding",
+              "costEstimate"
+            ],
+            "additionalProperties": false
           }
         ]
       },
@@ -7635,6 +9221,9 @@
                 "type": "boolean"
               },
               "purchases": {
+                "type": "boolean"
+              },
+              "phoneCalls": {
                 "type": "boolean"
               }
             },
@@ -8451,6 +10040,917 @@
         "required": ["connectionId", "provider", "accountIdentifier", "status"],
         "additionalProperties": false
       },
+      "CallCollectedDetails": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "times": {
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LocalTime"
+            }
+          },
+          "appointment": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "date": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "time": {
+                    "$ref": "#/components/schemas/LocalTime"
+                  },
+                  "name": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "reference": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": ["date", "time", "name", "reference"],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reply": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "answers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "question": {
+                  "type": "string"
+                },
+                "answer": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 1000
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["question", "answer"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["date", "times", "appointment", "reply", "answers"],
+        "additionalProperties": false
+      },
+      "CallNoteCode": {
+        "type": "string",
+        "enum": [
+          "OPTED_OUT",
+          "RECORDING_CONSENT_ACCEPTED",
+          "RECORDING_CONSENT_DECLINED",
+          "TRANSFER_REQUESTED",
+          "TRANSFER_CONNECTED",
+          "TRANSFER_FAILED",
+          "TRANSFER_UNAVAILABLE",
+          "OUTSIDE_PURPOSE_REFUSED",
+          "INJECTION_FLAGGED",
+          "LOW_CONFIDENCE",
+          "DURATION_LIMIT",
+          "VOICEMAIL_MESSAGE_LEFT"
+        ]
+      },
+      "CallOutcome": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "$ref": "#/components/schemas/CallResult"
+          },
+          "goalReached": {
+            "type": "boolean"
+          },
+          "details": {
+            "$ref": "#/components/schemas/CallCollectedDetails"
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CallNoteCode"
+            }
+          },
+          "summaryMessage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServerMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["result", "goalReached", "details", "notes", "summaryMessage"],
+        "additionalProperties": false
+      },
+      "CallPurpose": {
+        "type": "string",
+        "enum": ["message", "availability", "questions", "appointment"]
+      },
+      "CallResult": {
+        "type": "string",
+        "enum": [
+          "completed",
+          "answered",
+          "busy",
+          "no_answer",
+          "failed",
+          "voicemail",
+          "hung_up",
+          "declined",
+          "canceled"
+        ]
+      },
+      "CallScript": {
+        "type": "object",
+        "properties": {
+          "opening": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 600
+          },
+          "recordingQuestion": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 600
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 600
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "questions": {
+            "maxItems": 7,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 600
+            }
+          },
+          "closing": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 600
+          },
+          "voicemailMessage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 600
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "opening",
+          "recordingQuestion",
+          "message",
+          "questions",
+          "closing",
+          "voicemailMessage"
+        ],
+        "additionalProperties": false
+      },
+      "CallSession": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "taskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "stepId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attempt": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "to": {
+            "type": "string"
+          },
+          "toDisplay": {
+            "type": "string"
+          },
+          "calleeName": {
+            "type": ["string", "null"]
+          },
+          "language": {
+            "$ref": "#/components/schemas/Locale"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/CallPurpose"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CallStatus"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CallResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CallOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "provider": {
+            "type": "string",
+            "const": "twilio"
+          },
+          "providerCallSid": {
+            "type": ["string", "null"]
+          },
+          "answeredBy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnsweredBy"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "aiDisclosedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recording": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "$ref": "#/components/schemas/RecordingMode"
+              },
+              "consent": {
+                "$ref": "#/components/schemas/RecordingConsent"
+              },
+              "consentAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "artifactId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": ["mode", "consent", "consentAt", "artifactId"],
+            "additionalProperties": false
+          },
+          "transfer": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": ["none", "requested", "connected", "failed", "unavailable"]
+              },
+              "at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": ["status", "at"],
+            "additionalProperties": false
+          },
+          "timeline": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CallStatusEvent"
+            }
+          },
+          "durationSeconds": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxDurationSeconds": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "costEstimate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "price": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "failureReason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskErrorReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "turns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CallTurn"
+            }
+          },
+          "dialedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "answeredAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "endedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "taskId",
+          "stepId",
+          "attempt",
+          "to",
+          "toDisplay",
+          "calleeName",
+          "language",
+          "purpose",
+          "status",
+          "result",
+          "outcome",
+          "provider",
+          "providerCallSid",
+          "answeredBy",
+          "aiDisclosedAt",
+          "recording",
+          "transfer",
+          "timeline",
+          "durationSeconds",
+          "maxDurationSeconds",
+          "costEstimate",
+          "price",
+          "failureReason",
+          "turns",
+          "dialedAt",
+          "answeredAt",
+          "endedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "CallShareItem": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": ["label", "value"],
+        "additionalProperties": false
+      },
+      "CallSpeaker": {
+        "type": "string",
+        "enum": ["agent", "callee", "system"]
+      },
+      "CallStatus": {
+        "type": "string",
+        "enum": ["queued", "dialing", "ringing", "in_progress", "ended", "unknown"]
+      },
+      "CallStatusEvent": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/CallStatus"
+          },
+          "providerStatus": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sequence": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["status", "providerStatus", "sequence", "at"],
+        "additionalProperties": false
+      },
+      "CallSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "taskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "stepId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attempt": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "to": {
+            "type": "string"
+          },
+          "toDisplay": {
+            "type": "string"
+          },
+          "calleeName": {
+            "type": ["string", "null"]
+          },
+          "language": {
+            "$ref": "#/components/schemas/Locale"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/CallPurpose"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CallStatus"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CallResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CallOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "provider": {
+            "type": "string",
+            "const": "twilio"
+          },
+          "providerCallSid": {
+            "type": ["string", "null"]
+          },
+          "answeredBy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnsweredBy"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "aiDisclosedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recording": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "$ref": "#/components/schemas/RecordingMode"
+              },
+              "consent": {
+                "$ref": "#/components/schemas/RecordingConsent"
+              },
+              "consentAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "artifactId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": ["mode", "consent", "consentAt", "artifactId"],
+            "additionalProperties": false
+          },
+          "transfer": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": ["none", "requested", "connected", "failed", "unavailable"]
+              },
+              "at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": ["status", "at"],
+            "additionalProperties": false
+          },
+          "durationSeconds": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxDurationSeconds": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "costEstimate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "price": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "failureReason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskErrorReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dialedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "answeredAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "endedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "taskId",
+          "stepId",
+          "attempt",
+          "to",
+          "toDisplay",
+          "calleeName",
+          "language",
+          "purpose",
+          "status",
+          "result",
+          "outcome",
+          "provider",
+          "providerCallSid",
+          "answeredBy",
+          "aiDisclosedAt",
+          "recording",
+          "transfer",
+          "durationSeconds",
+          "maxDurationSeconds",
+          "costEstimate",
+          "price",
+          "failureReason",
+          "dialedAt",
+          "answeredAt",
+          "endedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "CallTurn": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "speaker": {
+            "$ref": "#/components/schemas/CallSpeaker"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CallTurnKind"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "language": {
+            "$ref": "#/components/schemas/Locale"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "flagged": {
+            "type": "boolean"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "sequence",
+          "speaker",
+          "kind",
+          "text",
+          "language",
+          "confidence",
+          "flagged",
+          "at"
+        ],
+        "additionalProperties": false
+      },
+      "CallTurnKind": {
+        "type": "string",
+        "enum": [
+          "disclosure",
+          "consent_request",
+          "consent_reply",
+          "question",
+          "answer",
+          "statement",
+          "clarification",
+          "refusal",
+          "transfer",
+          "voicemail",
+          "goodbye"
+        ]
+      },
       "CartLine": {
         "type": "object",
         "properties": {
@@ -8474,6 +10974,16 @@
         },
         "required": ["title", "quantity", "unitPrice", "lineTotal", "productUrl"],
         "additionalProperties": false
+      },
+      "ConfirmPhoneVerificationRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^\\d{6}$"
+          }
+        },
+        "required": ["code"]
       },
       "Connection": {
         "type": "object",
@@ -9154,6 +11664,49 @@
         "required": ["deleted"],
         "additionalProperties": false
       },
+      "DoNotCallEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "number": {
+            "type": "string"
+          },
+          "country": {
+            "type": ["string", "null"]
+          },
+          "source": {
+            "$ref": "#/components/schemas/DoNotCallSource"
+          },
+          "callId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["id", "number", "country", "source", "callId", "createdAt"],
+        "additionalProperties": false
+      },
+      "DoNotCallSource": {
+        "type": "string",
+        "enum": ["callee_request", "user"]
+      },
+      "E164PhoneNumber": {
+        "type": "string",
+        "pattern": "^\\+[1-9]\\d{7,14}$"
+      },
       "EmailAddress": {
         "type": "object",
         "properties": {
@@ -9515,6 +12068,17 @@
               }
             ]
           },
+          "callSessionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "downloadPath": {
             "type": "string"
           },
@@ -9539,7 +12103,7 @@
       },
       "EvidenceArtifactKind": {
         "type": "string",
-        "enum": ["screenshot", "extract", "ics"]
+        "enum": ["screenshot", "extract", "ics", "recording"]
       },
       "EvidenceCode": {
         "type": "string",
@@ -9568,12 +12132,20 @@
           "BOOKING_CONFIRMATION",
           "ORDER_CONFIRMATION",
           "CART_SNAPSHOT",
-          "HANDOVER"
+          "HANDOVER",
+          "CALL_PLACED",
+          "CALL_ENDED",
+          "AI_DISCLOSED",
+          "RECORDING_CONSENT",
+          "CALL_TRANSCRIPT",
+          "CALL_RECORDING",
+          "CALL_TRANSFER",
+          "DO_NOT_CALL_RECORDED"
         ]
       },
       "EvidenceMediaType": {
         "type": "string",
-        "enum": ["image/png", "application/json", "text/calendar"]
+        "enum": ["image/png", "application/json", "text/calendar", "audio/mpeg"]
       },
       "ExportAccountResponse": {
         "type": "object",
@@ -9747,6 +12319,22 @@
         "required": ["items", "nextCursor"],
         "additionalProperties": false
       },
+      "ListCallsResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CallSummary"
+            }
+          },
+          "nextCursor": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["items", "nextCursor"],
+        "additionalProperties": false
+      },
       "ListConnectionProvidersResponse": {
         "type": "object",
         "properties": {
@@ -9787,6 +12375,19 @@
           }
         },
         "required": ["items", "nextCursor"],
+        "additionalProperties": false
+      },
+      "ListDoNotCallResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DoNotCallEntry"
+            }
+          }
+        },
+        "required": ["items"],
         "additionalProperties": false
       },
       "ListEmailWatchesResponse": {
@@ -10098,6 +12699,27 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "phoneNumber": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/E164PhoneNumber"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "phoneNumberVerifiedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -10176,7 +12798,9 @@
           "date_time",
           "contact_details",
           "product",
-          "site"
+          "site",
+          "phone_number",
+          "call_goal"
         ]
       },
       "Money": {
@@ -10474,6 +13098,39 @@
         "type": "string",
         "enum": ["submitting", "placed", "failed", "unknown"]
       },
+      "PhoneVerification": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PhoneVerificationStatus"
+          },
+          "number": {
+            "type": "string"
+          },
+          "attemptsLeft": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["id", "status", "number", "attemptsLeft", "expiresAt", "createdAt"],
+        "additionalProperties": false
+      },
+      "PhoneVerificationStatus": {
+        "type": "string",
+        "enum": ["calling", "pending", "verified", "expired", "failed"]
+      },
       "PlannerInfo": {
         "type": "object",
         "properties": {
@@ -10542,7 +13199,15 @@
           "PURCHASE_LIMIT",
           "PURCHASE_CURRENCY",
           "PURCHASE",
-          "BINDING_COMMITMENT"
+          "BINDING_COMMITMENT",
+          "DO_NOT_CALL",
+          "CALL_OUTSIDE_HOURS",
+          "CALL_LIMIT",
+          "CALL_DESTINATION_BLOCKED",
+          "TELEPHONY_NOT_CONFIGURED",
+          "PHONE_CALL",
+          "CALL_RECORDING",
+          "CALL_PERSONAL_INFO"
         ]
       },
       "Preferences": {
@@ -10557,9 +13222,80 @@
               "recognitionLocale": {
                 "type": "string",
                 "enum": ["auto", "en-US", "de-DE", "ar-SA"]
+              },
+              "conversationMode": {
+                "default": false,
+                "type": "boolean"
+              },
+              "speakingRate": {
+                "default": 1,
+                "type": "number",
+                "minimum": 0.5,
+                "maximum": 2
+              },
+              "endOfSpeechSilenceMs": {
+                "default": 1200,
+                "type": "integer",
+                "minimum": 600,
+                "maximum": 4000
+              },
+              "voiceNames": {
+                "default": {
+                  "en": null,
+                  "de": null,
+                  "ar": null
+                },
+                "type": "object",
+                "properties": {
+                  "en": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "de": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "ar": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": ["en", "de", "ar"],
+                "additionalProperties": false
               }
             },
-            "required": ["speakResponses", "recognitionLocale"],
+            "required": [
+              "speakResponses",
+              "recognitionLocale",
+              "conversationMode",
+              "speakingRate",
+              "endOfSpeechSilenceMs",
+              "voiceNames"
+            ],
             "additionalProperties": false
           },
           "autonomy": {
@@ -10874,6 +13610,14 @@
           "capturedAt"
         ],
         "additionalProperties": false
+      },
+      "RecordingConsent": {
+        "type": "string",
+        "enum": ["not_asked", "accepted", "declined"]
+      },
+      "RecordingMode": {
+        "type": "string",
+        "enum": ["off", "if_consented", "required"]
       },
       "Recurrence": {
         "type": "object",
@@ -11559,7 +14303,16 @@
           "question.dateTime",
           "question.contactDetails",
           "question.product",
-          "question.site"
+          "question.site",
+          "plan.call",
+          "objective.call",
+          "step.call",
+          "approval.call",
+          "result.callCompleted",
+          "result.callAnswered",
+          "result.callTransferred",
+          "question.phoneNumber",
+          "question.callGoal"
         ]
       },
       "SessionInfo": {
@@ -11820,7 +14573,8 @@
           "MEMORY_DISABLED",
           "STORAGE_NOT_CONFIGURED",
           "PROVIDER_NOT_CONFIGURED",
-          "BROWSER_UNAVAILABLE"
+          "BROWSER_UNAVAILABLE",
+          "TELEPHONY_NOT_CONFIGURED"
         ]
       },
       "StepStatus": {
@@ -12152,6 +14906,12 @@
             "items": {
               "$ref": "#/components/schemas/BrowserSession"
             }
+          },
+          "calls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CallSession"
+            }
           }
         },
         "required": [
@@ -12301,7 +15061,23 @@
           "ORDER_UNKNOWN",
           "PURCHASES_DISABLED",
           "PURCHASE_LIMIT",
-          "PURCHASE_CURRENCY"
+          "PURCHASE_CURRENCY",
+          "CALL_BUSY",
+          "CALL_NO_ANSWER",
+          "CALL_FAILED",
+          "CALL_VOICEMAIL",
+          "CALL_HUNG_UP",
+          "CALL_DECLINED",
+          "CALL_DURATION_LIMIT",
+          "RECORDING_CONSENT_DECLINED",
+          "CALL_STATE_UNKNOWN",
+          "PHONE_NUMBER_INVALID",
+          "NUMBER_NOT_LITERAL",
+          "DO_NOT_CALL",
+          "CALL_OUTSIDE_HOURS",
+          "CALL_LIMIT",
+          "CALL_DESTINATION_BLOCKED",
+          "TELEPHONY_NOT_CONFIGURED"
         ]
       },
       "TaskEvent": {
@@ -12717,8 +15493,391 @@
           "shop.search",
           "shop.compare",
           "shop.prepare_cart",
-          "shop.checkout"
+          "shop.checkout",
+          "phone.call"
         ]
+      },
+      "TwilioAccountSid": {
+        "type": "string",
+        "pattern": "^AC[0-9a-f]{32}$"
+      },
+      "TwilioAmdForm": {
+        "type": "object",
+        "properties": {
+          "CallSid": {
+            "type": "string",
+            "pattern": "^CA[0-9a-f]{32}$"
+          },
+          "AccountSid": {
+            "type": "string",
+            "pattern": "^AC[0-9a-f]{32}$"
+          },
+          "From": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "To": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "CallStatus": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "initiated",
+              "ringing",
+              "in-progress",
+              "completed",
+              "busy",
+              "failed",
+              "no-answer",
+              "canceled"
+            ]
+          },
+          "Direction": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "ApiVersion": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "AnsweredBy": {
+            "type": "string",
+            "enum": [
+              "human",
+              "machine_start",
+              "machine_end_beep",
+              "machine_end_silence",
+              "machine_end_other",
+              "fax",
+              "unknown"
+            ]
+          },
+          "MachineDetectionDuration": {
+            "type": "string",
+            "maxLength": 16
+          }
+        },
+        "required": ["CallSid", "AccountSid", "AnsweredBy"],
+        "additionalProperties": {}
+      },
+      "TwilioAnsweredBy": {
+        "type": "string",
+        "enum": [
+          "human",
+          "machine_start",
+          "machine_end_beep",
+          "machine_end_silence",
+          "machine_end_other",
+          "fax",
+          "unknown"
+        ]
+      },
+      "TwilioCallSid": {
+        "type": "string",
+        "pattern": "^CA[0-9a-f]{32}$"
+      },
+      "TwilioCallStatus": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "initiated",
+          "ringing",
+          "in-progress",
+          "completed",
+          "busy",
+          "failed",
+          "no-answer",
+          "canceled"
+        ]
+      },
+      "TwilioDialForm": {
+        "type": "object",
+        "properties": {
+          "CallSid": {
+            "type": "string",
+            "pattern": "^CA[0-9a-f]{32}$"
+          },
+          "AccountSid": {
+            "type": "string",
+            "pattern": "^AC[0-9a-f]{32}$"
+          },
+          "From": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "To": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "CallStatus": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "initiated",
+              "ringing",
+              "in-progress",
+              "completed",
+              "busy",
+              "failed",
+              "no-answer",
+              "canceled"
+            ]
+          },
+          "Direction": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "ApiVersion": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "DialCallStatus": {
+            "type": "string",
+            "enum": ["completed", "answered", "busy", "no-answer", "failed", "canceled"]
+          },
+          "DialCallSid": {
+            "type": "string",
+            "pattern": "^CA[0-9a-f]{32}$"
+          },
+          "DialCallDuration": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "DialBridged": {
+            "type": "string",
+            "maxLength": 8
+          }
+        },
+        "required": ["CallSid", "AccountSid", "DialCallStatus"],
+        "additionalProperties": {}
+      },
+      "TwilioGatherForm": {
+        "type": "object",
+        "properties": {
+          "CallSid": {
+            "type": "string",
+            "pattern": "^CA[0-9a-f]{32}$"
+          },
+          "AccountSid": {
+            "type": "string",
+            "pattern": "^AC[0-9a-f]{32}$"
+          },
+          "From": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "To": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "CallStatus": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "initiated",
+              "ringing",
+              "in-progress",
+              "completed",
+              "busy",
+              "failed",
+              "no-answer",
+              "canceled"
+            ]
+          },
+          "Direction": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "ApiVersion": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "SpeechResult": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "Confidence": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "Digits": {
+            "type": "string",
+            "maxLength": 32
+          }
+        },
+        "required": ["CallSid", "AccountSid"],
+        "additionalProperties": {}
+      },
+      "TwilioRecordingForm": {
+        "type": "object",
+        "properties": {
+          "AccountSid": {
+            "type": "string",
+            "pattern": "^AC[0-9a-f]{32}$"
+          },
+          "CallSid": {
+            "type": "string",
+            "pattern": "^CA[0-9a-f]{32}$"
+          },
+          "RecordingSid": {
+            "type": "string",
+            "pattern": "^RE[0-9a-f]{32}$"
+          },
+          "RecordingUrl": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "RecordingStatus": {
+            "type": "string",
+            "enum": ["in-progress", "completed", "absent", "failed"]
+          },
+          "RecordingDuration": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "RecordingChannels": {
+            "type": "string",
+            "maxLength": 4
+          },
+          "RecordingSource": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "ErrorCode": {
+            "type": "string",
+            "maxLength": 16
+          }
+        },
+        "required": ["AccountSid", "CallSid", "RecordingSid", "RecordingUrl", "RecordingStatus"],
+        "additionalProperties": {}
+      },
+      "TwilioRecordingSid": {
+        "type": "string",
+        "pattern": "^RE[0-9a-f]{32}$"
+      },
+      "TwilioStatusForm": {
+        "type": "object",
+        "properties": {
+          "CallSid": {
+            "type": "string",
+            "pattern": "^CA[0-9a-f]{32}$"
+          },
+          "AccountSid": {
+            "type": "string",
+            "pattern": "^AC[0-9a-f]{32}$"
+          },
+          "From": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "To": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "CallStatus": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "initiated",
+              "ringing",
+              "in-progress",
+              "completed",
+              "busy",
+              "failed",
+              "no-answer",
+              "canceled"
+            ]
+          },
+          "Direction": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "ApiVersion": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "CallDuration": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "Timestamp": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "SequenceNumber": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "CallbackSource": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "SipResponseCode": {
+            "type": "string",
+            "maxLength": 8
+          },
+          "AnsweredBy": {
+            "type": "string",
+            "enum": [
+              "human",
+              "machine_start",
+              "machine_end_beep",
+              "machine_end_silence",
+              "machine_end_other",
+              "fax",
+              "unknown"
+            ]
+          }
+        },
+        "required": ["CallSid", "AccountSid", "CallStatus"],
+        "additionalProperties": {}
+      },
+      "TwilioVoiceForm": {
+        "type": "object",
+        "properties": {
+          "CallSid": {
+            "type": "string",
+            "pattern": "^CA[0-9a-f]{32}$"
+          },
+          "AccountSid": {
+            "type": "string",
+            "pattern": "^AC[0-9a-f]{32}$"
+          },
+          "From": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "To": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "CallStatus": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "initiated",
+              "ringing",
+              "in-progress",
+              "completed",
+              "busy",
+              "failed",
+              "no-answer",
+              "canceled"
+            ]
+          },
+          "Direction": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "ApiVersion": {
+            "type": "string",
+            "maxLength": 16
+          }
+        },
+        "required": ["CallSid", "AccountSid"],
+        "additionalProperties": {}
       },
       "UntrustedSource": {
         "type": "object",
@@ -12813,6 +15972,17 @@
             "type": "string",
             "enum": ["system", "light", "dark"]
           },
+          "phoneNumber": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\+[1-9]\\d{7,14}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "preferences": {
             "type": "object",
             "properties": {
@@ -12825,6 +15995,60 @@
                   "recognitionLocale": {
                     "type": "string",
                     "enum": ["auto", "en-US", "de-DE", "ar-SA"]
+                  },
+                  "conversationMode": {
+                    "type": "boolean"
+                  },
+                  "speakingRate": {
+                    "type": "number",
+                    "minimum": 0.5,
+                    "maximum": 2
+                  },
+                  "endOfSpeechSilenceMs": {
+                    "type": "integer",
+                    "minimum": 600,
+                    "maximum": 4000
+                  },
+                  "voiceNames": {
+                    "type": "object",
+                    "properties": {
+                      "en": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "de": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "ar": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
                   }
                 }
               },
@@ -13157,8 +16381,31 @@
           "totalMatches",
           "orderPlaced",
           "offersCompared",
-          "withinLimit"
+          "withinLimit",
+          "callConnected",
+          "aiDisclosed",
+          "callEnded",
+          "goalReached",
+          "detailsCollected",
+          "consentRespected",
+          "transcriptStored"
         ]
+      },
+      "VoiceEndReason": {
+        "type": "string",
+        "enum": [
+          "end_button",
+          "escape_key",
+          "voice_command",
+          "idle",
+          "switched_to_text",
+          "navigation",
+          "error"
+        ]
+      },
+      "VoicemailAction": {
+        "type": "string",
+        "enum": ["hang_up", "leave_message"]
       },
       "VoiceSession": {
         "type": "object",
@@ -13181,6 +16428,20 @@
                 "type": "null"
               }
             ]
+          },
+          "mode": {
+            "$ref": "#/components/schemas/VoiceSessionMode"
+          },
+          "conversationId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": ["id", "startedAt", "endedAt"],
@@ -13191,19 +16452,50 @@
         "properties": {
           "outcome": {
             "type": "string",
-            "enum": ["submitted", "cancelled", "error", "no_speech"]
+            "enum": ["submitted", "cancelled", "error", "no_speech", "ended"]
           },
           "transcriptChars": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 10000
+            "maximum": 100000
           },
           "errorCode": {
             "type": "string",
             "maxLength": 64
+          },
+          "turns": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 500
+          },
+          "bargeIns": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "reconnects": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "endReason": {
+            "type": "string",
+            "enum": [
+              "end_button",
+              "escape_key",
+              "voice_command",
+              "idle",
+              "switched_to_text",
+              "navigation",
+              "error"
+            ]
           }
         },
         "required": ["outcome", "transcriptChars"]
+      },
+      "VoiceSessionMode": {
+        "type": "string",
+        "enum": ["dictation", "conversation"]
       },
       "VoiceSessionStart": {
         "type": "object",
@@ -13215,6 +16507,15 @@
           "engine": {
             "type": "string",
             "enum": ["browser_speech", "ios_speech", "android_speech"]
+          },
+          "mode": {
+            "default": "dictation",
+            "type": "string",
+            "enum": ["dictation", "conversation"]
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "required": ["locale", "engine"]
@@ -13797,6 +17098,10 @@
           "completedAt"
         ],
         "additionalProperties": false
+      },
+      "WebhookUrlToken": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{43}$"
       },
       "Weekday": {
         "type": "string",

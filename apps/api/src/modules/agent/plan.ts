@@ -5,6 +5,7 @@
  */
 import { ServerMessage, ToolId } from '@jarvis/contracts';
 import { z } from 'zod';
+import { phoneNumbersInText } from '../../lib/phone';
 import { sameAddress } from './policy';
 import { findMalformedRefs, findRefs, hasTemplate } from './templates';
 import type { AnyTool, BindContext } from './tools/types';
@@ -59,7 +60,15 @@ export interface PlanValidationContext {
    * into the input before it is validated and stored.
    */
   bind?: BindContext;
+  /**
+   * Phase D: the default country of phone numbers the user wrote without a country code
+   * (the country of the account's own number); null/absent = only numbers with one count.
+   */
+  phoneRegion?: string | null;
 }
+
+/** Phase D: the plan-validation issue of a number that is not the user's own words. */
+export const NUMBER_NOT_LITERAL_ISSUE = 'is not written in the user’s requests';
 
 export type PlanValidation = { ok: true; plan: Plan } | { ok: false; issues: string[] };
 
@@ -126,6 +135,8 @@ export function validatePlan(candidate: unknown, ctx: PlanValidationContext): Pl
     [...userText.matchAll(EMAIL_IN_TEXT)].map((m) => m[0].toLowerCase()),
   );
   const requestOrigins = linkOrigins(userText);
+  // Phase D: every number the user wrote (E.164), normalised the same way as the input.
+  const requestNumbers = new Set(phoneNumbersInText(userText, ctx.phoneRegion ?? null));
   const contextIds = {
     task: new Set(ctx.conversationTaskIds ?? []),
     attachment: new Set(ctx.attachmentIds ?? []),
@@ -232,6 +243,16 @@ export function validatePlan(candidate: unknown, ctx: PlanValidationContext): Pl
           issues.push(
             `${where}: attendee ${a} is neither the account owner nor an address written in the user's requests`,
           );
+      }
+    }
+    // Phase D: a number is dialled only when the user wrote it — never one from a result, a
+    // page, a mail, a memory or anything a callee said.
+    if (parsed.success && tool.phoneNumbers && planned.length === 0) {
+      for (const n of tool.phoneNumbers(parsed.data)) {
+        if (hasTemplate(n))
+          issues.push(`${where}: phone numbers must be written literally, never as references`);
+        else if (!requestNumbers.has(n))
+          issues.push(`${where}: the phone number ${n} ${NUMBER_NOT_LITERAL_ISSUE}`);
       }
     }
     if (parsed.success && tool.urls && planned.length === 0) {

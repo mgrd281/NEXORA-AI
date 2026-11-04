@@ -35,6 +35,10 @@ export interface UsersTable {
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
   last_active_at: NullableTimestamp;
+  /** 0008: the account's own number (E.164; plain, like email — see the migration). */
+  phone_number: string | null;
+  /** 0008: set when a verification call confirmed phone_number (CHECK: only with a number). */
+  phone_verified_at: NullableTimestamp;
 }
 
 export interface UserRolesTable {
@@ -365,12 +369,28 @@ export interface VoiceSessionsTable {
   user_id: string;
   locale: string;
   engine: 'browser_speech' | 'ios_speech' | 'android_speech';
-  outcome: 'submitted' | 'cancelled' | 'error' | 'no_speech' | null;
+  /** 0008: + 'ended' (a conversation the user ended). */
+  outcome: 'submitted' | 'cancelled' | 'error' | 'no_speech' | 'ended' | null;
   transcript_chars: number | null;
   error_code: string | null;
   task_id: string | null;
   started_at: Generated<Date>;
   ended_at: NullableTimestamp;
+  // Phase D (0008): conversation mode and its counters (metadata only).
+  mode: Generated<'dictation' | 'conversation'>;
+  conversation_id: string | null;
+  turn_count: number | null;
+  barge_in_count: number | null;
+  reconnect_count: number | null;
+  end_reason:
+    | 'end_button'
+    | 'escape_key'
+    | 'voice_command'
+    | 'idle'
+    | 'switched_to_text'
+    | 'navigation'
+    | 'error'
+    | null;
 }
 
 export interface UsageEventsTable {
@@ -421,7 +441,10 @@ export type JobKind =
   | 'webhook.deliver'
   // Phase C (0005). browser.* jobs are leased only by the browser worker.
   | 'email.watch_poll'
-  | 'browser.session';
+  | 'browser.session'
+  // Phase D (0008): the call watchdog and the recording download, run by the agent worker.
+  | 'call.timeout'
+  | 'call.recording_fetch';
 
 export interface JobsTable {
   id: Generated<number>;
@@ -755,8 +778,12 @@ export interface BrowserSessionsTable {
   updated_at: Generated<Date>;
 }
 
-export type EvidenceArtifactKindValue = 'screenshot' | 'extract' | 'ics';
-export type EvidenceMediaTypeValue = 'image/png' | 'application/json' | 'text/calendar';
+export type EvidenceArtifactKindValue = 'screenshot' | 'extract' | 'ics' | 'recording';
+export type EvidenceMediaTypeValue =
+  | 'image/png'
+  | 'application/json'
+  | 'text/calendar'
+  | 'audio/mpeg';
 
 export interface EvidenceArtifactsTable {
   /** Generate it before the insert: storage_key must be built from it (CHECK). */
@@ -764,7 +791,10 @@ export interface EvidenceArtifactsTable {
   tenant_id: string;
   user_id: string;
   task_id: string;
-  browser_session_id: string;
+  /** Browser evidence; null for a call recording (0008: exactly one of the two, CHECK). */
+  browser_session_id: string | null;
+  /** 0008: the call a recording belongs to (kind 'recording' ⇔ set). */
+  call_session_id: string | null;
   kind: EvidenceArtifactKindValue;
   /** Fixed per kind (CHECK). */
   media_type: EvidenceMediaTypeValue;
@@ -867,6 +897,157 @@ export interface CommittedPurchasesView {
   step_id: ColumnType<string | null, never, never>;
 }
 
+/* ------------------------------------------------------------------ */
+/* Phase D (0008): calls, turns, do-not-call, phone verification       */
+/* ------------------------------------------------------------------ */
+
+export type CallStatusValue = 'queued' | 'dialing' | 'ringing' | 'in_progress' | 'ended' | 'unknown';
+export type CallResultValue =
+  | 'completed'
+  | 'answered'
+  | 'busy'
+  | 'no_answer'
+  | 'failed'
+  | 'voicemail'
+  | 'hung_up'
+  | 'declined'
+  | 'canceled';
+export type CallPurposeValue = 'message' | 'availability' | 'questions' | 'appointment';
+
+/** contracts CallStatusEvent, as stored in call_sessions.status_timeline. */
+export interface CallStatusEventJson {
+  status: CallStatusValue;
+  providerStatus: string | null;
+  sequence: number | null;
+  at: string;
+}
+
+/** Rebuilt in 0008 (the 0001 placeholder was never written): one row per call attempt. */
+export interface CallSessionsTable {
+  id: Generated<string>;
+  tenant_id: string;
+  user_id: string;
+  task_id: string;
+  step_id: string;
+  attempt: number;
+  /** 'call:<step id>:a<attempt>' — unique per user; inserted before the provider is asked. */
+  idempotency_key: string;
+  provider: Generated<'twilio'>;
+  /** Unique; null until the provider accepted the call (CHECK by status). */
+  provider_call_sid: string | null;
+  /** SHA-256 of the per-call webhook URL token (unique). */
+  webhook_token_hash: Buffer;
+  callee_number: string;
+  /** HMAC-SHA256 (lib/phone.ts phoneNumberHash). */
+  callee_number_hash: Buffer;
+  callee_country: string | null;
+  callee_name: string | null;
+  callee_time_zone: string;
+  caller_id: string;
+  language: 'en' | 'de' | 'ar';
+  purpose: CallPurposeValue;
+  dialog_mode: 'scripted' | 'model';
+  /** contracts PhoneCallInput (resolved, approved, with its script). */
+  request: Json<Record<string, unknown>>;
+  status: Generated<CallStatusValue>;
+  /** Set exactly when ended (CHECK). */
+  result: CallResultValue | null;
+  failure_reason: string | null;
+  /** contracts CallOutcome; set exactly when ended (CHECK). */
+  outcome: Json<Record<string, unknown> | null> | null;
+  answered_by: 'human' | 'machine' | 'fax' | 'unknown' | null;
+  ai_disclosed_at: NullableTimestamp;
+  recording_mode: Generated<'off' | 'if_consented' | 'required'>;
+  recording_consent: Generated<'not_asked' | 'accepted' | 'declined'>;
+  recording_consent_at: NullableTimestamp;
+  /** Only with recording_consent 'accepted' (CHECK). */
+  recording_sid: string | null;
+  transfer_status: Generated<'none' | 'requested' | 'connected' | 'failed' | 'unavailable'>;
+  transfer_at: NullableTimestamp;
+  status_timeline: JsonDefault<CallStatusEventJson[]>;
+  last_status_sequence: number | null;
+  turn_count: Generated<number>;
+  max_duration_seconds: number;
+  duration_seconds: number | null;
+  cost_estimate_micro: number | null;
+  price_micro: number | null;
+  price_currency: string | null;
+  approval_id: string | null;
+  action_hash: string;
+  dialed_at: NullableTimestamp;
+  answered_at: NullableTimestamp;
+  ended_at: NullableTimestamp;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export type CallTurnKindValue =
+  | 'disclosure'
+  | 'consent_request'
+  | 'consent_reply'
+  | 'question'
+  | 'answer'
+  | 'statement'
+  | 'clarification'
+  | 'refusal'
+  | 'transfer'
+  | 'voicemail'
+  | 'goodbye';
+
+export interface CallTurnsTable {
+  id: Generated<string>;
+  tenant_id: string;
+  user_id: string;
+  call_session_id: string;
+  /** Unique per call. */
+  sequence: number;
+  speaker: 'agent' | 'callee' | 'system';
+  kind: CallTurnKindValue;
+  text: string;
+  language: 'en' | 'de' | 'ar';
+  /** Callee turns only (CHECK). */
+  confidence: number | null;
+  flagged: Generated<boolean>;
+  injection_signals: Generated<string[]>;
+  created_at: Generated<Date>;
+}
+
+export interface DoNotCallTable {
+  id: Generated<string>;
+  tenant_id: string;
+  user_id: string;
+  /** HMAC-SHA256 of the E.164 number; unique per user. */
+  number_hash: Buffer;
+  number_masked: string;
+  /** SecretBox envelope of the number (AAD dnc:<user id>:<id>), for key rotation only. */
+  number_ciphertext: Buffer;
+  number_key_id: string;
+  country: string | null;
+  source: 'callee_request' | 'user';
+  call_session_id: string | null;
+  created_at: Generated<Date>;
+}
+
+export interface PhoneVerificationsTable {
+  id: Generated<string>;
+  tenant_id: string;
+  user_id: string;
+  phone_number: string;
+  /** SecretBox envelope of the code (AAD phone-verification:<user id>:<id>). */
+  code_ciphertext: Buffer;
+  code_key_id: string;
+  status: Generated<'calling' | 'pending' | 'verified' | 'expired' | 'failed'>;
+  attempts: Generated<number>;
+  provider_call_sid: string | null;
+  webhook_token_hash: Buffer;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+  /** At most created_at + 15 minutes (CHECK). */
+  expires_at: Timestamp;
+  /** Set exactly when verified (CHECK). */
+  verified_at: NullableTimestamp;
+}
+
 export interface SubscriptionsTable {
   id: Generated<string>;
   tenant_id: string;
@@ -923,6 +1104,11 @@ export interface Database {
   orders: OrdersTable;
   bookings: BookingsTable;
   committed_purchases: CommittedPurchasesView;
+  // Phase D (0008). Webhooks reach the owner's context through telephony_webhook_target().
+  call_sessions: CallSessionsTable;
+  call_turns: CallTurnsTable;
+  do_not_call: DoNotCallTable;
+  phone_verifications: PhoneVerificationsTable;
 }
 
 export type TaskRow = Selectable<TasksTable>;
@@ -946,6 +1132,11 @@ export type BrowserSessionRow = Selectable<BrowserSessionsTable>;
 export type EvidenceArtifactRow = Selectable<EvidenceArtifactsTable>;
 export type OrderRow = Selectable<OrdersTable>;
 export type BookingRow = Selectable<BookingsTable>;
+export type CallSessionRow = Selectable<CallSessionsTable>;
+export type CallTurnRow = Selectable<CallTurnsTable>;
+export type DoNotCallRow = Selectable<DoNotCallTable>;
+export type PhoneVerificationRow = Selectable<PhoneVerificationsTable>;
+export type VoiceSessionRow = Selectable<VoiceSessionsTable>;
 export type NewTask = Insertable<TasksTable>;
 export type NewStep = Insertable<TaskStepsTable>;
 export type TaskUpdate = Updateable<TasksTable>;

@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { CALL_LIMITS } from '@jarvis/contracts';
+import { regionOfNumber } from './lib/phone';
 
 const bool = z.enum(['true', 'false', '1', '0']).transform((v) => v === 'true' || v === '1');
 
@@ -154,6 +156,63 @@ const Env = z.object({
   BROWSER_FIXTURE_ORIGIN: z.string().url().optional(),
   /** Comma-separated recipe ids to enable (default: every recipe whose site is available here). */
   BROWSER_SITES: z.string().optional(),
+
+  /* ---------------------------------------------------------------- */
+  /* Phase D (docs/architecture/phase-d.md §8). All optional.          */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Twilio (the telephony gateway, docs/adr/0020). All three or none: without them phone
+   * calls are "not configured on this server" (TELEPHONY_NOT_CONFIGURED).
+   */
+  TWILIO_ACCOUNT_SID: z
+    .string()
+    .regex(/^AC[0-9a-f]{32}$/, 'a Twilio Account SID (AC + 32 hex digits)')
+    .optional(),
+  /** Signs every webhook Twilio sends (X-Twilio-Signature) and authenticates REST calls. */
+  TWILIO_AUTH_TOKEN: z.string().min(16).max(128).optional(),
+  /** The caller id every call shows (a Twilio number of the account), E.164. */
+  TWILIO_FROM_NUMBER: z
+    .string()
+    .regex(/^\+[1-9]\d{7,14}$/, 'an E.164 number, e.g. +4930123456789')
+    .optional(),
+  /**
+   * Development/test only (refused in production): one origin serving the Twilio REST API
+   * paths (/2010-04-01/Accounts/…), i.e. the local mock (tools/mock-twilio).
+   */
+  TWILIO_BASE_URL_OVERRIDE: z.string().url().optional(),
+  /**
+   * The public origin (scheme://host[:port], no path) under which Twilio reaches this API's
+   * /v1/telephony/… webhooks unchanged. Signatures are checked against URLs built from it.
+   * Required with Twilio; https in production.
+   */
+  PUBLIC_WEBHOOK_BASE_URL: z.string().url().optional(),
+  /** Calls are placed only between these local times of the callee's zone ("HH:MM-HH:MM"). */
+  CALL_ALLOWED_HOURS: z
+    .string()
+    .regex(/^(?:[01]\d|2[0-3]):[0-5]\d-(?:[01]\d|2[0-3]):[0-5]\d$/, 'HH:MM-HH:MM')
+    .default(`${CALL_LIMITS.defaultAllowedHours.start}-${CALL_LIMITS.defaultAllowedHours.end}`),
+  /** The longest call this server places (a call's own maximum may only be shorter). */
+  CALL_MAX_SECONDS: z.coerce
+    .number()
+    .int()
+    .min(CALL_LIMITS.minDurationSeconds)
+    .max(CALL_LIMITS.maxDurationSeconds)
+    .default(300),
+  /** Calls (attempts) one account may place per day of its time zone. */
+  CALL_MAX_PER_DAY: z.coerce.number().int().min(1).max(100).default(10),
+  /**
+   * Upper bound of the provider's price per minute in USD, shown in approvals as the cost
+   * estimate (max minutes × this). Unset: approvals say the price is not known in advance;
+   * the provider's real price is recorded after each call either way.
+   */
+  CALL_PRICE_PER_MINUTE_USD: z.coerce.number().min(0).max(10).optional(),
+  /**
+   * Comma-separated ISO 3166-1 alpha-2 codes JARVIS may call (toll-fraud defence). Default:
+   * only the country of TWILIO_FROM_NUMBER. Premium-rate and shared-cost numbers are never
+   * called, whatever this says.
+   */
+  CALL_ALLOWED_COUNTRIES: z.string().optional(),
 });
 
 export type StorageDriver = 'none' | 'local' | 's3';
@@ -187,6 +246,27 @@ export interface OAuthClient<E> {
   endpoints: E;
 }
 
+/** Phase D: the telephony gateway of this server (docs/adr/0020). */
+export interface TelephonyConfig {
+  provider: 'twilio';
+  accountSid: string;
+  authToken: string;
+  /** E.164 caller id. */
+  fromNumber: string;
+  /** https://api.twilio.com, or the mock's origin (non-production). */
+  apiBase: string;
+  /** PUBLIC_WEBHOOK_BASE_URL without a trailing slash: the origin of every webhook URL. */
+  webhookBase: string;
+  /** ISO alpha-2 countries JARVIS may call. */
+  allowedCountries: ReadonlySet<string>;
+  /** Local times of the callee's zone ("HH:MM"). */
+  allowedHours: { start: string; end: string };
+  maxCallSeconds: number;
+  maxCallsPerDay: number;
+  /** CALL_PRICE_PER_MINUTE_USD in micro-USD; null = unknown. */
+  pricePerMinuteMicroUsd: number | null;
+}
+
 export type Config = z.infer<typeof Env> & {
   fetchAllowPrivateHosts: Set<string>;
   isProduction: boolean;
@@ -207,6 +287,8 @@ export type Config = z.infer<typeof Env> & {
   browserAllowPrivateHosts: Set<string>;
   /** Phase C: BROWSER_SITES parsed; null = every recipe whose site is available. */
   browserSites: ReadonlySet<string> | null;
+  /** Phase D: the telephony gateway, or null when Twilio is not configured on this server. */
+  telephony: TelephonyConfig | null;
 };
 
 const list = (v: string | undefined): string[] =>
@@ -301,6 +383,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 
   // Phase C — OAuth clients, redirect URIs, mock providers, browser agent.
   const phaseC = resolvePhaseC(c, isProduction);
+  // Phase D — the telephony gateway.
+  const telephony = resolveTelephony(c, isProduction);
   return {
     ...c,
     fetchAllowPrivateHosts,
@@ -308,6 +392,59 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     storageDriver,
     webhookAllowInsecureHosts,
     ...phaseC,
+    telephony,
+  };
+}
+
+/** The Twilio API's origin. */
+export const TWILIO_API_BASE = 'https://api.twilio.com';
+
+/** The Phase D part of the configuration, with its production guards. */
+function resolveTelephony(c: z.infer<typeof Env>, isProduction: boolean): TelephonyConfig | null {
+  if (isProduction && c.TWILIO_BASE_URL_OVERRIDE)
+    throw new Error('TWILIO_BASE_URL_OVERRIDE (the mock Twilio) is not allowed in production');
+  const parts = [c.TWILIO_ACCOUNT_SID, c.TWILIO_AUTH_TOKEN, c.TWILIO_FROM_NUMBER];
+  if (parts.some(Boolean) && !parts.every(Boolean))
+    throw new Error(
+      'TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER must be set together',
+    );
+  if (!parts.every(Boolean)) return null;
+  const fromCountry = regionOfNumber(c.TWILIO_FROM_NUMBER!);
+  if (!fromCountry)
+    throw new Error('TWILIO_FROM_NUMBER is not a valid phone number of a country');
+  if (!c.PUBLIC_WEBHOOK_BASE_URL)
+    throw new Error('PUBLIC_WEBHOOK_BASE_URL is required when Twilio is configured');
+  const base = new URL(c.PUBLIC_WEBHOOK_BASE_URL);
+  if ((base.pathname !== '/' && base.pathname !== '') || base.search || base.hash)
+    throw new Error('PUBLIC_WEBHOOK_BASE_URL must be an origin (scheme://host[:port]), no path');
+  if (base.username || base.password)
+    throw new Error('PUBLIC_WEBHOOK_BASE_URL must not contain credentials');
+  if (base.protocol !== 'https:' && (isProduction || base.protocol !== 'http:'))
+    throw new Error(
+      `PUBLIC_WEBHOOK_BASE_URL must be https${isProduction ? '' : ' (or http in development)'}`,
+    );
+  const [start, end] = c.CALL_ALLOWED_HOURS.split('-') as [string, string];
+  if (start >= end)
+    throw new Error('CALL_ALLOWED_HOURS: the start must be before the end (same day)');
+  const countries = list(c.CALL_ALLOWED_COUNTRIES).map((x) => x.toUpperCase());
+  for (const x of countries)
+    if (!/^[A-Z]{2}$/.test(x))
+      throw new Error(`CALL_ALLOWED_COUNTRIES: ${x} is not an ISO 3166-1 alpha-2 code`);
+  return {
+    provider: 'twilio',
+    accountSid: c.TWILIO_ACCOUNT_SID!,
+    authToken: c.TWILIO_AUTH_TOKEN!,
+    fromNumber: c.TWILIO_FROM_NUMBER!,
+    apiBase: c.TWILIO_BASE_URL_OVERRIDE ? trimSlash(c.TWILIO_BASE_URL_OVERRIDE) : TWILIO_API_BASE,
+    webhookBase: base.origin,
+    allowedCountries: new Set(countries.length > 0 ? countries : [fromCountry]),
+    allowedHours: { start, end },
+    maxCallSeconds: c.CALL_MAX_SECONDS,
+    maxCallsPerDay: c.CALL_MAX_PER_DAY,
+    pricePerMinuteMicroUsd:
+      c.CALL_PRICE_PER_MINUTE_USD === undefined
+        ? null
+        : Math.round(c.CALL_PRICE_PER_MINUTE_USD * 1_000_000),
   };
 }
 
@@ -396,6 +533,8 @@ export const BROWSER_WORKER_FORBIDDEN_ENV = [
   'MICROSOFT_CLIENT_SECRET',
   'DATABASE_OWNER_URL',
   'METRICS_TOKEN',
+  // Phase D: the Twilio auth token signs webhooks and places calls.
+  'TWILIO_AUTH_TOKEN',
 ] as const;
 
 const BrowserWorkerEnv = Env.pick({

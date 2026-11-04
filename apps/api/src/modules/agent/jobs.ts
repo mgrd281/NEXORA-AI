@@ -15,6 +15,7 @@ import { handleRetentionJob } from './jobs/retention';
 import { handleScheduleRunJob, onScheduleRunDead } from './jobs/schedule-run';
 import { handleWebhookDeliverJob, onWebhookDeliverDead } from './jobs/webhook-deliver';
 import { integrationJobs } from './jobs/integrations';
+import { telephonyJobs } from './jobs/telephony';
 import { handlePlanJob, type JobOutcome } from './plan-job';
 import type { RuntimeDeps } from './runtime';
 import { failTask, tryLockTask } from './task-state';
@@ -22,6 +23,23 @@ import { failTask, tryLockTask } from './task-state';
 export type { JobOutcome };
 
 const ctxOf = (job: JobRow): DbContext => ({ tenantId: job.tenant_id, userId: job.user_id });
+
+/**
+ * The agent worker's domain job maps (Phase C integrations, Phase D telephony). A job kind
+ * belongs to exactly one domain — checked here, at load.
+ */
+export const AGENT_DOMAIN_JOBS = [integrationJobs, telephonyJobs] as const;
+{
+  const seen = new Set<string>();
+  for (const domain of AGENT_DOMAIN_JOBS)
+    for (const kind of Object.keys(domain.handlers)) {
+      if (seen.has(kind)) throw new Error(`job kind ${kind} is handled by two domains`);
+      seen.add(kind);
+    }
+}
+
+const domainHandler = (kind: JobRow['kind']) =>
+  AGENT_DOMAIN_JOBS.map((d) => d.handlers[kind]).find((h) => h !== undefined);
 
 /** Thrown when an approval.expire job runs early (clock skew); the queue retries it. */
 export class NotYetDueError extends Error {
@@ -72,8 +90,8 @@ export async function runJob(deps: RuntimeDeps, job: JobRow): Promise<JobOutcome
     case 'webhook.deliver':
       return handleWebhookDeliverJob(deps, job);
     default: {
-      // Phase C: the integrations domain's kinds (modules/agent/jobs/integrations).
-      const handler = integrationJobs.handlers[job.kind];
+      // Phase C / D: the domains' kinds (modules/agent/jobs/integrations, jobs/telephony).
+      const handler = domainHandler(job.kind);
       if (handler) return handler.run(deps, job);
       // browser.* jobs belong to the browser worker; the agent worker never leases them.
       throw new Error(`the agent worker has no handler for job kind ${job.kind}`);
@@ -89,7 +107,7 @@ export async function runJob(deps: RuntimeDeps, job: JobRow): Promise<JobOutcome
 export async function onJobDead(deps: RuntimeDeps, job: JobRow): Promise<void> {
   if (job.kind === 'schedule.run') return onScheduleRunDead(deps, job);
   if (job.kind === 'webhook.deliver') return onWebhookDeliverDead(deps, job);
-  const domain = integrationJobs.handlers[job.kind];
+  const domain = domainHandler(job.kind);
   if (domain) return domain.onDead?.(deps, job);
   if (!job.task_id || job.kind === 'approval.expire' || job.kind === 'retention.sweep') return;
   const ctx = ctxOf(job);

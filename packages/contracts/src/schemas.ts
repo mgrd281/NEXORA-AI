@@ -1,9 +1,23 @@
 import { z } from 'zod';
 import {
+  AnsweredBy,
   ApprovalStatus,
   AttachmentMediaType,
   AttendeeResponse,
   BookingStatus,
+  CallNoteCode,
+  CallPurpose,
+  CallResult,
+  CallSpeaker,
+  CallStatus,
+  CallTurnKind,
+  DoNotCallSource,
+  PhoneVerificationStatus,
+  RecordingConsent,
+  RecordingMode,
+  VoiceEndReason,
+  VoiceSessionMode,
+  VoicemailAction,
   BrowserSessionStatus,
   BrowserStopReason,
   ConnectionCapability,
@@ -50,12 +64,14 @@ import {
 import {
   ATTACHMENT_LIMITS,
   CALENDAR_LIMITS,
+  CALL_LIMITS,
   COMMERCE_LIMITS,
   EMAIL_LIMITS,
   MEMORY_RETENTION_DAYS,
   OAUTH_LIMITS,
   SCHEDULE_LIMITS,
   TASK_HISTORY_RETENTION_DAYS,
+  VOICE_LIMITS,
 } from './limits';
 
 /* ------------------------------------------------------------------ */
@@ -66,6 +82,14 @@ export const Id = z.uuid();
 export const Timestamp = z.iso.datetime({ offset: true });
 /** Money is transported as integer micro-dollars to avoid float drift. */
 export const MicroUsd = z.number().int().nonnegative();
+/**
+ * Phase D: a phone number in E.164 ("+" and 8–15 digits, no spaces). The server
+ * additionally checks it is a valid, diallable number of its country
+ * (libphonenumber metadata) and rejects it otherwise (PHONE_NUMBER_INVALID).
+ */
+export const E164PhoneNumber = z
+  .string()
+  .regex(/^\+[1-9]\d{7,14}$/, 'an E.164 number with its country code, e.g. +493012345678');
 
 export const ApiErrorBody = z.object({
   error: z.object({
@@ -118,6 +142,40 @@ export const Preferences = z.object({
     speakResponses: z.boolean(),
     /** 'auto' follows the interface language. */
     recognitionLocale: z.enum(['auto', 'en-US', 'de-DE', 'ar-SA']),
+    // Phase D (docs/architecture/phase-d.md §3.1): defaults apply to stored preferences without them.
+    /**
+     * Voice mode opens as a continuous conversation (listen → answer aloud → listen again)
+     * instead of a single dictated request. Either can be switched in the overlay.
+     */
+    conversationMode: z.boolean().default(false),
+    /** Speech rate multiplier for JARVIS's voice (1 = the platform's normal rate). */
+    speakingRate: z
+      .number()
+      .min(VOICE_LIMITS.speakingRate.min)
+      .max(VOICE_LIMITS.speakingRate.max)
+      .default(VOICE_LIMITS.speakingRate.default),
+    /**
+     * How long a pause ends what you are saying (end-of-utterance), in ms: longer for people who
+     * pause while speaking (WCAG 2.2.1 Timing Adjustable).
+     */
+    endOfSpeechSilenceMs: z
+      .number()
+      .int()
+      .min(VOICE_LIMITS.endOfSpeechSilenceMs.min)
+      .max(VOICE_LIMITS.endOfSpeechSilenceMs.max)
+      .default(VOICE_LIMITS.endOfSpeechSilenceMs.default),
+    /**
+     * The platform voice to speak with, per language (a Web Speech voiceURI / an
+     * AVSpeechSynthesisVoice identifier); null = the platform's default voice for it. A voice the
+     * device does not have falls back to the default.
+     */
+    voiceNames: z
+      .object({
+        en: z.string().min(1).max(VOICE_LIMITS.maxVoiceNameChars).nullable(),
+        de: z.string().min(1).max(VOICE_LIMITS.maxVoiceNameChars).nullable(),
+        ar: z.string().min(1).max(VOICE_LIMITS.maxVoiceNameChars).nullable(),
+      })
+      .default({ en: null, de: null, ar: null }),
   }),
   autonomy: z.object({
     /** MEDIUM-risk emails addressed only to the account's own address run without asking. */
@@ -159,7 +217,14 @@ export const Preferences = z.object({
 export type Preferences = z.infer<typeof Preferences>;
 
 export const DEFAULT_PREFERENCES: Preferences = {
-  voice: { speakResponses: false, recognitionLocale: 'auto' },
+  voice: {
+    speakResponses: false,
+    recognitionLocale: 'auto',
+    conversationMode: false,
+    speakingRate: VOICE_LIMITS.speakingRate.default,
+    endOfSpeechSilenceMs: VOICE_LIMITS.endOfSpeechSilenceMs.default,
+    voiceNames: { en: null, de: null, ar: null },
+  },
   autonomy: { autoApproveEmailToSelf: false },
   ai: { allowExternalModels: true },
   notifications: { approvalRequested: true, taskCompleted: true, taskFailed: true },
@@ -180,6 +245,15 @@ export const Me = z.object({
   tenant: z.object({ id: Id, name: z.string() }),
   preferences: Preferences,
   createdAt: Timestamp,
+  // Phase D. Always sent by this API; optional only for older servers and fixtures.
+  /**
+   * The account's own phone number (E.164), used only to put a callee through to you when
+   * they ask for a person (transfer) and as the default country of numbers written without
+   * one. Personal data: exported, deleted with the account. null = none.
+   */
+  phoneNumber: E164PhoneNumber.nullable().optional(),
+  /** When a verification call to that number confirmed it (transfers need it); null = not verified. */
+  phoneNumberVerifiedAt: Timestamp.nullable().optional(),
 });
 export type Me = z.infer<typeof Me>;
 
@@ -189,9 +263,38 @@ export const UpdateMeRequest = z
     locale: Locale,
     timeZone: z.string().min(1).max(64),
     theme: ThemePreference,
+    /**
+     * Phase D: set (E.164) or remove (null) the account's phone number. A different number
+     * clears its verification. Invalid numbers: VALIDATION_FAILED, reason PHONE_NUMBER_INVALID.
+     */
+    phoneNumber: E164PhoneNumber.nullable(),
     preferences: z
       .object({
-        voice: Preferences.shape.voice.partial(),
+        // Spelled out without defaults (Phase D fields): a PATCH that omits a field keeps it.
+        voice: z
+          .object({
+            speakResponses: z.boolean(),
+            recognitionLocale: z.enum(['auto', 'en-US', 'de-DE', 'ar-SA']),
+            conversationMode: z.boolean(),
+            speakingRate: z
+              .number()
+              .min(VOICE_LIMITS.speakingRate.min)
+              .max(VOICE_LIMITS.speakingRate.max),
+            endOfSpeechSilenceMs: z
+              .number()
+              .int()
+              .min(VOICE_LIMITS.endOfSpeechSilenceMs.min)
+              .max(VOICE_LIMITS.endOfSpeechSilenceMs.max),
+            /** Per language; an omitted language keeps its stored voice, null resets it. */
+            voiceNames: z
+              .object({
+                en: z.string().min(1).max(VOICE_LIMITS.maxVoiceNameChars).nullable(),
+                de: z.string().min(1).max(VOICE_LIMITS.maxVoiceNameChars).nullable(),
+                ar: z.string().min(1).max(VOICE_LIMITS.maxVoiceNameChars).nullable(),
+              })
+              .partial(),
+          })
+          .partial(),
         autonomy: Preferences.shape.autonomy.partial(),
         ai: Preferences.shape.ai.partial(),
         notifications: Preferences.shape.notifications.partial(),
@@ -305,6 +408,12 @@ export const DeleteAccountRequest = z.object({
  *   approval.purchase                                          { total, merchant }
  *   result.orderPlaced                                         { merchant, orderId }
  *   result.draftCreated, result.watchingReplies                { subject }
+ * Phase D (docs/architecture/phase-d.md §6):
+ *   plan.call, objective.call, step.call, result.callCompleted,
+ *   result.callAnswered, result.callTransferred                { who }   (the callee as the user
+ *                                                              named them, else the number)
+ *   approval.call                                              { who, number }  (number: E.164)
+ *   question.phoneNumber, question.callGoal                    {}
  * Money parameters (`total`) are strings "<ISO 4217 code> <amount>" with a "."
  * decimal separator (e.g. "USD 129.99"): unambiguous in every locale; clients
  * may reformat them. Times are never sentence parameters: approvals carry them
@@ -429,6 +538,16 @@ export const ServerMessageKey = z.enum([
   'question.contactDetails',
   'question.product',
   'question.site',
+  // Phase D — phone calls
+  'plan.call',
+  'objective.call',
+  'step.call',
+  'approval.call',
+  'result.callCompleted',
+  'result.callAnswered',
+  'result.callTransferred',
+  'question.phoneNumber',
+  'question.callGoal',
 ]);
 export type ServerMessageKey = z.infer<typeof ServerMessageKey>;
 
@@ -587,6 +706,11 @@ export const EvidenceArtifact = z.object({
   pageUrl: z.string().nullable(),
   taskId: Id.nullable(),
   browserSessionId: Id.nullable(),
+  /**
+   * Phase D: the call a recording belongs to (kind 'recording'); null for browser evidence.
+   * Optional: older servers do not send it.
+   */
+  callSessionId: Id.nullable().optional(),
   /** API path that streams the file to its owner. */
   downloadPath: z.string(),
   createdAt: Timestamp,
@@ -626,6 +750,93 @@ export const BrowserSession = z.object({
   artifacts: z.array(EvidenceArtifact),
 });
 export type BrowserSession = z.infer<typeof BrowserSession>;
+
+/* ------------------------------------------------------------------ */
+/* Phase D building blocks (phone calls; docs/architecture/phase-d.md) */
+/* ------------------------------------------------------------------ */
+
+/**
+ * What JARVIS says on a call, in the call's language, fixed when the step is
+ * planned (the tool's bind) so the approval — and its action hash — cover the
+ * exact words. The opening always says that an AI assistant is calling and on
+ * whose behalf, before anything else.
+ */
+export const CallScript = z.object({
+  /** "Hello, this is JARVIS, an AI assistant calling on behalf of <name>. I'm calling to …" */
+  opening: z.string().min(1).max(CALL_LIMITS.maxAgentUtteranceChars),
+  /** Asked right after the opening when recording is not 'off'; null otherwise. */
+  recordingQuestion: z.string().min(1).max(CALL_LIMITS.maxAgentUtteranceChars).nullable(),
+  /** The message delivered (purpose 'message'), as spoken; null otherwise. */
+  message: z.string().min(1).max(CALL_LIMITS.maxAgentUtteranceChars).nullable(),
+  /** The questions as spoken, in order. */
+  questions: z
+    .array(z.string().min(1).max(CALL_LIMITS.maxAgentUtteranceChars))
+    .max(CALL_LIMITS.maxQuestions + 2),
+  /** Said before hanging up. */
+  closing: z.string().min(1).max(CALL_LIMITS.maxAgentUtteranceChars),
+  /** Left on an answering machine (voicemail 'leave_message' only); null otherwise. */
+  voicemailMessage: z.string().min(1).max(CALL_LIMITS.maxAgentUtteranceChars).nullable(),
+});
+export type CallScript = z.infer<typeof CallScript>;
+
+/** A personal detail JARVIS may tell the callee — exactly this label and value, nothing else. */
+export const CallShareItem = z.object({
+  label: z.string().trim().min(1).max(60),
+  value: z.string().trim().min(1).max(CALL_LIMITS.maxShareValueChars),
+});
+export type CallShareItem = z.infer<typeof CallShareItem>;
+
+/**
+ * Input of the phone.call tool (validated by the plan validator and again on
+ * the resolved input). The number must be written in the user's request
+ * (NUMBER_NOT_LITERAL otherwise); nothing a callee says can change any field.
+ * TaskStep.inputPreview shows it.
+ */
+export const PhoneCallInput = z.object({
+  /** E.164, normalised from the user's own words. */
+  to: E164PhoneNumber,
+  /** How the user named the callee ("my dentist", "Dr. Weber"); null when they did not. */
+  calleeName: z.string().trim().min(1).max(120).nullable().default(null),
+  /** The language JARVIS speaks and recognises on the call. */
+  language: Locale,
+  /** IANA zone of the callee: allowed hours are checked there (bind: the account's zone). */
+  calleeTimeZone: z.string().min(1).max(64).nullable().default(null),
+  purpose: CallPurpose,
+  /** One sentence: what the call should achieve, in the user's words. */
+  goal: z.string().trim().min(1).max(CALL_LIMITS.maxGoalChars),
+  /** purpose 'message': the message to deliver, in the user's words. */
+  message: z.string().trim().min(1).max(CALL_LIMITS.maxMessageChars).nullable().default(null),
+  /** purpose 'questions' (and optional extras): asked in order, in the user's words. */
+  questions: z
+    .array(z.string().trim().min(1).max(CALL_LIMITS.maxQuestionChars))
+    .max(CALL_LIMITS.maxQuestions)
+    .default([]),
+  /** purpose 'availability' / 'appointment': the date asked about (callee's zone). */
+  date: z.iso.date().nullable().default(null),
+  /** An acceptable time window on that date (HH:MM, callee's zone); null = any time. */
+  window: z.object({ start: LocalTime, end: LocalTime }).nullable().default(null),
+  /** Personal details JARVIS may share — exactly these; anything else is refused on the call. */
+  shareInfo: z.array(CallShareItem).max(CALL_LIMITS.maxShareInfo).default([]),
+  maxDurationSeconds: z
+    .number()
+    .int()
+    .min(CALL_LIMITS.minDurationSeconds)
+    .max(CALL_LIMITS.maxDurationSeconds)
+    .default(300),
+  recording: RecordingMode.default('off'),
+  voicemail: VoicemailAction.default('hang_up'),
+  /** Put the callee through to the account's own verified number when they ask for a person. */
+  allowTransfer: z.boolean().default(false),
+  /**
+   * 'scripted': only the script's lines and fixed clarifications; 'model': JARVIS may also
+   * answer within the purpose. Bound at planning ('model' only when a model is available) and
+   * approved as part of the input; a call never uses more than was approved.
+   */
+  dialog: z.enum(['scripted', 'model']).default('scripted'),
+  /** Filled at planning (bind); a step whose script is still null does not run. */
+  script: CallScript.nullable().default(null),
+});
+export type PhoneCallInput = z.infer<typeof PhoneCallInput>;
 
 /* ------------------------------------------------------------------ */
 /* Tasks                                                               */
@@ -742,6 +953,26 @@ export const TaskErrorReason = z.enum([
   'PURCHASES_DISABLED',
   'PURCHASE_LIMIT', // { limit, spent, amount }   money strings
   'PURCHASE_CURRENCY', // { currency }
+  // Phase D — phone calls (docs/architecture/phase-d.md §3.2). The call ended without reaching
+  // anyone / its goal; nothing was agreed. TOOL_FAILED, retryable: a retry places a NEW call
+  // (this one definitely ended), checked by the policy again.
+  'CALL_BUSY',
+  'CALL_NO_ANSWER',
+  'CALL_FAILED', // { status? }   the provider could not connect it
+  'CALL_VOICEMAIL', // a machine answered (no message left unless approved)
+  'CALL_HUNG_UP', // the callee hung up before the goal was reached
+  'CALL_DECLINED', // the callee did not want to talk to an AI assistant (not retryable)
+  'CALL_DURATION_LIMIT', // { seconds }   ended at the approved maximum duration
+  'RECORDING_CONSENT_DECLINED', // recording 'required' and the callee said no: ended politely
+  'CALL_STATE_UNKNOWN', // OUTCOME_UNKNOWN: the provider did not confirm whether the call was placed
+  'PHONE_NUMBER_INVALID', // { number }   not a valid, diallable number
+  'NUMBER_NOT_LITERAL', // PLANNER_UNSUPPORTED: the number is not written in the user's request
+  // Phase D — policy (same names as the policy reason codes; POLICY_DENIED)
+  'DO_NOT_CALL', // { number }   masked; the number asked not to be called again
+  'CALL_OUTSIDE_HOURS', // { start, end, timeZone }   HH:MM in the callee's zone
+  'CALL_LIMIT', // { max }   calls per day
+  'CALL_DESTINATION_BLOCKED', // { country }   premium-rate / shared-cost / not an allowed country
+  'TELEPHONY_NOT_CONFIGURED',
 ]);
 export type TaskErrorReason = z.infer<typeof TaskErrorReason>;
 
@@ -787,6 +1018,15 @@ export type TaskError = z.infer<typeof TaskError>;
  *   ORDER_CONFIRMATION { orderId, merchantOrderId, total }  (kind record; total a money string)
  *   CART_SNAPSHOT      { artifactId, total }                (kind browser_capture)
  *   HANDOVER           { host, reason, url }                (kind note) the user continues there
+ * Phase D (calls; docs/architecture/phase-d.md §3.2):
+ *   CALL_PLACED        { provider, callSid }                (kind provider_response) the provider accepted it
+ *   CALL_ENDED         { callSid, result, seconds }         (kind provider_response) final status
+ *   AI_DISCLOSED       { callSid, sequence }                (kind record) the opening turn that said so
+ *   RECORDING_CONSENT  { callSid, consent, sequence }       (kind record) the callee's answer, as a turn
+ *   CALL_TRANSCRIPT    { callId, turns }                    (kind record) the turns kept as task data
+ *   CALL_RECORDING     { artifactId, seconds, sha256 }      (kind record) only with consent
+ *   CALL_TRANSFER      { callSid, status }                  (kind provider_response)
+ *   DO_NOT_CALL_RECORDED { number }                         (kind record) masked
  */
 export const EvidenceCode = z.enum([
   'HTTP_RESPONSE',
@@ -815,6 +1055,15 @@ export const EvidenceCode = z.enum([
   'ORDER_CONFIRMATION',
   'CART_SNAPSHOT',
   'HANDOVER',
+  // Phase D
+  'CALL_PLACED',
+  'CALL_ENDED',
+  'AI_DISCLOSED',
+  'RECORDING_CONSENT',
+  'CALL_TRANSCRIPT',
+  'CALL_RECORDING',
+  'CALL_TRANSFER',
+  'DO_NOT_CALL_RECORDED',
 ]);
 export type EvidenceCode = z.infer<typeof EvidenceCode>;
 
@@ -856,6 +1105,8 @@ export type Evidence = z.infer<typeof Evidence>;
  *   liveSource { url } · screenshotStored { artifactId } · confirmationReceived { reference }
  *   totalMatches { total } · orderPlaced { orderId } · offersCompared { count }
  *   withinLimit { remaining }
+ * Phase D: callConnected { callSid } · aiDisclosed · callEnded { result } · goalReached
+ *   detailsCollected { count } · consentRespected { consent } · transcriptStored { turns }
  */
 export const VerificationCheckKey = z.enum([
   'http',
@@ -897,6 +1148,14 @@ export const VerificationCheckKey = z.enum([
   'orderPlaced',
   'offersCompared',
   'withinLimit',
+  // Phase D
+  'callConnected',
+  'aiDisclosed',
+  'callEnded',
+  'goalReached',
+  'detailsCollected',
+  'consentRespected',
+  'transcriptStored',
 ]);
 export type VerificationCheckKey = z.infer<typeof VerificationCheckKey>;
 
@@ -1104,6 +1363,52 @@ export const ApprovalDetails = z.discriminatedUnion('kind', [
     evidenceArtifactId: Id.nullable(),
     untrusted: UntrustedSource.optional(),
   }),
+  /**
+   * Phase D — phone.call: who is called, from which number, in which language,
+   * for what, exactly what JARVIS will say and ask, which personal details it may
+   * share, for how long, when, and whether it records. Approved by a tap / click
+   * only — never by voice.
+   */
+  z.object({
+    kind: z.literal('phone_call'),
+    /** E.164, exactly as dialled. */
+    to: z.string(),
+    /** The same number in international format for reading ("+49 30 1234567"). */
+    toDisplay: z.string(),
+    /** ISO 3166-1 alpha-2 of the number; null when unknown. */
+    country: z.string().nullable(),
+    calleeName: z.string().nullable(),
+    /** The name JARVIS says it calls for (the account's display name). */
+    onBehalfOf: z.string(),
+    /** The number the callee sees (this server's caller id); null when not configured. */
+    callerId: z.string().nullable(),
+    language: Locale,
+    purpose: CallPurpose,
+    goal: z.string(),
+    /** Exactly what JARVIS will say and ask, in the call's language. */
+    script: CallScript,
+    /**
+     * 'scripted': only the lines above plus fixed clarifications (offline); 'model': JARVIS may
+     * also answer the callee's questions within the purpose and the details below — it never
+     * agrees to anything else and never shares anything else.
+     */
+    dialog: z.enum(['scripted', 'model']),
+    date: z.iso.date().nullable(),
+    window: z.object({ start: LocalTime, end: LocalTime }).nullable(),
+    shareInfo: z.array(CallShareItem),
+    maxDurationSeconds: z.number().int().positive(),
+    /** The call is placed only inside these hours of the callee's zone. */
+    allowedHours: z.object({ start: LocalTime, end: LocalTime, timeZone: z.string() }),
+    recording: RecordingMode,
+    voicemail: VoicemailAction,
+    /** Putting the callee through to the account's own verified number (masked), if allowed. */
+    transfer: z.object({ allowed: z.boolean(), to: z.string().nullable() }),
+    /** The call may create a binding commitment (purpose 'appointment'). */
+    binding: z.boolean(),
+    /** Upper bound of the provider's price (CALL_PRICE_PER_MINUTE_USD × max minutes); null = unknown. */
+    costEstimate: Money.nullable(),
+    untrusted: UntrustedSource.optional(),
+  }),
 ]);
 export type ApprovalDetails = z.infer<typeof ApprovalDetails>;
 
@@ -1213,6 +1518,181 @@ export const TaskEvent = z.object({
 });
 export type TaskEvent = z.infer<typeof TaskEvent>;
 
+/* ------------------------------------------------------------------ */
+/* Phase D — phone calls (docs/architecture/phase-d.md §3.2)           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One utterance of a call. JARVIS's lines are verbatim; the callee's are the
+ * provider's speech recognition — untrusted text (display isolated, never
+ * followed, never a source of numbers, recipients, amounts or memories).
+ */
+export const CallTurn = z.object({
+  id: Id,
+  /** 0, 1, 2 … in the order spoken. */
+  sequence: z.number().int().nonnegative(),
+  speaker: CallSpeaker,
+  kind: CallTurnKind,
+  text: z.string().max(CALL_LIMITS.maxCalleeUtteranceChars),
+  language: Locale,
+  /** Recognition confidence 0–1 (callee turns); null otherwise. */
+  confidence: z.number().min(0).max(1).nullable(),
+  /** The callee's words contained instructions to AI assistants (ignored). */
+  flagged: z.boolean(),
+  at: Timestamp,
+});
+export type CallTurn = z.infer<typeof CallTurn>;
+
+/** One status change of a call as the provider reported it (or JARVIS decided). */
+export const CallStatusEvent = z.object({
+  status: CallStatus,
+  /** The provider's status word, e.g. 'ringing', 'in-progress', 'no-answer'; null for JARVIS's own. */
+  providerStatus: z.string().max(40).nullable(),
+  /** The provider's SequenceNumber of the callback; null for JARVIS's own entries. */
+  sequence: z.number().int().nonnegative().nullable(),
+  at: Timestamp,
+});
+export type CallStatusEvent = z.infer<typeof CallStatusEvent>;
+
+/**
+ * What a call collected — only what the callee said explicitly, extracted by
+ * rules (offline) or by the model as structured output; the turns are the
+ * evidence. Strings are the callee's words (untrusted).
+ */
+export const CallCollectedDetails = z.object({
+  /** The date discussed (availability, appointment), in the callee's zone. */
+  date: z.iso.date().nullable(),
+  /** Times the callee offered on that date (HH:MM, callee's zone). */
+  times: z.array(LocalTime).max(CALL_LIMITS.maxCollectedTimes),
+  /** purpose 'appointment': what the callee confirmed; null when nothing was agreed. */
+  appointment: z
+    .object({
+      date: z.iso.date(),
+      time: LocalTime,
+      name: z.string().max(200).nullable(),
+      reference: z.string().max(200).nullable(),
+    })
+    .nullable(),
+  /** purpose 'message': the callee's reply. */
+  reply: z.string().max(CALL_LIMITS.maxCalleeUtteranceChars).nullable(),
+  /** purpose 'questions': each question with the answer heard (null: not answered). */
+  answers: z.array(
+    z.object({
+      question: z.string(),
+      answer: z.string().max(CALL_LIMITS.maxCalleeUtteranceChars).nullable(),
+    }),
+  ),
+});
+export type CallCollectedDetails = z.infer<typeof CallCollectedDetails>;
+
+/** The structured result of an ended call. */
+export const CallOutcome = z.object({
+  result: CallResult,
+  /** The approved goal was reached (only with evidence in the turns). */
+  goalReached: z.boolean(),
+  details: CallCollectedDetails,
+  notes: z.array(CallNoteCode),
+  /** The result line (server sentence), rendered by clients in the viewer's locale. */
+  summaryMessage: ServerMessage.nullable(),
+});
+export type CallOutcome = z.infer<typeof CallOutcome>;
+
+/** One call attempt of a phone.call step (a retry after busy / no answer is a new attempt). */
+export const CallSession = z.object({
+  id: Id,
+  taskId: Id,
+  stepId: Id,
+  /** 1, 2 … per step: a retry of a definitely ended call places attempt n + 1. */
+  attempt: z.number().int().positive(),
+  /** E.164 as dialled (the user's own input). */
+  to: z.string(),
+  toDisplay: z.string(),
+  calleeName: z.string().nullable(),
+  language: Locale,
+  purpose: CallPurpose,
+  status: CallStatus,
+  /** Set when ended. */
+  result: CallResult.nullable(),
+  outcome: CallOutcome.nullable(),
+  provider: z.literal('twilio'),
+  /** The provider's call id (evidence); null until the provider accepted the call. */
+  providerCallSid: z.string().nullable(),
+  answeredBy: AnsweredBy.nullable(),
+  /** When the opening (AI disclosure) was spoken; null if the call never got that far. */
+  aiDisclosedAt: Timestamp.nullable(),
+  recording: z.object({
+    mode: RecordingMode,
+    consent: RecordingConsent,
+    consentAt: Timestamp.nullable(),
+    /** The stored recording (kind 'recording'); null unless recorded with consent. */
+    artifactId: Id.nullable(),
+  }),
+  transfer: z.object({
+    status: z.enum(['none', 'requested', 'connected', 'failed', 'unavailable']),
+    at: Timestamp.nullable(),
+  }),
+  /** Oldest first. */
+  timeline: z.array(CallStatusEvent),
+  durationSeconds: z.number().int().nonnegative().nullable(),
+  maxDurationSeconds: z.number().int().positive(),
+  costEstimate: Money.nullable(),
+  /** The provider's price of the call once it reports one. */
+  price: Money.nullable(),
+  /** Why the attempt did not reach its goal (CALL_BUSY …); null otherwise. */
+  failureReason: TaskErrorReason.nullable(),
+  /** Oldest first (in a TaskDetail at most CALL_LIMITS.turnsInTaskDetail; GET /v1/calls/:id has all). */
+  turns: z.array(CallTurn),
+  dialedAt: Timestamp.nullable(),
+  answeredAt: Timestamp.nullable(),
+  endedAt: Timestamp.nullable(),
+  createdAt: Timestamp,
+  updatedAt: Timestamp,
+});
+export type CallSession = z.infer<typeof CallSession>;
+
+/** A call in lists (GET /v1/calls): without its turns and status timeline. */
+export const CallSummary = CallSession.omit({ turns: true, timeline: true });
+export type CallSummary = z.infer<typeof CallSummary>;
+
+export const CallListQuery = PageQuery.extend({ result: CallResult.optional() });
+export type CallListQuery = z.infer<typeof CallListQuery>;
+
+/**
+ * A number JARVIS will not call for this account (GET /v1/do-not-call). Only a
+ * keyed hash of the number is stored, with this masked form for display.
+ */
+export const DoNotCallEntry = z.object({
+  id: Id,
+  /** Masked, e.g. "+49 30 ••• •• 67". */
+  number: z.string(),
+  country: z.string().nullable(),
+  source: DoNotCallSource,
+  /** The call during which the callee asked (callee_request). */
+  callId: Id.nullable(),
+  createdAt: Timestamp,
+});
+export type DoNotCallEntry = z.infer<typeof DoNotCallEntry>;
+
+/** A verification call that reads a code to the account's own number. */
+export const PhoneVerification = z.object({
+  id: Id,
+  status: PhoneVerificationStatus,
+  /** The number being verified, masked. */
+  number: z.string(),
+  attemptsLeft: z.number().int().nonnegative(),
+  expiresAt: Timestamp,
+  createdAt: Timestamp,
+});
+export type PhoneVerification = z.infer<typeof PhoneVerification>;
+
+export const ConfirmPhoneVerificationRequest = z.object({
+  code: z
+    .string()
+    .trim()
+    .regex(new RegExp(`^\\d{${CALL_LIMITS.verificationCodeLength}}$`), 'the digits JARVIS read out'),
+});
+export type ConfirmPhoneVerificationRequest = z.infer<typeof ConfirmPhoneVerificationRequest>;
+
 export const TaskDetail = TaskSummary.extend({
   objective: z.string().nullable(),
   objectiveMessage: ServerMessage.nullable().optional(),
@@ -1231,6 +1711,8 @@ export const TaskDetail = TaskSummary.extend({
   attachments: z.array(Attachment).optional(),
   /** Phase C: the browser agent's sessions for this task, oldest first (always sent by this API). */
   browserSessions: z.array(BrowserSession).optional(),
+  /** Phase D: the task's phone calls, oldest first (always sent by this API). */
+  calls: z.array(CallSession).optional(),
 });
 export type TaskDetail = z.infer<typeof TaskDetail>;
 
@@ -1288,6 +1770,11 @@ export const RetryTaskRequest = z.object({
  *   browser_session.changed  { sessionId, taskId, stepId, status, stopReason }
  *   order.changed            { orderId, taskId, status }
  *   booking.changed          { bookingId, taskId, status }
+ * Phase D:
+ *   call.status_changed      { callId, taskId, stepId, status, result }   (result null until ended)
+ *   call.turn                { callId, taskId, sequence, speaker }        a new utterance (live captions:
+ *                                                                          refetch the call or task)
+ *   phone_verification.changed { verificationId, status }
  * Ids, enums and times only: clients refetch what they show.
  */
 export const AccountEventType = z.enum([
@@ -1304,6 +1791,10 @@ export const AccountEventType = z.enum([
   'browser_session.changed',
   'order.changed',
   'booking.changed',
+  // Phase D
+  'call.status_changed',
+  'call.turn',
+  'phone_verification.changed',
 ]);
 export type AccountEventType = z.infer<typeof AccountEventType>;
 
@@ -1719,6 +2210,9 @@ export const AssistantStatus = z.object({
     shopping: z.boolean().optional(),
     /** Purchases are possible at all: shopping available and a monthly purchase limit above 0. */
     purchases: z.boolean().optional(),
+    // Phase D. Always sent by this API; optional only for older servers and fixtures.
+    /** Phone calls can be placed: phone.call built, telephony configured, the skill on. */
+    phoneCalls: z.boolean().optional(),
   }),
   version: z.string(),
 });
@@ -1770,16 +2264,36 @@ export type UsageSummary = z.infer<typeof UsageSummary>;
 export const VoiceSessionStart = z.object({
   locale: z.string().max(16),
   engine: z.enum(['browser_speech', 'ios_speech', 'android_speech']),
+  /** Phase D: a continuous conversation (several requests) or one dictated request (default). */
+  mode: VoiceSessionMode.default('dictation'),
+  /** Phase D: the conversation it continues (follow-ups), if any. */
+  conversationId: Id.optional(),
 });
+/**
+ * Metadata only — never audio, never transcript text (the requests arrive as
+ * tasks). Phase D adds the conversation counters.
+ */
 export const VoiceSessionEnd = z.object({
-  outcome: z.enum(['submitted', 'cancelled', 'error', 'no_speech']),
-  transcriptChars: z.number().int().min(0).max(10_000),
+  /** 'ended': a conversation the user ended (End, Esc, "stop") after at least one request. */
+  outcome: z.enum(['submitted', 'cancelled', 'error', 'no_speech', 'ended']),
+  /** Characters of the dictated request(s) sent. */
+  transcriptChars: z.number().int().min(0).max(100_000),
   errorCode: z.string().max(64).optional(),
+  /** Phase D: requests sent in this session. */
+  turns: z.number().int().min(0).max(500).optional(),
+  /** Phase D: times the user spoke while JARVIS was speaking (barge-in). */
+  bargeIns: z.number().int().min(0).max(10_000).optional(),
+  /** Phase D: stream or recognition reconnects. */
+  reconnects: z.number().int().min(0).max(1_000).optional(),
+  endReason: VoiceEndReason.optional(),
 });
 export const VoiceSession = z.object({
   id: Id,
   startedAt: Timestamp,
   endedAt: Timestamp.nullable(),
+  /** Phase D (optional: older servers). */
+  mode: VoiceSessionMode.optional(),
+  conversationId: Id.nullable().optional(),
 });
 
 /* ------------------------------------------------------------------ */

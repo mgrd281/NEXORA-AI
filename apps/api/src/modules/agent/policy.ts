@@ -40,6 +40,13 @@
  *       PURCHASE_CURRENCY, PURCHASE_LIMIT deny; else approval PURCHASE),
  *       binding commitments (approval BINDING_COMMITMENT), calendar invitations
  *       (approval RECIPIENT_EXTERNAL) — restrict-only by construction.
+ *
+ * Phase D (docs/architecture/phase-d.md §5):
+ *   3b. phone calls (policy-telephony.ts): TELEPHONY_NOT_CONFIGURED,
+ *       CALL_DESTINATION_BLOCKED, DO_NOT_CALL, CALL_OUTSIDE_HOURS, CALL_LIMIT deny;
+ *       else approval PHONE_CALL (never auto-approved) + CALL_RECORDING /
+ *       CALL_PERSONAL_INFO. The number itself is literal from the user's request
+ *       (plan validation, NUMBER_NOT_LITERAL) — never from content or a callee.
  */
 import type {
   ConnectionProvider,
@@ -52,6 +59,7 @@ import type {
 } from '@jarvis/contracts';
 import type { OfflineReason } from './models/router';
 import { evaluateDomainRules } from './policy-domain';
+import type { CallPolicyFacts } from './policy-telephony';
 import type { ConnectionRequirement, ConnectionState, PurchaseFacts } from './tools/types';
 
 export interface PolicyInput {
@@ -115,6 +123,11 @@ export interface PolicyInput {
   attendees?: readonly string[];
   /** Phase C: a binding commitment on a site (tool.binding). */
   binding?: boolean;
+  /**
+   * Phase D: the phone call this step places (tool.call on the exact input) with the
+   * server's telephony state and the account's do-not-call list / calls today.
+   */
+  call?: CallPolicyFacts | null;
 }
 
 export interface PolicyResult extends PolicyDecision {
@@ -305,6 +318,12 @@ const DENY_REASONS = [
   'PURCHASES_DISABLED',
   'PURCHASE_LIMIT',
   'PURCHASE_CURRENCY',
+  // Phase D
+  'TELEPHONY_NOT_CONFIGURED',
+  'CALL_DESTINATION_BLOCKED',
+  'DO_NOT_CALL',
+  'CALL_OUTSIDE_HOURS',
+  'CALL_LIMIT',
   'SKILL_DISABLED',
   'MEMORY_DISABLED',
   'UNTRUSTED_MEMORY',
@@ -335,6 +354,16 @@ export function denyMessage(code: ErrorCode, reasons: string[], toolTitle: strin
     return 'This purchase would go over your monthly purchase limit, so JARVIS will not make it.';
   if (reasons.includes('PURCHASE_CURRENCY'))
     return 'This purchase is not in US dollars, the currency of your purchase limit, so JARVIS will not make it.';
+  if (reasons.includes('TELEPHONY_NOT_CONFIGURED'))
+    return 'Phone calls are not set up on this server, so JARVIS cannot place this call.';
+  if (reasons.includes('CALL_DESTINATION_BLOCKED'))
+    return 'JARVIS does not call this number: premium-rate and shared-cost numbers, and countries this server does not call, are blocked.';
+  if (reasons.includes('DO_NOT_CALL'))
+    return 'This number asked not to be called again, so JARVIS will not call it.';
+  if (reasons.includes('CALL_OUTSIDE_HOURS'))
+    return 'It is outside the hours in which JARVIS places calls in the callee’s time zone. Retry within those hours.';
+  if (reasons.includes('CALL_LIMIT'))
+    return 'JARVIS has placed the maximum number of calls for today. Retry tomorrow.';
   if (reasons.includes('CONNECTION_MISSING'))
     return `“${toolTitle}” needs a connection that is not set up or not active. Connect it in Settings → Connections, then retry.`;
   if (reasons.includes('SKILL_DISABLED'))
