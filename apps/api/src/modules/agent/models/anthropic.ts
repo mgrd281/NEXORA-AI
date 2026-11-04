@@ -112,8 +112,14 @@ export function mapAnthropicError(err: unknown): AgentError {
     err instanceof Anthropic.PermissionDeniedError
   )
     return permanent('The AI model provider rejected the configured API key.');
-  if (err instanceof Anthropic.BadRequestError)
-    return permanent('The AI model provider rejected the request.');
+  if (err instanceof Anthropic.BadRequestError) {
+    // The provider's reason (e.g. an invalid parameter or a schema it cannot compile) is
+    // technical, not secret: keep a bounded copy so the task's technical details say why.
+    const reason = String(err.message ?? '')
+      .replace(/\s+/g, ' ')
+      .slice(0, 300);
+    return permanent(`The AI model provider rejected the request.${reason ? ` (${reason})` : ''}`);
+  }
   if (err instanceof Anthropic.APIError) {
     const status = err.status ?? 0;
     if (status === 408 || status === 409 || status === 429 || status >= 500)
