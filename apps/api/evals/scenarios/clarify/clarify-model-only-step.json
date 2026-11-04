@@ -1,0 +1,58 @@
+{
+  "id": "clarify-model-only-step",
+  "version": 1,
+  "suite": "clarify",
+  "title": "A clarifying question may not come with other steps (model)",
+  "modes": ["model"],
+  "given": {
+    "request": "Email me",
+    "model": {
+      "scriptOnly": true,
+      "plans": [
+        {
+          "title": "Email",
+          "objective": "Ask and send",
+          "steps": [
+            {
+              "key": "s1",
+              "toolId": "assistant.clarify",
+              "title": "Ask",
+              "input": {
+                "missing": ["email_content"]
+              }
+            },
+            {
+              "key": "s2",
+              "toolId": "email.send",
+              "title": "Send",
+              "input": {
+                "to": ["{{me}}"],
+                "subject": "Hello",
+                "body": "Hello"
+              }
+            }
+          ]
+        },
+        {
+          "title": "Question",
+          "objective": "Ask",
+          "steps": [
+            {
+              "key": "s1",
+              "toolId": "assistant.clarify",
+              "title": "Ask",
+              "input": {
+                "missing": ["email_content"]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["email_content"],
+    "recipientsExactly": []
+  }
+}

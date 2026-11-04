@@ -4,9 +4,13 @@ import Foundation
 
 struct TaskError: Decodable, Sendable, Equatable {
     let code: ErrorCode
+    /// English developer fallback; the app shows copy for `code` / `reason` / `params`.
     let message: String
     /// Whether a retry is safe without risking a duplicate side effect.
     let retryable: Bool
+    /// Which failure of the code (`TaskErrorReason`); a string so newer reasons decode.
+    var reason: String? = nil
+    var params: [String: JSONValue]? = nil
 }
 
 struct Evidence: Decodable, Sendable, Equatable {
@@ -51,6 +55,8 @@ struct TaskStep: Decodable, Sendable, Equatable, Identifiable {
     let id: String
     let position: Int
     let title: String
+    /// Set when the server wrote the title (offline planner): shown in the app's language.
+    var titleMessage: ServerMessage? = nil
     let toolId: ToolId
     let riskLevel: RiskLevel
     let status: StepStatus
@@ -65,6 +71,8 @@ struct TaskStep: Decodable, Sendable, Equatable, Identifiable {
     let startedAt: Date?
     let completedAt: Date?
     let error: TaskError?
+
+    var displayTitle: String { titleMessage.rendered(or: title) }
 }
 
 struct PlannerInfo: Decodable, Sendable, Equatable {
@@ -96,6 +104,25 @@ struct TaskProgress: Decodable, Sendable, Equatable {
     }
 }
 
+/// `TaskSummary.pendingApproval`.
+struct PendingApprovalRef: Decodable, Sendable, Equatable {
+    let id: String
+    /// The action consumes content flagged as a suspected prompt injection.
+    let untrustedSource: Bool
+}
+
+/// A clarifying question (`AssistantQuestion`): JARVIS asks instead of inventing missing
+/// information; the user answers with a follow-up in the same conversation.
+struct AssistantQuestion: Decodable, Sendable, Equatable {
+    /// In the request's language.
+    let text: String
+    /// Set when the server composed the question: shown in the app's language.
+    let message: ServerMessage?
+    let missing: [MissingInfo]
+
+    var displayText: String { message.rendered(or: text) }
+}
+
 struct TaskSummary: Decodable, Sendable, Equatable, Identifiable {
     let id: String
     let title: String
@@ -110,6 +137,29 @@ struct TaskSummary: Decodable, Sendable, Equatable, Identifiable {
     let createdAt: Date
     let updatedAt: Date
     let completedAt: Date?
+    // Server-written sentences (absent from older servers).
+    var titleMessage: ServerMessage? = nil
+    var resultSummaryMessage: ServerMessage? = nil
+    var pendingApproval: PendingApprovalRef? = nil
+    // Phase B. Always sent by the current API; optional for older servers and fixtures.
+    var conversationId: String? = nil
+    /// What the completed task produced; nil until COMPLETED.
+    var outcome: TaskOutcome? = nil
+    /// Set when `outcome` is `.question`.
+    var question: AssistantQuestion? = nil
+    /// The schedule that created this task (source `schedule`).
+    var scheduleId: String? = nil
+    var attachmentCount: Int? = nil
+
+    var displayTitle: String { titleMessage.rendered(or: title) }
+
+    var displayResult: String? {
+        if let message = resultSummaryMessage, let text = message.rendered { return text }
+        return resultSummary
+    }
+
+    /// Completed with a clarifying question: the user's answer is the next step.
+    var needsAnswer: Bool { status == .completed && outcome == .question }
 }
 
 struct TaskEvent: Decodable, Sendable, Equatable, Identifiable {
@@ -143,8 +193,16 @@ struct TaskDetail: Decodable, Sendable, Equatable, Identifiable {
     let createdAt: Date
     let updatedAt: Date
     let completedAt: Date?
+    var titleMessage: ServerMessage? = nil
+    var resultSummaryMessage: ServerMessage? = nil
+    var pendingApprovalRef: PendingApprovalRef? = nil
+    var outcome: TaskOutcome? = nil
+    var question: AssistantQuestion? = nil
+    var scheduleId: String? = nil
+    var attachmentCount: Int? = nil
     // Detail fields
     let objective: String?
+    var objectiveMessage: ServerMessage? = nil
     let conversationId: String
     let planner: PlannerInfo?
     let answer: String?
@@ -156,6 +214,32 @@ struct TaskDetail: Decodable, Sendable, Equatable, Identifiable {
     let canCancel: Bool
     let canRetry: Bool
     let startedAt: Date?
+    /// Files attached to the request (Phase B; absent from older servers).
+    var attachments: [Attachment]? = nil
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, request, status, riskLevel, source, progress, pendingApprovalId
+        case resultSummary, error, createdAt, updatedAt, completedAt
+        case titleMessage, resultSummaryMessage
+        case pendingApprovalRef = "pendingApproval"
+        case outcome, question, scheduleId, attachmentCount
+        case objective, objectiveMessage, conversationId, planner, answer, steps, approvals
+        case events, cost, evidence, canCancel, canRetry, startedAt, attachments
+    }
+
+    var displayTitle: String { titleMessage.rendered(or: title) }
+
+    var displayResult: String? {
+        if let message = resultSummaryMessage, let text = message.rendered { return text }
+        return resultSummary
+    }
+
+    var displayObjective: String? {
+        if let message = objectiveMessage, let text = message.rendered { return text }
+        return objective
+    }
+
+    var needsAnswer: Bool { status == .completed && outcome == .question }
 
     var pendingApproval: Approval? {
         if let id = pendingApprovalId, let match = approvals.first(where: { $0.id == id }) {
@@ -178,7 +262,12 @@ struct CreateTaskRequest: Encodable, Sendable, Equatable {
     /// Language of the request, if known (voice recognition supplies it).
     let language: AppLocale?
     let voiceSessionId: String?
+    /// Uploaded files the request is about (Phase B). Omitted when nil; never sent empty.
+    var attachmentIds: [String]? = nil
 }
+
+/// `POST /v1/conversations/:id/messages` has the same body as `POST /v1/tasks`.
+typealias FollowUpRequest = CreateTaskRequest
 
 /// `POST /v1/tasks/:id/retry`.
 struct RetryTaskRequest: Encodable, Sendable, Equatable {

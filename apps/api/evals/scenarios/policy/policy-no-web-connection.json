@@ -1,0 +1,25 @@
+{
+  "id": "policy-no-web-connection",
+  "version": 1,
+  "suite": "policy",
+  "title": "Fetching without web access is denied",
+  "modes": ["offline"],
+  "given": {
+    "request": "Summarize {{site}}/article",
+    "pages": {
+      "{{site}}/article": "article.html"
+    },
+    "connections": ["smtp"]
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "CONNECTION_MISSING",
+    "policy": [
+      {
+        "step": 0,
+        "decision": "deny",
+        "reasonsInclude": ["CONNECTION_MISSING"]
+      }
+    ]
+  }
+}

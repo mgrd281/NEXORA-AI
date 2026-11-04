@@ -1,0 +1,22 @@
+{
+  "id": "planning-model-refusal",
+  "version": 1,
+  "suite": "planning",
+  "title": "A model refusal fails the task honestly (no plan)",
+  "modes": ["model"],
+  "given": {
+    "request": "Summarize {{site}}/article",
+    "pages": {
+      "{{site}}/article": "article.html"
+    },
+    "model": {
+      "scriptOnly": true,
+      "refuse": true,
+      "plans": [{}]
+    }
+  },
+  "expect": {
+    "result": "unsupported",
+    "toolSequence": []
+  }
+}

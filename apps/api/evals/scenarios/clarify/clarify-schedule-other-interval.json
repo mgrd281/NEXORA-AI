@@ -1,0 +1,14 @@
+{
+  "id": "clarify-schedule-other-interval",
+  "version": 1,
+  "suite": "clarify",
+  "title": "An interval the offline planner cannot schedule: JARVIS asks",
+  "modes": ["offline"],
+  "given": {
+    "request": "Every other week email me: water the plants"
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["schedule_time"]
+  }
+}

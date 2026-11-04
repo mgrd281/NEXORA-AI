@@ -44,9 +44,15 @@ struct ToneBadge: View {
 
 struct StatusBadge: View {
     let status: TaskStatus
+    /// A completed task that asked a clarifying question reads "Needs your answer", never "Completed".
+    var outcome: TaskOutcome? = nil
 
     var body: some View {
-        ToneBadge(label: status.label, systemImage: MeridianIcon.status(status), tone: status.tone)
+        if status == .completed, outcome == .question {
+            ToneBadge(label: TaskOutcome.questionLabel, systemImage: TaskOutcome.questionIcon, tone: .warning)
+        } else {
+            ToneBadge(label: status.label, systemImage: MeridianIcon.status(status), tone: status.tone)
+        }
     }
 }
 

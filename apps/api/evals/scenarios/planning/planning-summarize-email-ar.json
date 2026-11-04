@@ -1,0 +1,18 @@
+{
+  "id": "planning-summarize-email-ar",
+  "version": 1,
+  "suite": "planning",
+  "title": "لخص صفحة وأرسلها لي",
+  "modes": ["offline"],
+  "given": {
+    "request": "لخص {{site}}/maqal وأرسله لي بالبريد",
+    "pages": {
+      "{{site}}/maqal": "maqal-ar.html"
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["web.fetch", "text.summarize", "email.send"],
+    "recipientsExactly": ["{{me}}"]
+  }
+}

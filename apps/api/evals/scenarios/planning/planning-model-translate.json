@@ -1,0 +1,41 @@
+{
+  "id": "planning-model-translate",
+  "version": 1,
+  "suite": "planning",
+  "title": "Translation is planned as one LOW-risk step (model)",
+  "modes": ["model"],
+  "requires": ["tool:text.translate"],
+  "given": {
+    "request": "Translate \"good morning, see you at nine\" into German",
+    "model": {
+      "plans": [
+        {
+          "title": "Übersetzung",
+          "objective": "Translate the sentence",
+          "steps": [
+            {
+              "key": "s1",
+              "toolId": "text.translate",
+              "title": "Translate",
+              "input": {
+                "text": "good morning, see you at nine",
+                "target": "de"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["text.translate"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "allow",
+        "reasonsInclude": ["RISK_LOW"]
+      }
+    ]
+  }
+}

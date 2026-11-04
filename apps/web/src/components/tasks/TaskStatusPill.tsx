@@ -1,6 +1,6 @@
 'use client';
 
-import type { StepStatus, TaskStatus } from '@jarvis/contracts';
+import type { StepStatus, TaskOutcome, TaskStatus } from '@jarvis/contracts';
 import { taskStateTone } from '@jarvis/tokens';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -11,6 +11,7 @@ import {
   CircleSlash,
   Clock,
   Hand,
+  MessageCircleQuestionMark,
   Play,
   Route,
   ShieldCheck,
@@ -19,6 +20,7 @@ import {
 } from 'lucide-react';
 import { StatusPill, type Tone } from '@/components/ui/Badge';
 import { useI18n } from '@/i18n/I18nProvider';
+import type { TranslateFn } from '@/i18n/translate';
 
 /** Web icons per task state (tokens.icons). */
 export const TASK_STATUS_ICON: Record<TaskStatus, LucideIcon> = {
@@ -37,9 +39,46 @@ export function taskTone(status: TaskStatus): Tone {
   return taskStateTone[status];
 }
 
+/**
+ * A completed task that ended with a clarifying question waits for the user: it reads "Needs
+ * your answer" (neutral accent), never "Completed" — a question is not a result, nor a failure.
+ */
+function asksQuestion(status: TaskStatus, outcome: TaskOutcome | null | undefined): boolean {
+  return status === 'COMPLETED' && outcome === 'question';
+}
+
+/** The task's state in words, as its chip says it. */
+export function taskStateLabel(
+  t: TranslateFn,
+  task: { status: TaskStatus; outcome?: TaskOutcome | null },
+): string {
+  return asksQuestion(task.status, task.outcome)
+    ? t('common.outcome.question')
+    : t(`common.taskStatus.${task.status}`);
+}
+
 /** Task state chip: icon + localized label + tone (identical on every client). */
-export function TaskStatusPill({ status, className }: { status: TaskStatus; className?: string }) {
+export function TaskStatusPill({
+  status,
+  outcome,
+  className,
+}: {
+  status: TaskStatus;
+  /** TaskSummary.outcome: a 'question' reads "Needs your answer". */
+  outcome?: TaskOutcome | null;
+  className?: string;
+}) {
   const { t } = useI18n();
+  if (asksQuestion(status, outcome)) {
+    return (
+      <StatusPill
+        tone="accent"
+        icon={MessageCircleQuestionMark}
+        label={t('common.outcome.question')}
+        className={className}
+      />
+    );
+  }
   return (
     <StatusPill
       tone={taskTone(status)}

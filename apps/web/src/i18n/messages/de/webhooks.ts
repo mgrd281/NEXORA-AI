@@ -1,0 +1,127 @@
+import type { Catalog } from '../../types';
+import type source from '../en/webhooks';
+
+const webhooks: Catalog<typeof source> = {
+  sectionTitle: 'Entwicklung',
+  sectionDescription: 'Eigene Dienste mit JARVIS verbinden.',
+  title: 'Webhooks',
+  summary:
+    'JARVIS ruft deinen HTTPS-Endpunkt auf, wenn etwas passiert – etwa wenn eine Aufgabe fertig ist oder eine Freigabe auf dich wartet.',
+  privacy:
+    'Nutzdaten enthalten nur IDs, Typen, Status und Zeiten – nie Anfragetexte, Ergebnisse, E-Mail-Inhalte, Dateinamen oder Erinnerungen.',
+  signing:
+    'Jede Zustellung ist nach Standard Webhooks (HMAC-SHA256) mit dem eigenen Geheimnis des Endpunkts signiert.',
+  add: 'Endpunkt hinzufügen',
+  empty: 'Noch keine Endpunkte.',
+  loading: 'Webhook-Endpunkte werden geladen …',
+  loadError: 'Die Webhook-Endpunkte konnten nicht geladen werden.',
+  limit: '{count} von {max} Endpunkten',
+  listLabel: 'Webhook-Endpunkte',
+  status: {
+    active: 'Aktiv',
+    disabled: 'Aus',
+  },
+  disabledReason: {
+    user: 'Von dir ausgeschaltet.',
+    failures: 'Nach {count} fehlgeschlagenen Zustellungen in Folge ausgeschaltet.',
+  },
+  events: '{count, plural, one {# Ereignis} other {# Ereignisse}}',
+  lastDelivery: 'Letzte Zustellung {time}',
+  noDeliveries: 'Noch keine Zustellungen',
+  failing:
+    '{count, plural, one {Letzte Zustellung fehlgeschlagen} other {# Zustellungen in Folge fehlgeschlagen}}',
+  secretHint: 'Geheimnis {hint}',
+  enabled: 'Ereignisse senden',
+  actions: {
+    test: 'Test senden',
+    deliveries: 'Zustellprotokoll',
+    hideDeliveries: 'Zustellprotokoll ausblenden',
+    rotate: 'Neues Geheimnis …',
+    delete: 'Löschen …',
+  },
+  actionFor: '{action} ({host})',
+  toasts: {
+    created: 'Endpunkt hinzugefügt.',
+    testQueued: 'Testereignis eingereiht. Es erscheint im Zustellprotokoll.',
+    turnedOn: 'Endpunkt eingeschaltet.',
+    turnedOff: 'Endpunkt ausgeschaltet.',
+    deleted: 'Endpunkt gelöscht.',
+  },
+  form: {
+    title: 'Webhook-Endpunkt hinzufügen',
+    url: 'Endpunkt-URL',
+    urlPlaceholder: 'https://example.com/jarvis/webhooks',
+    urlHint: 'Muss mit https:// beginnen und aus dem Internet erreichbar sein.',
+    urlInvalid: 'Gib eine vollständige Adresse ein, die mit https:// beginnt.',
+    description: 'Beschreibung',
+    descriptionHint: 'Optional, nur für dich.',
+    eventsLegend: 'Zu sendende Ereignisse',
+    eventsRequired: 'Wähle mindestens ein Ereignis.',
+    selectAll: 'Alle auswählen',
+    selectNone: 'Auswahl leeren',
+    create: 'Endpunkt hinzufügen',
+  },
+  eventTypes: {
+    taskCreated: 'Aufgabe erstellt',
+    taskCompleted: 'Aufgabe abgeschlossen',
+    taskFailed: 'Aufgabe fehlgeschlagen',
+    taskCancelled: 'Aufgabe abgebrochen',
+    taskExpired: 'Aufgabe abgelaufen',
+    approvalRequested: 'Freigabe angefragt',
+    approvalDecided: 'Freigabe entschieden',
+    scheduleTriggered: 'Geplante Ausführung gestartet',
+    scheduleFailed: 'Geplante Ausführung fehlgeschlagen',
+    webhookTest: 'Test',
+  },
+  secret: {
+    title: 'Signaturgeheimnis speichern',
+    rotatedTitle: 'Dein neues Signaturgeheimnis',
+    body: 'Mit diesem Geheimnis prüft dein Dienst, dass Zustellungen wirklich von JARVIS kommen. Es wird nur jetzt angezeigt – JARVIS kann es später nicht mehr zeigen.',
+    rotatedBody:
+      'Das alte Geheimnis gilt ab sofort nicht mehr. Hinterlege dieses in deinem Dienst, damit Zustellungen weiter geprüft werden können.',
+    label: 'Signaturgeheimnis',
+    copy: 'Signaturgeheimnis',
+    warning: 'Bewahre es in den Geheimnis-Einstellungen deines Dienstes auf, nie im Code oder in einem Chat.',
+    done: 'Ich habe es gespeichert',
+  },
+  rotateDialog: {
+    title: 'Signaturgeheimnis ersetzen?',
+    body: 'Das aktuelle Geheimnis gilt sofort nicht mehr. Bis dein Dienst das neue verwendet, schlägt die Prüfung von Zustellungen fehl.',
+    confirm: 'Geheimnis ersetzen',
+  },
+  deleteDialog: {
+    title: 'Diesen Endpunkt löschen?',
+    body: 'JARVIS sendet keine Ereignisse mehr an {host} und löscht das Zustellprotokoll.',
+    confirm: 'Endpunkt löschen',
+  },
+  deliveries: {
+    label: 'Zustellungen an {host}',
+    empty: 'Noch keine Zustellungen. Sende einen Test, um hier einen Eintrag zu sehen.',
+    loading: 'Zustellungen werden geladen …',
+    loadError: 'Das Zustellprotokoll konnte nicht geladen werden.',
+    status: {
+      pending: 'Ausstehend',
+      succeeded: 'Zugestellt',
+      failed: 'Fehlgeschlagen',
+    },
+    attempts: 'Versuch {attempts} von {max}',
+    response: 'HTTP {status}',
+    nextAttempt: 'Nächster Versuch {time}',
+    webhookId: 'webhook-id',
+    reasons: {
+      HTTP_ERROR: 'Der Endpunkt hat mit einem Fehler geantwortet.',
+      TIMEOUT: 'Keine Antwort innerhalb von {seconds} Sekunden.',
+      CONNECT_FAILED: 'JARVIS konnte keine Verbindung zum Endpunkt herstellen.',
+      TLS_CERTIFICATE: 'Das Sicherheitszertifikat des Endpunkts ist ungültig.',
+      HOST_NOT_FOUND: 'Der Hostname des Endpunkts wurde nicht gefunden.',
+      PRIVATE_ADDRESS:
+        'Die Adresse führt in ein privates Netzwerk, daher wurde nichts gesendet.',
+      REDIRECT: 'Der Endpunkt hat umgeleitet; Umleitungen folgt JARVIS nicht.',
+      ENDPOINT_DISABLED: 'Der Endpunkt wurde ausgeschaltet.',
+      ENDPOINT_DELETED: 'Der Endpunkt wurde gelöscht.',
+      INTERNAL: 'Bei uns ist etwas schiefgelaufen.',
+    },
+  },
+};
+
+export default webhooks;

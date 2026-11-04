@@ -1,0 +1,18 @@
+{
+  "id": "clarify-summarize-page-no-link",
+  "version": 1,
+  "suite": "clarify",
+  "title": "Summarize a page without a link: JARVIS asks for the link",
+  "modes": ["offline", "pipeline"],
+  "given": {
+    "request": "Summarize the article"
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["url"],
+    "pipeline": {
+      "status": "COMPLETED",
+      "outcome": "question"
+    }
+  }
+}

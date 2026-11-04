@@ -77,6 +77,14 @@ const common: Catalog<typeof source> = {
     emailSend: 'إرسال بريد إلكتروني',
     memorySave: 'الحفظ في الذاكرة',
     assistantAnswer: 'إجابة',
+    documentAnalyze: 'تحليل مستند',
+    textTranslate: 'ترجمة',
+    scheduleCreate: 'إنشاء جدول',
+    conversationRecall: 'استخدام نتيجة سابقة',
+    assistantClarify: 'طرح سؤال عليك',
+  },
+  outcome: {
+    question: 'بانتظار إجابتك',
   },
   source: {
     text: 'مكتوبة',

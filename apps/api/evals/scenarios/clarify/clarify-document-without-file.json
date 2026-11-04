@@ -1,0 +1,14 @@
+{
+  "id": "clarify-document-without-file",
+  "version": 1,
+  "suite": "clarify",
+  "title": "Summarize a document with no file attached: JARVIS asks for it",
+  "modes": ["offline"],
+  "given": {
+    "request": "Summarize the document"
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["document"]
+  }
+}

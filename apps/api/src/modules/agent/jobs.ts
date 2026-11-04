@@ -1,7 +1,8 @@
 /**
- * Job dispatch for the worker: task.plan, task.execute, approval.expire, plus
- * the dead-letter handler, the post-job reconciliation and the sweeper for
- * tasks no job will move on any more.
+ * Job dispatch for the worker: task.plan, task.execute, approval.expire and
+ * (Phase B) schedule.run, retention.sweep, webhook.deliver, plus the
+ * dead-letter handler, the post-job reconciliation and the sweeper for tasks
+ * no job will move on any more.
  */
 import { isTerminal, type TaskError, type TaskStatus } from '@jarvis/contracts';
 import { sql } from 'kysely';
@@ -10,6 +11,9 @@ import type { JobRow } from '../../db/types';
 import { enqueue } from '../jobs/queue';
 import { expireApproval } from './approval-flow';
 import { handleExecuteJob, taskStatus } from './executor';
+import { handleRetentionJob } from './jobs/retention';
+import { handleScheduleRunJob, onScheduleRunDead } from './jobs/schedule-run';
+import { handleWebhookDeliverJob, onWebhookDeliverDead } from './jobs/webhook-deliver';
 import { handlePlanJob, type JobOutcome } from './plan-job';
 import type { RuntimeDeps } from './runtime';
 import { failTask, tryLockTask } from './task-state';
@@ -60,6 +64,12 @@ export async function runJob(deps: RuntimeDeps, job: JobRow): Promise<JobOutcome
       return handleExecuteJob(deps, job);
     case 'approval.expire':
       return handleExpireJob(deps, job);
+    case 'schedule.run':
+      return handleScheduleRunJob(deps, job);
+    case 'retention.sweep':
+      return handleRetentionJob(deps, job);
+    case 'webhook.deliver':
+      return handleWebhookDeliverJob(deps, job);
   }
 }
 
@@ -69,7 +79,9 @@ export async function runJob(deps: RuntimeDeps, job: JobRow): Promise<JobOutcome
  * report OUTCOME_UNKNOWN rather than repeating an interrupted side effect).
  */
 export async function onJobDead(deps: RuntimeDeps, job: JobRow): Promise<void> {
-  if (!job.task_id || job.kind === 'approval.expire') return;
+  if (job.kind === 'schedule.run') return onScheduleRunDead(deps, job);
+  if (job.kind === 'webhook.deliver') return onWebhookDeliverDead(deps, job);
+  if (!job.task_id || job.kind === 'approval.expire' || job.kind === 'retention.sweep') return;
   const ctx = ctxOf(job);
   const taskId = job.task_id;
   await withContext(deps.db, ctx, async (trx) => {

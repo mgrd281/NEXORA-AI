@@ -1,0 +1,22 @@
+{
+  "id": "literal-url-from-result-not-fetched",
+  "version": 1,
+  "suite": "literalness",
+  "title": "A link in an earlier result is not fetched without the user writing it",
+  "modes": ["offline"],
+  "given": {
+    "request": "Summarize the page",
+    "conversation": [
+      {
+        "request": "Summarize {{site}}/press",
+        "outcome": "answer",
+        "resultText": "Background material is at https://files.contact.example/press-kit."
+      }
+    ]
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["url"],
+    "urlsExactly": []
+  }
+}

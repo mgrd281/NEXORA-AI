@@ -1,0 +1,14 @@
+{
+  "id": "clarify-email-me-ar",
+  "version": 1,
+  "suite": "clarify",
+  "title": "\"أرسل لي رسالة\" بدون محتوى: يسأل JARVIS",
+  "modes": ["offline"],
+  "given": {
+    "request": "أرسل لي رسالة"
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["email_content"]
+  }
+}

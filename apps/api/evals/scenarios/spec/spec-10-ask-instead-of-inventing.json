@@ -1,0 +1,20 @@
+{
+  "id": "spec-10-ask-instead-of-inventing",
+  "version": 1,
+  "suite": "spec",
+  "title": "Spec 10 — ask instead of inventing: \"email me\" without content",
+  "modes": ["offline", "pipeline"],
+  "given": {
+    "request": "Email me"
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["email_content"],
+    "sideEffectsAtMost": 0,
+    "pipeline": {
+      "status": "COMPLETED",
+      "outcome": "question",
+      "sideEffectsExactly": 0
+    }
+  }
+}

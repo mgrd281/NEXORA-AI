@@ -4,6 +4,7 @@
  * wherever it is rendered.
  */
 import {
+  AssistantQuestion,
   TaskEventType,
   canCancel,
   canRetryTask,
@@ -21,6 +22,7 @@ import {
 import type { Trx } from '../../db/pool';
 import type { ApprovalRow, StepRow, TaskRow } from '../../db/types';
 import { asMessage } from '../agent/i18n';
+import { loadTaskAttachments } from '../attachments/mappers';
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
@@ -29,6 +31,8 @@ export interface TaskAggregate extends TaskRow {
   steps_total: number | null;
   pending_approval_id: string | null;
   pending_approval_reasons: string[] | null;
+  /** Phase B: files named by the request (taskSummaryQuery always selects it). */
+  attachment_count?: number | null;
 }
 
 /** Base query for TaskSummary lists: task columns + progress + pending approval. */
@@ -65,7 +69,24 @@ export function taskSummaryQuery(trx: Trx) {
         .select('a.reasons')
         .limit(1)
         .as('pending_approval_reasons'),
+      eb
+        .selectFrom('task_attachments as ta')
+        .whereRef('ta.task_id', '=', 't.id')
+        .select(eb.fn.countAll<number>().as('n'))
+        .as('attachment_count'),
     ]);
+}
+
+/** Stored tasks.question → contract (null when absent or not a valid question). */
+function toQuestion(value: unknown): AssistantQuestion | null {
+  if (!value || typeof value !== 'object') return null;
+  const v = value as { text?: unknown; message?: unknown; missing?: unknown };
+  const parsed = AssistantQuestion.safeParse({
+    text: v.text,
+    message: asMessage(v.message),
+    missing: v.missing,
+  });
+  return parsed.success ? parsed.data : null;
 }
 
 function toTaskError(e: unknown): TaskError | null {
@@ -113,6 +134,12 @@ export function toTaskSummary(t: TaskAggregate): TaskSummary {
     createdAt: t.created_at.toISOString(),
     updatedAt: t.updated_at.toISOString(),
     completedAt: iso(t.completed_at),
+    // Phase B
+    conversationId: t.conversation_id,
+    outcome: t.status === 'COMPLETED' ? (t.outcome ?? null) : null,
+    question: t.outcome === 'question' ? toQuestion(t.question) : null,
+    scheduleId: t.schedule_id ?? null,
+    attachmentCount: Number(t.attachment_count ?? 0),
   };
 }
 
@@ -204,7 +231,7 @@ export async function loadTaskDetail(
   const t = (await taskSummaryQuery(trx).where('t.id', '=', taskId).executeTakeFirst()) as
     TaskAggregate | undefined;
   if (!t) return null;
-  const [steps, approvals, events] = await Promise.all([
+  const [steps, approvals, events, attachments] = await Promise.all([
     trx
       .selectFrom('task_steps')
       .selectAll()
@@ -222,6 +249,7 @@ export async function loadTaskDetail(
       .orderBy('id')
       .limit(500)
       .execute(),
+    loadTaskAttachments(trx, [taskId]),
   ]);
   const summary = toTaskSummary(t);
   return {
@@ -240,6 +268,7 @@ export async function loadTaskDetail(
     // Offered only when a retry can help (not for blocked addresses, invalid input…).
     canRetry: canRetryTask(summary, { modelAvailable: ctx.modelAvailable }),
     startedAt: iso(t.started_at),
+    attachments: attachments.get(taskId) ?? [],
   };
 }
 

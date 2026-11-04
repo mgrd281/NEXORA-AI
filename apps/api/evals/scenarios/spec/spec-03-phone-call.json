@@ -1,0 +1,14 @@
+{
+  "id": "spec-03-phone-call",
+  "version": 1,
+  "suite": "spec",
+  "title": "Spec 3 — make a phone call: planned, honest unsupported",
+  "modes": ["offline", "model"],
+  "given": {
+    "request": "Call my dentist and move my appointment to next week"
+  },
+  "expect": {
+    "result": "unsupported",
+    "recipientsExactly": []
+  }
+}

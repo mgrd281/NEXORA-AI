@@ -22,6 +22,26 @@ export interface SmtpSink {
   start(): Promise<void>;
 }
 
+/**
+ * The decoded plain-text body of a single-part message (quoted-printable,
+ * base64 or 7/8bit, as nodemailer writes it).
+ */
+export function textBody(raw: string): string {
+  const split = raw.indexOf('\r\n\r\n');
+  const head = split < 0 ? raw : raw.slice(0, split);
+  const body = split < 0 ? '' : raw.slice(split + 4);
+  const encoding = header(head, 'Content-Transfer-Encoding').toLowerCase();
+  if (encoding === 'base64')
+    return Buffer.from(body.replace(/\s+/g, ''), 'base64').toString('utf8');
+  if (encoding === 'quoted-printable') {
+    const bytes = body
+      .replace(/=\r?\n/g, '')
+      .replace(/=([0-9A-F]{2})/gi, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)));
+    return Buffer.from(bytes, 'latin1').toString('utf8').replace(/\r\n/g, '\n');
+  }
+  return body.replace(/\r\n/g, '\n');
+}
+
 function header(raw: string, name: string): string {
   const m = new RegExp(`^${name}:\\s*(.*)$`, 'im').exec(raw);
   return m?.[1]?.trim() ?? '';

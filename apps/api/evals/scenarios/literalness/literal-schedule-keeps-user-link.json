@@ -1,0 +1,20 @@
+{
+  "id": "literal-schedule-keeps-user-link",
+  "version": 1,
+  "suite": "literalness",
+  "title": "A schedule's request keeps exactly the link the user wrote",
+  "modes": ["offline"],
+  "given": {
+    "request": "Every Monday at 9 summarize {{site}}/article and email it to me",
+    "pages": {
+      "{{site}}/article": "article.html"
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["schedule.create"],
+    "schedule": {
+      "requestIncludes": ["{{site}}/article"]
+    }
+  }
+}

@@ -10,7 +10,9 @@ enum HTTPMethod: String, Sendable {
 /// The JARVIS HTTP API (routes in packages/contracts/src/routes.ts).
 ///
 /// - Authenticates with the bearer token stored in the Keychain.
-/// - Sends `Idempotency-Key` on the idempotent mutations (create task, retry, decide approval).
+/// - Sends `Idempotency-Key` on the idempotent mutations (create task, follow-up, retry,
+///   decide approval, create schedule).
+/// - Uploads files as multipart/form-data with progress; downloads files as bytes.
 /// - Maps error bodies to `ApiError`; a 401 on an authenticated request clears the stored
 ///   credential and notifies the app so it can return to sign-in.
 actor APIClient {
@@ -135,10 +137,7 @@ actor APIClient {
             throw NetworkError.invalidResponse("Invalid URL for \(path)")
         }
         var token: String?
-        if authenticated {
-            guard let current = bearerToken() else { throw NetworkError.notSignedIn }
-            token = current
-        }
+        if authenticated { token = try currentToken() }
         let bodyData = try body.map { try encoder.encode($0) }
         let request = Self.makeRequest(
             url: url,
@@ -148,19 +147,106 @@ actor APIClient {
             idempotencyKey: idempotencyKey,
             language: AppLocale.current.rawValue
         )
+        let data = try await execute(
+            request,
+            authenticated: authenticated,
+            signOutOnUnauthorized: signOutOnUnauthorized
+        ) { try await self.transfer(request) }
+        return try decodeSuccess(data, as: Response.self)
+    }
 
-        let (data, http) = try await transfer(request)
-
-        if (200..<300).contains(http.statusCode) {
-            if let empty = EmptyResponse() as? Response { return empty }
-            do {
-                return try decoder.decode(Response.self, from: data)
-            } catch {
-                throw NetworkError.invalidResponse(
-                    "Unexpected \(Response.self) body: \(String(describing: error))"
-                )
-            }
+    /// Downloads a binary response (a `download` route). Errors map exactly like `send`.
+    func download(_ path: String) async throws -> (data: Data, response: HTTPURLResponse) {
+        guard let url = Self.makeURL(baseURL: baseURL, path: path) else {
+            throw NetworkError.invalidResponse("Invalid URL for \(path)")
         }
+        let token = try currentToken()
+        var request = Self.makeRequest(
+            url: url,
+            method: .get,
+            body: nil,
+            token: token,
+            idempotencyKey: nil,
+            language: AppLocale.current.rawValue
+        )
+        request.setValue("*/*", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 120
+        var response: HTTPURLResponse?
+        let data = try await execute(request, authenticated: true, signOutOnUnauthorized: true) {
+            let result = try await self.transfer(request)
+            response = result.1
+            return result
+        }
+        guard let response else { throw NetworkError.invalidResponse("No response for \(path)") }
+        return (data, response)
+    }
+
+    /// Uploads one file as multipart/form-data (an `upload` route) and decodes the JSON
+    /// response. `onProgress` receives 0…1 as the body is sent (on a background queue).
+    func upload<Response: Decodable & Sendable>(
+        _ path: String,
+        filename: String,
+        mediaType: AttachmentMediaType,
+        data fileData: Data,
+        onProgress: @escaping @Sendable (Double) -> Void,
+        as type: Response.Type = Response.self
+    ) async throws -> Response {
+        guard let url = Self.makeURL(baseURL: baseURL, path: path) else {
+            throw NetworkError.invalidResponse("Invalid URL for \(path)")
+        }
+        let token = try currentToken()
+        let boundary = "jarvis-" + UUID().uuidString
+        let body = AttachmentPolicy.multipartBody(
+            boundary: boundary,
+            filename: filename,
+            mediaType: mediaType,
+            data: fileData
+        )
+        var request = Self.makeRequest(
+            url: url,
+            method: .post,
+            body: nil,
+            token: token,
+            idempotencyKey: nil,
+            language: AppLocale.current.rawValue
+        )
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 120
+        let delegate = UploadProgressDelegate(onProgress: onProgress)
+        let data = try await execute(request, authenticated: true, signOutOnUnauthorized: true) {
+            try await self.transferUpload(request, body: body, delegate: delegate)
+        }
+        return try decodeSuccess(data, as: Response.self)
+    }
+
+    // MARK: Shared response handling
+
+    private func currentToken() throws -> String {
+        guard let token = bearerToken() else { throw NetworkError.notSignedIn }
+        return token
+    }
+
+    private func decodeSuccess<Response: Decodable & Sendable>(_ data: Data, as type: Response.Type) throws -> Response {
+        if let empty = EmptyResponse() as? Response { return empty }
+        do {
+            return try decoder.decode(Response.self, from: data)
+        } catch {
+            throw NetworkError.invalidResponse(
+                "Unexpected \(Response.self) body: \(String(describing: error))"
+            )
+        }
+    }
+
+    /// Runs a transfer and returns the body of a 2xx response; anything else becomes an
+    /// `ApiError`. A 401 on an authenticated request clears the stored credential.
+    private func execute(
+        _ request: URLRequest,
+        authenticated: Bool,
+        signOutOnUnauthorized: Bool,
+        transfer: () async throws -> (Data, HTTPURLResponse)
+    ) async throws -> Data {
+        let (data, http) = try await transfer()
+        if (200..<300).contains(http.statusCode) { return data }
 
         let apiError = ApiError.from(data: data, httpStatus: http.statusCode, decoder: decoder)
         if http.statusCode == 401, authenticated {
@@ -185,5 +271,43 @@ actor APIClient {
             if error.code == .cancelled { throw CancellationError() }
             throw NetworkError(error)
         }
+    }
+
+    private func transferUpload(
+        _ request: URLRequest,
+        body: Data,
+        delegate: UploadProgressDelegate
+    ) async throws -> (Data, HTTPURLResponse) {
+        do {
+            let (data, response) = try await session.upload(for: request, from: body, delegate: delegate)
+            guard let http = response as? HTTPURLResponse else {
+                throw NetworkError.invalidResponse("Not an HTTP response")
+            }
+            return (data, http)
+        } catch let error as URLError {
+            if error.code == .cancelled { throw CancellationError() }
+            throw NetworkError(error)
+        }
+    }
+}
+
+/// Reports upload progress for one task. Immutable, so it is safe to call from
+/// URLSession's delegate queue.
+final class UploadProgressDelegate: NSObject, URLSessionTaskDelegate, Sendable {
+    let onProgress: @Sendable (Double) -> Void
+
+    init(onProgress: @escaping @Sendable (Double) -> Void) {
+        self.onProgress = onProgress
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        didSendBodyData bytesSent: Int64,
+        totalBytesSent: Int64,
+        totalBytesExpectedToSend: Int64
+    ) {
+        guard totalBytesExpectedToSend > 0 else { return }
+        onProgress(min(1, max(0, Double(totalBytesSent) / Double(totalBytesExpectedToSend))))
     }
 }

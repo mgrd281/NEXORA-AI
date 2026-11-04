@@ -1,0 +1,20 @@
+{
+  "id": "planning-offline-weather-unsupported",
+  "version": 1,
+  "suite": "planning",
+  "title": "A question the offline planner cannot answer is refused honestly",
+  "modes": ["offline", "pipeline"],
+  "given": {
+    "request": "What's the weather in Lisbon tomorrow?"
+  },
+  "expect": {
+    "result": "unsupported",
+    "errorReason": "OFFLINE_UNSUPPORTED",
+    "pipeline": {
+      "status": "FAILED",
+      "errorCode": "PLANNER_UNSUPPORTED",
+      "errorReason": "OFFLINE_UNSUPPORTED",
+      "sideEffectsExactly": 0
+    }
+  }
+}

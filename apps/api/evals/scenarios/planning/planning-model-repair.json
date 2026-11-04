@@ -1,0 +1,61 @@
+{
+  "id": "planning-model-repair",
+  "version": 1,
+  "suite": "planning",
+  "title": "An invalid first plan is repaired on the second attempt",
+  "modes": ["model"],
+  "given": {
+    "request": "Summarize {{site}}/article",
+    "pages": {
+      "{{site}}/article": "article.html"
+    },
+    "model": {
+      "scriptOnly": true,
+      "plans": [
+        {
+          "title": "Summary",
+          "objective": "Summarize",
+          "steps": [
+            {
+              "key": "s1",
+              "toolId": "text.summarize",
+              "title": "Summarize",
+              "input": {
+                "text": "{{s2.text}}",
+                "language": "en"
+              }
+            }
+          ]
+        },
+        {
+          "title": "Summary",
+          "objective": "Summarize",
+          "steps": [
+            {
+              "key": "s1",
+              "toolId": "web.fetch",
+              "title": "Fetch",
+              "input": {
+                "url": "{{site}}/article"
+              }
+            },
+            {
+              "key": "s2",
+              "toolId": "text.summarize",
+              "title": "Summarize",
+              "input": {
+                "text": "{{s1.text}}",
+                "language": "en"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["web.fetch", "text.summarize"],
+    "urlsExactly": ["{{site}}/article"]
+  }
+}

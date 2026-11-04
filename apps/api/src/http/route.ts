@@ -50,14 +50,22 @@ export function defineRoute<N extends RouteName>(
   deps: AppDeps,
   name: N,
   handler: (input: RouteInput<N>) => Promise<Result<N>>,
-  options: { rateLimit?: { max: number; timeWindow: string } } = {},
+  options: {
+    rateLimit?: { max: number; timeWindow: string };
+    /**
+     * Encapsulated plugin context to add the route to (e.g. the one that
+     * registers @fastify/multipart for uploads only). The route still counts
+     * as registered on `app` for assertAllRoutesRegistered.
+     */
+    scope?: FastifyInstance;
+  } = {},
 ): void {
   const def = routes[name] as RouteDef;
   const set = registered.get(app) ?? new Set();
   set.add(name);
   registered.set(app, set);
 
-  app.route({
+  (options.scope ?? app).route({
     method: def.method,
     url: def.path,
     config: { routeName: name, ...(options.rateLimit ? { rateLimit: options.rateLimit } : {}) },
@@ -82,6 +90,21 @@ export function defineRoute<N extends RouteName>(
         (idempotencyKey.length < 8 || idempotencyKey.length > 128)
       ) {
         throw new AppError('VALIDATION_FAILED', 'Idempotency-Key must be 8–128 characters');
+      }
+
+      if (def.download) {
+        // The handler streams the file itself (headers, status, body); there is
+        // no JSON to validate and no 204 to send. It must have sent the reply.
+        await handler({
+          params,
+          query,
+          body,
+          ctx: ctx!,
+          req,
+          reply,
+          idempotencyKey,
+        } as RouteInput<N>);
+        return reply;
       }
 
       const run = async () => {

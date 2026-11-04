@@ -31,6 +31,26 @@ export const qk = {
     users: ['admin', 'users'] as const,
     audit: ['admin', 'audit'] as const,
   },
+  // Phase B
+  conversations: {
+    all: ['conversations'] as const,
+    lists: ['conversations', 'list'] as const,
+    list: (q = '') => ['conversations', 'list', q] as const,
+    details: ['conversations', 'detail'] as const,
+    detail: (id: string) => ['conversations', 'detail', id] as const,
+  },
+  schedules: {
+    all: ['schedules'] as const,
+    list: ['schedules', 'list'] as const,
+    detail: (id: string) => ['schedules', 'detail', id] as const,
+  },
+  skills: ['skills'] as const,
+  webhooks: {
+    all: ['webhooks'] as const,
+    list: ['webhooks', 'list'] as const,
+    deliveries: (id: string) => ['webhooks', 'deliveries', id] as const,
+  },
+  timeZones: ['meta', 'timeZones'] as const,
 };
 
 export type QueryKey = readonly unknown[];

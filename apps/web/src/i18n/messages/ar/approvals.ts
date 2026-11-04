@@ -5,6 +5,8 @@ const approvals: Catalog<typeof source> = {
   title: {
     email: 'راجع هذه الرسالة',
     generic: 'راجع هذا الإجراء',
+    schedule: 'راجع هذا الجدول',
+    memory: 'راجع ما سيتذكّره JARVIS',
   },
   fields: {
     from: 'من',
@@ -12,6 +14,15 @@ const approvals: Catalog<typeof source> = {
     subject: 'الموضوع',
     body: 'الرسالة',
     noSubject: '(بلا موضوع)',
+    scheduleTitle: 'الاسم',
+    request: 'ما يُطلب في كل تنفيذ',
+    repeats: 'التكرار',
+    nextRuns: 'مواعيد التنفيذ القادمة',
+    timeZone: 'المنطقة الزمنية',
+    rule: 'القاعدة (RFC 5545)',
+    memoryContent: 'سيُحفظ',
+    memoryKind: 'النوع',
+    source: 'مأخوذ من',
   },
   recipients:
     '{count, plural, zero {لا مستلمين} one {مستلم واحد} two {مستلمان} few {# مستلمين} many {# مستلمًا} other {# مستلم}}',
@@ -31,6 +42,12 @@ const approvals: Catalog<typeof source> = {
     UNTRUSTED_CONTENT:
       'يستخدم محتوى من صفحة ويب تتضمن نصًا يبدو كتعليمات موجّهة إلى الذكاء الاصطناعي.',
     AUTO_APPROVED_SELF: 'تسمح إعداداتك بإرسال الرسائل إلى نفسك دون سؤالك.',
+    SKILL_DISABLED: 'المهارة اللازمة لذلك متوقفة في الإعدادات.',
+    SKILL_COST_LIMIT: 'قد تتجاوز التكلفة الحد المحدد لهذه المهارة.',
+    MEMORY_FROM_CONTENT: 'النص مأخوذ من نتيجة سابقة، لذا تقرر أنت بالضبط ما يحتفظ به JARVIS.',
+    UNTRUSTED_MEMORY:
+      'النص مأخوذ من محتوى حاول توجيه تعليمات إلى مساعدي الذكاء الاصطناعي، لذا لا يمكن حفظه.',
+    FUTURE_RUNS: 'ينشئ هذا طلبات تُنفَّذ لاحقًا من تلقاء نفسها، لذا يسألك JARVIS قبل إنشائه.',
     unknown: 'وضعت سياسة الأمان علامة على هذا الإجراء ({code}).',
   },
   untrusted: {
@@ -52,15 +69,21 @@ const approvals: Catalog<typeof source> = {
   approve: {
     email: 'الموافقة والإرسال',
     generic: 'موافقة',
+    schedule: 'الموافقة والإنشاء',
+    memory: 'الموافقة والحفظ',
   },
   approveLabel: {
     email: 'الموافقة والإرسال لهذه الرسالة',
     generic: 'الموافقة على هذا الإجراء',
+    schedule: 'الموافقة والإنشاء لهذا الجدول',
+    memory: 'الموافقة والحفظ في الذاكرة',
   },
   decline: 'رفض',
   declineLabel: {
     email: 'رفض إرسال هذه الرسالة',
     generic: 'رفض هذا الإجراء',
+    schedule: 'رفض إنشاء هذا الجدول',
+    memory: 'رفض الحفظ في الذاكرة',
   },
   results: {
     approved: 'تمت الموافقة. يتابع JARVIS تنفيذ المهمة.',
@@ -78,6 +101,10 @@ const approvals: Catalog<typeof source> = {
     CANCELLED: 'أُلغي هذا الطلب.',
     SUPERSEDED: 'استُبدل هذا الطلب بطلب أحدث.',
   },
+  scheduleNote:
+    'لا يُوافَق على أي شيء مسبقًا: يُخطَّط لكل تنفيذ ويُفحص على حدة، وكل ما يحتاج إلى موافقتك سيسألك حينها.',
+  memorySource: 'نتيجة مهمة سابقة',
+  memoryNote: 'يحتفظ JARVIS بهذا النص كما هو تمامًا، ويمكنك تعديله أو حذفه لاحقًا في الذاكرة.',
   openTask: 'فتح المهمة',
   task: 'المهمة',
 };

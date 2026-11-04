@@ -120,3 +120,12 @@
   position: relative;
   z-index: 1;
 }
+
+/* Files attached to the request: a paperclip and their number. */
+.files {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font: var(--text-caption);
+  color: var(--color-text-secondary);
+}

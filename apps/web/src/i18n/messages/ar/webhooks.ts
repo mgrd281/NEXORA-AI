@@ -1,0 +1,127 @@
+import type { Catalog } from '../../types';
+import type source from '../en/webhooks';
+
+const webhooks: Catalog<typeof source> = {
+  sectionTitle: 'للمطوّرين',
+  sectionDescription: 'اربط خدماتك الخاصة بـJARVIS.',
+  title: 'الويب هوك',
+  summary:
+    'يستدعي JARVIS نقطة النهاية HTTPS الخاصة بك عند حدوث شيء، مثل انتهاء مهمة أو انتظار موافقة منك.',
+  privacy:
+    'لا تحتوي البيانات المرسلة إلا على المعرّفات والأنواع والحالات والأوقات، ولا تتضمن أبدًا نص الطلبات أو النتائج أو محتوى البريد أو أسماء الملفات أو الذكريات.',
+  signing:
+    'كل عملية تسليم موقّعة وفق معيار Standard Webhooks (HMAC-SHA256) باستخدام السر الخاص بنقطة النهاية.',
+  add: 'إضافة نقطة نهاية',
+  empty: 'لا توجد نقاط نهاية بعد.',
+  loading: 'جارٍ تحميل نقاط نهاية الويب هوك…',
+  loadError: 'تعذّر تحميل نقاط نهاية الويب هوك.',
+  limit: '{count} من {max} نقاط نهاية',
+  listLabel: 'نقاط نهاية الويب هوك',
+  status: {
+    active: 'نشطة',
+    disabled: 'متوقفة',
+  },
+  disabledReason: {
+    user: 'أوقفتها بنفسك.',
+    failures: 'أُوقفت بعد {count} عمليات تسليم فاشلة متتالية.',
+  },
+  events:
+    '{count, plural, zero {لا أحداث} one {حدث واحد} two {حدثان} few {# أحداث} many {# حدثًا} other {# حدث}}',
+  lastDelivery: 'آخر تسليم {time}',
+  noDeliveries: 'لا توجد عمليات تسليم بعد',
+  failing:
+    '{count, plural, zero {لا إخفاقات} one {فشل آخر تسليم} two {فشلت عمليتا تسليم متتاليتان} few {فشلت # عمليات تسليم متتالية} many {فشلت # عملية تسليم متتالية} other {فشلت # عملية تسليم متتالية}}',
+  secretHint: 'السر {hint}',
+  enabled: 'إرسال الأحداث',
+  actions: {
+    test: 'إرسال اختبار',
+    deliveries: 'سجل التسليم',
+    hideDeliveries: 'إخفاء سجل التسليم',
+    rotate: 'سر جديد…',
+    delete: 'حذف…',
+  },
+  actionFor: '{action} ({host})',
+  toasts: {
+    created: 'أُضيفت نقطة النهاية.',
+    testQueued: 'أُدرج الحدث الاختباري في قائمة الانتظار، وسيظهر في سجل التسليم.',
+    turnedOn: 'شُغّلت نقطة النهاية.',
+    turnedOff: 'أُوقفت نقطة النهاية.',
+    deleted: 'حُذفت نقطة النهاية.',
+  },
+  form: {
+    title: 'إضافة نقطة نهاية ويب هوك',
+    url: 'عنوان نقطة النهاية',
+    urlPlaceholder: 'https://example.com/jarvis/webhooks',
+    urlHint: 'يجب أن يبدأ بـ https:// وأن يكون متاحًا من الإنترنت.',
+    urlInvalid: 'أدخل عنوانًا كاملًا يبدأ بـ https://.',
+    description: 'الوصف',
+    descriptionHint: 'اختياري، يظهر لك فقط.',
+    eventsLegend: 'الأحداث المراد إرسالها',
+    eventsRequired: 'اختر حدثًا واحدًا على الأقل.',
+    selectAll: 'تحديد الكل',
+    selectNone: 'مسح التحديد',
+    create: 'إضافة نقطة النهاية',
+  },
+  eventTypes: {
+    taskCreated: 'إنشاء مهمة',
+    taskCompleted: 'اكتمال مهمة',
+    taskFailed: 'فشل مهمة',
+    taskCancelled: 'إلغاء مهمة',
+    taskExpired: 'انتهاء صلاحية مهمة',
+    approvalRequested: 'طلب موافقة',
+    approvalDecided: 'البت في موافقة',
+    scheduleTriggered: 'بدء تنفيذ مجدول',
+    scheduleFailed: 'فشل تنفيذ مجدول',
+    webhookTest: 'اختبار',
+  },
+  secret: {
+    title: 'احفظ سر التوقيع',
+    rotatedTitle: 'سر التوقيع الجديد',
+    body: 'تستخدم خدمتك هذا السر للتحقق من أن عمليات التسليم واردة فعلًا من JARVIS. يظهر الآن فقط، ولا يستطيع JARVIS عرضه مرة أخرى.',
+    rotatedBody:
+      'توقف السر القديم عن العمل للتو. حدّث خدمتك بهذا السر لمواصلة التحقق من عمليات التسليم.',
+    label: 'سر التوقيع',
+    copy: 'سر التوقيع',
+    warning: 'احفظه في إعدادات الأسرار لخدمتك، وليس في الشيفرة أو في محادثة.',
+    done: 'حفظته',
+  },
+  rotateDialog: {
+    title: 'هل تريد استبدال سر التوقيع؟',
+    body: 'يتوقف السر الحالي عن العمل فورًا، وسيفشل التحقق من عمليات التسليم حتى تستخدم خدمتك السر الجديد.',
+    confirm: 'استبدال السر',
+  },
+  deleteDialog: {
+    title: 'هل تريد حذف نقطة النهاية هذه؟',
+    body: 'سيتوقف JARVIS عن إرسال الأحداث إلى {host} ويحذف سجل التسليم الخاص بها.',
+    confirm: 'حذف نقطة النهاية',
+  },
+  deliveries: {
+    label: 'عمليات التسليم إلى {host}',
+    empty: 'لا توجد عمليات تسليم بعد. أرسل اختبارًا لترى أول عملية هنا.',
+    loading: 'جارٍ تحميل عمليات التسليم…',
+    loadError: 'تعذّر تحميل سجل التسليم.',
+    status: {
+      pending: 'قيد الانتظار',
+      succeeded: 'سُلِّم',
+      failed: 'فشل',
+    },
+    attempts: 'المحاولة {attempts} من {max}',
+    response: 'HTTP {status}',
+    nextAttempt: 'المحاولة التالية {time}',
+    webhookId: 'webhook-id',
+    reasons: {
+      HTTP_ERROR: 'ردّت نقطة النهاية بخطأ.',
+      TIMEOUT: 'لم يصل رد خلال {seconds} ثوانٍ.',
+      CONNECT_FAILED: 'تعذّر على JARVIS الاتصال بنقطة النهاية.',
+      TLS_CERTIFICATE: 'شهادة الأمان لنقطة النهاية غير صالحة.',
+      HOST_NOT_FOUND: 'تعذّر العثور على اسم مضيف نقطة النهاية.',
+      PRIVATE_ADDRESS: 'يشير العنوان إلى شبكة خاصة، لذلك لم يُرسَل شيء.',
+      REDIRECT: 'ردّت نقطة النهاية بإعادة توجيه، ولا يتبع JARVIS عمليات إعادة التوجيه.',
+      ENDPOINT_DISABLED: 'أُوقفت نقطة النهاية.',
+      ENDPOINT_DELETED: 'حُذفت نقطة النهاية.',
+      INTERNAL: 'حدث خطأ من جهتنا.',
+    },
+  },
+};
+
+export default webhooks;

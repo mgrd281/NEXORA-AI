@@ -1,0 +1,14 @@
+{
+  "id": "planning-remember-ar",
+  "version": 1,
+  "suite": "planning",
+  "title": "تذكر معلومة (عربي)",
+  "modes": ["offline"],
+  "given": {
+    "request": "تذكر أن رقم مكتبي هو ٤١٢"
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["memory.save"]
+  }
+}

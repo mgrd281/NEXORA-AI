@@ -10,6 +10,8 @@ export interface ComposerHandle {
    * `selection` selects a range (a template's slot); otherwise the caret goes to the end.
    */
   setText: (text: string, selection?: { start: number; end: number }) => void;
+  /** Opens the file picker, when this composer accepts attachments. */
+  attach?: () => void;
 }
 
 interface Registry {

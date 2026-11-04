@@ -1,0 +1,27 @@
+{
+  "id": "followup-unrelated-new-request",
+  "version": 1,
+  "suite": "followup",
+  "title": "A new request in a conversation is planned on its own",
+  "modes": ["offline"],
+  "given": {
+    "request": "Remember that the dentist moved to Friday",
+    "conversation": [
+      {
+        "request": "Summarize {{site}}/article",
+        "outcome": "answer",
+        "resultText": "Renewable sources generated more electricity than coal across Europe for the first time this year."
+      }
+    ]
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["memory.save"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "allow"
+      }
+    ]
+  }
+}

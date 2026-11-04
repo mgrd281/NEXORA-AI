@@ -1,0 +1,24 @@
+{
+  "id": "schedules-weekdays-en",
+  "version": 1,
+  "suite": "schedules",
+  "title": "Every weekday at 7:30",
+  "modes": ["offline"],
+  "requires": ["tool:schedule.create"],
+  "given": {
+    "request": "Every weekday at 7:30 summarize {{site}}/article",
+    "pages": {
+      "{{site}}/article": "article.html"
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "schedule": {
+      "recurrence": {
+        "frequency": "weekly",
+        "byWeekday": ["MO", "TU", "WE", "TH", "FR"],
+        "time": "07:30"
+      }
+    }
+  }
+}

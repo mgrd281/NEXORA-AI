@@ -51,6 +51,9 @@ private struct MainTabView: View {
             HomeView()
                 .tabItem { Label("Home", systemImage: MeridianIcon.home) }
                 .tag(AppTab.home)
+            ConversationListView()
+                .tabItem { Label("Conversations", systemImage: MeridianIcon.conversations) }
+                .tag(AppTab.conversations)
             TaskListView()
                 .tabItem { Label("Tasks", systemImage: MeridianIcon.tasks) }
                 .tag(AppTab.tasks)

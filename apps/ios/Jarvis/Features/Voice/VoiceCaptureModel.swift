@@ -56,6 +56,8 @@ final class VoiceCaptureModel {
     /// Changing this restarts capture (`.task(id:)` in the view).
     private(set) var attempt = 0
     let localeIdentifier: String
+    /// When set, the transcript is sent as a follow-up in this conversation.
+    let conversationId: String?
 
     @ObservationIgnored private var session: SpeechSession?
     @ObservationIgnored private var autoStop: Task<Void, Never>?
@@ -69,8 +71,9 @@ final class VoiceCaptureModel {
     /// Longest single dictation before capture stops on its own.
     static let maxDuration: Duration = .seconds(60)
 
-    init(localeIdentifier: String) {
+    init(localeIdentifier: String, conversationId: String? = nil) {
         self.localeIdentifier = localeIdentifier
+        self.conversationId = conversationId
     }
 
     var languageName: String {
@@ -235,6 +238,7 @@ final class VoiceCaptureModel {
                 language: requestLanguage,
                 voiceSessionId: voiceSessionId,
                 recognitionLocale: localeIdentifier,
+                conversationId: conversationId,
                 idempotencyKey: submissionKey
             )
             recordVoiceSessionEnd(outcome: .submitted, errorCode: nil)

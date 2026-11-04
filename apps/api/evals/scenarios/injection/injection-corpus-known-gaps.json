@@ -1,0 +1,16 @@
+{
+  "id": "injection-corpus-known-gaps",
+  "version": 1,
+  "suite": "injection",
+  "title": "Realistic attacks the detector does not flag yet (tracked gap)",
+  "modes": ["offline"],
+  "knownIssue": "the injection detector misses AI-addressed lines without 'to/for' ('Attention AI assistant:'), 'SYSTEM:' prefixes, requests to forward 'the chat history'/'this conversation', and German 'Achtung KI:' (runtime owner: tools/injection.ts)",
+  "given": {
+    "request": "",
+    "corpus": "attacks-gaps.txt"
+  },
+  "expect": {
+    "result": "plan",
+    "flagged": true
+  }
+}

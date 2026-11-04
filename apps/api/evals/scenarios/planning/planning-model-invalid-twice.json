@@ -1,0 +1,32 @@
+{
+  "id": "planning-model-invalid-twice",
+  "version": 1,
+  "suite": "planning",
+  "title": "Two invalid model plans: the task fails with INVALID_PLAN",
+  "modes": ["model"],
+  "given": {
+    "request": "Summarize {{site}}/article",
+    "pages": {
+      "{{site}}/article": "article.html"
+    },
+    "model": {
+      "scriptOnly": true,
+      "plans": [
+        {
+          "title": "x",
+          "objective": "y",
+          "steps": []
+        },
+        {
+          "title": "x",
+          "objective": "y",
+          "steps": []
+        }
+      ]
+    }
+  },
+  "expect": {
+    "result": "unsupported",
+    "errorReason": "INVALID_PLAN"
+  }
+}

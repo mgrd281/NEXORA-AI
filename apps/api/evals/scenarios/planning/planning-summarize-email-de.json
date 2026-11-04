@@ -1,0 +1,25 @@
+{
+  "id": "planning-summarize-email-de",
+  "version": 1,
+  "suite": "planning",
+  "title": "Zusammenfassen und per E-Mail an mich",
+  "modes": ["offline"],
+  "given": {
+    "request": "Fasse {{site}}/artikel zusammen und schick sie mir per E-Mail",
+    "pages": {
+      "{{site}}/artikel": "artikel-de.html"
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["web.fetch", "text.summarize", "email.send"],
+    "recipientsExactly": ["{{me}}"],
+    "policy": [
+      {
+        "step": 2,
+        "decision": "require_approval",
+        "reasonsInclude": ["RECIPIENT_SELF"]
+      }
+    ]
+  }
+}

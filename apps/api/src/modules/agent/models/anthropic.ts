@@ -19,6 +19,8 @@
  */
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
+import { metrics } from '../../../observability/metrics';
+import { addSpanAttributes, withSpan } from '../../../observability/tracing';
 import { AgentError } from '../errors';
 import type {
   ModelAdapter,
@@ -139,6 +141,34 @@ function textAfterFallback(message: Pick<BetaMessage, 'content'>): string | null
   return idx < 0 ? null : joinText(message.content.slice(idx + 1));
 }
 
+/**
+ * Telemetry of one call (counts and ids only, never prompts or output): the
+ * served model, token counts and stop reason on the model.call span, and the
+ * model usage metric — for refused calls too (they are billed).
+ */
+function observe(usage: ModelUsage, stopReason: string | null): void {
+  addSpanAttributes({
+    'gen_ai.response.model': usage.model,
+    'gen_ai.usage.input_tokens': usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens,
+    'gen_ai.usage.output_tokens': usage.outputTokens,
+    'gen_ai.response.finish_reason': stopReason ?? 'unknown',
+  });
+  metrics.modelUsage({
+    model: usage.model,
+    purpose: usage.purpose,
+    inputTokens: usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens,
+    outputTokens: usage.outputTokens,
+    costMicro: usage.costMicro,
+  });
+}
+
+const spanAttributes = (req: { model: string; purpose: ModelPurpose; effort: string }) => ({
+  'gen_ai.system': 'anthropic',
+  'gen_ai.request.model': req.model,
+  'jarvis.model.purpose': req.purpose,
+  'jarvis.model.effort': req.effort,
+});
+
 export function createAnthropicAdapter(opts: {
   apiKey?: string;
   client?: AnthropicClientLike;
@@ -165,73 +195,79 @@ export function createAnthropicAdapter(opts: {
     });
   }
 
-  return {
-    provider: 'anthropic',
-
-    async generateObject<T>(req: ObjectRequest<T>): Promise<ObjectResult<T>> {
-      const format = betaZodOutputFormat(req.schema);
-      let message: BetaMessage;
+  async function objectCall<T>(req: ObjectRequest<T>): Promise<ObjectResult<T>> {
+    const format = betaZodOutputFormat(req.schema);
+    let message: BetaMessage;
+    try {
+      message = (await client.beta.messages.create(
+        {
+          ...base(req),
+          output_config: { format, effort: req.effort },
+          stream: false,
+        },
+        { signal: req.signal },
+      )) as BetaMessage;
+    } catch (err) {
+      throw mapAnthropicError(err);
+    }
+    const usage = usageFrom(req.purpose, req.model, message);
+    observe(usage, message.stop_reason);
+    if (message.stop_reason === 'refusal') throw refused(req.purpose, req.model, message);
+    const raw = textOf(message);
+    if (message.stop_reason === 'max_tokens') {
+      return { ok: false, raw, issues: ['The response was cut off at the length limit.'], usage };
+    }
+    const candidates = [raw, textAfterFallback(message)].filter(
+      (c): c is string => typeof c === 'string' && c.length > 0,
+    );
+    let detail = 'The response contained no structured output.';
+    for (const candidate of candidates) {
       try {
+        return { ok: true, value: format.parse(candidate) as T, usage };
+      } catch (err) {
+        detail = err instanceof Error ? err.message : String(err);
+      }
+    }
+    return { ok: false, raw, issues: [detail.slice(0, 2_000)], usage };
+  }
+
+  async function textCall(req: TextRequest): Promise<TextResult> {
+    let message: BetaMessage;
+    try {
+      if (req.onDelta) {
+        const stream = client.beta.messages.stream(
+          { ...base(req), output_config: { effort: req.effort } },
+          { signal: req.signal },
+        );
+        for await (const event of stream) {
+          if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+            await req.onDelta(event.delta.text);
+          }
+        }
+        message = (await stream.finalMessage()) as BetaMessage;
+      } else {
         message = (await client.beta.messages.create(
-          {
-            ...base(req),
-            output_config: { format, effort: req.effort },
-            stream: false,
-          },
+          { ...base(req), output_config: { effort: req.effort }, stream: false },
           { signal: req.signal },
         )) as BetaMessage;
-      } catch (err) {
-        throw mapAnthropicError(err);
       }
-      const usage = usageFrom(req.purpose, req.model, message);
-      if (message.stop_reason === 'refusal') throw refused(req.purpose, req.model, message);
-      const raw = textOf(message);
-      if (message.stop_reason === 'max_tokens') {
-        return { ok: false, raw, issues: ['The response was cut off at the length limit.'], usage };
-      }
-      const candidates = [raw, textAfterFallback(message)].filter(
-        (c): c is string => typeof c === 'string' && c.length > 0,
-      );
-      let detail = 'The response contained no structured output.';
-      for (const candidate of candidates) {
-        try {
-          return { ok: true, value: format.parse(candidate) as T, usage };
-        } catch (err) {
-          detail = err instanceof Error ? err.message : String(err);
-        }
-      }
-      return { ok: false, raw, issues: [detail.slice(0, 2_000)], usage };
-    },
+    } catch (err) {
+      throw mapAnthropicError(err);
+    }
+    observe(usageFrom(req.purpose, req.model, message), message.stop_reason);
+    if (message.stop_reason === 'refusal') throw refused(req.purpose, req.model, message);
+    return {
+      text: textOf(message),
+      truncated: message.stop_reason === 'max_tokens',
+      usage: usageFrom(req.purpose, req.model, message),
+    };
+  }
 
-    async generateText(req: TextRequest): Promise<TextResult> {
-      let message: BetaMessage;
-      try {
-        if (req.onDelta) {
-          const stream = client.beta.messages.stream(
-            { ...base(req), output_config: { effort: req.effort } },
-            { signal: req.signal },
-          );
-          for await (const event of stream) {
-            if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-              await req.onDelta(event.delta.text);
-            }
-          }
-          message = (await stream.finalMessage()) as BetaMessage;
-        } else {
-          message = (await client.beta.messages.create(
-            { ...base(req), output_config: { effort: req.effort }, stream: false },
-            { signal: req.signal },
-          )) as BetaMessage;
-        }
-      } catch (err) {
-        throw mapAnthropicError(err);
-      }
-      if (message.stop_reason === 'refusal') throw refused(req.purpose, req.model, message);
-      return {
-        text: textOf(message),
-        truncated: message.stop_reason === 'max_tokens',
-        usage: usageFrom(req.purpose, req.model, message),
-      };
-    },
+  return {
+    provider: 'anthropic',
+    generateObject: <T>(req: ObjectRequest<T>) =>
+      withSpan('model.call', spanAttributes(req), () => objectCall(req)),
+    generateText: (req: TextRequest) =>
+      withSpan('model.call', spanAttributes(req), () => textCall(req)),
   };
 }

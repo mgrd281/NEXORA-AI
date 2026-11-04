@@ -27,6 +27,9 @@ const errors: Catalog<typeof source> = {
       'JARVIS kann nicht bestätigen, ob das passiert ist. Vor einem erneuten Versuch prüfen.',
     VERIFICATION_FAILED: 'JARVIS konnte das Ergebnis nicht überprüfen.',
     FETCH_BLOCKED: 'Diese Webadresse ist nicht erlaubt.',
+    PAYLOAD_TOO_LARGE: 'Die Datei ist zu groß.',
+    UNSUPPORTED_MEDIA_TYPE: 'Mit dieser Art von Datei kann JARVIS nichts anfangen.',
+    SERVICE_UNAVAILABLE: 'Das ist auf diesem Server gerade nicht verfügbar.',
     INTERNAL: 'Bei uns ist etwas schiefgelaufen.',
   },
   reasons: {
@@ -79,6 +82,57 @@ const errors: Catalog<typeof source> = {
     EXTERNAL_MODELS_DISABLED: 'Externe KI-Modelle sind in deinen Einstellungen ausgeschaltet.',
     MODEL_UNAVAILABLE: 'Auf diesem Server ist kein KI-Modell verfügbar.',
     POLICY_DENIED: 'Die Sicherheitsrichtlinie hat „{step}“ blockiert.',
+    ATTACHMENT_NOT_FOUND: 'Die angehängte Datei existiert nicht mehr.',
+    ATTACHMENT_UNREADABLE:
+      'JARVIS konnte die angehängte Datei nicht lesen. Möglicherweise ist sie beschädigt.',
+    ATTACHMENT_ENCRYPTED: 'Die Datei ist passwortgeschützt, daher kann JARVIS sie nicht lesen.',
+    DOCUMENT_NO_TEXT:
+      'Das Dokument enthält keinen Text, den JARVIS lesen kann – zum Beispiel, weil es ein Scan ist. Gescannte Seiten zu lesen ist noch nicht möglich.',
+    DOCUMENT_TOO_MANY_PAGES: 'Das Dokument hat mehr als {max} Seiten.',
+    STORAGE_UNAVAILABLE: 'Der Dateispeicher ist gerade nicht erreichbar.',
+    UNSUPPORTED_LANGUAGE: 'In {language} kann JARVIS nicht übersetzen.',
+    NOTHING_TO_RECALL: 'In diesem Gespräch gibt es kein früheres Ergebnis, das sich verwenden lässt.',
+    SCHEDULE_LIMIT_REACHED: 'Du hast bereits {max} Zeitpläne, mehr sind nicht möglich.',
+    INVALID_RECURRENCE: 'Die Wiederholungsregel des Zeitplans ist ungültig.',
+    SKILL_DISABLED: 'Dafür ist die Fähigkeit „{skill}“ nötig, die in den Einstellungen ausgeschaltet ist.',
+    UNTRUSTED_MEMORY:
+      'JARVIS speichert das nicht im Gedächtnis: Es stammt aus Inhalten, die versucht haben, KI-Assistenten Anweisungen zu geben.',
+  },
+  api: {
+    FILE_TOO_LARGE: 'Dateien dürfen höchstens {limitMb} MB groß sein.',
+    UNSUPPORTED_FILE_TYPE: 'JARVIS liest PDF-, Word- (.docx), Text-, Markdown- und CSV-Dateien.',
+    FILE_CONTENT_MISMATCH: 'Der Inhalt der Datei passt nicht zu ihrem Dateityp.',
+    FILE_EMPTY: 'Die Datei ist leer.',
+    TOO_MANY_ATTACHMENTS: 'An eine Anfrage lassen sich höchstens {max} Dateien anhängen.',
+    ATTACHMENT_NOT_FOUND:
+      'Eine der Dateien existiert nicht mehr. Entferne sie und hänge sie erneut an.',
+    ATTACHMENT_EXPIRED: 'Eine der Dateien ist abgelaufen, bevor sie gesendet wurde. Hänge sie erneut an.',
+    ATTACHMENT_IN_OTHER_CONVERSATION:
+      'Eine der Dateien gehört zu einem anderen Gespräch. Hänge sie hier erneut an.',
+    STORAGE_NOT_CONFIGURED: 'Datei-Uploads sind auf diesem Server nicht eingerichtet.',
+    STORAGE_UNAVAILABLE: 'Der Dateispeicher ist gerade nicht erreichbar. Gleich erneut versuchen.',
+    CONVERSATION_BUSY:
+      'JARVIS arbeitet noch an diesem Gespräch. Warte, bis es fertig ist, oder brich es ab, und sende dann deine Nachfrage.',
+    CONVERSATION_ACTIVE_TASK:
+      'Eine Aufgabe in diesem Gespräch läuft noch. Warte, bis sie fertig ist, oder brich sie ab, und lösche dann das Gespräch.',
+    SCHEDULE_LIMIT_REACHED:
+      'Es sind höchstens {max} Zeitpläne möglich. Lösche einen, um einen neuen anzulegen.',
+    INVALID_RECURRENCE: 'Diese Wiederholungsregel ist ungültig.',
+    RECURRENCE_HAS_NO_OCCURRENCES:
+      'Dieser Zeitplan würde nie ausgeführt. Prüfe die gewählten Tage.',
+    UNKNOWN_TIME_ZONE: 'Diese Zeitzone kennt der Server nicht. Wähle eine andere.',
+    SCHEDULE_COMPLETED:
+      'Für diesen Zeitplan sind keine Ausführungen mehr übrig, daher lässt er sich nicht fortsetzen.',
+    WEBHOOK_LIMIT_REACHED: 'Es sind höchstens {max} Webhook-Endpunkte möglich.',
+    WEBHOOK_URL_INVALID:
+      'Gib eine vollständige https://-Adresse ohne Benutzernamen, Passwort oder #-Fragment ein.',
+    WEBHOOK_URL_INSECURE: 'Webhook-Adressen müssen mit https:// beginnen.',
+    WEBHOOK_URL_BLOCKED:
+      '{host} liegt in einem privaten oder lokalen Netzwerk, daher sendet JARVIS nicht dorthin.',
+    WEBHOOK_DISABLED: 'Dieser Endpunkt ist ausgeschaltet. Schalte ihn ein, um einen Test zu senden.',
+    SKILL_NOT_TOGGLEABLE:
+      'Diese Fähigkeit gehört zur Grundfunktion von JARVIS und lässt sich nicht ausschalten.',
+    SKILL_PLANNED: 'Diese Fähigkeit ist noch nicht verfügbar.',
   },
   network: 'JARVIS ist nicht erreichbar. Internetverbindung prüfen.',
   badResponse: 'JARVIS hat eine unerwartete Antwort gesendet. Seite neu laden.',

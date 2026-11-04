@@ -2,6 +2,8 @@ const approvals = {
   title: {
     email: 'Review this email',
     generic: 'Review this action',
+    schedule: 'Review this schedule',
+    memory: 'Review what JARVIS will remember',
   },
   fields: {
     from: 'From',
@@ -9,6 +11,15 @@ const approvals = {
     subject: 'Subject',
     body: 'Message',
     noSubject: '(no subject)',
+    scheduleTitle: 'Name',
+    request: 'Each run asks',
+    repeats: 'Repeats',
+    nextRuns: 'Next runs',
+    timeZone: 'Time zone',
+    rule: 'Rule (RFC 5545)',
+    memoryContent: 'Will be saved',
+    memoryKind: 'Kind',
+    source: 'Taken from',
   },
   recipients: '{count, plural, one {# recipient} other {# recipients}}',
   /** The sentence the user consents to; subject and recipients are isolated user text. */
@@ -28,6 +39,14 @@ const approvals = {
     UNTRUSTED_CONTENT:
       'The action uses content from a web page that contains text that looks like instructions aimed at AI.',
     AUTO_APPROVED_SELF: 'Your settings allow emails to yourself without asking.',
+    SKILL_DISABLED: 'The skill this needs is turned off in Settings.',
+    SKILL_COST_LIMIT: 'This may cost more than the limit set for this skill.',
+    MEMORY_FROM_CONTENT:
+      'The text comes from an earlier result, so you decide exactly what JARVIS keeps.',
+    UNTRUSTED_MEMORY:
+      'The text comes from content that tried to instruct AI assistants, so it can’t be saved.',
+    FUTURE_RUNS:
+      'This sets up requests that run later on their own. JARVIS asks before creating it.',
     unknown: 'The safety policy flagged this action ({code}).',
   },
   untrusted: {
@@ -49,15 +68,21 @@ const approvals = {
   approve: {
     email: 'Approve and send',
     generic: 'Approve',
+    schedule: 'Approve and create',
+    memory: 'Approve and save',
   },
   approveLabel: {
     email: 'Approve and send this email',
     generic: 'Approve this action',
+    schedule: 'Approve and create this schedule',
+    memory: 'Approve and save this to memory',
   },
   decline: 'Decline',
   declineLabel: {
     email: 'Decline sending this email',
     generic: 'Decline this action',
+    schedule: 'Decline creating this schedule',
+    memory: 'Decline saving this to memory',
   },
   results: {
     approved: 'Approved. JARVIS is continuing the task.',
@@ -75,6 +100,10 @@ const approvals = {
     CANCELLED: 'This request was cancelled.',
     SUPERSEDED: 'This request was replaced by a newer one.',
   },
+  scheduleNote:
+    'Nothing is approved in advance: every run is planned and checked on its own, and anything that needs your approval will ask you then.',
+  memorySource: 'The result of an earlier task',
+  memoryNote: 'JARVIS keeps exactly this text. You can edit or delete it in Memory later.',
   openTask: 'Open task',
   task: 'Task',
 };

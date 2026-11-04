@@ -11,9 +11,29 @@
  * internal de-duplication values are left out: execution idempotency keys and
  * hashes of step inputs, both derived from data the export already contains.
  * Step data never holds connection secrets; tools decrypt them in memory only.
+ *
+ * Version 3 (Phase B): conversations with their localisable titles; messages
+ * with kind and server message; tasks with outcome, question, schedule and
+ * the ids of their attachments; `attachments` (metadata, the download path,
+ * and the file itself, base64, while the export stays within
+ * EXPORT_FILE_BYTES — beyond that a file is listed with
+ * `contentOmitted: 'EXPORT_SIZE_LIMIT'` and stays downloadable at
+ * `downloadPath`); `scheduledTasks` (contract Schedule) with their runs;
+ * `webhooks` (endpoints without any secret — not even the envelope — and the
+ * delivery log without payloads).
  */
-import { sql } from 'kysely';
+import type { Readable } from 'node:stream';
 import type { Trx } from '../../db/pool';
+import type { AttachmentRow } from '../../db/types';
+import { ATTACHMENT_COLUMNS, toAttachment } from '../attachments/mappers';
+import { toSchedule } from '../schedules/mappers';
+import type { ObjectStorage } from '../storage/types';
+import {
+  DELIVERY_COLUMNS,
+  ENDPOINT_COLUMNS,
+  toWebhookDelivery,
+  toWebhookEndpoint,
+} from '../webhooks/mappers';
 import {
   approvalQuery,
   taskSummaryQuery,
@@ -29,7 +49,9 @@ import { toNotification } from '../notifications/routes';
 import { loadMe } from './me';
 
 export const EXPORT_FORMAT = 'jarvis.account-export';
-export const EXPORT_VERSION = 2;
+export const EXPORT_VERSION = 3;
+/** Files embedded in one export at most (raw bytes); larger sets list the rest by download path. */
+export const EXPORT_FILE_BYTES = 20 * 1024 * 1024;
 
 const iso = (d: Date | string | null | undefined) => (d ? new Date(d).toISOString() : null);
 
@@ -100,17 +122,43 @@ export async function buildAccountExport(
 
   const conversations = await trx
     .selectFrom('conversations')
-    .select(['id', 'title', 'created_at', 'updated_at'])
+    .select(['id', 'title', 'title_message', 'created_at', 'updated_at'])
     .where('user_id', '=', userId)
     .orderBy('created_at')
     .execute();
   const messages = await trx
     .selectFrom('messages')
-    .select(['id', 'conversation_id', 'task_id', 'role', 'content', 'language', 'created_at'])
+    .select([
+      'id',
+      'conversation_id',
+      'task_id',
+      'role',
+      'kind',
+      'content',
+      'content_message',
+      'language',
+      'created_at',
+    ])
     .where('user_id', '=', userId)
     .orderBy('created_at')
     .orderBy('id')
     .execute();
+  const attachments = await trx
+    .selectFrom('attachments')
+    .select(ATTACHMENT_COLUMNS)
+    .select(['extracted_at'])
+    .where('user_id', '=', userId)
+    .orderBy('created_at')
+    .orderBy('id')
+    .execute();
+  const taskAttachments = await trx
+    .selectFrom('task_attachments')
+    .select(['task_id', 'attachment_id', 'position'])
+    .where('user_id', '=', userId)
+    .orderBy('task_id')
+    .orderBy('position')
+    .execute();
+  const attachmentsByTask = groupBy(taskAttachments, (l) => l.task_id);
   const memories = await trx
     .selectFrom('memories')
     .select(MEMORY_COLUMNS)
@@ -166,21 +214,37 @@ export async function buildAccountExport(
     .where('user_id', '=', userId)
     .orderBy('started_at')
     .execute();
-  // scheduled_tasks has no Kysely table type yet (no API writes it in this build).
-  const scheduled = (
-    await sql<{
-      id: string;
-      title: string;
-      request: string;
-      rrule: string;
-      time_zone: string;
-      enabled: boolean;
-      next_run_at: Date | null;
-      last_run_at: Date | null;
-      created_at: Date;
-    }>`select id, title, request, rrule, time_zone, enabled, next_run_at, last_run_at, created_at
-         from scheduled_tasks where user_id = ${userId} order by created_at`.execute(trx)
-  ).rows;
+  const scheduled = await trx
+    .selectFrom('scheduled_tasks')
+    .selectAll()
+    .where('user_id', '=', userId)
+    .orderBy('created_at')
+    .orderBy('id')
+    .execute();
+  const scheduleRuns = await trx
+    .selectFrom('schedule_runs')
+    .select(['id', 'schedule_id', 'occurrence_at', 'status', 'reason', 'task_id', 'created_at'])
+    .where('user_id', '=', userId)
+    .orderBy('occurrence_at')
+    .orderBy('id')
+    .execute();
+  const runsBySchedule = groupBy(scheduleRuns, (r) => r.schedule_id);
+  // Never secret_ciphertext / secret_key_id: ENDPOINT_COLUMNS lists display columns only.
+  const webhookEndpoints = await trx
+    .selectFrom('webhook_endpoints')
+    .select(ENDPOINT_COLUMNS)
+    .where('user_id', '=', userId)
+    .orderBy('created_at')
+    .orderBy('id')
+    .execute();
+  const webhookDeliveries = await trx
+    .selectFrom('webhook_deliveries')
+    .select(DELIVERY_COLUMNS)
+    .where('user_id', '=', userId)
+    .orderBy('created_at')
+    .orderBy('id')
+    .execute();
+  const deliveriesByEndpoint = groupBy(webhookDeliveries, (d) => d.endpoint_id);
   const usageEvents = await trx
     .selectFrom('usage_events')
     .select([
@@ -252,6 +316,7 @@ export async function buildAccountExport(
       })),
       approvals: (approvalsByTask.get(t.id) ?? []).map(toApproval),
       events: (eventsByTask.get(t.id) ?? []).map(toTaskEvent),
+      attachmentIds: (attachmentsByTask.get(t.id) ?? []).map((l) => l.attachment_id),
     })),
     // Account-level events (e.g. connection changes) that belong to no task.
     events: (eventsByTask.get(null) ?? []).map((e) => ({
@@ -263,6 +328,7 @@ export async function buildAccountExport(
     conversations: conversations.map((c) => ({
       id: c.id,
       title: c.title,
+      titleMessage: c.title_message ?? null,
       createdAt: c.created_at.toISOString(),
       updatedAt: c.updated_at.toISOString(),
     })),
@@ -271,9 +337,18 @@ export async function buildAccountExport(
       conversationId: m.conversation_id,
       taskId: m.task_id,
       role: m.role,
+      kind: m.kind,
       content: m.content,
+      contentMessage: m.content_message ?? null,
       language: m.language,
       createdAt: m.created_at.toISOString(),
+    })),
+    // File contents are added by embedExportFiles (outside the database transaction).
+    attachments: attachments.map((a) => ({
+      ...toAttachment(a),
+      extractedAt: iso(a.extracted_at),
+      content: null as ExportFileContent | null,
+      contentOmitted: null as ExportFileOmission | null,
     })),
     memories: memories.map(toMemory),
     connections: connections.map(toConnection),
@@ -307,16 +382,20 @@ export async function buildAccountExport(
       startedAt: v.started_at.toISOString(),
       endedAt: iso(v.ended_at),
     })),
-    scheduledTasks: scheduled.map((s) => ({
-      id: s.id,
-      title: s.title,
-      request: s.request,
-      rrule: s.rrule,
-      timeZone: s.time_zone,
-      enabled: s.enabled,
-      nextRunAt: iso(s.next_run_at),
-      lastRunAt: iso(s.last_run_at),
-      createdAt: s.created_at.toISOString(),
+    scheduledTasks: scheduled.map((row) => ({
+      ...toSchedule(row),
+      runs: (runsBySchedule.get(row.id) ?? []).map((r) => ({
+        id: r.id,
+        occurrenceAt: new Date(r.occurrence_at).toISOString(),
+        status: r.status,
+        reason: r.reason,
+        taskId: r.task_id,
+        createdAt: r.created_at.toISOString(),
+      })),
+    })),
+    webhooks: webhookEndpoints.map((e) => ({
+      ...toWebhookEndpoint(e),
+      deliveries: (deliveriesByEndpoint.get(e.id) ?? []).map(toWebhookDelivery),
     })),
     usage: {
       events: usageEvents.map((u) => ({
@@ -341,4 +420,74 @@ export async function buildAccountExport(
       })),
     },
   };
+}
+
+export interface ExportFileContent {
+  encoding: 'base64';
+  data: string;
+}
+/** Why a file's bytes are not in the export (it stays downloadable while the account exists). */
+export type ExportFileOmission = 'EXPORT_SIZE_LIMIT' | 'STORAGE_NOT_CONFIGURED' | 'NOT_AVAILABLE';
+
+/** Where the export's files are stored (read in the export's transaction, fetched after it). */
+export async function exportFileLocations(
+  trx: Trx,
+  userId: string,
+): Promise<
+  Pick<AttachmentRow, 'id' | 'size_bytes' | 'storage_driver' | 'storage_key' | 'sha256'>[]
+> {
+  return trx
+    .selectFrom('attachments')
+    .select(['id', 'size_bytes', 'storage_driver', 'storage_key', 'sha256'])
+    .where('user_id', '=', userId)
+    .orderBy('created_at')
+    .orderBy('id')
+    .execute();
+}
+
+async function readAll(stream: Readable): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk as Uint8Array));
+  return Buffer.concat(chunks);
+}
+
+/**
+ * Embeds the files' bytes (base64) into an export built by buildAccountExport,
+ * oldest first, up to EXPORT_FILE_BYTES in total. A file that is not embedded
+ * says why (contentOmitted); none is ever silently dropped.
+ */
+export async function embedExportFiles(
+  doc: Record<string, unknown>,
+  files: Awaited<ReturnType<typeof exportFileLocations>>,
+  storage: ObjectStorage | null,
+  log: { warn(obj: object, msg: string): void },
+  limitBytes = EXPORT_FILE_BYTES,
+): Promise<void> {
+  const entries = doc.attachments as {
+    id: string;
+    content: ExportFileContent | null;
+    contentOmitted: ExportFileOmission | null;
+  }[];
+  const byId = new Map(files.map((f) => [f.id, f]));
+  let used = 0;
+  for (const entry of entries) {
+    const file = byId.get(entry.id);
+    if (!storage || !file) {
+      entry.contentOmitted = storage ? 'NOT_AVAILABLE' : 'STORAGE_NOT_CONFIGURED';
+      continue;
+    }
+    if (used + file.size_bytes > limitBytes) {
+      entry.contentOmitted = 'EXPORT_SIZE_LIMIT';
+      continue;
+    }
+    try {
+      if (file.storage_driver !== storage.driver) throw new Error('stored with another driver');
+      const bytes = await readAll(await storage.get(file.storage_key));
+      used += bytes.length;
+      entry.content = { encoding: 'base64', data: bytes.toString('base64') };
+    } catch (err) {
+      log.warn({ err, attachmentId: file.id }, 'export: file not readable');
+      entry.contentOmitted = 'NOT_AVAILABLE';
+    }
+  }
 }

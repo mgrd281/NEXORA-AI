@@ -1,0 +1,23 @@
+{
+  "id": "documents-earlier-file",
+  "version": 1,
+  "suite": "documents",
+  "title": "A file from earlier in the conversation is used when named",
+  "modes": ["offline"],
+  "requires": ["tool:document.analyze"],
+  "given": {
+    "request": "Summarize the document",
+    "attachments": [
+      {
+        "filename": "meeting-notes.txt",
+        "mediaType": "text/plain",
+        "fixture": "meeting-notes.txt",
+        "earlier": true
+      }
+    ]
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["document.analyze"]
+  }
+}

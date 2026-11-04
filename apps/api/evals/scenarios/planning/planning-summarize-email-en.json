@@ -1,0 +1,35 @@
+{
+  "id": "planning-summarize-email-en",
+  "version": 1,
+  "suite": "planning",
+  "title": "Summarize a link and email it to me",
+  "modes": ["offline", "pipeline"],
+  "given": {
+    "request": "Summarize {{site}}/article and email it to me",
+    "pages": {
+      "{{site}}/article": "article.html"
+    },
+    "approve": "all"
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["web.fetch", "text.summarize", "email.send"],
+    "recipientsExactly": ["{{me}}"],
+    "urlsExactly": ["{{site}}/article"],
+    "policy": [
+      {
+        "step": 2,
+        "decision": "require_approval",
+        "reasonsInclude": ["RISK_MEDIUM", "RECIPIENT_SELF"]
+      }
+    ],
+    "pipeline": {
+      "status": "COMPLETED",
+      "outcome": "action",
+      "sideEffectsExactly": 1,
+      "executions": {
+        "email.send": 1
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "id": "planning-email-note-ar",
+  "version": 1,
+  "suite": "planning",
+  "title": "أرسل لي ملاحظة",
+  "modes": ["offline"],
+  "given": {
+    "request": "أرسل لي: موعد الطبيب يوم الثلاثاء"
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["email.send"],
+    "recipientsExactly": ["{{me}}"]
+  }
+}

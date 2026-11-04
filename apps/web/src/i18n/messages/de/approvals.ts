@@ -5,6 +5,8 @@ const approvals: Catalog<typeof source> = {
   title: {
     email: 'E-Mail prüfen',
     generic: 'Aktion prüfen',
+    schedule: 'Zeitplan prüfen',
+    memory: 'Prüfen, was JARVIS sich merkt',
   },
   fields: {
     from: 'Von',
@@ -12,6 +14,15 @@ const approvals: Catalog<typeof source> = {
     subject: 'Betreff',
     body: 'Nachricht',
     noSubject: '(kein Betreff)',
+    scheduleTitle: 'Name',
+    request: 'Jede Ausführung fragt',
+    repeats: 'Wiederholung',
+    nextRuns: 'Nächste Ausführungen',
+    timeZone: 'Zeitzone',
+    rule: 'Regel (RFC 5545)',
+    memoryContent: 'Wird gespeichert',
+    memoryKind: 'Art',
+    source: 'Stammt aus',
   },
   recipients: '{count, plural, one {# Empfänger} other {# Empfänger}}',
   summary: {
@@ -32,6 +43,14 @@ const approvals: Catalog<typeof source> = {
       'Die Aktion nutzt Inhalte einer Webseite, die Text enthält, der wie Anweisungen an eine KI aussieht.',
     AUTO_APPROVED_SELF:
       'Laut Einstellungen dürfen E-Mails an die eigene Adresse ohne Nachfrage gesendet werden.',
+    SKILL_DISABLED: 'Die nötige Fähigkeit ist in den Einstellungen ausgeschaltet.',
+    SKILL_COST_LIMIT: 'Das könnte mehr kosten als das Limit dieser Fähigkeit.',
+    MEMORY_FROM_CONTENT:
+      'Der Text stammt aus einem früheren Ergebnis, daher entscheidest du genau, was JARVIS behält.',
+    UNTRUSTED_MEMORY:
+      'Der Text stammt aus Inhalten, die KI-Assistenten Anweisungen geben wollten, daher kann er nicht gespeichert werden.',
+    FUTURE_RUNS:
+      'Damit werden Anfragen eingerichtet, die später von selbst laufen. JARVIS fragt vor dem Anlegen.',
     unknown: 'Die Sicherheitsrichtlinie hat diese Aktion markiert ({code}).',
   },
   untrusted: {
@@ -53,15 +72,21 @@ const approvals: Catalog<typeof source> = {
   approve: {
     email: 'Freigeben und senden',
     generic: 'Freigeben',
+    schedule: 'Freigeben und anlegen',
+    memory: 'Freigeben und speichern',
   },
   approveLabel: {
     email: 'Diese E-Mail freigeben und senden',
     generic: 'Diese Aktion freigeben',
+    schedule: 'Zeitplan freigeben und anlegen',
+    memory: 'Erinnerung freigeben und speichern',
   },
   decline: 'Ablehnen',
   declineLabel: {
     email: 'Senden dieser E-Mail ablehnen',
     generic: 'Diese Aktion ablehnen',
+    schedule: 'Anlegen dieses Zeitplans ablehnen',
+    memory: 'Speichern im Gedächtnis ablehnen',
   },
   results: {
     approved: 'Freigegeben. JARVIS setzt die Aufgabe fort.',
@@ -79,6 +104,11 @@ const approvals: Catalog<typeof source> = {
     CANCELLED: 'Diese Anfrage wurde abgebrochen.',
     SUPERSEDED: 'Diese Anfrage wurde durch eine neuere ersetzt.',
   },
+  scheduleNote:
+    'Nichts wird im Voraus freigegeben: Jede Ausführung wird einzeln geplant und geprüft, und was eine Freigabe braucht, fragt dich dann.',
+  memorySource: 'Das Ergebnis einer früheren Aufgabe',
+  memoryNote:
+    'JARVIS behält genau diesen Text. Du kannst ihn später unter „Gedächtnis“ ändern oder löschen.',
   openTask: 'Aufgabe öffnen',
   task: 'Aufgabe',
 };

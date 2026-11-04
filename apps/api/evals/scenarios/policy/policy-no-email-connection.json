@@ -1,0 +1,34 @@
+{
+  "id": "policy-no-email-connection",
+  "version": 1,
+  "suite": "policy",
+  "title": "Email step without an email connection is denied",
+  "modes": ["offline", "pipeline"],
+  "given": {
+    "request": "Summarize {{site}}/article and email it to me",
+    "pages": {
+      "{{site}}/article": "article.html"
+    },
+    "connections": ["web"]
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "CONNECTION_MISSING",
+    "toolSequence": ["web.fetch", "text.summarize", "email.send"],
+    "policy": [
+      {
+        "step": 2,
+        "decision": "deny",
+        "reasonsInclude": ["CONNECTION_MISSING"]
+      }
+    ],
+    "pipeline": {
+      "status": "FAILED",
+      "errorCode": "CONNECTION_REQUIRED",
+      "sideEffectsExactly": 0,
+      "executions": {
+        "web.fetch": 0
+      }
+    }
+  }
+}

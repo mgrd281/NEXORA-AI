@@ -1,0 +1,21 @@
+{
+  "id": "planning-summarize-de",
+  "version": 1,
+  "suite": "planning",
+  "title": "Fasse eine Seite zusammen (Deutsch)",
+  "modes": ["offline", "pipeline"],
+  "given": {
+    "request": "Fasse {{site}}/artikel zusammen",
+    "pages": {
+      "{{site}}/artikel": "artikel-de.html"
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["web.fetch", "text.summarize"],
+    "urlsExactly": ["{{site}}/artikel"],
+    "pipeline": {
+      "status": "COMPLETED"
+    }
+  }
+}

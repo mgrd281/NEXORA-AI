@@ -1,0 +1,15 @@
+{
+  "id": "planning-email-note-de",
+  "version": 1,
+  "suite": "planning",
+  "title": "Schick mir eine Notiz",
+  "modes": ["offline"],
+  "given": {
+    "request": "Schick mir: Zahnarzttermin am Dienstag um 15 Uhr"
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["email.send"],
+    "recipientsExactly": ["{{me}}"]
+  }
+}

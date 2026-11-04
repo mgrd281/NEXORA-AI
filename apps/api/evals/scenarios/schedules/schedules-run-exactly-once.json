@@ -1,0 +1,24 @@
+{
+  "id": "schedules-run-exactly-once",
+  "version": 1,
+  "suite": "schedules",
+  "title": "A due occurrence creates exactly one scheduled task",
+  "modes": ["pipeline"],
+  "requires": ["tool:schedule.create", "export:modules/agent/jobs/schedule-run#schedulerTick"],
+  "given": {
+    "request": "Every day at 7 summarize {{site}}/article",
+    "pages": {
+      "{{site}}/article": "article.html"
+    },
+    "approve": "all"
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["schedule.create"],
+    "pipeline": {
+      "status": "COMPLETED",
+      "schedulesCreated": 1,
+      "scheduledTasksCreated": 1
+    }
+  }
+}

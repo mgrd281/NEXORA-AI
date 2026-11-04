@@ -1,0 +1,14 @@
+{
+  "id": "clarify-remember-that-without-result",
+  "version": 1,
+  "suite": "clarify",
+  "title": "\"Remember that\" with nothing earlier: JARVIS asks what",
+  "modes": ["offline"],
+  "given": {
+    "request": "Remember that"
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["previous_result"]
+  }
+}

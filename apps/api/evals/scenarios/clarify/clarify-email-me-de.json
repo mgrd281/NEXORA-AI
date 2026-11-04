@@ -1,0 +1,14 @@
+{
+  "id": "clarify-email-me-de",
+  "version": 1,
+  "suite": "clarify",
+  "title": "„Schick mir eine E-Mail“ ohne Inhalt: JARVIS fragt",
+  "modes": ["offline"],
+  "given": {
+    "request": "Schick mir eine E-Mail"
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["email_content"]
+  }
+}

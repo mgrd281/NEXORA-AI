@@ -41,11 +41,60 @@ const Env = z.object({
   /** Approval requests expire after this many hours. */
   APPROVAL_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(4),
+
+  /* ---------------------------------------------------------------- */
+  /* Phase B (docs/architecture/phase-b.md §9). All optional.          */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Object storage for attachments: 'local' (a directory; development/test
+   * only), 's3' (any S3-compatible service), or 'none' (uploads unavailable,
+   * and the UI says so). Unset: 'local' outside production, 'none' in production.
+   */
+  STORAGE_DRIVER: z.enum(['none', 'local', 's3']).optional(),
+  /** Directory of the local driver (created if missing). */
+  STORAGE_LOCAL_DIR: z.string().min(1).default('.data/attachments'),
+  S3_BUCKET: z.string().min(3).max(63).optional(),
+  S3_REGION: z.string().min(1).default('eu-central-1'),
+  /** For S3-compatible services (MinIO, R2, …); unset for AWS. */
+  S3_ENDPOINT: z.string().url().optional(),
+  S3_FORCE_PATH_STYLE: bool.default(false),
+  /** Deployment prefix before the per-tenant key, e.g. "jarvis/". */
+  S3_PREFIX: z
+    .string()
+    .regex(/^(?:[A-Za-z0-9._-]+\/)*$/, 'empty, or path segments each ending in /')
+    .default(''),
+  /** Server-side encryption of every object (at rest). */
+  S3_SSE: z.enum(['AES256', 'aws:kms']).default('AES256'),
+  S3_SSE_KMS_KEY_ID: z.string().optional(),
+  // Credentials come from the AWS default chain (AWS_ACCESS_KEY_ID, roles, …), never from here.
+
+  /**
+   * Development/test only: webhook hosts (host:port) that may be reached over
+   * plain http and on private addresses (a local receiver). Refused in production.
+   */
+  WEBHOOK_ALLOW_INSECURE_HOSTS: z.string().default(''),
+
+  /** OpenTelemetry traces are exported (OTLP/HTTP) only when this is set. */
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().optional(),
+  /** Default: jarvis-api / jarvis-worker by process. */
+  OTEL_SERVICE_NAME: z.string().min(1).optional(),
+  /** Errors are reported to Sentry (PII scrubbed) only when this is set. */
+  SENTRY_DSN: z.string().url().optional(),
+  SENTRY_ENVIRONMENT: z.string().min(1).optional(),
+  /** GET /metrics (Prometheus) is served only when this is set; send it as a bearer token. */
+  METRICS_TOKEN: z.string().min(24).optional(),
 });
+
+export type StorageDriver = 'none' | 'local' | 's3';
 
 export type Config = z.infer<typeof Env> & {
   fetchAllowPrivateHosts: Set<string>;
   isProduction: boolean;
+  /** STORAGE_DRIVER resolved (see above). */
+  storageDriver: StorageDriver;
+  /** WEBHOOK_ALLOW_INSECURE_HOSTS parsed (host:port entries). */
+  webhookAllowInsecureHosts: Set<string>;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -61,13 +110,33 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       .map((s) => s.trim())
       .filter(Boolean),
   );
-  if (isProduction && (fetchAllowPrivateHosts.size > 0 || c.SMTP_ALLOW_INSECURE_LOCALHOST)) {
+  const webhookAllowInsecureHosts = new Set(
+    c.WEBHOOK_ALLOW_INSECURE_HOSTS.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+  if (
+    isProduction &&
+    (fetchAllowPrivateHosts.size > 0 ||
+      c.SMTP_ALLOW_INSECURE_LOCALHOST ||
+      webhookAllowInsecureHosts.size > 0)
+  ) {
     throw new Error(
-      'FETCH_ALLOW_PRIVATE_HOSTS and SMTP_ALLOW_INSECURE_LOCALHOST are not allowed in production',
+      'FETCH_ALLOW_PRIVATE_HOSTS, SMTP_ALLOW_INSECURE_LOCALHOST and WEBHOOK_ALLOW_INSECURE_HOSTS are not allowed in production',
     );
   }
   if (isProduction && !c.WEB_ORIGIN.startsWith('https://')) {
     throw new Error('WEB_ORIGIN must be https in production');
   }
-  return { ...c, fetchAllowPrivateHosts, isProduction };
+  const storageDriver: StorageDriver = c.STORAGE_DRIVER ?? (isProduction ? 'none' : 'local');
+  if (isProduction && storageDriver === 'local') {
+    throw new Error('STORAGE_DRIVER=local is for development and tests; use s3 in production');
+  }
+  if (storageDriver === 's3' && !c.S3_BUCKET) {
+    throw new Error('STORAGE_DRIVER=s3 needs S3_BUCKET');
+  }
+  if (c.S3_SSE === 'aws:kms' && storageDriver === 's3' && !c.S3_SSE_KMS_KEY_ID) {
+    throw new Error('S3_SSE=aws:kms needs S3_SSE_KMS_KEY_ID');
+  }
+  return { ...c, fetchAllowPrivateHosts, isProduction, storageDriver, webhookAllowInsecureHosts };
 }

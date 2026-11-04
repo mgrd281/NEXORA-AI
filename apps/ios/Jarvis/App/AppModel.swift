@@ -4,6 +4,7 @@ import UIKit
 
 enum AppTab: Hashable, Sendable {
     case home
+    case conversations
     case tasks
     case memory
     case settings
@@ -31,6 +32,15 @@ final class AppModel {
     private(set) var recentOutcome: PresenceOutcome?
     /// Voice capture is active (Presence shows `listening`; nothing is read aloud meanwhile).
     var isCapturingVoice = false
+    /// The last assistant status seen (Home loads it), for capability-dependent controls
+    /// such as attaching files. Nil until known: controls then stay available and the
+    /// server's answer explains any refusal.
+    var assistantStatus: AssistantStatus?
+
+    /// Whether file uploads are known to be unavailable on this server.
+    var attachmentsUnavailable: Bool {
+        assistantStatus?.capabilities.attachments == false
+    }
 
     let api: APIClient
     let live: LiveEvents
@@ -127,6 +137,7 @@ final class AppModel {
 
     private func finishSignOut(notice: String?) {
         me = nil
+        assistantStatus = nil
         voiceTasks.removeAll()
         recentOutcome = nil
         isCapturingVoice = false
@@ -156,15 +167,24 @@ final class AppModel {
         language: AppLocale?,
         voiceSessionId: String? = nil,
         recognitionLocale: String? = nil,
+        attachmentIds: [String] = [],
+        conversationId: String? = nil,
         idempotencyKey: String
     ) async throws -> TaskSummary {
         let request = CreateTaskRequest(
             request: text.trimmingCharacters(in: .whitespacesAndNewlines),
             source: source,
             language: language,
-            voiceSessionId: voiceSessionId
+            voiceSessionId: voiceSessionId,
+            attachmentIds: attachmentIds.isEmpty ? nil : attachmentIds
         )
-        let task = try await api.createTask(request, idempotencyKey: idempotencyKey)
+        let task: TaskSummary
+        if let conversationId {
+            // A follow-up: a new task in that conversation, planned with its earlier turns.
+            task = try await api.followUp(conversationId: conversationId, request, idempotencyKey: idempotencyKey)
+        } else {
+            task = try await api.createTask(request, idempotencyKey: idempotencyKey)
+        }
         if source == .voice, let recognitionLocale {
             voiceTasks[task.id] = recognitionLocale
         }
@@ -215,7 +235,7 @@ final class AppModel {
 
     private func speakResult(of taskId: String, locale: String) async {
         guard !isCapturingVoice, let detail = try? await api.task(id: taskId) else { return }
-        let text = detail.answer ?? detail.resultSummary
+        let text = detail.answer ?? detail.question?.text ?? detail.resultSummary
         guard let text, !text.isEmpty, !isCapturingVoice else { return }
         speaker.speak(text, languageCode: locale)
     }

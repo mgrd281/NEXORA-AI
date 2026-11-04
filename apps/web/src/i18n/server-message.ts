@@ -13,7 +13,13 @@
  * message (model-written titles and summaries exist only in the request's language).
  */
 import type { ServerMessage, TaskError, ToolId } from '@jarvis/contracts';
-import { ServerMessageKey, TaskErrorReason, ToolId as ToolIdEnum } from '@jarvis/contracts';
+import type { SkillId } from '@jarvis/contracts';
+import {
+  ServerMessageKey,
+  SkillId as SkillIdEnum,
+  TaskErrorReason,
+  ToolId as ToolIdEnum,
+} from '@jarvis/contracts';
 import type { MessageKey, Messages } from './catalog';
 import { lookup, type TranslateFn } from './translate';
 import type { MessageParams } from './types';
@@ -40,7 +46,17 @@ export const TOOL_LABEL: Record<ToolId, MessageKey> = {
   'email.send': 'common.tools.emailSend',
   'memory.save': 'common.tools.memorySave',
   'assistant.answer': 'common.tools.assistantAnswer',
+  'document.analyze': 'common.tools.documentAnalyze',
+  'text.translate': 'common.tools.textTranslate',
+  'schedule.create': 'common.tools.scheduleCreate',
+  'conversation.recall': 'common.tools.conversationRecall',
+  'assistant.clarify': 'common.tools.assistantClarify',
 };
+
+/** A skill's name in the interface language (also for a `{skill}` parameter). */
+export function skillNameKey(id: SkillId): MessageKey {
+  return `skills.names.${id}` as MessageKey;
+}
 
 const MAX_DEPTH = 4;
 
@@ -52,11 +68,15 @@ function isMessage(value: unknown): value is ServerMessage {
   );
 }
 
-/** A `{tool}` parameter that is a tool id reads as the tool's name. */
+/** A `{tool}` / `{skill}` parameter that is a tool or skill id reads as its name. */
 function paramValue(i18n: ServerTextI18n, name: string, value: string | number): string | number {
   if (name === 'tool' && typeof value === 'string') {
     const tool = ToolIdEnum.safeParse(value);
     if (tool.success) return i18n.t(TOOL_LABEL[tool.data]);
+  }
+  if (name === 'skill' && typeof value === 'string') {
+    const skill = SkillIdEnum.safeParse(value);
+    if (skill.success) return i18n.t(skillNameKey(skill.data));
   }
   return value;
 }

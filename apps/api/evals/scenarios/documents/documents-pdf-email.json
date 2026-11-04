@@ -1,0 +1,36 @@
+{
+  "id": "documents-pdf-email",
+  "version": 1,
+  "suite": "documents",
+  "title": "Summarize a PDF and email it to me",
+  "modes": ["offline", "pipeline"],
+  "requires": ["tool:document.analyze", "storage"],
+  "given": {
+    "request": "Summarize this PDF and email it to me",
+    "approve": "all",
+    "attachments": [
+      {
+        "filename": "q3-report.pdf",
+        "mediaType": "application/pdf",
+        "fixture": "report.pdf.json"
+      }
+    ]
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["document.analyze", "email.send"],
+    "recipientsExactly": ["{{me}}"],
+    "flagged": false,
+    "policy": [
+      {
+        "step": 1,
+        "decision": "require_approval",
+        "reasonsInclude": ["RECIPIENT_SELF"]
+      }
+    ],
+    "pipeline": {
+      "status": "COMPLETED",
+      "sideEffectsExactly": 1
+    }
+  }
+}

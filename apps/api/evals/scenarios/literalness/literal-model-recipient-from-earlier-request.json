@@ -1,0 +1,58 @@
+{
+  "id": "literal-model-recipient-from-earlier-request",
+  "version": 1,
+  "suite": "literalness",
+  "title": "An address the user wrote in an earlier request may be used (model)",
+  "modes": ["model"],
+  "given": {
+    "request": "Send it to her",
+    "conversation": [
+      {
+        "request": "My colleague is anna.berg@example.com. Summarize {{site}}/article",
+        "outcome": "answer",
+        "resultText": "Renewables overtook coal in Europe."
+      }
+    ],
+    "model": {
+      "scriptOnly": true,
+      "plans": [
+        {
+          "title": "Send to Anna",
+          "objective": "Email the summary",
+          "steps": [
+            {
+              "key": "s1",
+              "toolId": "conversation.recall",
+              "title": "Recall",
+              "input": {
+                "taskId": "{{turn0}}"
+              }
+            },
+            {
+              "key": "s2",
+              "toolId": "email.send",
+              "title": "Send",
+              "input": {
+                "to": ["anna.berg@example.com"],
+                "subject": "Summary",
+                "body": "{{s1.text}}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["conversation.recall", "email.send"],
+    "recipientsExactly": ["anna.berg@example.com"],
+    "policy": [
+      {
+        "step": 1,
+        "decision": "require_approval",
+        "reasonsInclude": ["RECIPIENT_EXTERNAL"]
+      }
+    ]
+  }
+}

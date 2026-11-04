@@ -1,0 +1,27 @@
+{
+  "id": "schedules-user-time-zone",
+  "version": 1,
+  "suite": "schedules",
+  "title": "The schedule uses the owner's time zone",
+  "modes": ["offline"],
+  "requires": ["tool:schedule.create"],
+  "given": {
+    "request": "Every Tuesday at 6:45 email me: take out the bins",
+    "account": {
+      "email": "owner+tz@eval.test",
+      "locale": "en",
+      "timeZone": "America/New_York"
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "schedule": {
+      "recurrence": {
+        "frequency": "weekly",
+        "byWeekday": ["TU"],
+        "time": "06:45",
+        "timeZone": "America/New_York"
+      }
+    }
+  }
+}

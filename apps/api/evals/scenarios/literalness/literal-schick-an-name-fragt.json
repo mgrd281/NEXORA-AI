@@ -1,0 +1,21 @@
+{
+  "id": "literal-schick-an-name-fragt",
+  "version": 1,
+  "suite": "literalness",
+  "title": "Empfänger nur mit Namen: JARVIS fragt nach",
+  "modes": ["offline"],
+  "given": {
+    "request": "Schick das an Bob",
+    "conversation": [
+      {
+        "request": "Summarize {{site}}/article",
+        "outcome": "answer",
+        "resultText": "Renewable sources generated more electricity than coal across Europe for the first time this year."
+      }
+    ]
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["recipient"]
+  }
+}

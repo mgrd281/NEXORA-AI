@@ -28,6 +28,7 @@ import type {
   UsageSummary,
 } from '@jarvis/contracts';
 import { catalogs } from '../../src/i18n/messages';
+import { basePhaseB, derivedId, type PhaseBState } from './phase-b';
 import { renderServerMessage } from '../../src/i18n/server-message';
 import { createTranslator, stripIsolates } from '../../src/i18n/translate';
 
@@ -230,7 +231,7 @@ const CONTENT: Record<FixtureLocale, LocalizedContent> = {
   },
 };
 
-export interface Fixtures {
+export interface Fixtures extends PhaseBState {
   me: Me;
   assistantStatus: AssistantStatus;
   tasks: TaskSummary[];
@@ -280,6 +281,8 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
       notifications: { approvalRequested: true, taskCompleted: true, taskFailed: true },
       spending: { monthlyAiBudgetUsd: 20 },
       memory: { enabled: true },
+      retention: { memoryDays: null, taskHistoryDays: null },
+      skills: { disabled: [] },
     },
     createdAt: at(-21 * 24 * HOUR),
   };
@@ -290,7 +293,15 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
       ? { mode: 'offline', provider: null, reason: 'NO_API_KEY' }
       : { mode: 'model', provider: 'anthropic', reason: null },
     worker: { healthy: options.workerHealthy ?? true, lastHeartbeatAt: at(-8_000) },
-    capabilities: { webFetch: true, email: true, memory: true, generalQuestions: !offline },
+    capabilities: {
+      webFetch: true,
+      email: true,
+      memory: true,
+      generalQuestions: !offline,
+      attachments: true,
+      translation: !offline,
+      schedules: true,
+    },
     version: '0.1.0',
   };
 
@@ -354,6 +365,11 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
     createdAt: at(-9 * MIN),
     updatedAt: at(-8 * MIN),
     completedAt: null,
+    conversationId: IDS.conversation,
+    outcome: null,
+    question: null,
+    scheduleId: null,
+    attachmentCount: 0,
   };
   const runningTask: TaskSummary = {
     id: IDS.taskRunning,
@@ -372,6 +388,11 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
     createdAt: at(-40_000),
     updatedAt: at(-12_000),
     completedAt: null,
+    conversationId: derivedId(IDS.taskRunning, 9),
+    outcome: null,
+    question: null,
+    scheduleId: null,
+    attachmentCount: 0,
   };
   const memoryTask: TaskSummary = {
     id: IDS.taskMemory,
@@ -390,6 +411,11 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
     createdAt: at(-2 * HOUR - 3 * MIN),
     updatedAt: at(-2 * HOUR - 2 * MIN),
     completedAt: at(-2 * HOUR - 2 * MIN),
+    conversationId: derivedId(IDS.taskMemory, 9),
+    outcome: 'action',
+    question: null,
+    scheduleId: null,
+    attachmentCount: 0,
   };
   const failedTask: TaskSummary = {
     id: IDS.taskFailed,
@@ -415,6 +441,11 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
     createdAt: at(-26 * HOUR),
     updatedAt: at(-26 * HOUR + 4_000),
     completedAt: at(-26 * HOUR + 4_000),
+    conversationId: derivedId(IDS.taskFailed, 9),
+    outcome: null,
+    question: null,
+    scheduleId: null,
+    attachmentCount: 0,
   };
   const tasks = [runningTask, emailTask, memoryTask, failedTask];
 
@@ -495,6 +526,7 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
     canCancel: true,
     canRetry: false,
     startedAt: at(-8 * MIN - 42_000),
+    attachments: [],
   };
 
   const notifications: Notification[] = [
@@ -644,6 +676,7 @@ export function buildFixtures(options: FixtureOptions = {}): Fixtures {
   };
 
   return {
+    ...basePhaseB({ me, connections, assistantStatus }, locale, now),
     me,
     assistantStatus,
     tasks,

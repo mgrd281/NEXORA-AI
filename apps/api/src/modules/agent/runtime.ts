@@ -2,6 +2,7 @@ import type { ToolId } from '@jarvis/contracts';
 import type { Config } from '../../config';
 import type { Db } from '../../db/pool';
 import type { SecretBox } from '../../lib/crypto';
+import type { ObjectStorage } from '../storage/types';
 import type { ModelAdapter } from './models/adapter';
 import { createAnthropicAdapter } from './models/anthropic';
 import { apiKeyConfigured } from './models/router';
@@ -21,7 +22,14 @@ export interface RuntimeDeps {
   secrets: SecretBox;
   /** Model adapter used in model mode; null when no API key is configured. */
   adapter: ModelAdapter | null;
+  /** Phase B: attachment storage (null when STORAGE_DRIVER is 'none'). */
+  storage: ObjectStorage | null;
   log: RuntimeLogger;
+  /**
+   * The clock of the scheduler and retention jobs (default: the system clock).
+   * Tests move it to make occurrences due, e.g. across a DST change.
+   */
+  now?: () => Date;
   /**
    * Aborted when the worker lost this job's lease (it could not extend it in
    * time, so the job may already be running elsewhere). Tool and model calls
@@ -50,6 +58,8 @@ export class LeaseLostError extends Error {
     this.name = 'LeaseLostError';
   }
 }
+
+export const nowOf = (deps: Pick<RuntimeDeps, 'now'>): Date => (deps.now ? deps.now() : new Date());
 
 /** Checkpoint: throws LeaseLostError once the job's lease is lost. Call before every write. */
 export function checkLease(deps: RuntimeDeps): void {

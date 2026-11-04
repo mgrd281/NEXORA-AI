@@ -1,16 +1,26 @@
 import { z } from 'zod';
+import { AttachmentMediaType, SkillId } from './enums';
+import { ATTACHMENT_LIMITS, ATTACHMENT_UPLOAD_FIELD } from './limits';
 import {
   AdminOverview,
   AdminUser,
   Approval,
   ApprovalDecisionRequest,
   AssistantStatus,
+  Attachment,
   AuditEvent,
   Connection,
+  ConversationDetail,
+  ConversationDetailQuery,
+  ConversationListQuery,
+  ConversationSummary,
   CreateMemoryRequest,
+  CreateScheduleRequest,
   CreateSmtpConnectionRequest,
   CreateTaskRequest,
+  CreateWebhookRequest,
   DeleteAccountRequest,
+  FollowUpRequest,
   HomeSnapshot,
   LoginRequest,
   LoginResponse,
@@ -21,19 +31,40 @@ import {
   Page,
   PageQuery,
   RetryTaskRequest,
+  Schedule,
+  ScheduleDetail,
+  SchedulePreview,
+  SchedulePreviewRequest,
   SessionInfo,
+  Skill,
   TaskDetail,
   TaskListQuery,
   TaskSummary,
+  TimeZoneInfo,
   UpdateMeRequest,
   UpdateMemoryRequest,
+  UpdateScheduleRequest,
+  UpdateSkillRequest,
+  UpdateWebhookRequest,
   UsageSummary,
   VoiceSession,
   VoiceSessionEnd,
   VoiceSessionStart,
+  WebhookDelivery,
+  WebhookEndpoint,
+  WebhookEndpointWithSecret,
 } from './schemas';
 
 export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+
+/** A multipart/form-data request carrying one file (instead of a JSON body). */
+export interface UploadSpec {
+  /** Name of the file field. */
+  field: string;
+  maxBytes: number;
+  /** Media types accepted (identified from the content by the server). */
+  mediaTypes: readonly string[];
+}
 
 export interface RouteDef {
   method: HttpMethod;
@@ -45,7 +76,18 @@ export interface RouteDef {
   params?: z.ZodObject;
   query?: z.ZodObject;
   body?: z.ZodType;
-  /** Response body for the success status. `null` = 204 No Content. */
+  /**
+   * The request is multipart/form-data with one file (Phase B). Mutually
+   * exclusive with `body`; the handler reads the file part itself.
+   */
+  upload?: UploadSpec;
+  /**
+   * The success response is a file (one of these media types), streamed by
+   * the handler with Content-Disposition: attachment. `response` is then null
+   * and `successStatus` 200.
+   */
+  download?: { mediaTypes: readonly string[] };
+  /** Response body for the success status. `null` = 204 No Content (or a `download`). */
   response: z.ZodType | null;
   successStatus?: 200 | 201 | 202 | 204;
   /** Mutations that accept an Idempotency-Key header. */
@@ -53,6 +95,7 @@ export interface RouteDef {
 }
 
 const IdParams = z.object({ id: z.uuid() });
+const SkillParams = z.object({ id: SkillId });
 const Ok = z.object({ ok: z.literal(true) });
 
 /**
@@ -399,6 +442,275 @@ export const routes = {
     auth: 'platform_admin',
     query: PageQuery,
     response: Page(AuditEvent),
+  },
+
+  /* ---------------------------------------------------------------- */
+  /* Phase B (docs/architecture/phase-b.md)                            */
+  /* ---------------------------------------------------------------- */
+
+  // Conversations
+  listConversations: {
+    method: 'GET',
+    path: '/v1/conversations',
+    summary: 'Conversation history, most recent activity first',
+    tag: 'conversations',
+    auth: 'user',
+    query: ConversationListQuery,
+    response: Page(ConversationSummary),
+  },
+  getConversation: {
+    method: 'GET',
+    path: '/v1/conversations/:id',
+    summary: 'A conversation thread: requests, tasks and JARVIS messages in order',
+    tag: 'conversations',
+    auth: 'user',
+    params: IdParams,
+    query: ConversationDetailQuery,
+    response: ConversationDetail,
+  },
+  followUp: {
+    method: 'POST',
+    path: '/v1/conversations/:id/messages',
+    summary: 'Send a follow-up: a new task in this conversation, planned with its earlier turns',
+    tag: 'conversations',
+    auth: 'user',
+    params: IdParams,
+    body: FollowUpRequest,
+    response: TaskSummary,
+    successStatus: 202,
+    idempotent: true,
+  },
+  deleteConversation: {
+    method: 'DELETE',
+    path: '/v1/conversations/:id',
+    summary: 'Delete a conversation with its tasks, messages and files',
+    tag: 'conversations',
+    auth: 'user',
+    params: IdParams,
+    response: null,
+    successStatus: 204,
+  },
+
+  // Attachments
+  uploadAttachment: {
+    method: 'POST',
+    path: '/v1/attachments',
+    summary: 'Upload a file (PDF, DOCX, TXT, MD, CSV) to attach to a request',
+    tag: 'attachments',
+    auth: 'user',
+    upload: {
+      field: ATTACHMENT_UPLOAD_FIELD,
+      maxBytes: ATTACHMENT_LIMITS.maxBytes,
+      mediaTypes: AttachmentMediaType.options,
+    },
+    response: Attachment,
+    successStatus: 201,
+  },
+  getAttachment: {
+    method: 'GET',
+    path: '/v1/attachments/:id',
+    summary: 'File metadata',
+    tag: 'attachments',
+    auth: 'user',
+    params: IdParams,
+    response: Attachment,
+  },
+  downloadAttachment: {
+    method: 'GET',
+    path: '/v1/attachments/:id/content',
+    summary: 'Download a file (its owner only)',
+    tag: 'attachments',
+    auth: 'user',
+    params: IdParams,
+    download: { mediaTypes: AttachmentMediaType.options },
+    response: null,
+    successStatus: 200,
+  },
+  deleteAttachment: {
+    method: 'DELETE',
+    path: '/v1/attachments/:id',
+    summary: 'Delete a file (tasks that used it keep their results)',
+    tag: 'attachments',
+    auth: 'user',
+    params: IdParams,
+    response: null,
+    successStatus: 204,
+  },
+
+  // Skills
+  listSkills: {
+    method: 'GET',
+    path: '/v1/skills',
+    summary: 'Skills catalog with real availability for the signed-in user',
+    tag: 'skills',
+    auth: 'user',
+    response: z.object({ items: z.array(Skill) }),
+  },
+  updateSkill: {
+    method: 'PATCH',
+    path: '/v1/skills/:id',
+    summary: 'Turn a skill on or off (never grants permissions)',
+    tag: 'skills',
+    auth: 'user',
+    params: SkillParams,
+    body: UpdateSkillRequest,
+    response: Skill,
+  },
+
+  // Schedules
+  listSchedules: {
+    method: 'GET',
+    path: '/v1/schedules',
+    summary: 'Scheduled requests',
+    tag: 'schedules',
+    auth: 'user',
+    response: z.object({ items: z.array(Schedule) }),
+  },
+  createSchedule: {
+    method: 'POST',
+    path: '/v1/schedules',
+    summary: 'Schedule a request on a recurrence',
+    tag: 'schedules',
+    auth: 'user',
+    body: CreateScheduleRequest,
+    response: Schedule,
+    successStatus: 201,
+    idempotent: true,
+  },
+  previewSchedule: {
+    method: 'POST',
+    path: '/v1/schedules/preview',
+    summary: 'The RRULE and next occurrences of a recurrence (nothing is saved)',
+    tag: 'schedules',
+    auth: 'user',
+    body: SchedulePreviewRequest,
+    response: SchedulePreview,
+  },
+  getSchedule: {
+    method: 'GET',
+    path: '/v1/schedules/:id',
+    summary: 'A schedule with its upcoming occurrences and recent runs',
+    tag: 'schedules',
+    auth: 'user',
+    params: IdParams,
+    response: ScheduleDetail,
+  },
+  updateSchedule: {
+    method: 'PATCH',
+    path: '/v1/schedules/:id',
+    summary: 'Change a schedule (the next run is recomputed)',
+    tag: 'schedules',
+    auth: 'user',
+    params: IdParams,
+    body: UpdateScheduleRequest,
+    response: Schedule,
+  },
+  deleteSchedule: {
+    method: 'DELETE',
+    path: '/v1/schedules/:id',
+    summary: 'Delete a schedule (tasks it created stay)',
+    tag: 'schedules',
+    auth: 'user',
+    params: IdParams,
+    response: null,
+    successStatus: 204,
+  },
+  pauseSchedule: {
+    method: 'POST',
+    path: '/v1/schedules/:id/pause',
+    summary: 'Pause a schedule',
+    tag: 'schedules',
+    auth: 'user',
+    params: IdParams,
+    response: Schedule,
+  },
+  resumeSchedule: {
+    method: 'POST',
+    path: '/v1/schedules/:id/resume',
+    summary: 'Resume a paused schedule from the next occurrence',
+    tag: 'schedules',
+    auth: 'user',
+    params: IdParams,
+    response: Schedule,
+  },
+
+  // Webhooks (outbound)
+  listWebhooks: {
+    method: 'GET',
+    path: '/v1/webhooks',
+    summary: 'Webhook endpoints',
+    tag: 'webhooks',
+    auth: 'user',
+    response: z.object({ items: z.array(WebhookEndpoint) }),
+  },
+  createWebhook: {
+    method: 'POST',
+    path: '/v1/webhooks',
+    summary: 'Register a webhook endpoint (the signing secret is returned once)',
+    tag: 'webhooks',
+    auth: 'user',
+    body: CreateWebhookRequest,
+    response: WebhookEndpointWithSecret,
+    successStatus: 201,
+  },
+  updateWebhook: {
+    method: 'PATCH',
+    path: '/v1/webhooks/:id',
+    summary: 'Change, disable or re-enable a webhook endpoint',
+    tag: 'webhooks',
+    auth: 'user',
+    params: IdParams,
+    body: UpdateWebhookRequest,
+    response: WebhookEndpoint,
+  },
+  deleteWebhook: {
+    method: 'DELETE',
+    path: '/v1/webhooks/:id',
+    summary: 'Delete a webhook endpoint and its delivery log',
+    tag: 'webhooks',
+    auth: 'user',
+    params: IdParams,
+    response: null,
+    successStatus: 204,
+  },
+  rotateWebhookSecret: {
+    method: 'POST',
+    path: '/v1/webhooks/:id/rotate-secret',
+    summary: 'Replace the signing secret (the new one is returned once)',
+    tag: 'webhooks',
+    auth: 'user',
+    params: IdParams,
+    response: WebhookEndpointWithSecret,
+  },
+  testWebhook: {
+    method: 'POST',
+    path: '/v1/webhooks/:id/test',
+    summary: 'Queue a signed webhook.test delivery to the endpoint',
+    tag: 'webhooks',
+    auth: 'user',
+    params: IdParams,
+    response: WebhookDelivery,
+    successStatus: 202,
+  },
+  listWebhookDeliveries: {
+    method: 'GET',
+    path: '/v1/webhooks/:id/deliveries',
+    summary: 'Delivery log of an endpoint (newest first)',
+    tag: 'webhooks',
+    auth: 'user',
+    params: IdParams,
+    query: PageQuery,
+    response: Page(WebhookDelivery),
+  },
+
+  // Meta
+  listTimeZones: {
+    method: 'GET',
+    path: '/v1/meta/time-zones',
+    summary: 'Time zones the server accepts (known to both the database and the runtime)',
+    tag: 'meta',
+    auth: 'user',
+    response: z.object({ items: z.array(TimeZoneInfo) }),
   },
 } as const satisfies Record<string, RouteDef>;
 

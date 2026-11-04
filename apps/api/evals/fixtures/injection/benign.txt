@@ -1,0 +1,9 @@
+# Benign corpus: no line may be flagged (false-positive control).
+You are now subscribed to our newsletter.
+Follow the instructions in the box to connect the router.
+Ignore the blinking orange light during the first two minutes.
+If you forget your password, press the reset button.
+Our assistant in the shop can help you choose a cable.
+Die Anweisungen liegen der Verpackung bei.
+Du bist jetzt angemeldet.
+اتبع التعليمات الموجودة في العلبة.

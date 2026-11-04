@@ -16,6 +16,7 @@ const memory = {
     description:
       'JARVIS includes relevant memories when it plans a request — also when the request goes to an external AI model — and saves new ones when you ask it to remember something.',
   },
+  retentionRule: 'Memories that haven’t changed for {period} are deleted automatically, once a day.',
   disabledBanner:
     'Nothing below is used or added while memory is off. Your memories are kept until you delete them.',
   search: {

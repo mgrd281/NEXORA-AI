@@ -108,11 +108,43 @@ describe('deriveAssistantPresence', () => {
 
 describe('queriesToInvalidate', () => {
   const taskId = '6f1c2d3e-4b5a-4c7d-8e9f-0a1b2c3d4e5f';
-  it('refreshes the task, lists and home for task events', () => {
+  it('refreshes the task, lists, home and conversation threads for task events', () => {
     expect(queriesToInvalidate({ type: 'step.succeeded', taskId })).toEqual([
       qk.tasks.detail(taskId),
       qk.tasks.lists,
       qk.home,
+      qk.conversations.all,
+    ]);
+  });
+  it('refreshes schedules when a task starts or ends, and for schedule events', () => {
+    expect(queriesToInvalidate({ type: 'task.status_changed', taskId })).toContainEqual(
+      qk.schedules.all,
+    );
+    expect(queriesToInvalidate({ type: 'schedule.changed', taskId: null })).toEqual([
+      qk.schedules.all,
+    ]);
+    expect(
+      queriesToInvalidate({ type: 'step.succeeded', taskId, data: { toolId: 'schedule.create' } }),
+    ).toContainEqual(qk.schedules.all);
+  });
+  it('refreshes the thread and the task a conversation message belongs to', () => {
+    const keys = queriesToInvalidate({
+      type: 'conversation.message',
+      taskId: null,
+      data: { conversationId: taskId, taskId, role: 'assistant', kind: 'question' },
+    });
+    expect(keys).toContainEqual(qk.conversations.all);
+    expect(keys).toContainEqual(qk.tasks.detail(taskId));
+    expect(queriesToInvalidate({ type: 'conversation.changed', taskId: null })).toContainEqual(
+      qk.conversations.all,
+    );
+  });
+  it('refreshes webhooks for delivery and endpoint events', () => {
+    expect(queriesToInvalidate({ type: 'webhook.delivery_failed', taskId: null })).toEqual([
+      qk.webhooks.all,
+    ]);
+    expect(queriesToInvalidate({ type: 'webhook.endpoint_changed', taskId: null })).toEqual([
+      qk.webhooks.all,
     ]);
   });
   it('also refreshes approvals for approval events', () => {

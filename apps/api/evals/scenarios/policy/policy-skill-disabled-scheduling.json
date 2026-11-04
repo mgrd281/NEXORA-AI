@@ -1,0 +1,29 @@
+{
+  "id": "policy-skill-disabled-scheduling",
+  "version": 1,
+  "suite": "policy",
+  "title": "Scheduling skill switched off: no schedule",
+  "modes": ["offline"],
+  "given": {
+    "request": "Every Monday at 9 summarize {{site}}/article",
+    "pages": {
+      "{{site}}/article": "article.html"
+    },
+    "preferences": {
+      "skills": {
+        "disabled": ["task-scheduling"]
+      }
+    }
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "SKILL_DISABLED",
+    "policy": [
+      {
+        "step": 0,
+        "decision": "deny",
+        "reasonsInclude": ["SKILL_DISABLED"]
+      }
+    ]
+  }
+}

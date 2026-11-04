@@ -1,0 +1,36 @@
+{
+  "id": "documents-summarize-txt",
+  "version": 1,
+  "suite": "documents",
+  "title": "Summarize an attached text file",
+  "modes": ["offline", "pipeline"],
+  "requires": ["tool:document.analyze", "storage"],
+  "given": {
+    "request": "Summarize the attached document",
+    "attachments": [
+      {
+        "filename": "meeting-notes.txt",
+        "mediaType": "text/plain",
+        "fixture": "meeting-notes.txt"
+      }
+    ]
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["document.analyze"],
+    "flagged": false,
+    "policy": [
+      {
+        "step": 0,
+        "decision": "allow",
+        "reasonsInclude": ["RISK_LOW"]
+      }
+    ],
+    "pipeline": {
+      "status": "COMPLETED",
+      "executions": {
+        "document.analyze": 1
+      }
+    }
+  }
+}

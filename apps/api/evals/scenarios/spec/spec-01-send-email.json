@@ -1,0 +1,28 @@
+{
+  "id": "spec-01-send-email",
+  "version": 1,
+  "suite": "spec",
+  "title": "Spec 1 — send an email: literal recipient, MEDIUM approval",
+  "modes": ["offline", "pipeline"],
+  "given": {
+    "request": "Email me: the quarterly report is ready for review",
+    "approve": "all"
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["email.send"],
+    "recipientsExactly": ["{{me}}"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "require_approval",
+        "reasonsInclude": ["RISK_MEDIUM", "RECIPIENT_SELF"]
+      }
+    ],
+    "pipeline": {
+      "status": "COMPLETED",
+      "outcome": "action",
+      "sideEffectsExactly": 1
+    }
+  }
+}

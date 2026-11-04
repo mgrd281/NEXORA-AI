@@ -1,0 +1,35 @@
+{
+  "id": "followup-answer-recipient",
+  "version": 1,
+  "suite": "followup",
+  "title": "Answering \"to whom?\" with an address forwards the result",
+  "modes": ["offline"],
+  "given": {
+    "request": "bob.meyer@example.com",
+    "conversation": [
+      {
+        "request": "Summarize {{site}}/article",
+        "outcome": "answer",
+        "resultText": "Renewable sources generated more electricity than coal across Europe for the first time this year."
+      },
+      {
+        "request": "Send it to Bob",
+        "outcome": "question",
+        "resultText": "What is Bob's email address?",
+        "missing": ["recipient"]
+      }
+    ]
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["conversation.recall", "email.send"],
+    "recipientsExactly": ["bob.meyer@example.com"],
+    "policy": [
+      {
+        "step": 1,
+        "decision": "require_approval",
+        "reasonsInclude": ["RECIPIENT_EXTERNAL"]
+      }
+    ]
+  }
+}

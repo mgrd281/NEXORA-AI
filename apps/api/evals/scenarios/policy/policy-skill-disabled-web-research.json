@@ -1,0 +1,37 @@
+{
+  "id": "policy-skill-disabled-web-research",
+  "version": 1,
+  "suite": "policy",
+  "title": "A switched-off skill denies its tools",
+  "modes": ["offline", "pipeline"],
+  "given": {
+    "request": "Summarize {{site}}/article",
+    "pages": {
+      "{{site}}/article": "article.html"
+    },
+    "preferences": {
+      "skills": {
+        "disabled": ["web-research"]
+      }
+    }
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "SKILL_DISABLED",
+    "policy": [
+      {
+        "step": 0,
+        "decision": "deny",
+        "reasonsInclude": ["SKILL_DISABLED"]
+      }
+    ],
+    "pipeline": {
+      "status": "FAILED",
+      "errorCode": "POLICY_DENIED",
+      "errorReason": "SKILL_DISABLED",
+      "executions": {
+        "web.fetch": 0
+      }
+    }
+  }
+}

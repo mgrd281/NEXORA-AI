@@ -1,0 +1,25 @@
+{
+  "id": "schedules-daily-de",
+  "version": 1,
+  "suite": "schedules",
+  "title": "Jeden Tag um 8 Uhr zusammenfassen",
+  "modes": ["offline"],
+  "requires": ["tool:schedule.create"],
+  "given": {
+    "request": "Jeden Tag um 8 Uhr fasse {{site}}/artikel zusammen",
+    "pages": {
+      "{{site}}/artikel": "artikel-de.html"
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["schedule.create"],
+    "schedule": {
+      "recurrence": {
+        "frequency": "daily",
+        "time": "08:00"
+      },
+      "requestIncludes": ["{{site}}/artikel"]
+    }
+  }
+}

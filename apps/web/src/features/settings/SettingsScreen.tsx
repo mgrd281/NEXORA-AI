@@ -10,6 +10,7 @@ import {
   Lock,
   Mic,
   Palette,
+  Puzzle,
   ShieldCheck,
   UserRound,
   Wallet,
@@ -33,6 +34,7 @@ import { ProfileSection } from './ProfileSection';
 import { RegionSection } from './RegionSection';
 import { SecuritySection } from './SecuritySection';
 import { SETTINGS_SECTIONS, type SettingsSectionId } from './SettingsSection';
+import { SkillsSection, skillsOnCount, useSkills } from './SkillsSection';
 import { UsageSection } from './UsageSection';
 import { VoiceSection } from './VoiceSection';
 import styles from './settings.module.css';
@@ -43,6 +45,7 @@ const SECTION_ICONS: Record<SettingsSectionId, LucideIcon> = {
   appearance: Palette,
   voice: Mic,
   assistant: Bot,
+  skills: Puzzle,
   usage: Wallet,
   notifications: Bell,
   security: ShieldCheck,
@@ -104,10 +107,11 @@ function SettingsBody({ me }: { me: Me }) {
         <AppearanceSection me={me} />
         <VoiceSection me={me} />
         <AssistantSection me={me} />
+        <SkillsSection />
         <UsageSection me={me} />
         <NotificationsSection me={me} />
         <SecuritySection />
-        <PrivacySection />
+        <PrivacySection me={me} />
       </div>
     </div>
   );
@@ -129,7 +133,9 @@ function SettingsIndex({
   const status = useAssistantStatus();
   const usage = useUsage();
   const sessions = useSessions();
+  const skills = useSkills();
   const prefs = me.preferences;
+  const skillCount = skills.data ? skillsOnCount(skills.data.items) : null;
   const notifications = Object.values(prefs.notifications);
 
   const values: Record<SettingsSectionId, ReactNode> = {
@@ -138,6 +144,7 @@ function SettingsIndex({
     appearance: t(`common.theme.${me.theme}`),
     voice: prefs.voice.speakResponses ? t('settings.index.voiceOn') : t('settings.index.voiceOff'),
     assistant: plannerLabel(status.data, t),
+    skills: skillCount ? t('settings.index.skillsOn', skillCount) : null,
     usage: usage.data
       ? usage.data.budgetMicroUsd > 0
         ? t('settings.assistant.usageSpent', {

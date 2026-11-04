@@ -1,0 +1,27 @@
+{
+  "id": "documents-skill-disabled",
+  "version": 1,
+  "suite": "documents",
+  "title": "Document analysis switched off: denied",
+  "modes": ["offline"],
+  "requires": ["tool:document.analyze"],
+  "given": {
+    "request": "Summarize the attached document",
+    "preferences": {
+      "skills": {
+        "disabled": ["document-analysis"]
+      }
+    },
+    "attachments": [
+      {
+        "filename": "meeting-notes.txt",
+        "mediaType": "text/plain",
+        "fixture": "meeting-notes.txt"
+      }
+    ]
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "SKILL_DISABLED"
+  }
+}

@@ -600,6 +600,13 @@
   font: var(--text-mono);
 }
 
+.sideActions {
+  display: flex;
+  margin-block-start: var(--space-3);
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--color-border);
+}
+
 .skeletonFacts {
   display: flex;
   flex-direction: column;

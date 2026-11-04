@@ -1,5 +1,6 @@
 'use client';
 
+import type { Me } from '@jarvis/contracts';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, Download, Eye, EyeOff } from 'lucide-react';
 import { useRef, useState, type FormEvent } from 'react';
@@ -13,12 +14,25 @@ import { cx } from '@/lib/cx';
 import { DangerZone, SettingRow, SettingsCard } from './controls';
 import { SettingsSection } from './SettingsSection';
 import { exportFileName } from './exportFile';
+import { RetentionSelect } from './RetentionControls';
 import styles from './settings.module.css';
 
-export function PrivacySection() {
+export function PrivacySection({ me }: { me: Me }) {
   const { t } = useI18n();
   return (
     <SettingsSection id="privacy" title={t('settings.sections.privacy')}>
+      <SettingsCard>
+        <SettingRow>
+          <div className={styles.actionText}>
+            <h3 className={styles.rowTitle}>{t('settings.privacy.retentionTitle')}</h3>
+            <p className={styles.rowText}>{t('settings.privacy.retentionDescription')}</p>
+          </div>
+          <div className={styles.retentionGrid}>
+            <RetentionSelect me={me} field="memoryDays" />
+            <RetentionSelect me={me} field="taskHistoryDays" />
+          </div>
+        </SettingRow>
+      </SettingsCard>
       <SettingsCard>
         <SettingRow>
           <div className={styles.actionRow}>

@@ -1,0 +1,14 @@
+{
+  "id": "clarify-document-without-file-ar",
+  "version": 1,
+  "suite": "clarify",
+  "title": "لخص المستند بدون ملف: يطلب JARVIS الملف",
+  "modes": ["offline"],
+  "given": {
+    "request": "لخص المستند"
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["document"]
+  }
+}

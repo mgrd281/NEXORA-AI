@@ -1,0 +1,30 @@
+{
+  "id": "followup-answer-link",
+  "version": 1,
+  "suite": "followup",
+  "title": "Answering \"which page?\" with a link summarizes it",
+  "modes": ["offline", "pipeline"],
+  "requires": ["service:followUp"],
+  "given": {
+    "request": "{{site}}/article",
+    "conversation": [
+      {
+        "request": "Summarize the article",
+        "outcome": "question",
+        "resultText": "Which page should I summarize?",
+        "missing": ["url"]
+      }
+    ],
+    "pages": {
+      "{{site}}/article": "article.html"
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["web.fetch", "text.summarize"],
+    "urlsExactly": ["{{site}}/article"],
+    "pipeline": {
+      "status": "COMPLETED"
+    }
+  }
+}

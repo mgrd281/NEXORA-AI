@@ -5,17 +5,23 @@ import type { LucideIcon } from 'lucide-react';
 import {
   BookmarkPlus,
   Bot,
+  CalendarClock,
   Database,
   ExternalLink,
+  FileSearch,
   FileText,
   Fingerprint,
   Globe,
+  History,
   MailCheck,
+  MessageCircleQuestionMark,
   Scissors,
   StickyNote,
 } from 'lucide-react';
+import Link from 'next/link';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { Icon } from '@/components/ui/Icon';
+import { RelativeTime } from '@/components/ui/RelativeTime';
 import type { MessageKey } from '@/i18n/catalog';
 import { useI18n } from '@/i18n/I18nProvider';
 import { cx } from '@/lib/cx';
@@ -72,6 +78,14 @@ function evidenceTitle(view: EvidenceView, kind: Evidence['kind']): MessageKey {
       return 'tasks.evidence.memoryRecord';
     case 'truncated':
       return 'tasks.evidence.truncated';
+    case 'document':
+      return 'tasks.evidence.document';
+    case 'schedule':
+      return 'tasks.evidence.schedule';
+    case 'recalled':
+      return 'tasks.evidence.recalled';
+    case 'question':
+      return 'tasks.evidence.question';
     default:
       return `tasks.evidence.${kind}`;
   }
@@ -81,6 +95,10 @@ const VIEW_ICON: Partial<Record<EvidenceView['kind'], LucideIcon>> = {
   extractive: FileText,
   memory_record: BookmarkPlus,
   truncated: Scissors,
+  document: FileSearch,
+  schedule: CalendarClock,
+  recalled: History,
+  question: MessageCircleQuestionMark,
 };
 
 function EvidenceItem({ evidence }: { evidence: Evidence }) {
@@ -216,6 +234,42 @@ function EvidenceBody({ view }: { view: EvidenceView }) {
       );
     case 'truncated':
       return <p className={styles.detail}>{t('tasks.evidence.truncatedDetail')}</p>;
+    case 'document':
+      return (
+        <>
+          {view.pages !== null && view.chars !== null && (
+            <p className={styles.detail}>
+              {t('tasks.evidence.documentDetail', { pages: view.pages, chars: view.chars })}
+            </p>
+          )}
+          {view.truncated && (
+            <p className={styles.detail}>{t('tasks.evidence.documentTruncated')}</p>
+          )}
+        </>
+      );
+    case 'schedule':
+      return view.nextRunAt ? (
+        <p className={styles.detail}>
+          <RelativeTime
+            value={view.nextRunAt}
+            format={(time) => t('tasks.evidence.scheduleNext', { time })}
+          />
+        </p>
+      ) : null;
+    case 'recalled':
+      return (
+        <p className={styles.detail}>
+          <Link href={`/tasks/${view.taskId}`}>{t('tasks.evidence.recalledLink')}</Link>
+        </p>
+      );
+    case 'question':
+      return view.missing.length > 0 ? (
+        <p className={styles.detail}>
+          {t('tasks.evidence.questionMissing', {
+            list: f.list(view.missing.map((m) => t(`conversations.question.missing.${m}`))),
+          })}
+        </p>
+      ) : null;
     case 'record':
     case 'note':
       return (

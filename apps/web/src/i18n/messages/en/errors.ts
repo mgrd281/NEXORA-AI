@@ -22,6 +22,9 @@ const errors = {
     OUTCOME_UNKNOWN: 'JARVIS can’t confirm whether this happened. Check before retrying.',
     VERIFICATION_FAILED: 'JARVIS couldn’t verify the result.',
     FETCH_BLOCKED: 'This web address isn’t allowed.',
+    PAYLOAD_TOO_LARGE: 'The file is too large.',
+    UNSUPPORTED_MEDIA_TYPE: 'JARVIS can’t use this kind of file.',
+    SERVICE_UNAVAILABLE: 'This isn’t available on this server right now.',
     INTERNAL: 'Something went wrong on our side.',
   },
   /**
@@ -73,6 +76,54 @@ const errors = {
     EXTERNAL_MODELS_DISABLED: 'External AI models are turned off in your settings.',
     MODEL_UNAVAILABLE: 'No AI model is available on this server.',
     POLICY_DENIED: 'The safety policy blocked “{step}”.',
+    ATTACHMENT_NOT_FOUND: 'The attached file no longer exists.',
+    ATTACHMENT_UNREADABLE: 'JARVIS couldn’t read the attached file. It may be damaged.',
+    ATTACHMENT_ENCRYPTED: 'The file is password-protected, so JARVIS can’t read it.',
+    DOCUMENT_NO_TEXT:
+      'The document has no text JARVIS can read, for example because it is a scan. Reading scanned pages isn’t available yet.',
+    DOCUMENT_TOO_MANY_PAGES: 'The document has more than {max} pages.',
+    STORAGE_UNAVAILABLE: 'File storage isn’t reachable right now.',
+    UNSUPPORTED_LANGUAGE: 'JARVIS can’t translate into {language}.',
+    NOTHING_TO_RECALL: 'There’s no earlier result in this conversation to use.',
+    SCHEDULE_LIMIT_REACHED: 'You already have {max} schedules, the most you can have.',
+    INVALID_RECURRENCE: 'The schedule’s repeat rule isn’t valid.',
+    SKILL_DISABLED: 'This needs the skill “{skill}”, which is turned off in Settings.',
+    UNTRUSTED_MEMORY:
+      'JARVIS won’t save this to memory: it comes from content that tried to give instructions to AI assistants.',
+  },
+  /**
+   * Why an API request was refused (contracts ApiErrorReason, sent in error.details.reason),
+   * shown instead of the code's general sentence.
+   */
+  api: {
+    FILE_TOO_LARGE: 'Files can be at most {limitMb} MB.',
+    UNSUPPORTED_FILE_TYPE: 'JARVIS reads PDF, Word (.docx), text, Markdown and CSV files.',
+    FILE_CONTENT_MISMATCH: 'The file’s content doesn’t match its file type.',
+    FILE_EMPTY: 'The file is empty.',
+    TOO_MANY_ATTACHMENTS: 'You can attach up to {max} files to one request.',
+    ATTACHMENT_NOT_FOUND: 'One of the files no longer exists. Remove it and attach it again.',
+    ATTACHMENT_EXPIRED: 'One of the files expired before it was sent. Attach it again.',
+    ATTACHMENT_IN_OTHER_CONVERSATION:
+      'One of the files belongs to another conversation. Attach it again here.',
+    STORAGE_NOT_CONFIGURED: 'File uploads aren’t set up on this server.',
+    STORAGE_UNAVAILABLE: 'File storage isn’t reachable right now. Try again in a moment.',
+    CONVERSATION_BUSY:
+      'JARVIS is still working on this conversation. Wait until it finishes or cancel it, then send your follow-up.',
+    CONVERSATION_ACTIVE_TASK:
+      'A task in this conversation is still running. Wait until it finishes or cancel it, then delete the conversation.',
+    SCHEDULE_LIMIT_REACHED: 'You can have up to {max} schedules. Delete one to add another.',
+    INVALID_RECURRENCE: 'This repeat rule isn’t valid.',
+    RECURRENCE_HAS_NO_OCCURRENCES: 'This schedule would never run. Check the days you chose.',
+    UNKNOWN_TIME_ZONE: 'The server doesn’t know this time zone. Choose another one.',
+    SCHEDULE_COMPLETED: 'This schedule has no runs left, so it can’t be resumed.',
+    WEBHOOK_LIMIT_REACHED: 'You can have up to {max} webhook endpoints.',
+    WEBHOOK_URL_INVALID:
+      'Enter a full https:// address without a user name, password or # fragment.',
+    WEBHOOK_URL_INSECURE: 'Webhook addresses must start with https://.',
+    WEBHOOK_URL_BLOCKED: '{host} is on a private or local network, so JARVIS won’t send to it.',
+    WEBHOOK_DISABLED: 'This endpoint is turned off. Turn it on to send a test.',
+    SKILL_NOT_TOGGLEABLE: 'This skill is part of how JARVIS works and can’t be turned off.',
+    SKILL_PLANNED: 'This skill isn’t available yet.',
   },
   network: 'Can’t reach JARVIS. Check your connection.',
   badResponse: 'JARVIS sent a response this app doesn’t understand. Reload the page.',

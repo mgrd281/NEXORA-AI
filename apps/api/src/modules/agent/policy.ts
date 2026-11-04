@@ -5,7 +5,10 @@
  *
  * Order of evaluation (first deny wins; approval requirements accumulate):
  *   1. required connection missing/inactive      → deny  CONNECTION_MISSING   (CONNECTION_REQUIRED)
+ *   1b. the tool's skill is switched off          → deny  SKILL_DISABLED       (POLICY_DENIED)
  *   2. memory.save while memory is disabled       → deny  MEMORY_DISABLED      (POLICY_DENIED)
+ *   2b. memory.save of text derived from content flagged as a suspected
+ *       prompt injection                          → deny  UNTRUSTED_MEMORY     (POLICY_DENIED)
  *   3. CRITICAL risk                              → deny  RISK_CRITICAL        (POLICY_DENIED)
  *   4. paid model needed but unavailable / budget is 0
  *                                                 → deny  BUDGET_ZERO | BUDGET_EXHAUSTED (BUDGET_EXCEEDED),
@@ -13,11 +16,19 @@
  *                                                         MODEL_UNAVAILABLE (MODEL_NOT_CONFIGURED)
  *   5. risk: LOW → allow; MEDIUM → approval (email to only the account's own
  *      address with autoApproveEmailToSelf → allow, AUTO_APPROVED_SELF);
- *      HIGH → approval, always
+ *      HIGH → approval, always. schedule.create adds FUTURE_RUNS (never
+ *      auto-approved); memory.save of text from an earlier result (a
+ *      reference) → approval MEMORY_FROM_CONTENT
  *   6. projected cost above the remaining monthly budget → approval BUDGET_NEAR_LIMIT
+ *   6b. projected cost above the skill's per-run limit → approval SKILL_COST_LIMIT
  *   7. external side effect, or outbound request (web.fetch: its URL reaches
  *      another host), consuming content flagged as a suspected prompt
  *      injection → approval UNTRUSTED_CONTENT (overrides auto-approval)
+ *
+ * Skills (Phase B) can only add a deny (1b) or an approval (6b): the skill
+ * fields are computed by assessStep from the static registry and the user's
+ * preferences, never by a skill, and no value of them can allow a step, lower
+ * its risk or remove an approval (unit-tested).
  */
 import type {
   ConnectionProvider,
@@ -52,6 +63,19 @@ export interface PolicyInput {
   budget: { limitMicro: number; spentMicro: number };
   /** Input derives from content flagged as a suspected prompt injection. */
   untrustedContent?: boolean;
+  /**
+   * Phase B: whether the skill owning the tool is switched on for this user
+   * (from skillOfTool + preferences.skills.disabled; default true).
+   */
+  skillEnabled?: boolean;
+  /** Phase B: the owning skill's per-run cost limit in micro-USD (null/absent = none). */
+  skillCostLimitMicro?: number | null;
+  /**
+   * Phase B: the input takes text from an earlier step's output (a reference),
+   * i.e. content rather than the user's own words. memory.save then needs the
+   * user's approval of the exact text (MEMORY_FROM_CONTENT).
+   */
+  fromContent?: boolean;
 }
 
 export interface PolicyResult extends PolicyDecision {
@@ -73,9 +97,15 @@ export function evaluatePolicy(p: PolicyInput): PolicyResult {
   if (p.requiredConnection && !p.activeConnections.has(p.requiredConnection)) {
     return deny(['CONNECTION_MISSING'], 'CONNECTION_REQUIRED');
   }
+  // 1b. Skill switched off by the user
+  if (p.skillEnabled === false) return deny(['SKILL_DISABLED'], 'POLICY_DENIED');
   // 2. Privacy settings
   if (p.toolId === 'memory.save' && !p.preferences.memory.enabled) {
     return deny(['MEMORY_DISABLED'], 'POLICY_DENIED');
+  }
+  // 2b. Untrusted content can never plant a memory.
+  if (p.toolId === 'memory.save' && p.untrustedContent) {
+    return deny(['UNTRUSTED_MEMORY'], 'POLICY_DENIED');
   }
   // 3. Risk ceiling for this build
   if (p.risk === 'CRITICAL') return deny(['RISK_CRITICAL'], 'POLICY_DENIED');
@@ -126,6 +156,15 @@ export function evaluatePolicy(p: PolicyInput): PolicyResult {
     reasons.push(allSelf ? 'RECIPIENT_SELF' : 'RECIPIENT_EXTERNAL');
     if (recipients.length > 3) reasons.push('MANY_RECIPIENTS');
   }
+  if (p.toolId === 'schedule.create') {
+    // Future side effects: the user always confirms a schedule JARVIS proposes.
+    reasons.push('FUTURE_RUNS');
+    needsApproval = true;
+  }
+  if (p.toolId === 'memory.save' && p.fromContent) {
+    reasons.push('MEMORY_FROM_CONTENT');
+    needsApproval = true;
+  }
 
   // 6. Budget headroom
   if (usesPaidModel) {
@@ -134,6 +173,15 @@ export function evaluatePolicy(p: PolicyInput): PolicyResult {
       reasons.push('BUDGET_NEAR_LIMIT');
       needsApproval = true;
     }
+  }
+  // 6b. Skill cost limit
+  if (
+    typeof p.skillCostLimitMicro === 'number' &&
+    p.skillCostLimitMicro >= 0 &&
+    p.projectedCostMicro > p.skillCostLimitMicro
+  ) {
+    reasons.push('SKILL_COST_LIMIT');
+    needsApproval = true;
   }
 
   // 7. Untrusted content feeding an external action or an outbound request
@@ -149,7 +197,9 @@ export function evaluatePolicy(p: PolicyInput): PolicyResult {
 
 const DENY_REASONS = [
   'CONNECTION_MISSING',
+  'SKILL_DISABLED',
   'MEMORY_DISABLED',
+  'UNTRUSTED_MEMORY',
   'RISK_CRITICAL',
   'BUDGET_ZERO',
   'BUDGET_EXHAUSTED',
@@ -169,8 +219,12 @@ export function denyReason(code: ErrorCode, reasons: string[]): TaskErrorReason 
 export function denyMessage(code: ErrorCode, reasons: string[], toolTitle: string): string {
   if (reasons.includes('CONNECTION_MISSING'))
     return `“${toolTitle}” needs a connection that is not set up or not active. Connect it in Settings → Connections, then retry.`;
+  if (reasons.includes('SKILL_DISABLED'))
+    return `“${toolTitle}” belongs to a skill you switched off in Settings → Skills.`;
   if (reasons.includes('MEMORY_DISABLED'))
     return 'Memory is turned off in your privacy settings, so JARVIS will not save this.';
+  if (reasons.includes('UNTRUSTED_MEMORY'))
+    return 'The text to remember came from content that tried to give instructions to AI assistants, so JARVIS will not save it.';
   if (reasons.includes('RISK_CRITICAL'))
     return 'This action is classified as critical risk and is not allowed in this version of JARVIS.';
   if (reasons.includes('BUDGET_ZERO'))

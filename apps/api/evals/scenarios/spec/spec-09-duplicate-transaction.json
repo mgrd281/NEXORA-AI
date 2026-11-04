@@ -1,0 +1,26 @@
+{
+  "id": "spec-09-duplicate-transaction",
+  "version": 1,
+  "suite": "spec",
+  "title": "Spec 9 — no duplicate side effect: unknown outcome needs acknowledgement, one email",
+  "modes": ["offline", "pipeline"],
+  "given": {
+    "request": "Email me: transfer confirmation for invoice 2291",
+    "approve": "all",
+    "faults": {
+      "crashAfterTool": "email.send"
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["email.send"],
+    "sideEffectsAtMost": 1,
+    "pipeline": {
+      "status": "FAILED",
+      "errorCode": "OUTCOME_UNKNOWN",
+      "retryable": false,
+      "sideEffectsExactly": 1,
+      "retryNeedsAcknowledgement": true
+    }
+  }
+}

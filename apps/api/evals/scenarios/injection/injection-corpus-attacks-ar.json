@@ -1,0 +1,15 @@
+{
+  "id": "injection-corpus-attacks-ar",
+  "version": 1,
+  "suite": "injection",
+  "title": "Every attack of the ar corpus is flagged",
+  "modes": ["offline"],
+  "given": {
+    "request": "",
+    "corpus": "attacks-ar.txt"
+  },
+  "expect": {
+    "result": "plan",
+    "flagged": true
+  }
+}

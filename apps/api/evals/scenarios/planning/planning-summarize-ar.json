@@ -1,0 +1,21 @@
+{
+  "id": "planning-summarize-ar",
+  "version": 1,
+  "suite": "planning",
+  "title": "لخص صفحة (عربي)",
+  "modes": ["offline", "pipeline"],
+  "given": {
+    "request": "لخص {{site}}/maqal",
+    "pages": {
+      "{{site}}/maqal": "maqal-ar.html"
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["web.fetch", "text.summarize"],
+    "urlsExactly": ["{{site}}/maqal"],
+    "pipeline": {
+      "status": "COMPLETED"
+    }
+  }
+}

@@ -122,6 +122,144 @@ const MESSAGES = {
     de: 'Die Freigabeanfrage ist abgelaufen, bevor du entschieden hast; es wurde nichts ausgeführt.',
     ar: 'انتهت صلاحية طلب الموافقة قبل أن تقرر، لذلك لم يتم تنفيذ أي شيء.',
   },
+
+  // Phase B — offline plan titles (follow-ups, documents, schedules, questions)
+  'plan.emailResult': {
+    en: 'Email “{title}” to you',
+    de: '„{title}“ an dich mailen',
+    ar: 'إرسال «{title}» إليك بالبريد',
+  },
+  'plan.rememberResult': {
+    en: 'Remember the result of “{title}”',
+    de: 'Ergebnis von „{title}“ merken',
+    ar: 'تذكّر نتيجة «{title}»',
+  },
+  'plan.summarizeDocument': {
+    en: 'Summarize {name}',
+    de: '{name} zusammenfassen',
+    ar: 'تلخيص {name}',
+  },
+  'plan.schedule': { en: 'Schedule: {title}', de: 'Zeitplan: {title}', ar: 'جدولة: {title}' },
+  'plan.clarify': {
+    en: 'Question about your request',
+    de: 'Rückfrage zu deiner Anfrage',
+    ar: 'سؤال حول طلبك',
+  },
+  // Phase B — offline plan objectives
+  'objective.emailResult': {
+    en: 'Send the earlier result to {email}.',
+    de: 'Das frühere Ergebnis an {email} senden.',
+    ar: 'إرسال النتيجة السابقة إلى {email}.',
+  },
+  'objective.rememberResult': {
+    en: 'Save the earlier result to long-term memory.',
+    de: 'Das frühere Ergebnis im Langzeitgedächtnis speichern.',
+    ar: 'حفظ النتيجة السابقة في الذاكرة طويلة المدى.',
+  },
+  'objective.summarizeDocument': {
+    en: 'Read {name} and summarize it.',
+    de: '{name} lesen und zusammenfassen.',
+    ar: 'قراءة {name} وتلخيصه.',
+  },
+  'objective.schedule': {
+    en: 'Create the schedule “{title}”.',
+    de: 'Den Zeitplan „{title}“ anlegen.',
+    ar: 'إنشاء الجدول «{title}».',
+  },
+  'objective.clarify': {
+    en: 'Ask you for the information this request needs.',
+    de: 'Dich nach den Angaben fragen, die für diese Anfrage fehlen.',
+    ar: 'سؤالك عن المعلومات التي يحتاجها هذا الطلب.',
+  },
+  // Phase B — offline step titles
+  'step.recall': {
+    en: 'Get the earlier result',
+    de: 'Früheres Ergebnis abrufen',
+    ar: 'استرجاع النتيجة السابقة',
+  },
+  'step.emailResult': {
+    en: 'Email it to you',
+    de: 'An dich senden',
+    ar: 'إرسالها إليك',
+  },
+  'step.summarizeDocument': {
+    en: 'Summarize {name}',
+    de: '{name} zusammenfassen',
+    ar: 'تلخيص {name}',
+  },
+  'step.schedule': {
+    en: 'Create the schedule',
+    de: 'Zeitplan anlegen',
+    ar: 'إنشاء الجدول',
+  },
+  'step.clarify': {
+    en: 'Ask you for details',
+    de: 'Bei dir nachfragen',
+    ar: 'سؤالك عن التفاصيل',
+  },
+  // Phase B — approval summaries
+  'approval.schedule': {
+    en: 'Create the schedule “{title}”.',
+    de: 'Den Zeitplan „{title}“ anlegen.',
+    ar: 'إنشاء الجدول «{title}».',
+  },
+  'approval.memory': {
+    en: 'Save to memory: “{text}”.',
+    de: 'Im Gedächtnis speichern: „{text}“.',
+    ar: 'الحفظ في الذاكرة: «{text}».',
+  },
+  // Phase B — result lines
+  'result.scheduleCreated': {
+    en: 'Created the schedule “{title}”.',
+    de: 'Zeitplan „{title}“ angelegt.',
+    ar: 'تم إنشاء الجدول «{title}».',
+  },
+  'result.documentSummarized': {
+    en: 'Summarized {name}.',
+    de: '{name} zusammengefasst.',
+    ar: 'تم تلخيص {name}.',
+  },
+  // Phase B — clarifying questions (assistant.clarify)
+  'question.emailContent': {
+    en: 'What should the email say?',
+    de: 'Was soll in der E-Mail stehen?',
+    ar: 'ماذا ينبغي أن تتضمن الرسالة؟',
+  },
+  'question.recipient': {
+    en: 'Who should receive it? Write their email address.',
+    de: 'Wer soll sie bekommen? Schreib die E-Mail-Adresse dazu.',
+    ar: 'من ينبغي أن يستلمها؟ اكتب عنوان بريده الإلكتروني.',
+  },
+  'question.url': {
+    en: 'Which page should I read? Paste its link.',
+    de: 'Welche Seite soll ich lesen? Füge den Link ein.',
+    ar: 'أي صفحة تريد أن أقرأها؟ الصق رابطها.',
+  },
+  'question.document': {
+    en: 'Which document do you mean? Attach the file.',
+    de: 'Welches Dokument meinst du? Hänge die Datei an.',
+    ar: 'أي مستند تقصد؟ أرفق الملف.',
+  },
+  'question.scheduleTime': {
+    en: 'When should this run? For example: every Monday at 9:00.',
+    de: 'Wann soll das laufen? Zum Beispiel: jeden Montag um 9:00.',
+    ar: 'متى ينبغي أن يتم ذلك؟ على سبيل المثال: كل يوم اثنين الساعة 9:00.',
+  },
+  'question.targetLanguage': {
+    en: 'Which language should I translate it into?',
+    de: 'In welche Sprache soll ich es übersetzen?',
+    ar: 'إلى أي لغة تريد أن أترجمه؟',
+  },
+  'question.previousResult': {
+    en: 'There is no earlier result in this conversation I could use. What should I send or save?',
+    de: 'In diesem Gespräch gibt es noch kein Ergebnis, das ich verwenden kann. Was soll ich senden oder speichern?',
+    ar: 'لا توجد نتيجة سابقة في هذه المحادثة يمكنني استخدامها. ماذا تريد أن أرسل أو أحفظ؟',
+  },
+  'question.details': {
+    en: 'Can you tell me more about what you need?',
+    de: 'Kannst du genauer sagen, was du brauchst?',
+    ar: 'هل يمكنك أن توضح ما تحتاجه بمزيد من التفصيل؟',
+  },
 } satisfies Record<ServerMessageKey, Dict>;
 
 const CONTENT = {
@@ -147,6 +285,28 @@ const CONTENT = {
     en: 'Summarized by JARVIS with {model}.',
     de: 'Von JARVIS mit {model} zusammengefasst.',
     ar: 'لخّصه JARVIS باستخدام {model}.',
+  },
+  // Phase B: document analysis method notes (part of results and emails)
+  'document.extractiveNote': {
+    en: 'Extractive summary: key sentences quoted from the document; no AI model was used.',
+    de: 'Extraktive Zusammenfassung: wichtige Sätze aus dem Dokument zitiert; es wurde kein KI-Modell verwendet.',
+    ar: 'ملخص استخلاصي: جمل رئيسية مقتبسة من المستند؛ لم يُستخدم أي نموذج ذكاء اصطناعي.',
+  },
+  'document.modelNote': {
+    en: 'Analyzed by JARVIS with {model}.',
+    de: 'Von JARVIS mit {model} ausgewertet.',
+    ar: 'حلّله JARVIS باستخدام {model}.',
+  },
+  'document.truncatedNote': {
+    en: 'Only the first {chars} characters of the document were read.',
+    de: 'Nur die ersten {chars} Zeichen des Dokuments wurden gelesen.',
+    ar: 'تمت قراءة أول {chars} حرف من المستند فقط.',
+  },
+  // Phase B: emailing an earlier result (follow-ups)
+  'email.resultSubject': {
+    en: 'From JARVIS: {title}',
+    de: 'Von JARVIS: {title}',
+    ar: 'من JARVIS: {title}',
   },
 } satisfies Record<string, Dict>;
 

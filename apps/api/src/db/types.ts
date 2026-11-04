@@ -76,6 +76,8 @@ export interface ConversationsTable {
   tenant_id: string;
   user_id: string;
   title: Generated<string>;
+  /** ServerMessage of the title when the server wrote it (0004). */
+  title_message: Json<ServerMessageJson | null> | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -115,6 +117,15 @@ export interface ServerMessageJson {
   params: Record<string, unknown>;
 }
 
+export type TaskOutcomeValue = 'answer' | 'action' | 'question';
+
+/** contracts AssistantQuestion, as stored on tasks.question. */
+export interface AssistantQuestionJson {
+  text: string;
+  message: ServerMessageJson | null;
+  missing: string[];
+}
+
 export interface TasksTable {
   id: Generated<string>;
   tenant_id: string;
@@ -149,7 +160,15 @@ export interface TasksTable {
   updated_at: Generated<Date>;
   started_at: NullableTimestamp;
   completed_at: NullableTimestamp;
+  /** Set when the task COMPLETED (0004). */
+  outcome: TaskOutcomeValue | null;
+  /** Present exactly when outcome = 'question' (0004). */
+  question: Json<AssistantQuestionJson | null> | null;
+  /** The schedule whose run created this task (0004). */
+  schedule_id: string | null;
 }
+
+export type MessageKindValue = 'request' | 'answer' | 'question' | 'result';
 
 export interface MessagesTable {
   id: Generated<string>;
@@ -161,6 +180,10 @@ export interface MessagesTable {
   content: string;
   language: string | null;
   created_at: Generated<Date>;
+  /** 'request' for user messages; answer | question | result for JARVIS's (0004). */
+  kind: Generated<MessageKindValue>;
+  /** ServerMessage of `content` when the server composed it (0004). */
+  content_message: Json<ServerMessageJson | null> | null;
 }
 
 export type StepStatusValue =
@@ -290,11 +313,20 @@ export interface MemoriesTable {
   updated_at: Generated<Date>;
 }
 
+export type NotificationKindValue =
+  | 'approval_requested'
+  | 'task_completed'
+  | 'task_failed'
+  | 'connection_error'
+  | 'schedule_failed'
+  | 'schedule_paused'
+  | 'webhook_disabled';
+
 export interface NotificationsTable {
   id: Generated<string>;
   tenant_id: string;
   user_id: string;
-  kind: 'approval_requested' | 'task_completed' | 'task_failed' | 'connection_error';
+  kind: NotificationKindValue;
   task_id: string | null;
   data: JsonDefault<Record<string, string>>;
   read_at: NullableTimestamp;
@@ -353,7 +385,14 @@ export interface AuditEventsTable {
   created_at: Generated<Date>;
 }
 
-export type JobKind = 'task.plan' | 'task.execute' | 'approval.expire';
+export type JobKind =
+  | 'task.plan'
+  | 'task.execute'
+  | 'approval.expire'
+  // Phase B (0004)
+  | 'schedule.run'
+  | 'retention.sweep'
+  | 'webhook.deliver';
 
 export interface JobsTable {
   id: Generated<number>;
@@ -404,6 +443,180 @@ export interface IdempotencyKeysTable {
   claim_token: string | null;
 }
 
+/* ------------------------------------------------------------------ */
+/* Phase B (0004)                                                      */
+/* ------------------------------------------------------------------ */
+
+export type AttachmentMediaTypeValue =
+  | 'application/pdf'
+  | 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  | 'text/plain'
+  | 'text/markdown'
+  | 'text/csv';
+
+export type StorageDriverValue = 'local' | 's3';
+
+export interface AttachmentsTable {
+  /** Generate it before the insert: storage_key must be built from it (CHECK). */
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  /** Null until a request uses the file. */
+  conversation_id: string | null;
+  filename: string;
+  media_type: AttachmentMediaTypeValue;
+  size_bytes: number;
+  sha256: string;
+  storage_driver: StorageDriverValue;
+  /** Exactly tenants/<tenant_id>/users/<user_id>/attachments/<id> (CHECK). */
+  storage_key: string;
+  page_count: number | null;
+  text_chars: number | null;
+  extracted_at: NullableTimestamp;
+  /** Set exactly while unattached (CHECK). */
+  expires_at: NullableTimestamp;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface TaskAttachmentsTable {
+  task_id: string;
+  attachment_id: string;
+  tenant_id: string;
+  user_id: string;
+  position: number;
+  created_at: Generated<Date>;
+}
+
+/** contracts Recurrence as stored (normalised: interval present). */
+export interface RecurrenceJson {
+  frequency: 'daily' | 'weekly' | 'monthly';
+  interval: number;
+  byWeekday?: ('MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA' | 'SU')[];
+  byMonthDay?: number[];
+  time: string;
+  timeZone: string;
+  until?: string;
+  count?: number;
+}
+
+export type ScheduleStatusValue = 'active' | 'paused' | 'completed';
+
+export interface ScheduledTasksTable {
+  id: Generated<string>;
+  tenant_id: string;
+  user_id: string;
+  title: string;
+  request: string;
+  /** DTSTART;TZID=…\nRRULE:… derived from `recurrence`. */
+  rrule: string;
+  /** Equals recurrence.timeZone (CHECK). */
+  time_zone: string;
+  /** Set exactly while status = 'active' (CHECK). */
+  next_run_at: NullableTimestamp;
+  last_run_at: NullableTimestamp;
+  /** Generated: status = 'active'. Read-only. */
+  enabled: ColumnType<boolean, never, never>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+  recurrence: Json<RecurrenceJson>;
+  status: Generated<ScheduleStatusValue>;
+  /** Set exactly while status = 'paused' (CHECK). */
+  paused_reason: 'user' | 'failures' | 'budget' | null;
+  language: 'en' | 'de' | 'ar' | null;
+  conversation_id: string | null;
+  created_by: Generated<'user' | 'agent'>;
+  created_by_task_id: string | null;
+  last_task_id: string | null;
+  run_count: Generated<number>;
+  consecutive_failures: Generated<number>;
+  last_failure_at: NullableTimestamp;
+}
+
+export interface ScheduleRunsTable {
+  id: Generated<string>;
+  tenant_id: string;
+  user_id: string;
+  schedule_id: string;
+  /** Unique per schedule: each occurrence runs at most once. */
+  occurrence_at: Timestamp;
+  status: 'created' | 'skipped' | 'failed';
+  /** Null exactly when status = 'created' (CHECK). */
+  reason: 'BUDGET_EXHAUSTED' | 'SCHEDULE_PAUSED' | 'CREATE_FAILED' | null;
+  task_id: string | null;
+  created_at: Generated<Date>;
+}
+
+export type WebhookEventTypeValue =
+  | 'task.created'
+  | 'task.completed'
+  | 'task.failed'
+  | 'task.cancelled'
+  | 'task.expired'
+  | 'approval.requested'
+  | 'approval.decided'
+  | 'schedule.triggered'
+  | 'schedule.failed';
+
+export type WebhookFailureReasonValue =
+  | 'HTTP_ERROR'
+  | 'TIMEOUT'
+  | 'CONNECT_FAILED'
+  | 'TLS_CERTIFICATE'
+  | 'HOST_NOT_FOUND'
+  | 'PRIVATE_ADDRESS'
+  | 'REDIRECT'
+  | 'ENDPOINT_DISABLED'
+  | 'ENDPOINT_DELETED'
+  | 'INTERNAL';
+
+export interface WebhookEndpointsTable {
+  id: Generated<string>;
+  tenant_id: string;
+  user_id: string;
+  url: string;
+  description: string | null;
+  event_types: WebhookEventTypeValue[];
+  status: Generated<'active' | 'disabled'>;
+  /** Set exactly while status = 'disabled' (CHECK). */
+  disabled_reason: 'user' | 'failures' | null;
+  /** SecretBox envelope; AAD webhook:<user_id>:<id>. */
+  secret_ciphertext: Buffer;
+  secret_key_id: string;
+  secret_hint: string;
+  consecutive_failures: Generated<number>;
+  last_delivery_at: NullableTimestamp;
+  last_success_at: NullableTimestamp;
+  last_failure_at: NullableTimestamp;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface WebhookDeliveriesTable {
+  /** The webhook-id header is 'msg_' + id. */
+  id: Generated<string>;
+  tenant_id: string;
+  user_id: string;
+  endpoint_id: string;
+  event_type: WebhookEventTypeValue | 'webhook.test';
+  /** Unique per endpoint (exactly-once enqueue), e.g. 'task.completed:<task id>'. */
+  event_key: string;
+  /** contracts WebhookPayload — ids, enums and times only. */
+  payload: Json<Record<string, unknown>>;
+  status: Generated<'pending' | 'succeeded' | 'failed'>;
+  attempts: Generated<number>;
+  max_attempts: Generated<number>;
+  next_attempt_at: NullableTimestamp;
+  last_attempt_at: NullableTimestamp;
+  response_status: number | null;
+  failure_reason: WebhookFailureReasonValue | null;
+  duration_ms: number | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+  /** Null exactly while status = 'pending' (CHECK). */
+  completed_at: NullableTimestamp;
+}
+
 export interface SubscriptionsTable {
   id: Generated<string>;
   tenant_id: string;
@@ -442,6 +655,14 @@ export interface Database {
   feature_flags: FeatureFlagsTable;
   idempotency_keys: IdempotencyKeysTable;
   subscriptions: SubscriptionsTable;
+  // Phase B (0004). storage_deletions is not listed: only SECURITY DEFINER
+  // functions reach it (storage_deletions_claim / _complete / _failed).
+  attachments: AttachmentsTable;
+  task_attachments: TaskAttachmentsTable;
+  scheduled_tasks: ScheduledTasksTable;
+  schedule_runs: ScheduleRunsTable;
+  webhook_endpoints: WebhookEndpointsTable;
+  webhook_deliveries: WebhookDeliveriesTable;
 }
 
 export type TaskRow = Selectable<TasksTable>;
@@ -452,6 +673,13 @@ export type ToolExecutionRow = Selectable<ToolExecutionsTable>;
 export type MemoryRow = Selectable<MemoriesTable>;
 export type UserRow = Selectable<UsersTable>;
 export type JobRow = Selectable<JobsTable>;
+export type AttachmentRow = Selectable<AttachmentsTable>;
+export type ScheduleRow = Selectable<ScheduledTasksTable>;
+export type ScheduleRunRow = Selectable<ScheduleRunsTable>;
+export type WebhookEndpointRow = Selectable<WebhookEndpointsTable>;
+export type WebhookDeliveryRow = Selectable<WebhookDeliveriesTable>;
+export type MessageRow = Selectable<MessagesTable>;
+export type ConversationRow = Selectable<ConversationsTable>;
 export type NewTask = Insertable<TasksTable>;
 export type NewStep = Insertable<TaskStepsTable>;
 export type TaskUpdate = Updateable<TasksTable>;

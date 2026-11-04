@@ -8,7 +8,8 @@ import type { AppDeps } from '../../services';
 import { audit } from '../audit/audit';
 import { verifyPassword } from '../auth/password';
 import { SESSION_COOKIE } from '../auth/sessions';
-import { buildAccountExport } from './export';
+import { deleteObjectsNow } from '../attachments/routes';
+import { buildAccountExport, embedExportFiles, exportFileLocations } from './export';
 import { loadMe, resolvePreferences } from './me';
 
 // Kept for importers of the old location; the rule lives with the zone helpers now.
@@ -103,10 +104,11 @@ export function registerAccountRoutes(app: FastifyInstance, deps: AppDeps) {
     app,
     deps,
     'exportAccount',
-    async ({ ctx, reply }) => {
+    async ({ ctx, req, reply }) => {
       const now = new Date();
-      const doc = await withContext(db, ctx, async (trx) => {
+      const { doc, files } = await withContext(db, ctx, async (trx) => {
         const exported = await buildAccountExport(trx, ctx.userId, now);
+        const locations = await exportFileLocations(trx, ctx.userId);
         await audit(trx, {
           tenantId: ctx.tenantId,
           actorType: 'user',
@@ -115,8 +117,10 @@ export function registerAccountRoutes(app: FastifyInstance, deps: AppDeps) {
           targetType: 'user',
           targetId: ctx.userId,
         });
-        return exported;
+        return { doc: exported, files: locations };
       });
+      // Files are read from storage after the transaction (no connection held during I/O).
+      await embedExportFiles(doc, files, deps.storage, req.log);
       reply.header(
         'content-disposition',
         `attachment; filename="jarvis-export-${now.toISOString().slice(0, 10)}.json"`,
@@ -131,7 +135,7 @@ export function registerAccountRoutes(app: FastifyInstance, deps: AppDeps) {
     app,
     deps,
     'deleteAccount',
-    async ({ ctx, body, reply }) => {
+    async ({ ctx, body, req, reply }) => {
       const user = await withContext(db, ctx, (trx) =>
         trx
           .selectFrom('users')
@@ -154,7 +158,14 @@ export function registerAccountRoutes(app: FastifyInstance, deps: AppDeps) {
         throw new AppError('FORBIDDEN', 'The password is incorrect.');
       }
 
-      await withContext(db, ctx, async (trx) => {
+      const storedFiles = await withContext(db, ctx, async (trx) => {
+        // Stored files: the attachments trigger queues each for deletion (storage_deletions,
+        // drained by the worker); they are also deleted right after the commit below.
+        const files = await trx
+          .selectFrom('attachments')
+          .select(['storage_key', 'storage_driver'])
+          .where('user_id', '=', ctx.userId)
+          .execute();
         // The audit record is written first and commits atomically with the deletion.
         await audit(trx, {
           tenantId: ctx.tenantId,
@@ -184,7 +195,9 @@ export function registerAccountRoutes(app: FastifyInstance, deps: AppDeps) {
             targetId: ctx.tenantId,
           });
         }
+        return files;
       });
+      await deleteObjectsNow(deps, storedFiles, req.log);
       reply.clearCookie(SESSION_COOKIE, { path: '/' });
     },
     // Password confirmation: limit guessing with a stolen session.

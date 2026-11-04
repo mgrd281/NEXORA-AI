@@ -1,0 +1,41 @@
+{
+  "id": "schedules-weekly-monday-en",
+  "version": 1,
+  "suite": "schedules",
+  "title": "Every Monday at 9: summarize and email me (proposal needs confirmation)",
+  "modes": ["offline", "pipeline"],
+  "requires": ["tool:schedule.create"],
+  "given": {
+    "request": "Every Monday at 9 summarize {{site}}/article and email it to me",
+    "pages": {
+      "{{site}}/article": "article.html"
+    },
+    "approve": "all"
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["schedule.create"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "require_approval",
+        "reasonsInclude": ["FUTURE_RUNS"]
+      }
+    ],
+    "schedule": {
+      "recurrence": {
+        "frequency": "weekly",
+        "interval": 1,
+        "byWeekday": ["MO"],
+        "time": "09:00",
+        "timeZone": "Europe/Berlin"
+      },
+      "requestIncludes": ["{{site}}/article"]
+    },
+    "pipeline": {
+      "status": "COMPLETED",
+      "schedulesCreated": 1,
+      "sideEffectsExactly": 0
+    }
+  }
+}

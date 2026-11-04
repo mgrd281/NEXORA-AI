@@ -17,6 +17,8 @@
  *      summarize       → MODEL_FAST     (Claude Haiku 5.5, effort low); text longer
  *                                          than 60k chars → MODEL_BALANCED
  *      result_summary  → MODEL_FAST     (effort low) — one or two sentences.
+ *      translate       → MODEL_FAST (≤ 8 000 chars) else MODEL_BALANCED, effort low
+ *      analyze_document→ as summarize (fast; balanced above 60k chars), effort low
  *    Thinking is never configured explicitly (adaptive by default on these
  *    models); depth is controlled with output_config.effort only.
  */
@@ -53,6 +55,8 @@ export function apiKeyConfigured(config: Pick<Config, 'ANTHROPIC_API_KEY'>): boo
 
 /** Text above this size goes to the balanced tier for summarisation. */
 export const LONG_TEXT_CHARS = 60_000;
+/** Text above this size goes to the balanced tier for translation. */
+export const LONG_TRANSLATION_CHARS = 8_000;
 
 export interface ModelChoice {
   model: string;
@@ -76,5 +80,13 @@ export function selectModel(
         : { model: config.MODEL_FAST, effort: 'low', maxTokens: 8_000 };
     case 'result_summary':
       return { model: config.MODEL_FAST, effort: 'low', maxTokens: 2_000 };
+    case 'translate':
+      return (opts.inputChars ?? 0) > LONG_TRANSLATION_CHARS
+        ? { model: config.MODEL_BALANCED, effort: 'low', maxTokens: 32_000 }
+        : { model: config.MODEL_FAST, effort: 'low', maxTokens: 16_000 };
+    case 'analyze_document':
+      return (opts.inputChars ?? 0) > LONG_TEXT_CHARS
+        ? { model: config.MODEL_BALANCED, effort: 'low', maxTokens: 8_000 }
+        : { model: config.MODEL_FAST, effort: 'low', maxTokens: 8_000 };
   }
 }

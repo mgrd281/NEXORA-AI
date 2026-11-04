@@ -785,3 +785,157 @@
 .liveSlot:empty {
   margin-block-start: calc(var(--space-3) * -1);
 }
+
+/* ------------------------------------------------------------- skills */
+
+.skillList {
+  list-style: none;
+}
+
+.skillList > li + li > .skillRow {
+  border-block-start: 1px solid var(--color-border);
+}
+
+.skillSwitch,
+.skillStatic {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+  min-width: 0;
+}
+
+.skillStatic {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.skillIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--control-sm);
+  block-size: var(--control-sm);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.skillSwitchControl {
+  min-width: 0;
+}
+
+.skillLabel {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+
+.skillName {
+  font: var(--text-body-strong);
+  color: var(--color-text-primary);
+}
+
+.skillText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.skillPill {
+  font-weight: 400;
+}
+
+.skillDescription,
+.skillRisk,
+.skillReason {
+  display: block;
+}
+
+.skillRisk {
+  margin-block-start: 2px;
+  color: var(--color-text-tertiary);
+}
+
+.skillReason {
+  margin-block-start: var(--space-1);
+  color: var(--color-text-primary);
+}
+
+.plannedSkills {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.plannedHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.plannedList {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  list-style: none;
+}
+
+@media (min-width: 640px) {
+  .plannedList {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.plannedItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    'icon text'
+    'icon pill';
+  gap: var(--space-2) var(--space-3);
+  align-items: start;
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+
+.plannedItem > .skillIcon {
+  grid-area: icon;
+}
+
+.plannedText {
+  grid-area: text;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.plannedName {
+  font: var(--text-body-strong);
+  color: var(--color-text-primary);
+}
+
+.plannedPill {
+  grid-area: pill;
+  justify-self: start;
+}
+
+/* ------------------------------------------------------------- retention */
+
+.retentionGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .retentionGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

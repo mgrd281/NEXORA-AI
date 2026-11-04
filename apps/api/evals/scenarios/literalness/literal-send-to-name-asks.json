@@ -1,0 +1,21 @@
+{
+  "id": "literal-send-to-name-asks",
+  "version": 1,
+  "suite": "literalness",
+  "title": "A recipient named but not written as an address: JARVIS asks",
+  "modes": ["offline"],
+  "given": {
+    "request": "Send it to Bob",
+    "conversation": [
+      {
+        "request": "Summarize {{site}}/article",
+        "outcome": "answer",
+        "resultText": "Renewable sources generated more electricity than coal across Europe for the first time this year."
+      }
+    ]
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["recipient"]
+  }
+}

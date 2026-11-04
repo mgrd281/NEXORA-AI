@@ -11,6 +11,7 @@ export const SETTINGS_SECTIONS = [
   'appearance',
   'voice',
   'assistant',
+  'skills',
   'usage',
   'notifications',
   'security',

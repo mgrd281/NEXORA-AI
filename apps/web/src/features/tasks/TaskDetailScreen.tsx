@@ -26,7 +26,7 @@ import {
 } from '@/components/approvals/untrustedSource';
 import { taskTitle } from '@/components/tasks/TaskRow';
 import { Page } from '@/components/shell/Page';
-import { TaskStatusPill } from '@/components/tasks/TaskStatusPill';
+import { TaskStatusPill, taskStateLabel } from '@/components/tasks/TaskStatusPill';
 import { Banner, ErrorBanner } from '@/components/ui/Banner';
 import { RiskBadge, StatusPill } from '@/components/ui/Badge';
 import { Button, ButtonLink } from '@/components/ui/Button';
@@ -39,12 +39,23 @@ import { RelativeTime } from '@/components/ui/RelativeTime';
 import { Skeleton, SkeletonRow } from '@/components/ui/Skeleton';
 import { Spinner } from '@/components/ui/Spinner';
 import { UserText } from '@/components/ui/UserText';
+import type { MessageKey } from '@/i18n/catalog';
 import { useI18n } from '@/i18n/I18nProvider';
 import { errorReason, errorTitle, renderServerMessage, serverText } from '@/i18n/server-message';
 import { stripIsolates } from '@/i18n/translate';
 import { isApiError, type ApiError } from '@/lib/api/client';
 import { useAnswerStream } from '@/lib/events/EventStreamProvider';
 import { cx } from '@/lib/cx';
+import { AttachmentList } from '@/features/attachments/Attachments';
+import { threadOf, useConversation } from '@/features/conversations/api';
+import { groupTurns, isQuestion, splitAround } from '@/features/conversations/model';
+import {
+  AnswerComposer,
+  ConversationContinuation,
+  DeleteConversation,
+  EarlierTurns,
+  QuestionPanel,
+} from '@/features/conversations/Thread';
 import { useTaskDetail } from './api';
 import { OfflineCommands, TechnicalDetails } from './copy';
 import { EvidenceList } from './EvidenceList';
@@ -157,6 +168,21 @@ function TaskDetailView({
   const stream = useAnswerStream(isTerminal(task.status) && task.answer ? null : task.id);
   const review = (a: Approval) => setReviewing(a);
 
+  // The conversation around this task: earlier requests above, later ones and the follow-up
+  // field below the result (the thread lives here, next to each task's proof).
+  const conversation = useConversation(task.conversationId);
+  const thread = threadOf(conversation.data);
+  const groups = thread ? groupTurns(thread.turns) : [];
+  const { earlier, later } = splitAround(groups, task.id);
+  const asked = isQuestion(task);
+  const missing = task.question?.missing ?? [];
+  const canFollowUp = thread ? thread.canFollowUp : isTerminal(task.status);
+  const activeTask = thread?.activeTaskId
+    ? (groups.find((g) => g.taskId === thread.activeTaskId)?.task ?? null)
+    : null;
+  // The question panel carries the answer field while this is the latest request.
+  const answerHere = asked && later.length === 0;
+
   return (
     <div className={styles.frame}>
       <BackLink />
@@ -191,12 +217,44 @@ function TaskDetailView({
                 onReview={() => review(approval)}
               />
             )}
+            <EarlierTurns
+              groups={earlier}
+              hasOlderPages={conversation.hasNextPage}
+              loadingOlder={conversation.isFetchingNextPage}
+              onLoadOlder={() => void conversation.fetchNextPage()}
+            />
             {!restatesTitle(task.request, stripIsolates(title)) && (
               <RequestQuote request={task.request} />
             )}
+            {task.attachments && task.attachments.length > 0 && (
+              <AttachmentList attachments={task.attachments} />
+            )}
+            {asked && (
+              <QuestionPanel
+                task={task}
+                missing={missing}
+                answered={!answerHere}
+                composer={
+                  answerHere ? (
+                    <AnswerComposer conversationId={task.conversationId} missing={missing} />
+                  ) : null
+                }
+              />
+            )}
             <StatusBanner task={task} />
             <AnswerSection task={task} streamed={stream.text} />
-            <ResultSection task={task} />
+            {!asked && <ResultSection task={task} />}
+            <ConversationContinuation
+              conversationId={task.conversationId}
+              currentTaskId={task.id}
+              later={later}
+              startPosition={earlier.length + 2}
+              canFollowUp={canFollowUp}
+              activeTask={activeTask}
+              showComposer={isTerminal(task.status) && !answerHere}
+              loadError={conversation.isError ? conversation.error : null}
+              onRetry={() => void conversation.refetch()}
+            />
             <PlanSection task={task} />
             <HistorySection
               events={task.events}
@@ -209,7 +267,14 @@ function TaskDetailView({
             )}
           </div>
           <aside className={styles.side} aria-label={t('tasks.details.title')}>
-            <DetailsPanel task={task} />
+            <DetailsPanel
+              task={task}
+              conversation={
+                thread
+                  ? { taskCount: thread.taskCount, scheduled: thread.scheduleId !== null }
+                  : null
+              }
+            />
           </aside>
         </div>
       </Page>
@@ -248,12 +313,12 @@ function HeaderMeta({
   statusRef: RefObject<HTMLSpanElement | null>;
 }) {
   const { t } = useI18n();
-  const status = t(`common.taskStatus.${task.status}`);
+  const status = taskStateLabel(t, task);
   return (
     <span className={styles.headerMeta}>
       {/* Focus lands here after Cancel / Retry; the status is announced when it changes. */}
       <span ref={statusRef} tabIndex={-1} className={styles.statusFocus}>
-        <TaskStatusPill status={task.status} />
+        <TaskStatusPill status={task.status} outcome={task.outcome} />
         <span className="visually-hidden" role="status" aria-live="polite">
           {status}
         </span>
@@ -271,6 +336,11 @@ function HeaderMeta({
         </span>
         <span aria-hidden="true">{t(`common.source.${task.source}`)}</span>
       </span>
+      {task.scheduleId && (
+        <Link href="/tasks/scheduled" className={styles.metaItem}>
+          {t('tasks.detail.fromSchedule')}
+        </Link>
+      )}
     </span>
   );
 }
@@ -350,6 +420,13 @@ function StatusBanner({ task }: { task: TaskDetail }) {
   }
 }
 
+const APPROVAL_BODY: Record<Approval['details']['kind'], MessageKey> = {
+  email: 'tasks.approvalPanel.bodyEmail',
+  generic: 'tasks.approvalPanel.bodyGeneric',
+  schedule: 'tasks.approvalPanel.bodySchedule',
+  memory: 'tasks.approvalPanel.bodyMemory',
+};
+
 function ApprovalPanel({
   task,
   approval,
@@ -378,7 +455,7 @@ function ApprovalPanel({
             {t('tasks.approvalPanel.title')}
           </h2>
           <p className={styles.approvalBody}>
-            {email ? t('tasks.approvalPanel.bodyEmail') : t('tasks.approvalPanel.bodyGeneric')}
+            {t(APPROVAL_BODY[approval.details.kind])}
           </p>
         </div>
       </div>
@@ -609,7 +686,13 @@ function CostValue({ task }: { task: TaskDetail }) {
   return <Money microUsd={actual} />;
 }
 
-function DetailsPanel({ task }: { task: TaskDetail }) {
+function DetailsPanel({
+  task,
+  conversation,
+}: {
+  task: TaskDetail;
+  conversation: { taskCount: number; scheduled: boolean } | null;
+}) {
   const { t } = useI18n();
   const planner = task.planner;
   const attempt = attemptOf(task);
@@ -675,7 +758,24 @@ function DetailsPanel({ task }: { task: TaskDetail }) {
             <CopyButton value={task.id} label={t('tasks.details.copyTaskId')} />
           </dd>
         </div>
+        {conversation && (
+          <div className={styles.fact}>
+            <dt>{t('conversations.details.conversation')}</dt>
+            <dd className="tabular">
+              {t('conversations.thread.requests', { count: conversation.taskCount })}
+            </dd>
+          </div>
+        )}
       </dl>
+      {conversation && (
+        <div className={styles.sideActions}>
+          <DeleteConversation
+            conversationId={task.conversationId}
+            taskCount={conversation.taskCount}
+            scheduled={conversation.scheduled}
+          />
+        </div>
+      )}
     </Card>
   );
 }

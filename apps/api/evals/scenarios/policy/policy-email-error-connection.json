@@ -1,0 +1,17 @@
+{
+  "id": "policy-email-error-connection",
+  "version": 1,
+  "suite": "policy",
+  "title": "An email connection in error state counts as missing",
+  "modes": ["offline"],
+  "given": {
+    "request": "Email me: renew the passport",
+    "connectionStatus": {
+      "smtp": "error"
+    }
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "CONNECTION_MISSING"
+  }
+}

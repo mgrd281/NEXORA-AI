@@ -16,6 +16,7 @@ across documents: **Built** / **Implemented** = in the code now (with file refer
 | Work on the agent                    | [Agent runtime](architecture/agent-runtime.md), [permission model](security/permission-model.md), [skills](skills/README.md) |
 | Call the API                         | [API conventions](architecture/api.md), [OpenAPI 3.1 spec](api/openapi.json)                                                 |
 | Change the schema                    | [Data model](architecture/data-model.md)                                                                                     |
+| Build Phase B (ownership, contracts) | [Phase B architecture](architecture/phase-b.md)                                                                              |
 | Review security or privacy           | [Threat model](security/threat-model.md), [privacy](security/privacy.md)                                                     |
 | Build UI                             | [Design system](design/design-system.md), [screens](design/screens.md), [review process](design/review-process.md)           |
 | Operate it                           | [Operations runbook](runbooks/operations.md), [release checklist](release-checklist.md)                                      |
@@ -37,6 +38,9 @@ across documents: **Built** / **Implemented** = in the code now (with file refer
 - [Data model](architecture/data-model.md) — ER diagram, RLS model, retention proposal, backup/restore
 - [API conventions](architecture/api.md) — versioning, auth, errors, idempotency, pagination, rate
   limits, SSE, endpoint list
+- [Phase B](architecture/phase-b.md) — frozen contracts and schema (0004), data flows, security notes
+  and the file ownership map for follow-ups, questions, attachments, skills, schedules, retention,
+  translation, webhooks, time zones, observability and evals
 
 ### Architecture decision records
 

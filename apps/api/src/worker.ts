@@ -8,6 +8,12 @@
  * minute, heartbeats every 10 s, and on SIGINT/SIGTERM stops leasing and
  * waits for in-flight jobs to finish.
  *
+ * Phase B timers: the scheduler tick (due schedules → schedule.run jobs) every
+ * 15 s, the storage-deletion drain every 30 s, and the retention check every
+ * hour (enqueues the daily retention.sweep jobs when this process has not
+ * done so for 23 h). Each is safe with several workers: jobs are deduplicated
+ * and occurrences / deletions are claimed in the database.
+ *
  * processJob / runOnce / reclaimOnce are exported for tests (no timers involved).
  */
 import { randomUUID } from 'node:crypto';
@@ -19,6 +25,8 @@ import { createDb, type Db } from './db/pool';
 import type { JobRow } from './db/types';
 import { SecretBox } from './lib/crypto';
 import { onJobDead, reconcileAfterJob, runJob, sweepStuckTasks } from './modules/agent/jobs';
+import { drainStorageDeletions, enqueueRetentionSweeps } from './modules/agent/jobs/retention';
+import { schedulerTick } from './modules/agent/jobs/schedule-run';
 import {
   createModelAdapter,
   LeaseLostError,
@@ -34,6 +42,14 @@ import {
   lease,
   reclaimExpired,
 } from './modules/jobs/queue';
+import { createStorage } from './modules/storage';
+import {
+  captureException,
+  currentTraceIds,
+  initTelemetry,
+  metrics,
+  withSpan,
+} from './observability';
 
 export const LEASE_MS = 60_000;
 export const POLL_MS = 2_000;
@@ -44,6 +60,13 @@ export const SWEEP_MS = 60_000;
 export const STUCK_GRACE_MS = 5 * 60_000;
 /** Periodic sweeps look at users whose task jobs changed this recently (the first sweep: all). */
 export const SWEEP_LOOKBACK_MS = 60 * 60_000;
+/** Phase B: due schedules are turned into schedule.run jobs this often. */
+export const SCHEDULER_MS = 15_000;
+/** Phase B: queued storage deletions are drained this often. */
+export const STORAGE_DRAIN_MS = 30_000;
+/** Phase B: retention is checked hourly and swept when this process last did so 23 h ago. */
+export const RETENTION_CHECK_MS = 60 * 60_000;
+export const RETENTION_EVERY_MS = 23 * 60 * 60_000;
 
 export interface WorkerDeps extends Omit<RuntimeDeps, 'signal'> {
   workerId: string;
@@ -94,8 +117,30 @@ function holdLease(deps: WorkerDeps, job: JobRow): { signal: AbortSignal; releas
   };
 }
 
-/** Runs one leased job to completion, failure (with backoff) or dead-letter. */
+/**
+ * Runs one leased job to completion, failure (with backoff) or dead-letter,
+ * inside a `job` span, recording its duration and outcome (no content).
+ */
 export async function processJob(deps: WorkerDeps, job: JobRow): Promise<void> {
+  const started = Date.now();
+  let outcome: 'succeeded' | 'retry' | 'dead' | 'lease_lost' = 'succeeded';
+  try {
+    await withSpan(
+      'job',
+      { 'jarvis.job.kind': job.kind, 'jarvis.job.id': job.id, 'jarvis.job.attempt': job.attempts },
+      async () => {
+        outcome = await runLeasedJob(deps, job);
+      },
+    );
+  } finally {
+    metrics.jobFinished(job.kind, outcome, Date.now() - started);
+  }
+}
+
+async function runLeasedJob(
+  deps: WorkerDeps,
+  job: JobRow,
+): Promise<'succeeded' | 'retry' | 'dead' | 'lease_lost'> {
   const held = holdLease(deps, job);
   const runtime: RuntimeDeps = { ...deps, signal: held.signal };
   try {
@@ -107,6 +152,7 @@ export async function processJob(deps: WorkerDeps, job: JobRow): Promise<void> {
     if (held.signal.aborted) throw new LeaseLostError(job.id);
     await complete(deps.db, job.id, deps.workerId);
     await reconcileAfterJob(runtime, job);
+    return 'succeeded';
   } catch (err) {
     if (held.signal.aborted) {
       // The job may be running elsewhere by now: completing, failing or
@@ -116,8 +162,9 @@ export async function processJob(deps: WorkerDeps, job: JobRow): Promise<void> {
         kind: job.kind,
         attempts: job.attempts,
       });
-      return;
+      return 'lease_lost';
     }
+    captureException(err, { jobId: job.id, jobKind: job.kind });
     const message = errorMessage(err);
     deps.log.error('job failed', {
       jobId: job.id,
@@ -131,6 +178,7 @@ export async function processJob(deps: WorkerDeps, job: JobRow): Promise<void> {
         deps.log.error('dead-letter handling failed', { jobId: job.id, error: errorMessage(e) }),
       );
     }
+    return result;
   }
 }
 
@@ -173,8 +221,19 @@ export async function runOnce(deps: WorkerDeps, opts: { limit?: number } = {}): 
 /* ------------------------------------------------------------------ */
 
 function consoleLogger(): RuntimeLogger {
-  const line = (level: string, msg: string, data?: Record<string, unknown>) =>
-    console.log(JSON.stringify({ level, time: new Date().toISOString(), msg, ...data }));
+  // trace_id / span_id of the active span (when tracing is on) correlate log lines with traces.
+  const line = (level: string, msg: string, data?: Record<string, unknown>) => {
+    const ids = currentTraceIds();
+    console.log(
+      JSON.stringify({
+        level,
+        time: new Date().toISOString(),
+        msg,
+        ...(ids ? { trace_id: ids.traceId, span_id: ids.spanId } : {}),
+        ...data,
+      }),
+    );
+  };
   return {
     info: (m, d) => line('info', m, d),
     warn: (m, d) => line('warn', m, d),
@@ -184,6 +243,9 @@ function consoleLogger(): RuntimeLogger {
 
 export async function startWorker(): Promise<void> {
   const config = loadConfig();
+  // First: tracing, error reporting and metrics (each only when configured; no-ops otherwise).
+  const telemetry = initTelemetry(config, 'worker');
+  await telemetry.ready;
   const log = consoleLogger();
   const { db } = createDb(config.DATABASE_URL, config.WORKER_CONCURRENCY + 4);
   const secrets = new SecretBox(config.SECRET_ENCRYPTION_KEY, config.SECRET_ENCRYPTION_KEY_ID);
@@ -192,7 +254,8 @@ export async function startWorker(): Promise<void> {
   );
   const workerId = `${hostname()}:${process.pid}:${randomUUID().slice(0, 8)}`;
   const adapter = createModelAdapter(config);
-  const deps: WorkerDeps = { config, db, secrets, adapter, log, workerId };
+  const storage = createStorage(config);
+  const deps: WorkerDeps = { config, db, secrets, adapter, storage, log, workerId };
 
   let stopping = false;
   const inFlight = new Set<Promise<void>>();
@@ -221,6 +284,42 @@ export async function startWorker(): Promise<void> {
       .catch((e: unknown) => log.warn('stuck-task sweep failed', { error: errorMessage(e) }));
   void sweep(null); // also tasks orphaned while no worker was running
   const sweepTimer = setInterval(() => void sweep(SWEEP_LOOKBACK_MS), SWEEP_MS);
+
+  // Phase B maintenance (each logs and carries on when one round fails).
+  let ticking = false;
+  const tick = () => {
+    if (ticking) return;
+    ticking = true;
+    schedulerTick(deps)
+      .then((n) => n > 0 && log.info('scheduled runs enqueued', { count: n }))
+      .catch((e: unknown) => log.warn('scheduler tick failed', { error: errorMessage(e) }))
+      .finally(() => (ticking = false));
+  };
+  void tick();
+  const schedulerTimer = setInterval(tick, SCHEDULER_MS);
+  let draining = false;
+  const drain = () => {
+    if (draining) return;
+    draining = true;
+    drainStorageDeletions({ db, storage, log })
+      .then((n) => n > 0 && log.info('stored files deleted', { count: n }))
+      .catch((e: unknown) => log.warn('storage drain failed', { error: errorMessage(e) }))
+      .finally(() => (draining = false));
+  };
+  const drainTimer = setInterval(drain, STORAGE_DRAIN_MS);
+  let lastRetention = 0;
+  const retention = () => {
+    if (Date.now() - lastRetention < RETENTION_EVERY_MS) return;
+    lastRetention = Date.now();
+    enqueueRetentionSweeps(deps)
+      .then((n) => n > 0 && log.info('retention sweeps enqueued', { count: n }))
+      .catch((e: unknown) => {
+        lastRetention = 0; // try again at the next check
+        log.warn('retention check failed', { error: errorMessage(e) });
+      });
+  };
+  void retention();
+  const retentionTimer = setInterval(retention, RETENTION_CHECK_MS);
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.once(signal, () => {
@@ -267,6 +366,9 @@ export async function startWorker(): Promise<void> {
   clearInterval(heartbeatTimer);
   clearInterval(reclaimTimer);
   clearInterval(sweepTimer);
+  clearInterval(schedulerTimer);
+  clearInterval(drainTimer);
+  clearInterval(retentionTimer);
   // Remove this worker's heartbeat so health reflects only live workers.
   await db
     .deleteFrom('worker_heartbeats')
@@ -275,6 +377,7 @@ export async function startWorker(): Promise<void> {
     .catch((e: unknown) => log.warn('heartbeat cleanup failed', { error: errorMessage(e) }));
   await listener.close();
   await closeDb(db);
+  await telemetry.shutdown();
   log.info('worker stopped', { workerId });
 }
 

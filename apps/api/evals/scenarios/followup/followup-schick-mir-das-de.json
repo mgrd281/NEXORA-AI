@@ -1,0 +1,22 @@
+{
+  "id": "followup-schick-mir-das-de",
+  "version": 1,
+  "suite": "followup",
+  "title": "„Schick mir das“ nach einer Zusammenfassung",
+  "modes": ["offline"],
+  "given": {
+    "request": "Schick mir das",
+    "conversation": [
+      {
+        "request": "Fasse {{site}}/artikel zusammen",
+        "outcome": "answer",
+        "resultText": "Ein Nachtzug soll Berlin und Lissabon verbinden."
+      }
+    ]
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["conversation.recall", "email.send"],
+    "recipientsExactly": ["{{me}}"]
+  }
+}

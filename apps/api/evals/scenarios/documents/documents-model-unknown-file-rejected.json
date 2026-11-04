@@ -1,0 +1,59 @@
+{
+  "id": "documents-model-unknown-file-rejected",
+  "version": 1,
+  "suite": "documents",
+  "title": "Model reads a file id not in the conversation: rejected",
+  "modes": ["model"],
+  "requires": ["tool:document.analyze"],
+  "given": {
+    "request": "Summarize the attached report",
+    "attachments": [
+      {
+        "filename": "q3-report.pdf",
+        "mediaType": "application/pdf",
+        "fixture": "report.pdf.json"
+      }
+    ],
+    "model": {
+      "scriptOnly": true,
+      "plans": [
+        {
+          "title": "Report",
+          "objective": "Summarize",
+          "steps": [
+            {
+              "key": "s1",
+              "toolId": "document.analyze",
+              "title": "Read",
+              "input": {
+                "attachmentId": "00000000-0000-4000-8000-000000000000",
+                "mode": "summary",
+                "language": "en"
+              }
+            }
+          ]
+        },
+        {
+          "title": "Report",
+          "objective": "Summarize",
+          "steps": [
+            {
+              "key": "s1",
+              "toolId": "document.analyze",
+              "title": "Read",
+              "input": {
+                "attachmentId": "{{file0}}",
+                "mode": "summary",
+                "language": "en"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["document.analyze"]
+  }
+}

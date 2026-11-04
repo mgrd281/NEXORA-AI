@@ -1,0 +1,20 @@
+{
+  "id": "planning-remember-de",
+  "version": 1,
+  "suite": "planning",
+  "title": "Merk dir etwas (Deutsch)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Merk dir, dass ich montags keine Termine vor zehn Uhr möchte"
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["memory.save"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "allow"
+      }
+    ]
+  }
+}

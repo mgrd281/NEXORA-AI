@@ -41,6 +41,16 @@ const REQUEST_SCHEMAS = new Set([
   'PageQuery',
   'TaskListQuery',
   'MemoryListQuery',
+  // Phase B
+  'FollowUpRequest',
+  'ConversationListQuery',
+  'ConversationDetailQuery',
+  'UpdateSkillRequest',
+  'CreateScheduleRequest',
+  'UpdateScheduleRequest',
+  'SchedulePreviewRequest',
+  'CreateWebhookRequest',
+  'UpdateWebhookRequest',
 ]);
 /** Primitive building blocks that read better inline than as $refs. */
 const INLINE_PRIMITIVES = new Set(['Id', 'Timestamp', 'MicroUsd']);
@@ -53,10 +63,14 @@ const ERROR_DESCRIPTIONS: Record<string, string> = {
   '404': 'NOT_FOUND — does not exist or is not visible to this user.',
   '409':
     'CONFLICT / INVALID_STATE / APPROVAL_EXPIRED / APPROVAL_MISMATCH — state does not allow this.',
-  '422': 'IDEMPOTENCY_MISMATCH / CONNECTION_FAILED — semantically rejected.',
+  '413': 'PAYLOAD_TOO_LARGE — the file is larger than the limit (details.reason FILE_TOO_LARGE).',
+  '415':
+    'UNSUPPORTED_MEDIA_TYPE — the content is not an accepted file type, or does not match its name (details.reason).',
+  '422': 'IDEMPOTENCY_MISMATCH / CONNECTION_FAILED / FETCH_BLOCKED — semantically rejected.',
   '429': 'RATE_LIMITED — too many requests.',
   '500': 'INTERNAL — unexpected server error.',
-  '503': 'MODEL_NOT_CONFIGURED — the requested capability is unavailable.',
+  '503':
+    'MODEL_NOT_CONFIGURED / SERVICE_UNAVAILABLE — the requested capability is unavailable (details.reason).',
 };
 
 /** Route-specific error statuses beyond the generic rules. */
@@ -69,6 +83,19 @@ const EXTRA_ERRORS: Partial<Record<RouteName, string[]>> = {
   testConnection: ['422'],
   deleteAccount: ['403'],
   login: ['401'],
+  // Phase B
+  followUp: ['402', '409', '503'],
+  deleteConversation: ['409'],
+  uploadAttachment: ['413', '415', '503'],
+  downloadAttachment: ['503'],
+  updateSkill: ['409'],
+  createSchedule: ['409'],
+  updateSchedule: ['409'],
+  pauseSchedule: ['409'],
+  resumeSchedule: ['409'],
+  createWebhook: ['409', '422'],
+  updateWebhook: ['422'],
+  testWebhook: ['409'],
 };
 
 /** Route-specific wording where the generic description would mislead. */
@@ -163,7 +190,25 @@ export function buildOpenApi(): Json {
 
     const status = String(route.successStatus ?? (route.response === null ? 204 : 200));
     const responses: Record<string, Json> = {};
-    if (route.response === null) {
+    if (route.download) {
+      // A file streamed to its owner, not JSON.
+      responses[status] = {
+        description: 'The file',
+        headers: {
+          'Content-Disposition': {
+            description: 'attachment; filename="…" (RFC 6266, UTF-8 filename*)',
+            schema: { type: 'string' },
+          },
+          'X-Content-Type-Options': { schema: { type: 'string', const: 'nosniff' } },
+        },
+        content: Object.fromEntries(
+          route.download.mediaTypes.map((t) => [
+            t,
+            { schema: { type: 'string', format: 'binary' } },
+          ]),
+        ),
+      };
+    } else if (route.response === null) {
       responses[status] = { description: 'No Content' };
     } else {
       responses[status] = {
@@ -183,7 +228,7 @@ export function buildOpenApi(): Json {
     }
 
     const errors = new Set<string>(['429', '500']);
-    if (route.params || route.query || route.body) errors.add('400');
+    if (route.params || route.query || route.body || route.upload) errors.add('400');
     if (route.auth !== 'none') errors.add('401');
     if (route.auth === 'platform_admin' || (route.auth === 'user' && route.method !== 'GET'))
       errors.add('403');
@@ -219,6 +264,26 @@ export function buildOpenApi(): Json {
               content: {
                 'application/json': {
                   schema: { $ref: SCHEMA_REF(requestRef(name, route.body)) },
+                },
+              },
+            },
+          }
+        : {}),
+      ...(route.upload
+        ? {
+            requestBody: {
+              required: true,
+              description: `One file, at most ${route.upload.maxBytes} bytes. The type is identified from the content; the file name's extension must agree.`,
+              content: {
+                'multipart/form-data': {
+                  schema: {
+                    type: 'object',
+                    properties: { [route.upload.field]: { type: 'string', format: 'binary' } },
+                    required: [route.upload.field],
+                  },
+                  encoding: {
+                    [route.upload.field]: { contentType: route.upload.mediaTypes.join(', ') },
+                  },
                 },
               },
             },

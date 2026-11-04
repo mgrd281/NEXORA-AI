@@ -69,6 +69,9 @@ const CAPABILITY_FIX: Record<Capability, string | null> = {
   email: '/connections',
   memory: '/memory',
   generalQuestions: null,
+  attachments: null,
+  translation: null,
+  schedules: '/settings#skills',
 };
 
 function plannerReason(status: AssistantStatus, budgetUsd: number): MessageKey {
@@ -165,6 +168,8 @@ function AssistantStatusCard({ budgetUsd }: { budgetUsd: number }) {
               <ul className={styles.capabilities}>
                 {(Object.keys(CAPABILITY_FIX) as Capability[]).map((key) => {
                   const on = s.capabilities[key];
+                  // Phase B capabilities are absent on older servers: say nothing about them.
+                  if (on === undefined) return null;
                   const href = CAPABILITY_FIX[key];
                   return (
                     <li key={key} className={cx(styles.capability, !on && styles.capabilityOff)}>

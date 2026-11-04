@@ -10,7 +10,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { TextField } from '@/components/ui/Field';
 import { Icon } from '@/components/ui/Icon';
 import { Skeleton, SkeletonRow } from '@/components/ui/Skeleton';
-import { PreferenceSwitch, SettingsCard } from '@/features/settings/controls';
+import { PreferenceSwitch, SettingRow, SettingsCard } from '@/features/settings/controls';
+import { RetentionSelect, retentionPeriod } from '@/features/settings/RetentionControls';
 import { useI18n } from '@/i18n/I18nProvider';
 import { useMe } from '@/lib/api/hooks';
 import { cx } from '@/lib/cx';
@@ -38,6 +39,16 @@ export function MemoryScreen({ initialQuery = '' }: { initialQuery?: string }) {
             read={(m) => m.preferences.memory.enabled}
             write={(v) => ({ preferences: { memory: { enabled: v } } })}
           />
+          <SettingRow>
+            <RetentionSelect me={me.data} field="memoryDays" />
+            {me.data.preferences.retention.memoryDays !== null && (
+              <p className={styles.retentionRule}>
+                {t('memory.retentionRule', {
+                  period: retentionPeriod(t, me.data.preferences.retention.memoryDays),
+                })}
+              </p>
+            )}
+          </SettingRow>
         </SettingsCard>
       ) : me.isError ? (
         <ErrorBanner error={me.error} onRetry={() => void me.refetch()} retrying={me.isFetching} />

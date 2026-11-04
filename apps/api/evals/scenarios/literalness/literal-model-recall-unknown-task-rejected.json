@@ -1,0 +1,74 @@
+{
+  "id": "literal-model-recall-unknown-task-rejected",
+  "version": 1,
+  "suite": "literalness",
+  "title": "Model recalls a task outside this conversation: rejected",
+  "modes": ["model"],
+  "given": {
+    "request": "Email it to me",
+    "conversation": [
+      {
+        "request": "Summarize {{site}}/article",
+        "outcome": "answer",
+        "resultText": "Renewable sources generated more electricity than coal across Europe for the first time this year."
+      }
+    ],
+    "model": {
+      "scriptOnly": true,
+      "plans": [
+        {
+          "title": "Email",
+          "objective": "Email it",
+          "steps": [
+            {
+              "key": "s1",
+              "toolId": "conversation.recall",
+              "title": "Recall",
+              "input": {
+                "taskId": "00000000-0000-4000-8000-000000000000"
+              }
+            },
+            {
+              "key": "s2",
+              "toolId": "email.send",
+              "title": "Send",
+              "input": {
+                "to": ["{{me}}"],
+                "subject": "Summary",
+                "body": "{{s1.text}}"
+              }
+            }
+          ]
+        },
+        {
+          "title": "Email",
+          "objective": "Email it",
+          "steps": [
+            {
+              "key": "s1",
+              "toolId": "conversation.recall",
+              "title": "Recall",
+              "input": {
+                "taskId": "00000000-0000-4000-8000-000000000000"
+              }
+            },
+            {
+              "key": "s2",
+              "toolId": "email.send",
+              "title": "Send",
+              "input": {
+                "to": ["{{me}}"],
+                "subject": "Summary",
+                "body": "{{s1.text}}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "result": "unsupported",
+    "errorReason": "INVALID_PLAN"
+  }
+}

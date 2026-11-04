@@ -1,0 +1,32 @@
+{
+  "id": "policy-skill-disabled-cannot-lift-approval",
+  "version": 1,
+  "suite": "policy",
+  "title": "Skills only add denies: other skills keep their approvals",
+  "modes": ["offline"],
+  "given": {
+    "request": "Summarize {{site}}/article and email it to me",
+    "pages": {
+      "{{site}}/article": "article.html"
+    },
+    "preferences": {
+      "skills": {
+        "disabled": ["translation", "document-analysis"]
+      }
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "policy": [
+      {
+        "step": 0,
+        "decision": "allow"
+      },
+      {
+        "step": 2,
+        "decision": "require_approval",
+        "reasonsInclude": ["RISK_MEDIUM"]
+      }
+    ]
+  }
+}

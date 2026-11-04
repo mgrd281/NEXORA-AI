@@ -1,0 +1,29 @@
+{
+  "id": "spec-08-expired-connection",
+  "version": 1,
+  "suite": "spec",
+  "title": "Spec 8 — expired authorization (OAuth planned): an expired email connection is denied",
+  "modes": ["offline", "pipeline"],
+  "given": {
+    "request": "Email me: renew the car insurance",
+    "connectionStatus": {
+      "smtp": "expired"
+    }
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "CONNECTION_MISSING",
+    "policy": [
+      {
+        "step": 0,
+        "decision": "deny",
+        "reasonsInclude": ["CONNECTION_MISSING"]
+      }
+    ],
+    "pipeline": {
+      "status": "FAILED",
+      "errorCode": "CONNECTION_REQUIRED",
+      "sideEffectsExactly": 0
+    }
+  }
+}

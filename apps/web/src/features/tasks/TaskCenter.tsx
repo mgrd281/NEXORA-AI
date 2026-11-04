@@ -26,6 +26,7 @@ import {
   type TaskFilter,
 } from './model';
 import styles from './TaskCenter.module.css';
+import { TaskCenterNav } from './TaskCenterNav';
 
 /**
  * Task Center: every task, filtered by status (synced to ?status=), paged by cursor, kept live
@@ -75,6 +76,7 @@ export function TaskCenter() {
 
   return (
     <Page title={t('tasks.title')} description={t('tasks.description')} width="wide">
+      <TaskCenterNav current="tasks" />
       <div className={styles.filterBar} ref={filterBar}>
         <SegmentedControl
           legend={t('tasks.filters.legend')}

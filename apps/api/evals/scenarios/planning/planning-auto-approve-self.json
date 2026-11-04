@@ -1,0 +1,30 @@
+{
+  "id": "planning-auto-approve-self",
+  "version": 1,
+  "suite": "planning",
+  "title": "Email to myself is auto-approved when I allowed it",
+  "modes": ["offline", "pipeline"],
+  "given": {
+    "request": "Email me: the parcel arrives on Friday",
+    "preferences": {
+      "autonomy": {
+        "autoApproveEmailToSelf": true
+      }
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["email.send"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "allow",
+        "reasonsInclude": ["AUTO_APPROVED_SELF", "RECIPIENT_SELF"]
+      }
+    ],
+    "pipeline": {
+      "status": "COMPLETED",
+      "sideEffectsExactly": 1
+    }
+  }
+}

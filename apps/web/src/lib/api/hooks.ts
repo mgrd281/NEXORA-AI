@@ -28,6 +28,19 @@ export function useAssistantStatus() {
   });
 }
 
+/**
+ * Time zones the server accepts (Postgres ∩ Intl). Pickers offer only these, so a saved zone is
+ * never refused. The list changes only with a server update: cached for an hour.
+ */
+export function useTimeZones() {
+  return useQuery({
+    queryKey: qk.timeZones,
+    queryFn: ({ signal }) => api.call('listTimeZones', { signal }),
+    staleTime: 60 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
+}
+
 /** Pending approvals. */
 export function useApprovals() {
   return useQuery({

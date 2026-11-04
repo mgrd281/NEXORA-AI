@@ -7,6 +7,14 @@ import pg from 'pg';
 import { pingDb, withContext } from '../db/pool';
 import { AppError } from '../lib/errors';
 import { resolveSession, SESSION_COOKIE, touchSession } from '../modules/auth/sessions';
+import {
+  captureException,
+  logMixin,
+  registerHttpInstrumentation,
+  registerMetricsRoute,
+  routeLabel,
+  tracingConfigured,
+} from '../observability';
 import type { AppDeps } from '../services';
 import './context';
 
@@ -72,9 +80,12 @@ export async function buildApp(
                 'res.headers["set-cookie"]',
                 '*.password',
                 '*.token',
+                '*.secret',
               ],
               censor: '[redacted]',
             },
+            // trace_id / span_id on every line while tracing is configured (log correlation).
+            ...(tracingConfigured(config) ? { mixin: logMixin } : {}),
           },
     genReqId: (req) => {
       const incoming = req.headers['x-request-id'];
@@ -86,6 +97,9 @@ export async function buildApp(
     trustProxy: config.isProduction ? 'loopback, linklocal, uniquelocal' : false,
     bodyLimit: 256 * 1024,
   });
+
+  // First hook: request spans and the latency histogram (registers nothing when neither is configured).
+  registerHttpInstrumentation(app, config);
 
   await app.register(helmet, {
     contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
@@ -170,7 +184,10 @@ export async function buildApp(
       });
     }
     if (err instanceof AppError) {
-      if (err.status >= 500) req.log.error({ err }, err.message);
+      if (err.status >= 500) {
+        req.log.error({ err }, err.message);
+        captureException(err, { requestId: req.id, route: routeLabel(req) });
+      }
       return reply.code(err.status).send({
         error: {
           code: err.code,
@@ -200,6 +217,7 @@ export async function buildApp(
         .send({ error: { code: 'VALIDATION_FAILED', message: code, requestId: req.id } });
     }
     req.log.error({ err }, 'unhandled error');
+    captureException(err, { requestId: req.id, route: routeLabel(req) });
     return reply.code(500).send({
       error: {
         code: 'INTERNAL',
@@ -221,6 +239,8 @@ export async function buildApp(
     const db = await pingDb(deps.db);
     return reply.code(db ? 200 : 503).send({ ok: db, database: db });
   });
+  // Prometheus scrape endpoint, only when METRICS_TOKEN is set (outside the v1 route table).
+  registerMetricsRoute(app, deps);
 
   await registerRoutes(app, deps);
   return app;

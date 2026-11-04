@@ -1,12 +1,18 @@
 /** Glue between a step, its tool and the policy engine (used at plan and execution time). */
-import { RISK_ORDER, type RiskLevel, type UntrustedSource } from '@jarvis/contracts';
+import {
+  RISK_ORDER,
+  type RiskLevel,
+  type TaskError,
+  type UntrustedSource,
+} from '@jarvis/contracts';
 import type { Config } from '../../config';
 import type { StepRow } from '../../db/types';
 import { redact } from '../../lib/redact';
 import type { AgentContext } from './context';
-import { evaluatePolicy, type PolicyResult } from './policy';
+import { denyMessage, denyReason, evaluatePolicy, type PolicyResult } from './policy';
+import { skillOfTool } from './skills/registry';
 import { findRefs } from './templates';
-import type { AnyTool } from './tools/types';
+import type { AnyTool, CostContext } from './tools/types';
 
 export interface StepAssessment {
   risk: RiskLevel;
@@ -15,16 +21,49 @@ export interface StepAssessment {
   estimateMicro: number;
 }
 
+/**
+ * The skill fields of the policy input, from the static registry and the
+ * user's preferences only (personal-memory's switch is memory.enabled, which
+ * the policy checks as MEMORY_DISABLED).
+ */
+export function skillPolicy(
+  tool: AnyTool,
+  agent: Pick<AgentContext, 'preferences'>,
+): { skillEnabled: boolean; skillCostLimitMicro: number | null } {
+  const skill = skillOfTool(tool.id);
+  const disabled = new Set(agent.preferences.skills?.disabled ?? []);
+  return {
+    skillEnabled: !(skill.canToggle && skill.id !== 'personal-memory' && disabled.has(skill.id)),
+    skillCostLimitMicro: skill.maxCostPerRunMicroUsd,
+  };
+}
+
+/**
+ * Plan and execution time share this: `input` is the planned input (with
+ * references) at plan time and the resolved input at execution time, so
+ * `fromContent` (the input takes text from earlier steps) must come from the
+ * planned input; it defaults to "input has references".
+ */
 export function assessStep(
   tool: AnyTool,
   input: Record<string, unknown>,
   agent: AgentContext,
   config: Config,
-  opts: { untrustedContent?: boolean; extraSpentMicro?: number } = {},
+  opts: {
+    untrustedContent?: boolean;
+    extraSpentMicro?: number;
+    fromContent?: boolean;
+    /** Files of the task's conversation (cost estimates of document.analyze). */
+    attachments?: CostContext['attachments'];
+  } = {},
 ): StepAssessment {
   const modelAvailable = agent.route.mode === 'model';
   const risk = tool.riskLevel(input, { accountEmail: agent.account.email });
-  const estimateMicro = tool.estimateCostMicro(input, { modelAvailable, config });
+  const estimateMicro = tool.estimateCostMicro(input, {
+    modelAvailable,
+    config,
+    attachments: opts.attachments,
+  });
   let recipients: string[] | undefined;
   try {
     recipients = tool.recipients?.(input);
@@ -49,8 +88,28 @@ export function assessStep(
       spentMicro: agent.budget.spentMicro + (opts.extraSpentMicro ?? 0),
     },
     untrustedContent: opts.untrustedContent ?? false,
+    ...skillPolicy(tool, agent),
+    fromContent: opts.fromContent ?? findRefs(input).length > 0,
   });
   return { risk, policy, preview: redact(tool.preview(input)), estimateMicro };
+}
+
+/** The TaskError of a denied step (shared by planning and execution). */
+export function denyError(
+  tool: AnyTool,
+  stepTitle: string,
+  policy: PolicyResult,
+): TaskError & { code: NonNullable<PolicyResult['denyCode']> } {
+  const code = policy.denyCode ?? 'POLICY_DENIED';
+  const params: Record<string, string> = { step: stepTitle };
+  if (policy.reasons.includes('SKILL_DISABLED')) params.skill = skillOfTool(tool.id).id;
+  return {
+    code,
+    message: denyMessage(code, policy.reasons, stepTitle),
+    retryable: true,
+    reason: denyReason(code, policy.reasons),
+    params,
+  };
 }
 
 export function maxRisk(levels: RiskLevel[]): RiskLevel {
@@ -101,8 +160,14 @@ export function untrustedSource(steps: StepRow[], target: StepRow): UntrustedSou
 
   let host: string | null = null;
   for (const s of [...deps].sort((a, b) => a.position - b.position)) {
-    const url = (s.output as Out)?.finalUrl;
-    if (s.tool_id !== 'web.fetch' || typeof url !== 'string') continue;
+    // A fetched page, or the page an earlier (recalled) result was made from.
+    const url =
+      s.tool_id === 'web.fetch'
+        ? (s.output as Out)?.finalUrl
+        : s.tool_id === 'conversation.recall'
+          ? (s.output as Out)?.sourceUrl
+          : null;
+    if (typeof url !== 'string') continue;
     try {
       host = new URL(url).host;
       break;
@@ -113,7 +178,11 @@ export function untrustedSource(steps: StepRow[], target: StepRow): UntrustedSou
   let excluded: number | null = null;
   for (const s of deps) {
     const n = (s.output as Out)?.excludedSentences;
-    if (s.tool_id === 'text.summarize' && typeof n === 'number') excluded = (excluded ?? 0) + n;
+    if (
+      (s.tool_id === 'text.summarize' || s.tool_id === 'document.analyze') &&
+      typeof n === 'number'
+    )
+      excluded = (excluded ?? 0) + n;
   }
   const signals = new Set<string>();
   for (const s of flagged) {

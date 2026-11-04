@@ -34,7 +34,7 @@ describe('OpenAPI document', () => {
       expect(op!.operationId).toBe(name);
       const success = String(r.successStatus ?? (r.response === null ? 204 : 200));
       expect(Object.keys(op!.responses), name).toContain(success);
-      expect(!!op!.requestBody, name).toBe(!!r.body);
+      expect(!!op!.requestBody, name).toBe(!!r.body || !!r.upload);
       // Unauthenticated routes opt out of the global security requirement.
       expect(op!.security, name).toEqual(r.auth === 'none' ? [] : undefined);
       if (r.auth !== 'none') expect(Object.keys(op!.responses), name).toContain('401');
@@ -62,6 +62,19 @@ describe('OpenAPI document', () => {
     );
     expect(refs.length).toBeGreaterThan(50);
     for (const ref of new Set(refs)) expect(doc.components.schemas, ref).toHaveProperty(ref);
+  });
+
+  it('describes file uploads as multipart and downloads as binary', () => {
+    const upload = opFor(routes.uploadAttachment as RouteDef)! as Op & {
+      requestBody: { content: Record<string, { schema: { required: string[] } }> };
+    };
+    expect(Object.keys(upload.requestBody.content)).toEqual(['multipart/form-data']);
+    expect(upload.requestBody.content['multipart/form-data']!.schema.required).toEqual(['file']);
+    expect(Object.keys(upload.responses)).toEqual(expect.arrayContaining(['201', '413', '415']));
+    const download = opFor(routes.downloadAttachment as RouteDef)!;
+    const ok = download.responses['200'] as { content: Record<string, unknown> };
+    expect(Object.keys(ok.content)).toContain('application/pdf');
+    expect(JSON.stringify(ok.content)).toContain('"format":"binary"');
   });
 
   it('is committed up to date (regenerate with `pnpm --filter @jarvis/api openapi`)', () => {

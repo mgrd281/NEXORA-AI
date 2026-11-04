@@ -19,6 +19,8 @@ import { api, isApiError, newIdempotencyKey } from '@/lib/api/client';
 import { useApprovals } from '@/lib/api/hooks';
 import { qk } from '@/lib/api/query-keys';
 import { cx } from '@/lib/cx';
+import { describeRecurrence, formatInZone } from '@/features/schedules/recurrence';
+import { zoneDisplayName } from '@/features/settings/timeZones';
 import { useNow } from '@/lib/hooks/useNow';
 import styles from './ApprovalSheet.module.css';
 import { ApprovalSentence } from './ApprovalSentence';
@@ -101,7 +103,7 @@ function ApprovalReview({
   // Prefer the freshest server copy (after a mismatch it carries the stored action and hash).
   const fresh = pending.data?.items.find((a) => a.id === initial.id);
   const approval = decided ?? fresh ?? initial;
-  const isEmail = approval.details.kind === 'email';
+  const kind = approval.details.kind;
   // The pending list no longer contains it: decided elsewhere, expired or replaced.
   const noLongerPending = pending.isSuccess && !fresh && !decided;
   const actionChanged = approval.actionHash !== initial.actionHash;
@@ -171,9 +173,7 @@ function ApprovalReview({
         onClick={() => decide.mutate('reject')}
         disabled={deciding !== null && deciding !== 'reject'}
         loading={deciding === 'reject'}
-        aria-label={
-          isEmail ? t('approvals.declineLabel.email') : t('approvals.declineLabel.generic')
-        }
+        aria-label={t(`approvals.declineLabel.${kind}`)}
       >
         {t('approvals.decline')}
       </Button>
@@ -184,11 +184,9 @@ function ApprovalReview({
         onClick={() => decide.mutate('approve')}
         disabled={deciding !== null && deciding !== 'approve'}
         loading={deciding === 'approve'}
-        aria-label={
-          isEmail ? t('approvals.approveLabel.email') : t('approvals.approveLabel.generic')
-        }
+        aria-label={t(`approvals.approveLabel.${kind}`)}
       >
-        {isEmail ? t('approvals.approve.email') : t('approvals.approve.generic')}
+        {t(`approvals.approve.${kind}`)}
       </Button>
     </>
   ) : undefined;
@@ -197,7 +195,7 @@ function ApprovalReview({
     <Sheet
       open
       onClose={onClose}
-      title={isEmail ? t('approvals.title.email') : t('approvals.title.generic')}
+      title={t(`approvals.title.${kind}`)}
       placement="side"
       busy={deciding !== null}
       footer={footer}
@@ -262,64 +260,7 @@ function ApprovalReview({
 
         {untrusted && <UntrustedSourceBanner approval={approval} />}
 
-        {approval.details.kind === 'email' ? (
-          <div className={styles.email}>
-            <dl className={styles.fields}>
-              <div className={styles.fieldRow}>
-                <dt>{t('approvals.fields.from')}</dt>
-                <dd>
-                  <Sender from={approval.details.from} />
-                </dd>
-              </div>
-              <div className={styles.fieldRow}>
-                <dt>
-                  {t('approvals.fields.to')}
-                  <span className="visually-hidden">
-                    {' '}
-                    ({t('approvals.recipients', { count: approval.details.to.length })})
-                  </span>
-                </dt>
-                <dd>
-                  <ul className={styles.recipients}>
-                    {approval.details.to.map((address) => (
-                      <li key={address} className={styles.recipient}>
-                        <span className="ltr">{address}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </dd>
-              </div>
-              <div className={styles.fieldRow}>
-                <dt>{t('approvals.fields.subject')}</dt>
-                {approval.details.subject ? (
-                  <UserText as="dd" className={styles.subject}>
-                    {approval.details.subject}
-                  </UserText>
-                ) : (
-                  <dd className={styles.subject}>{t('approvals.fields.noSubject')}</dd>
-                )}
-              </div>
-            </dl>
-            <div className={styles.bodyBlock}>
-              <p className={styles.bodyLabel}>{t('approvals.fields.body')}</p>
-              {/* The message is the whole surface here, so it follows its own direction. */}
-              <pre className={styles.body} dir="auto">
-                {approval.details.body}
-              </pre>
-            </div>
-          </div>
-        ) : (
-          <dl className={styles.fields}>
-            {approval.details.fields.map((field) => (
-              <div className={styles.fieldRow} key={field.label}>
-                <dt>{field.label}</dt>
-                <UserText as="dd" className={styles.genericValue}>
-                  {field.value}
-                </UserText>
-              </div>
-            ))}
-          </dl>
-        )}
+        <ApprovalDetailsView approval={approval} onNavigate={onClose} />
 
         {decide.isError && <ErrorBanner error={decide.error} />}
 
@@ -353,6 +294,160 @@ function ApprovalReview({
       </div>
     </Sheet>
   );
+}
+
+/** Exactly what the action does, by kind: the email, the schedule, the memory, or fields. */
+function ApprovalDetailsView({
+  approval,
+  onNavigate,
+}: {
+  approval: Approval;
+  onNavigate: () => void;
+}) {
+  const i18n = useI18n();
+  const { t, f } = i18n;
+  const details = approval.details;
+  switch (details.kind) {
+    case 'email':
+      return (
+        <div className={styles.email}>
+          <dl className={styles.fields}>
+            <div className={styles.fieldRow}>
+              <dt>{t('approvals.fields.from')}</dt>
+              <dd>
+                <Sender from={details.from} />
+              </dd>
+            </div>
+            <div className={styles.fieldRow}>
+              <dt>
+                {t('approvals.fields.to')}
+                <span className="visually-hidden">
+                  {' '}
+                  ({t('approvals.recipients', { count: details.to.length })})
+                </span>
+              </dt>
+              <dd>
+                <ul className={styles.recipients}>
+                  {details.to.map((address) => (
+                    <li key={address} className={styles.recipient}>
+                      <span className="ltr">{address}</span>
+                    </li>
+                  ))}
+                </ul>
+              </dd>
+            </div>
+            <div className={styles.fieldRow}>
+              <dt>{t('approvals.fields.subject')}</dt>
+              {details.subject ? (
+                <UserText as="dd" className={styles.subject}>
+                  {details.subject}
+                </UserText>
+              ) : (
+                <dd className={styles.subject}>{t('approvals.fields.noSubject')}</dd>
+              )}
+            </div>
+          </dl>
+          <div className={styles.bodyBlock}>
+            <p className={styles.bodyLabel}>{t('approvals.fields.body')}</p>
+            {/* The message is the whole surface here, so it follows its own direction. */}
+            <pre className={styles.body} dir="auto">
+              {details.body}
+            </pre>
+          </div>
+        </div>
+      );
+    case 'schedule': {
+      const zone = details.recurrence.timeZone;
+      return (
+        <>
+          <div className={styles.email}>
+            <dl className={styles.fields}>
+              <div className={styles.fieldRow}>
+                <dt>{t('approvals.fields.scheduleTitle')}</dt>
+                <UserText as="dd" className={styles.subject}>
+                  {details.title}
+                </UserText>
+              </div>
+              <div className={styles.fieldRow}>
+                <dt>{t('approvals.fields.repeats')}</dt>
+                <dd className={styles.genericValue}>{describeRecurrence(details.recurrence, i18n)}</dd>
+              </div>
+              <div className={styles.fieldRow}>
+                <dt>{t('approvals.fields.nextRuns')}</dt>
+                <dd>
+                  <ul className={styles.occurrences}>
+                    {details.nextOccurrences.map((at) => (
+                      <li key={at} className="tabular">
+                        <time dateTime={at}>{formatInZone(at, zone, f.intlLocale)}</time>
+                      </li>
+                    ))}
+                  </ul>
+                </dd>
+              </div>
+              <div className={styles.fieldRow}>
+                <dt>{t('approvals.fields.timeZone')}</dt>
+                <dd className={styles.genericValue}>{zoneDisplayName(zone)}</dd>
+              </div>
+            </dl>
+            <div className={styles.bodyBlock}>
+              <p className={styles.bodyLabel}>{t('approvals.fields.request')}</p>
+              <pre className={styles.body} dir="auto">
+                {details.request}
+              </pre>
+            </div>
+          </div>
+          <p className={styles.kindNote}>{t('approvals.scheduleNote')}</p>
+          <details className={styles.rule}>
+            <summary>{t('approvals.fields.rule')}</summary>
+            <code className="ltr">{details.rrule}</code>
+          </details>
+        </>
+      );
+    }
+    case 'memory':
+      return (
+        <>
+          <div className={styles.email}>
+            <div className={styles.bodyBlock}>
+              <p className={styles.bodyLabel}>{t('approvals.fields.memoryContent')}</p>
+              <p className={styles.memoryText} dir="auto">
+                {details.content}
+              </p>
+            </div>
+            <dl className={cx(styles.fields, styles.memoryFields)}>
+              <div className={styles.fieldRow}>
+                <dt>{t('approvals.fields.memoryKind')}</dt>
+                <dd className={styles.genericValue}>{t(`memory.kinds.${details.memoryKind}`)}</dd>
+              </div>
+              {details.sourceTaskId && (
+                <div className={styles.fieldRow}>
+                  <dt>{t('approvals.fields.source')}</dt>
+                  <dd className={styles.genericValue}>
+                    <Link href={`/tasks/${details.sourceTaskId}`} onClick={onNavigate}>
+                      {t('approvals.memorySource')}
+                    </Link>
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </div>
+          <p className={styles.kindNote}>{t('approvals.memoryNote')}</p>
+        </>
+      );
+    case 'generic':
+      return (
+        <dl className={styles.fields}>
+          {details.fields.map((field) => (
+            <div className={styles.fieldRow} key={field.label}>
+              <dt>{field.label}</dt>
+              <UserText as="dd" className={styles.genericValue}>
+                {field.value}
+              </UserText>
+            </div>
+          ))}
+        </dl>
+      );
+  }
 }
 
 /**

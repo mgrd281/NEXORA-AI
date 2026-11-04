@@ -8,9 +8,12 @@ struct VoiceCaptureView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @State private var model: VoiceCaptureModel? = nil
+    /// When set, the request is sent as a follow-up in this conversation.
+    let conversationId: String?
     let onCreated: (TaskSummary) -> Void
 
-    init(onCreated: @escaping (TaskSummary) -> Void) {
+    init(conversationId: String? = nil, onCreated: @escaping (TaskSummary) -> Void) {
+        self.conversationId = conversationId
         self.onCreated = onCreated
     }
 
@@ -30,7 +33,7 @@ struct VoiceCaptureView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(MeridianColor.canvas)
-            .navigationTitle(Text("Speak a request"))
+            .navigationTitle(conversationId == nil ? Text("Speak a request") : Text("Speak a follow-up"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -41,7 +44,7 @@ struct VoiceCaptureView: View {
         .onAppear {
             if model == nil {
                 let identifier = (app.me?.preferences.voice.recognitionLocale ?? .auto).resolvedIdentifier()
-                model = VoiceCaptureModel(localeIdentifier: identifier)
+                model = VoiceCaptureModel(localeIdentifier: identifier, conversationId: conversationId)
             }
         }
         .onDisappear {

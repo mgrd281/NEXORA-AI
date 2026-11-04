@@ -1,0 +1,14 @@
+{
+  "id": "planning-memory-too-long",
+  "version": 1,
+  "suite": "planning",
+  "title": "A memory over 1000 characters is refused",
+  "modes": ["offline"],
+  "given": {
+    "request": "Remember that my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and my favourite colours change with the seasons and"
+  },
+  "expect": {
+    "result": "unsupported",
+    "errorReason": "MEMORY_TOO_LONG"
+  }
+}

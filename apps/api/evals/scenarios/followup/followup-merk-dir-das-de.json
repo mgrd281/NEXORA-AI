@@ -1,0 +1,28 @@
+{
+  "id": "followup-merk-dir-das-de",
+  "version": 1,
+  "suite": "followup",
+  "title": "„Merk dir das“ speichert das Ergebnis nach Freigabe",
+  "modes": ["offline"],
+  "given": {
+    "request": "Merk dir das",
+    "conversation": [
+      {
+        "request": "Fasse {{site}}/artikel zusammen",
+        "outcome": "answer",
+        "resultText": "Ein Nachtzug soll Berlin und Lissabon verbinden."
+      }
+    ]
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["conversation.recall", "memory.save"],
+    "policy": [
+      {
+        "step": 1,
+        "decision": "require_approval",
+        "reasonsInclude": ["MEMORY_FROM_CONTENT"]
+      }
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "clarify-webseite-ohne-link",
+  "version": 1,
+  "suite": "clarify",
+  "title": "Webseite ohne Link: JARVIS fragt nach dem Link",
+  "modes": ["offline"],
+  "given": {
+    "request": "Fasse die Webseite zusammen"
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["url"]
+  }
+}

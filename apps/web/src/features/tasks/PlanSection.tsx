@@ -5,15 +5,20 @@ import { RISK_ORDER } from '@jarvis/contracts';
 import type { LucideIcon } from 'lucide-react';
 import {
   BookmarkPlus,
+  CalendarClock,
   ChevronDown,
   CircleAlert,
   CircleCheck,
   CircleSlash,
   CornerDownRight,
+  FileSearch,
   FileText,
   Globe,
   Hand,
+  History,
+  Languages,
   Mail,
+  MessageCircleQuestionMark,
   MessageSquareText,
   ShieldBan,
   ShieldCheck,
@@ -48,12 +53,17 @@ import {
 } from './model';
 import styles from './Plan.module.css';
 
-const TOOL_ICON: Record<ToolId, LucideIcon> = {
+export const TOOL_ICON: Record<ToolId, LucideIcon> = {
   'web.fetch': Globe,
   'text.summarize': FileText,
   'email.send': Mail,
   'memory.save': BookmarkPlus,
   'assistant.answer': MessageSquareText,
+  'document.analyze': FileSearch,
+  'text.translate': Languages,
+  'schedule.create': CalendarClock,
+  'conversation.recall': History,
+  'assistant.clarify': MessageCircleQuestionMark,
 };
 
 /** What JARVIS planned, step by step, with live status, policy and evidence. */

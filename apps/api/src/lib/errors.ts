@@ -23,6 +23,10 @@ const STATUS: Record<ErrorCode, number> = {
   OUTCOME_UNKNOWN: 409,
   VERIFICATION_FAILED: 502,
   FETCH_BLOCKED: 422,
+  // Phase B (cause in details.reason: contracts ApiErrorReason)
+  PAYLOAD_TOO_LARGE: 413,
+  UNSUPPORTED_MEDIA_TYPE: 415,
+  SERVICE_UNAVAILABLE: 503,
   INTERNAL: 500,
 };
 

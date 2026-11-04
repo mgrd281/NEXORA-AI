@@ -11,7 +11,14 @@ import { appendEvent } from '../events/events';
 import { enqueue } from '../jobs/queue';
 import { createNotification } from '../notifications/create';
 import { msg, render } from './i18n';
-import { cancelOpenSteps, lockTask, taskErrorJson, transitionTask } from './task-state';
+import {
+  cancelOpenSteps,
+  lockTask,
+  notifyTaskFailed,
+  taskErrorJson,
+  transitionTask,
+} from './task-state';
+import { emitApprovalWebhook } from './webhook-events';
 
 export async function requestApproval(
   trx: Trx,
@@ -47,13 +54,14 @@ export async function requestApproval(
       reasons: r.reasons,
       expires_at: expiresAt,
     })
-    .returning('id')
+    .returningAll()
     .executeTakeFirstOrThrow();
   await trx
     .updateTable('task_steps')
     .set({ status: 'AWAITING_APPROVAL' })
     .where('id', '=', r.step.id)
     .execute();
+  await emitApprovalWebhook(trx, ctx, 'approval.requested', approval);
   await transitionTask(trx, ctx, r.task, 'AWAITING_APPROVAL');
   await appendEvent(trx, ctx, {
     taskId: r.task.id,
@@ -103,12 +111,14 @@ export async function expireApproval(
   actor: 'system' | 'user',
 ): Promise<void> {
   const task = await lockTask(trx, approval.task_id);
-  await trx
+  const expiredRow = await trx
     .updateTable('approvals')
     .set({ status: 'EXPIRED', decided_at: new Date() })
     .where('id', '=', approval.id)
     .where('status', '=', 'PENDING')
-    .execute();
+    .returningAll()
+    .executeTakeFirst();
+  if (expiredRow) await emitApprovalWebhook(trx, ctx, 'approval.decided', expiredRow);
   await appendEvent(trx, ctx, {
     taskId: approval.task_id,
     type: 'approval.decided',
@@ -127,10 +137,7 @@ export async function expireApproval(
       result_summary: render(language, result),
       result_summary_message: JSON.stringify(result),
     });
-    await createNotification(trx, ctx, 'task_failed', task.id, {
-      taskTitle: expired.title,
-      errorCode: 'APPROVAL_EXPIRED',
-    });
+    await notifyTaskFailed(trx, ctx, expired, 'APPROVAL_EXPIRED');
   }
   await audit(trx, {
     tenantId: ctx.tenantId,

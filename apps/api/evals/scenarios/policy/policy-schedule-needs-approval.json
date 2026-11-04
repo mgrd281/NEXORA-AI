@@ -1,0 +1,27 @@
+{
+  "id": "policy-schedule-needs-approval",
+  "version": 1,
+  "suite": "policy",
+  "title": "A schedule always needs the user's confirmation (future runs)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Every day at 8 email me: drink water",
+    "preferences": {
+      "autonomy": {
+        "autoApproveEmailToSelf": true
+      }
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["schedule.create"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "require_approval",
+        "reasonsInclude": ["FUTURE_RUNS"],
+        "reasonsExclude": ["AUTO_APPROVED_SELF"]
+      }
+    ]
+  }
+}

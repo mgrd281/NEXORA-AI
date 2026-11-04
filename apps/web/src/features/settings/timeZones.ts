@@ -60,3 +60,36 @@ export function deviceTimeZone(): string | null {
     return null;
   }
 }
+
+/** "GMT+1", "GMT−3:30", "GMT" from an offset in minutes (U+2212 minus, as Intl writes it). */
+export function offsetLabel(minutes: number): string {
+  if (minutes === 0) return 'GMT';
+  const sign = minutes > 0 ? '+' : '\u2212';
+  const abs = Math.abs(minutes);
+  const h = Math.floor(abs / 60);
+  const m = abs % 60;
+  return `GMT${sign}${h}${m ? `:${String(m).padStart(2, '0')}` : ''}`;
+}
+
+/**
+ * Picker options from the server's list (GET /v1/meta/time-zones): UTC first, then by name,
+ * each with its current offset. The current value is kept even if the list lacks it, so the
+ * picker never silently shows a different zone than the one stored.
+ */
+export function serverTimeZoneOptions(
+  zones: readonly { id: string; utcOffsetMinutes: number }[],
+  current: string | null,
+): TimeZoneOption[] {
+  const ids = new Set(zones.map((z) => z.id));
+  const list = [...zones];
+  if (current && !ids.has(current)) list.push({ id: current, utcOffsetMinutes: Number.NaN });
+  return list
+    .sort((a, b) => (a.id === 'UTC' ? -1 : b.id === 'UTC' ? 1 : a.id.localeCompare(b.id)))
+    .map((z) => ({
+      value: z.id,
+      label:
+        z.id === 'UTC' || Number.isNaN(z.utcOffsetMinutes)
+          ? zoneDisplayName(z.id)
+          : `${zoneDisplayName(z.id)} (${offsetLabel(z.utcOffsetMinutes)})`,
+    }));
+}

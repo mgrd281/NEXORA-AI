@@ -1,0 +1,29 @@
+{
+  "id": "followup-answer-schedule-time",
+  "version": 1,
+  "suite": "followup",
+  "title": "Answering \"when?\" completes the schedule proposal",
+  "modes": ["offline"],
+  "given": {
+    "request": "at 9",
+    "conversation": [
+      {
+        "request": "Every Monday summarize {{site}}/article",
+        "outcome": "question",
+        "resultText": "When should it run?",
+        "missing": ["schedule_time"]
+      }
+    ]
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["schedule.create"],
+    "schedule": {
+      "recurrence": {
+        "frequency": "weekly",
+        "byWeekday": ["MO"],
+        "time": "09:00"
+      }
+    }
+  }
+}

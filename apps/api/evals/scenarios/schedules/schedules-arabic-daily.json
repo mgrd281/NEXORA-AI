@@ -1,0 +1,24 @@
+{
+  "id": "schedules-arabic-daily",
+  "version": 1,
+  "suite": "schedules",
+  "title": "كل يوم الساعة 9",
+  "modes": ["offline"],
+  "requires": ["tool:schedule.create"],
+  "given": {
+    "request": "كل يوم الساعة 9 لخص {{site}}/maqal",
+    "pages": {
+      "{{site}}/maqal": "maqal-ar.html"
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["schedule.create"],
+    "schedule": {
+      "recurrence": {
+        "frequency": "daily",
+        "time": "09:00"
+      }
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "id": "spec-06-critical-action-denied",
+  "version": 1,
+  "suite": "spec",
+  "title": "Spec 6 — a CRITICAL action (purchase) is denied by the policy engine",
+  "modes": ["offline"],
+  "given": {
+    "request": "Buy a new laptop with my saved credit card",
+    "syntheticSteps": [
+      {
+        "toolId": "commerce.purchase",
+        "risk": "CRITICAL",
+        "sideEffect": "external"
+      }
+    ],
+    "preferences": {
+      "autonomy": {
+        "autoApproveEmailToSelf": true
+      }
+    }
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "RISK_CRITICAL",
+    "policy": [
+      {
+        "step": 0,
+        "decision": "deny",
+        "reasonsInclude": ["RISK_CRITICAL"]
+      }
+    ]
+  }
+}

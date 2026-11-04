@@ -1,0 +1,26 @@
+{
+  "id": "planning-remember-en",
+  "version": 1,
+  "suite": "planning",
+  "title": "Remember a preference",
+  "modes": ["offline", "pipeline"],
+  "given": {
+    "request": "Remember that I prefer window seats on long flights"
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["memory.save"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "allow"
+      }
+    ],
+    "pipeline": {
+      "status": "COMPLETED",
+      "executions": {
+        "memory.save": 1
+      }
+    }
+  }
+}

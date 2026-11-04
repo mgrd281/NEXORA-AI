@@ -40,7 +40,8 @@ enum TaskEventText {
             return String(localized: "Cancellation requested")
         case .taskRetried:
             return String(localized: "Retried")
-        case .notificationCreated, .connectionChanged, .heartbeat, .unknown:
+        case .notificationCreated, .connectionChanged, .heartbeat, .conversationMessage,
+             .conversationChanged, .scheduleChanged, .webhookDeliveryFailed, .webhookEndpointChanged, .unknown:
             return String(localized: "Update")
         }
     }
@@ -57,7 +58,8 @@ enum TaskEventText {
         case .approvalRequested, .approvalDecided: "hand.raised"
         case .taskCancelRequested: "slash.circle"
         case .taskRetried: "arrow.clockwise.circle"
-        case .taskAnswerDelta, .notificationCreated, .connectionChanged, .heartbeat, .unknown: "circle"
+        case .taskAnswerDelta, .notificationCreated, .connectionChanged, .heartbeat, .conversationMessage,
+             .conversationChanged, .scheduleChanged, .webhookDeliveryFailed, .webhookEndpointChanged, .unknown: "circle"
         }
     }
 }
@@ -82,6 +84,11 @@ enum PolicyReasonText {
         case "BUDGET_EXHAUSTED": String(localized: "Your monthly AI budget is used up.")
         case "BUDGET_NEAR_LIMIT": String(localized: "This could exceed what's left of your monthly AI budget.")
         case "UNTRUSTED_CONTENT": String(localized: "It uses web content that looked like it was trying to instruct JARVIS.")
+        case "SKILL_DISABLED": String(localized: "The skill this needs is turned off in Settings.")
+        case "SKILL_COST_LIMIT": String(localized: "This could cost more than the skill's limit per run.")
+        case "MEMORY_FROM_CONTENT": String(localized: "The text to remember comes from an earlier result, so you decide exactly what is kept.")
+        case "UNTRUSTED_MEMORY": String(localized: "The text comes from content that tried to instruct JARVIS, so it can't be saved to memory.")
+        case "FUTURE_RUNS": String(localized: "A schedule runs again in the future, so JARVIS asks before creating it.")
         default: nil
         }
     }

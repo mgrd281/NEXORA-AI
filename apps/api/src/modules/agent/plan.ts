@@ -37,10 +37,22 @@ export interface PlanValidationContext {
   tools: ReadonlyMap<string, AnyTool>;
   /**
    * The user's request: recipients must appear in it literally (or be the
-   * owner), fetched URLs must be on a site linked in it.
+   * owner), fetched URLs must be on a site linked in it. Kept for callers
+   * from before Phase B; `requests` takes precedence.
    */
-  request: string;
+  request?: string;
+  /**
+   * Phase B: the current request first, then the earlier user requests of the
+   * conversation. Recipients, fetched URLs and the addresses/links of a
+   * schedule's request may come from any of them (they are the user's words);
+   * never from results, notes or pages.
+   */
+  requests?: readonly string[];
   ownEmail: string;
+  /** Phase B: earlier tasks of the conversation with a recallable result (conversation.recall). */
+  conversationTaskIds?: Iterable<string>;
+  /** Phase B: files of the conversation document.analyze may read. */
+  attachmentIds?: Iterable<string>;
 }
 
 export type PlanValidation = { ok: true; plan: Plan } | { ok: false; issues: string[] };
@@ -103,11 +115,20 @@ export function validatePlan(candidate: unknown, ctx: PlanValidationContext): Pl
   }
   const plan = shape.data;
   const issues: string[] = [];
+  const userText = (ctx.requests ?? (ctx.request !== undefined ? [ctx.request] : [])).join('\n');
   const requestEmails = new Set(
-    [...ctx.request.matchAll(EMAIL_IN_TEXT)].map((m) => m[0].toLowerCase()),
+    [...userText.matchAll(EMAIL_IN_TEXT)].map((m) => m[0].toLowerCase()),
   );
-  const requestOrigins = linkOrigins(ctx.request);
+  const requestOrigins = linkOrigins(userText);
+  const contextIds = {
+    task: new Set(ctx.conversationTaskIds ?? []),
+    attachment: new Set(ctx.attachmentIds ?? []),
+  };
   const seen = new Map<string, AnyTool>();
+  if (plan.steps.length > 1 && plan.steps.some((s) => s.toolId === 'assistant.clarify'))
+    issues.push(
+      'assistant.clarify must be the only step of its plan: ask first, act after the answer',
+    );
 
   plan.steps.forEach((step, index) => {
     const where = `steps[${index}] (${step.key})`;
@@ -142,6 +163,39 @@ export function validatePlan(candidate: unknown, ctx: PlanValidationContext): Pl
         issues.push(
           `${where}: {{${ref.stepKey}.${ref.field}}} — ${target.id} has no output "${ref.field}" (available: ${target.outputFields.join(', ')})`,
         );
+      } else if (target && tool.allowedRefTools && !tool.allowedRefTools.includes(target.id)) {
+        issues.push(
+          `${where}: ${tool.id} may only use the output of ${tool.allowedRefTools.join(', ')}, not ${target.id}`,
+        );
+      }
+    }
+
+    if (parsed.success && tool.contextIds) {
+      for (const ref of tool.contextIds(parsed.data)) {
+        const known = typeof ref.id === 'string' && contextIds[ref.kind].has(ref.id);
+        if (!known)
+          issues.push(
+            ref.kind === 'task'
+              ? `${where}: taskId must be one of the earlier tasks listed in <conversation> with a result`
+              : `${where}: attachmentId must be one of the files listed in <attachments>`,
+          );
+      }
+    }
+    if (parsed.success && tool.literalTexts && planned.length === 0) {
+      for (const text of tool.literalTexts(parsed.data)) {
+        for (const m of text.matchAll(EMAIL_IN_TEXT)) {
+          const r = m[0];
+          if (!sameAddress(r, ctx.ownEmail) && !requestEmails.has(r.toLowerCase()))
+            issues.push(
+              `${where}: the address ${r} is neither the account owner nor written in the user's requests`,
+            );
+        }
+        for (const origin of linkOrigins(text)) {
+          if (!requestOrigins.has(origin))
+            issues.push(
+              `${where}: the link to ${origin} is not on a site written in the user's requests`,
+            );
+        }
       }
     }
 

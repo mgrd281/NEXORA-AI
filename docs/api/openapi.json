@@ -51,6 +51,24 @@
       "name": "admin"
     },
     {
+      "name": "conversations"
+    },
+    {
+      "name": "attachments"
+    },
+    {
+      "name": "skills"
+    },
+    {
+      "name": "schedules"
+    },
+    {
+      "name": "webhooks"
+    },
+    {
+      "name": "meta"
+    },
+    {
       "name": "events"
     },
     {
@@ -814,7 +832,7 @@
             }
           },
           "422": {
-            "description": "IDEMPOTENCY_MISMATCH / CONNECTION_FAILED — semantically rejected.",
+            "description": "IDEMPOTENCY_MISMATCH / CONNECTION_FAILED / FETCH_BLOCKED — semantically rejected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -844,7 +862,7 @@
             }
           },
           "503": {
-            "description": "MODEL_NOT_CONFIGURED — the requested capability is unavailable.",
+            "description": "MODEL_NOT_CONFIGURED / SERVICE_UNAVAILABLE — the requested capability is unavailable (details.reason).",
             "content": {
               "application/json": {
                 "schema": {
@@ -1234,7 +1252,7 @@
             }
           },
           "422": {
-            "description": "IDEMPOTENCY_MISMATCH / CONNECTION_FAILED — semantically rejected.",
+            "description": "IDEMPOTENCY_MISMATCH / CONNECTION_FAILED / FETCH_BLOCKED — semantically rejected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1264,7 +1282,7 @@
             }
           },
           "503": {
-            "description": "MODEL_NOT_CONFIGURED — the requested capability is unavailable.",
+            "description": "MODEL_NOT_CONFIGURED / SERVICE_UNAVAILABLE — the requested capability is unavailable (details.reason).",
             "content": {
               "application/json": {
                 "schema": {
@@ -1424,7 +1442,7 @@
             }
           },
           "422": {
-            "description": "IDEMPOTENCY_MISMATCH / CONNECTION_FAILED — semantically rejected.",
+            "description": "IDEMPOTENCY_MISMATCH / CONNECTION_FAILED / FETCH_BLOCKED — semantically rejected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1562,7 +1580,7 @@
             }
           },
           "422": {
-            "description": "IDEMPOTENCY_MISMATCH / CONNECTION_FAILED — semantically rejected.",
+            "description": "IDEMPOTENCY_MISMATCH / CONNECTION_FAILED / FETCH_BLOCKED — semantically rejected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1721,7 +1739,7 @@
             }
           },
           "422": {
-            "description": "IDEMPOTENCY_MISMATCH / CONNECTION_FAILED — semantically rejected.",
+            "description": "IDEMPOTENCY_MISMATCH / CONNECTION_FAILED / FETCH_BLOCKED — semantically rejected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2824,6 +2842,2405 @@
         }
       }
     },
+    "/v1/conversations": {
+      "get": {
+        "operationId": "listConversations",
+        "summary": "Conversation history, most recent activity first",
+        "tags": ["conversations"],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListConversationsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/conversations/{id}": {
+      "get": {
+        "operationId": "getConversation",
+        "summary": "A conversation thread: requests, tasks and JARVIS messages in order",
+        "tags": ["conversations"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteConversation",
+        "summary": "Delete a conversation with its tasks, messages and files",
+        "tags": ["conversations"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CONFLICT / INVALID_STATE / APPROVAL_EXPIRED / APPROVAL_MISMATCH — state does not allow this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/conversations/{id}/messages": {
+      "post": {
+        "operationId": "followUp",
+        "summary": "Send a follow-up: a new task in this conversation, planned with its earlier turns",
+        "tags": ["conversations"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Client-generated key (8–128 chars). A repeated request with the same key and body replays the first response; a different body is rejected with IDEMPOTENCY_MISMATCH.",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FollowUpRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "BUDGET_EXCEEDED — the monthly AI budget is used up.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CONFLICT / INVALID_STATE / APPROVAL_EXPIRED / APPROVAL_MISMATCH — state does not allow this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "IDEMPOTENCY_MISMATCH / CONNECTION_FAILED / FETCH_BLOCKED — semantically rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "MODEL_NOT_CONFIGURED / SERVICE_UNAVAILABLE — the requested capability is unavailable (details.reason).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/attachments": {
+      "post": {
+        "operationId": "uploadAttachment",
+        "summary": "Upload a file (PDF, DOCX, TXT, MD, CSV) to attach to a request",
+        "tags": ["attachments"],
+        "requestBody": {
+          "required": true,
+          "description": "One file, at most 10485760 bytes. The type is identified from the content; the file name's extension must agree.",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": ["file"]
+              },
+              "encoding": {
+                "file": {
+                  "contentType": "application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document, text/plain, text/markdown, text/csv"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attachment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "PAYLOAD_TOO_LARGE — the file is larger than the limit (details.reason FILE_TOO_LARGE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "UNSUPPORTED_MEDIA_TYPE — the content is not an accepted file type, or does not match its name (details.reason).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "MODEL_NOT_CONFIGURED / SERVICE_UNAVAILABLE — the requested capability is unavailable (details.reason).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/attachments/{id}": {
+      "get": {
+        "operationId": "getAttachment",
+        "summary": "File metadata",
+        "tags": ["attachments"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attachment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteAttachment",
+        "summary": "Delete a file (tasks that used it keep their results)",
+        "tags": ["attachments"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/attachments/{id}/content": {
+      "get": {
+        "operationId": "downloadAttachment",
+        "summary": "Download a file (its owner only)",
+        "tags": ["attachments"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file",
+            "headers": {
+              "Content-Disposition": {
+                "description": "attachment; filename=\"…\" (RFC 6266, UTF-8 filename*)",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              }
+            },
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/markdown": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "MODEL_NOT_CONFIGURED / SERVICE_UNAVAILABLE — the requested capability is unavailable (details.reason).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/skills": {
+      "get": {
+        "operationId": "listSkills",
+        "summary": "Skills catalog with real availability for the signed-in user",
+        "tags": ["skills"],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSkillsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/skills/{id}": {
+      "patch": {
+        "operationId": "updateSkill",
+        "summary": "Turn a skill on or off (never grants permissions)",
+        "tags": ["skills"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "web-research",
+                "email-management",
+                "calendar-management",
+                "appointment-booking",
+                "phone-calling",
+                "shopping-assistant",
+                "document-analysis",
+                "task-scheduling",
+                "personal-memory",
+                "device-automation",
+                "translation",
+                "workflow-planning"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSkillRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Skill"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CONFLICT / INVALID_STATE / APPROVAL_EXPIRED / APPROVAL_MISMATCH — state does not allow this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/schedules": {
+      "get": {
+        "operationId": "listSchedules",
+        "summary": "Scheduled requests",
+        "tags": ["schedules"],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSchedulesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createSchedule",
+        "summary": "Schedule a request on a recurrence",
+        "tags": ["schedules"],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Client-generated key (8–128 chars). A repeated request with the same key and body replays the first response; a different body is rejected with IDEMPOTENCY_MISMATCH.",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScheduleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CONFLICT / INVALID_STATE / APPROVAL_EXPIRED / APPROVAL_MISMATCH — state does not allow this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "IDEMPOTENCY_MISMATCH / CONNECTION_FAILED / FETCH_BLOCKED — semantically rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/schedules/preview": {
+      "post": {
+        "operationId": "previewSchedule",
+        "summary": "The RRULE and next occurrences of a recurrence (nothing is saved)",
+        "tags": ["schedules"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SchedulePreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchedulePreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/schedules/{id}": {
+      "get": {
+        "operationId": "getSchedule",
+        "summary": "A schedule with its upcoming occurrences and recent runs",
+        "tags": ["schedules"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateSchedule",
+        "summary": "Change a schedule (the next run is recomputed)",
+        "tags": ["schedules"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateScheduleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CONFLICT / INVALID_STATE / APPROVAL_EXPIRED / APPROVAL_MISMATCH — state does not allow this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteSchedule",
+        "summary": "Delete a schedule (tasks it created stay)",
+        "tags": ["schedules"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/schedules/{id}/pause": {
+      "post": {
+        "operationId": "pauseSchedule",
+        "summary": "Pause a schedule",
+        "tags": ["schedules"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CONFLICT / INVALID_STATE / APPROVAL_EXPIRED / APPROVAL_MISMATCH — state does not allow this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/schedules/{id}/resume": {
+      "post": {
+        "operationId": "resumeSchedule",
+        "summary": "Resume a paused schedule from the next occurrence",
+        "tags": ["schedules"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CONFLICT / INVALID_STATE / APPROVAL_EXPIRED / APPROVAL_MISMATCH — state does not allow this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/webhooks": {
+      "get": {
+        "operationId": "listWebhooks",
+        "summary": "Webhook endpoints",
+        "tags": ["webhooks"],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListWebhooksResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createWebhook",
+        "summary": "Register a webhook endpoint (the signing secret is returned once)",
+        "tags": ["webhooks"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWebhookRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpointWithSecret"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CONFLICT / INVALID_STATE / APPROVAL_EXPIRED / APPROVAL_MISMATCH — state does not allow this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "IDEMPOTENCY_MISMATCH / CONNECTION_FAILED / FETCH_BLOCKED — semantically rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/webhooks/{id}": {
+      "patch": {
+        "operationId": "updateWebhook",
+        "summary": "Change, disable or re-enable a webhook endpoint",
+        "tags": ["webhooks"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWebhookRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpoint"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "IDEMPOTENCY_MISMATCH / CONNECTION_FAILED / FETCH_BLOCKED — semantically rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteWebhook",
+        "summary": "Delete a webhook endpoint and its delivery log",
+        "tags": ["webhooks"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/webhooks/{id}/rotate-secret": {
+      "post": {
+        "operationId": "rotateWebhookSecret",
+        "summary": "Replace the signing secret (the new one is returned once)",
+        "tags": ["webhooks"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpointWithSecret"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/webhooks/{id}/test": {
+      "post": {
+        "operationId": "testWebhook",
+        "summary": "Queue a signed webhook.test delivery to the endpoint",
+        "tags": ["webhooks"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookDelivery"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN / POLICY_DENIED — not allowed (cookie requests must come from the web origin).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CONFLICT / INVALID_STATE / APPROVAL_EXPIRED / APPROVAL_MISMATCH — state does not allow this.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/webhooks/{id}/deliveries": {
+      "get": {
+        "operationId": "listWebhookDeliveries",
+        "summary": "Delivery log of an endpoint (newest first)",
+        "tags": ["webhooks"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListWebhookDeliveriesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED — the path, query or body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND — does not exist or is not visible to this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/meta/time-zones": {
+      "get": {
+        "operationId": "listTimeZones",
+        "summary": "Time zones the server accepts (known to both the database and the runtime)",
+        "tags": ["meta"],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListTimeZonesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing, expired or revoked session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED — too many requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL — unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/events": {
       "get": {
         "operationId": "streamEvents",
@@ -2979,6 +5396,19 @@
       }
     },
     "schemas": {
+      "AccountEventType": {
+        "type": "string",
+        "enum": [
+          "notification.created",
+          "connection.changed",
+          "heartbeat",
+          "conversation.message",
+          "conversation.changed",
+          "schedule.changed",
+          "webhook.delivery_failed",
+          "webhook.endpoint_changed"
+        ]
+      },
       "AdminAuditResponse": {
         "type": "object",
         "properties": {
@@ -3245,6 +5675,35 @@
         "required": ["error"],
         "additionalProperties": false
       },
+      "ApiErrorReason": {
+        "type": "string",
+        "enum": [
+          "FILE_TOO_LARGE",
+          "UNSUPPORTED_FILE_TYPE",
+          "FILE_CONTENT_MISMATCH",
+          "FILE_EMPTY",
+          "TOO_MANY_ATTACHMENTS",
+          "ATTACHMENT_NOT_FOUND",
+          "ATTACHMENT_EXPIRED",
+          "ATTACHMENT_IN_OTHER_CONVERSATION",
+          "STORAGE_NOT_CONFIGURED",
+          "STORAGE_UNAVAILABLE",
+          "CONVERSATION_BUSY",
+          "CONVERSATION_ACTIVE_TASK",
+          "SCHEDULE_LIMIT_REACHED",
+          "INVALID_RECURRENCE",
+          "RECURRENCE_HAS_NO_OCCURRENCES",
+          "UNKNOWN_TIME_ZONE",
+          "SCHEDULE_COMPLETED",
+          "WEBHOOK_LIMIT_REACHED",
+          "WEBHOOK_URL_INVALID",
+          "WEBHOOK_URL_INSECURE",
+          "WEBHOOK_URL_BLOCKED",
+          "WEBHOOK_DISABLED",
+          "SKILL_NOT_TOGGLEABLE",
+          "SKILL_PLANNED"
+        ]
+      },
       "Approval": {
         "type": "object",
         "properties": {
@@ -3431,12 +5890,103 @@
             },
             "required": ["kind", "toolId", "fields"],
             "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "schedule"
+              },
+              "title": {
+                "type": "string"
+              },
+              "request": {
+                "type": "string"
+              },
+              "recurrence": {
+                "$ref": "#/components/schemas/Recurrence"
+              },
+              "rrule": {
+                "type": "string"
+              },
+              "nextOccurrences": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "untrusted": {
+                "$ref": "#/components/schemas/UntrustedSource"
+              }
+            },
+            "required": ["kind", "title", "request", "recurrence", "rrule", "nextOccurrences"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "memory"
+              },
+              "content": {
+                "type": "string"
+              },
+              "memoryKind": {
+                "$ref": "#/components/schemas/MemoryKind"
+              },
+              "sourceTaskId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "untrusted": {
+                "$ref": "#/components/schemas/UntrustedSource"
+              }
+            },
+            "required": ["kind", "content", "memoryKind", "sourceTaskId"],
+            "additionalProperties": false
           }
         ]
       },
       "ApprovalStatus": {
         "type": "string",
         "enum": ["PENDING", "APPROVED", "REJECTED", "EXPIRED", "CANCELLED", "SUPERSEDED"]
+      },
+      "AssistantQuestion": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServerMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "missing": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MissingInfo"
+            }
+          }
+        },
+        "required": ["text", "message", "missing"],
+        "additionalProperties": false
       },
       "AssistantStatus": {
         "type": "object",
@@ -3493,6 +6043,15 @@
               },
               "generalQuestions": {
                 "type": "boolean"
+              },
+              "attachments": {
+                "type": "boolean"
+              },
+              "translation": {
+                "type": "boolean"
+              },
+              "schedules": {
+                "type": "boolean"
               }
             },
             "required": ["webFetch", "email", "memory", "generalQuestions"],
@@ -3504,6 +6063,103 @@
         },
         "required": ["planner", "worker", "capabilities", "version"],
         "additionalProperties": false
+      },
+      "Attachment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "mediaType": {
+            "$ref": "#/components/schemas/AttachmentMediaType"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "conversationId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pageCount": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "textChars": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "downloadPath": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "filename",
+          "mediaType",
+          "sizeBytes",
+          "sha256",
+          "conversationId",
+          "pageCount",
+          "textChars",
+          "downloadPath",
+          "expiresAt",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "AttachmentMediaType": {
+        "type": "string",
+        "enum": [
+          "application/pdf",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "text/plain",
+          "text/markdown",
+          "text/csv"
+        ]
       },
       "AuditEvent": {
         "type": "object",
@@ -3640,6 +6296,291 @@
         "type": "string",
         "enum": ["active", "error", "expired", "revoked"]
       },
+      "ConversationDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "titleMessage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServerMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "taskCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lastTask": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hasActiveTask": {
+            "type": "boolean"
+          },
+          "scheduleId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "turns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversationTurn"
+            }
+          },
+          "earlierCursor": {
+            "type": ["string", "null"]
+          },
+          "canFollowUp": {
+            "type": "boolean"
+          },
+          "activeTaskId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "titleMessage",
+          "taskCount",
+          "lastTask",
+          "hasActiveTask",
+          "scheduleId",
+          "createdAt",
+          "updatedAt",
+          "turns",
+          "earlierCursor",
+          "canFollowUp",
+          "activeTaskId"
+        ],
+        "additionalProperties": false
+      },
+      "ConversationMessage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["user", "assistant"]
+          },
+          "kind": {
+            "$ref": "#/components/schemas/MessageKind"
+          },
+          "text": {
+            "type": "string"
+          },
+          "textMessage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServerMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "language": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Locale"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "taskId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "kind",
+          "text",
+          "textMessage",
+          "language",
+          "taskId",
+          "attachments",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "ConversationSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "titleMessage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServerMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "taskCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lastTask": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hasActiveTask": {
+            "type": "boolean"
+          },
+          "scheduleId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "titleMessage",
+          "taskCount",
+          "lastTask",
+          "hasActiveTask",
+          "scheduleId",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ConversationTurn": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "user_message"
+              },
+              "message": {
+                "$ref": "#/components/schemas/ConversationMessage"
+              }
+            },
+            "required": ["type", "message"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "task"
+              },
+              "task": {
+                "$ref": "#/components/schemas/TaskSummary"
+              }
+            },
+            "required": ["type", "task"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "assistant_message"
+              },
+              "message": {
+                "$ref": "#/components/schemas/ConversationMessage"
+              }
+            },
+            "required": ["type", "message"],
+            "additionalProperties": false
+          }
+        ]
+      },
       "CreateMemoryRequest": {
         "type": "object",
         "properties": {
@@ -3655,6 +6596,80 @@
           }
         },
         "required": ["content"]
+      },
+      "CreateScheduleRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "request": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "recurrence": {
+            "type": "object",
+            "properties": {
+              "frequency": {
+                "type": "string",
+                "enum": ["daily", "weekly", "monthly"]
+              },
+              "interval": {
+                "default": 1,
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 12
+              },
+              "byWeekday": {
+                "minItems": 1,
+                "maxItems": 7,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["MO", "TU", "WE", "TH", "FR", "SA", "SU"]
+                }
+              },
+              "byMonthDay": {
+                "minItems": 1,
+                "maxItems": 31,
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": -1,
+                  "maximum": 31
+                }
+              },
+              "time": {
+                "type": "string",
+                "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$"
+              },
+              "timeZone": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "until": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000
+              }
+            },
+            "required": ["frequency", "time", "timeZone"]
+          },
+          "language": {
+            "type": "string",
+            "enum": ["en", "de", "ar"]
+          }
+        },
+        "required": ["title", "request", "recurrence"]
       },
       "CreateSmtpConnectionRequest": {
         "type": "object",
@@ -3718,9 +6733,51 @@
           "voiceSessionId": {
             "type": "string",
             "format": "uuid"
+          },
+          "attachmentIds": {
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         },
         "required": ["request"]
+      },
+      "CreateWebhookRequest": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 2048,
+            "format": "uri"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "eventTypes": {
+            "minItems": 1,
+            "maxItems": 9,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "task.created",
+                "task.completed",
+                "task.failed",
+                "task.cancelled",
+                "task.expired",
+                "approval.requested",
+                "approval.decided",
+                "schedule.triggered",
+                "schedule.failed"
+              ]
+            }
+          }
+        },
+        "required": ["url", "eventTypes"]
       },
       "DeleteAccountRequest": {
         "type": "object",
@@ -3772,6 +6829,9 @@
           "OUTCOME_UNKNOWN",
           "VERIFICATION_FAILED",
           "FETCH_BLOCKED",
+          "PAYLOAD_TOO_LARGE",
+          "UNSUPPORTED_MEDIA_TYPE",
+          "SERVICE_UNAVAILABLE",
           "INTERNAL"
         ]
       },
@@ -3824,7 +6884,11 @@
           "MODEL_OUTPUT",
           "EXTRACTIVE_SUMMARY",
           "MEMORY_RECORD",
-          "ANSWER_TRUNCATED"
+          "ANSWER_TRUNCATED",
+          "DOCUMENT_EXTRACTED",
+          "SCHEDULE_RECORD",
+          "RECALLED_RESULT",
+          "QUESTION_ASKED"
         ]
       },
       "ExportAccountResponse": {
@@ -3833,6 +6897,38 @@
           "type": "string"
         },
         "additionalProperties": {}
+      },
+      "FollowUpRequest": {
+        "type": "object",
+        "properties": {
+          "request": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "source": {
+            "default": "text",
+            "type": "string",
+            "enum": ["text", "voice"]
+          },
+          "language": {
+            "type": "string",
+            "enum": ["en", "de", "ar"]
+          },
+          "voiceSessionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attachmentIds": {
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["request"]
       },
       "HomeSnapshot": {
         "type": "object",
@@ -3904,6 +7000,22 @@
         "required": ["items"],
         "additionalProperties": false
       },
+      "ListConversationsResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversationSummary"
+            }
+          },
+          "nextCursor": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["items", "nextCursor"],
+        "additionalProperties": false
+      },
       "ListMemoriesResponse": {
         "type": "object",
         "properties": {
@@ -3936,6 +7048,19 @@
         "required": ["items", "nextCursor"],
         "additionalProperties": false
       },
+      "ListSchedulesResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Schedule"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
       "ListSessionsResponse": {
         "type": "object",
         "properties": {
@@ -3943,6 +7068,19 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/SessionInfo"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "ListSkillsResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Skill"
             }
           }
         },
@@ -3965,9 +7103,55 @@
         "required": ["items", "nextCursor"],
         "additionalProperties": false
       },
+      "ListTimeZonesResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeZoneInfo"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "ListWebhookDeliveriesResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WebhookDelivery"
+            }
+          },
+          "nextCursor": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["items", "nextCursor"],
+        "additionalProperties": false
+      },
+      "ListWebhooksResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WebhookEndpoint"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
       "Locale": {
         "type": "string",
         "enum": ["en", "de", "ar"]
+      },
+      "LocalTime": {
+        "type": "string",
+        "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$"
       },
       "LoginRequest": {
         "type": "object",
@@ -4155,6 +7339,23 @@
         "type": "string",
         "enum": ["preference", "fact"]
       },
+      "MessageKind": {
+        "type": "string",
+        "enum": ["request", "answer", "question", "result"]
+      },
+      "MissingInfo": {
+        "type": "string",
+        "enum": [
+          "email_content",
+          "recipient",
+          "url",
+          "document",
+          "schedule_time",
+          "target_language",
+          "previous_result",
+          "details"
+        ]
+      },
       "Notification": {
         "type": "object",
         "properties": {
@@ -4206,7 +7407,15 @@
       },
       "NotificationKind": {
         "type": "string",
-        "enum": ["approval_requested", "task_completed", "task_failed", "connection_error"]
+        "enum": [
+          "approval_requested",
+          "task_completed",
+          "task_failed",
+          "connection_error",
+          "schedule_failed",
+          "schedule_paused",
+          "webhook_disabled"
+        ]
       },
       "PlannerInfo": {
         "type": "object",
@@ -4245,6 +7454,32 @@
         },
         "required": ["decision", "reasons"],
         "additionalProperties": false
+      },
+      "PolicyReason": {
+        "type": "string",
+        "enum": [
+          "CONNECTION_MISSING",
+          "MEMORY_DISABLED",
+          "RISK_CRITICAL",
+          "BUDGET_ZERO",
+          "BUDGET_EXHAUSTED",
+          "EXTERNAL_MODELS_DISABLED",
+          "MODEL_UNAVAILABLE",
+          "RISK_LOW",
+          "RISK_MEDIUM",
+          "RISK_HIGH",
+          "RECIPIENT_SELF",
+          "RECIPIENT_EXTERNAL",
+          "MANY_RECIPIENTS",
+          "BUDGET_NEAR_LIMIT",
+          "UNTRUSTED_CONTENT",
+          "AUTO_APPROVED_SELF",
+          "SKILL_DISABLED",
+          "SKILL_COST_LIMIT",
+          "MEMORY_FROM_CONTENT",
+          "UNTRUSTED_MEMORY",
+          "FUTURE_RUNS"
+        ]
       },
       "Preferences": {
         "type": "object",
@@ -4320,9 +7555,112 @@
             },
             "required": ["enabled"],
             "additionalProperties": false
+          },
+          "retention": {
+            "default": {
+              "memoryDays": null,
+              "taskHistoryDays": null
+            },
+            "$ref": "#/components/schemas/RetentionPreferences"
+          },
+          "skills": {
+            "default": {
+              "disabled": []
+            },
+            "$ref": "#/components/schemas/SkillPreferences"
           }
         },
-        "required": ["voice", "autonomy", "ai", "notifications", "spending", "memory"],
+        "required": [
+          "voice",
+          "autonomy",
+          "ai",
+          "notifications",
+          "spending",
+          "memory",
+          "retention",
+          "skills"
+        ],
+        "additionalProperties": false
+      },
+      "Recurrence": {
+        "type": "object",
+        "properties": {
+          "frequency": {
+            "$ref": "#/components/schemas/ScheduleFrequency"
+          },
+          "interval": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "byWeekday": {
+            "minItems": 1,
+            "maxItems": 7,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Weekday"
+            }
+          },
+          "byMonthDay": {
+            "minItems": 1,
+            "maxItems": 31,
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": -1,
+              "maximum": 31
+            }
+          },
+          "time": {
+            "$ref": "#/components/schemas/LocalTime"
+          },
+          "timeZone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "until": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "required": ["frequency", "interval", "time", "timeZone"],
+        "additionalProperties": false
+      },
+      "RetentionPreferences": {
+        "type": "object",
+        "properties": {
+          "memoryDays": {
+            "anyOf": [
+              {
+                "type": "number",
+                "enum": [30, 90, 365]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "taskHistoryDays": {
+            "anyOf": [
+              {
+                "type": "number",
+                "enum": [90, 365]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["memoryDays", "taskHistoryDays"],
         "additionalProperties": false
       },
       "RetryTaskRequest": {
@@ -4341,6 +7679,425 @@
       "Role": {
         "type": "string",
         "enum": ["owner", "member", "platform_admin"]
+      },
+      "Schedule": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "request": {
+            "type": "string"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Locale"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recurrence": {
+            "$ref": "#/components/schemas/Recurrence"
+          },
+          "rrule": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ScheduleStatus"
+          },
+          "pausedReason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SchedulePauseReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nextRunAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastRunAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastTaskId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "conversationId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "runCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "consecutiveFailures": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "createdBy": {
+            "type": "string",
+            "enum": ["user", "agent"]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "request",
+          "language",
+          "recurrence",
+          "rrule",
+          "status",
+          "pausedReason",
+          "nextRunAt",
+          "lastRunAt",
+          "lastTaskId",
+          "conversationId",
+          "runCount",
+          "consecutiveFailures",
+          "createdBy",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ScheduleDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "request": {
+            "type": "string"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Locale"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recurrence": {
+            "$ref": "#/components/schemas/Recurrence"
+          },
+          "rrule": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ScheduleStatus"
+          },
+          "pausedReason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SchedulePauseReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nextRunAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastRunAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastTaskId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "conversationId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "runCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "consecutiveFailures": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "createdBy": {
+            "type": "string",
+            "enum": ["user", "agent"]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "upcoming": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleRun"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "request",
+          "language",
+          "recurrence",
+          "rrule",
+          "status",
+          "pausedReason",
+          "nextRunAt",
+          "lastRunAt",
+          "lastTaskId",
+          "conversationId",
+          "runCount",
+          "consecutiveFailures",
+          "createdBy",
+          "createdAt",
+          "updatedAt",
+          "upcoming",
+          "runs"
+        ],
+        "additionalProperties": false
+      },
+      "ScheduleFrequency": {
+        "type": "string",
+        "enum": ["daily", "weekly", "monthly"]
+      },
+      "SchedulePauseReason": {
+        "type": "string",
+        "enum": ["user", "failures", "budget"]
+      },
+      "SchedulePreview": {
+        "type": "object",
+        "properties": {
+          "rrule": {
+            "type": "string"
+          },
+          "occurrences": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "timeZone": {
+            "type": "string"
+          }
+        },
+        "required": ["rrule", "occurrences", "timeZone"],
+        "additionalProperties": false
+      },
+      "SchedulePreviewRequest": {
+        "type": "object",
+        "properties": {
+          "recurrence": {
+            "type": "object",
+            "properties": {
+              "frequency": {
+                "type": "string",
+                "enum": ["daily", "weekly", "monthly"]
+              },
+              "interval": {
+                "default": 1,
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 12
+              },
+              "byWeekday": {
+                "minItems": 1,
+                "maxItems": 7,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["MO", "TU", "WE", "TH", "FR", "SA", "SU"]
+                }
+              },
+              "byMonthDay": {
+                "minItems": 1,
+                "maxItems": 31,
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": -1,
+                  "maximum": 31
+                }
+              },
+              "time": {
+                "type": "string",
+                "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$"
+              },
+              "timeZone": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "until": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000
+              }
+            },
+            "required": ["frequency", "time", "timeZone"]
+          },
+          "count": {
+            "default": 5,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          }
+        },
+        "required": ["recurrence"]
+      },
+      "ScheduleRun": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "occurrenceAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ScheduleRunStatus"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScheduleRunReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["id", "occurrenceAt", "status", "reason", "task", "createdAt"],
+        "additionalProperties": false
+      },
+      "ScheduleRunReason": {
+        "type": "string",
+        "enum": ["BUDGET_EXHAUSTED", "SCHEDULE_PAUSED", "CREATE_FAILED"]
+      },
+      "ScheduleRunStatus": {
+        "type": "string",
+        "enum": ["created", "skipped", "failed"]
+      },
+      "ScheduleStatus": {
+        "type": "string",
+        "enum": ["active", "paused", "completed"]
       },
       "ServerMessage": {
         "type": "object",
@@ -4394,7 +8151,34 @@
           "result.memorySaved",
           "result.declined",
           "result.cancelled",
-          "result.expired"
+          "result.expired",
+          "plan.emailResult",
+          "plan.rememberResult",
+          "plan.summarizeDocument",
+          "plan.schedule",
+          "plan.clarify",
+          "objective.emailResult",
+          "objective.rememberResult",
+          "objective.summarizeDocument",
+          "objective.schedule",
+          "objective.clarify",
+          "step.recall",
+          "step.emailResult",
+          "step.summarizeDocument",
+          "step.schedule",
+          "step.clarify",
+          "approval.schedule",
+          "approval.memory",
+          "result.scheduleCreated",
+          "result.documentSummarized",
+          "question.emailContent",
+          "question.recipient",
+          "question.url",
+          "question.document",
+          "question.scheduleTime",
+          "question.targetLanguage",
+          "question.previousResult",
+          "question.details"
         ]
       },
       "SessionInfo": {
@@ -4441,6 +8225,148 @@
         ],
         "additionalProperties": false
       },
+      "Skill": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/SkillId"
+          },
+          "version": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SkillStatus"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "canToggle": {
+            "type": "boolean"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "unavailableReason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SkillUnavailableReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolId"
+            }
+          },
+          "plannedTools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maxRisk": {
+            "$ref": "#/components/schemas/RiskLevel"
+          },
+          "requiredConnections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConnectionProvider"
+            }
+          },
+          "modelUse": {
+            "type": "string",
+            "enum": ["none", "optional", "required"]
+          },
+          "maxCostPerRunMicroUsd": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "docsPath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "status",
+          "enabled",
+          "canToggle",
+          "available",
+          "unavailableReason",
+          "tools",
+          "plannedTools",
+          "permissions",
+          "maxRisk",
+          "requiredConnections",
+          "modelUse",
+          "maxCostPerRunMicroUsd",
+          "docsPath"
+        ],
+        "additionalProperties": false
+      },
+      "SkillId": {
+        "type": "string",
+        "enum": [
+          "web-research",
+          "email-management",
+          "calendar-management",
+          "appointment-booking",
+          "phone-calling",
+          "shopping-assistant",
+          "document-analysis",
+          "task-scheduling",
+          "personal-memory",
+          "device-automation",
+          "translation",
+          "workflow-planning"
+        ]
+      },
+      "SkillPreferences": {
+        "type": "object",
+        "properties": {
+          "disabled": {
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkillId"
+            }
+          }
+        },
+        "required": ["disabled"],
+        "additionalProperties": false
+      },
+      "SkillStatus": {
+        "type": "string",
+        "enum": ["implemented", "needs_connection", "planned"]
+      },
+      "SkillUnavailableReason": {
+        "type": "string",
+        "enum": [
+          "PLANNED",
+          "DISABLED_BY_USER",
+          "CONNECTION_REQUIRED",
+          "MODEL_REQUIRED",
+          "MEMORY_DISABLED",
+          "STORAGE_NOT_CONFIGURED"
+        ]
+      },
       "StepStatus": {
         "type": "string",
         "enum": [
@@ -4466,8 +8392,7 @@
                 "$ref": "#/components/schemas/TaskEventType"
               },
               {
-                "type": "string",
-                "enum": ["notification.created", "connection.changed", "heartbeat"]
+                "$ref": "#/components/schemas/AccountEventType"
               }
             ]
           },
@@ -4639,6 +8564,45 @@
               }
             ]
           },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "question": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssistantQuestion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scheduleId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attachmentCount": {
+            "type": "integer",
+            "minimum": 0
+          },
           "objective": {
             "type": ["string", "null"]
           },
@@ -4651,10 +8615,6 @@
                 "type": "null"
               }
             ]
-          },
-          "conversationId": {
-            "type": "string",
-            "format": "uuid"
           },
           "planner": {
             "anyOf": [
@@ -4724,6 +8684,12 @@
                 "type": "null"
               }
             ]
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            }
           }
         },
         "required": [
@@ -4740,8 +8706,8 @@
           "createdAt",
           "updatedAt",
           "completedAt",
-          "objective",
           "conversationId",
+          "objective",
           "planner",
           "answer",
           "steps",
@@ -4828,7 +8794,19 @@
           "BUDGET_EXHAUSTED",
           "EXTERNAL_MODELS_DISABLED",
           "MODEL_UNAVAILABLE",
-          "POLICY_DENIED"
+          "POLICY_DENIED",
+          "ATTACHMENT_NOT_FOUND",
+          "ATTACHMENT_UNREADABLE",
+          "ATTACHMENT_ENCRYPTED",
+          "DOCUMENT_NO_TEXT",
+          "DOCUMENT_TOO_MANY_PAGES",
+          "STORAGE_UNAVAILABLE",
+          "UNSUPPORTED_LANGUAGE",
+          "NOTHING_TO_RECALL",
+          "SCHEDULE_LIMIT_REACHED",
+          "INVALID_RECURRENCE",
+          "SKILL_DISABLED",
+          "UNTRUSTED_MEMORY"
         ]
       },
       "TaskEvent": {
@@ -4877,6 +8855,10 @@
           "task.cancel_requested",
           "task.retried"
         ]
+      },
+      "TaskOutcome": {
+        "type": "string",
+        "enum": ["answer", "action", "question"]
       },
       "TaskSource": {
         "type": "string",
@@ -5136,6 +9118,45 @@
                 "type": "null"
               }
             ]
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "question": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssistantQuestion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scheduleId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attachmentCount": {
+            "type": "integer",
+            "minimum": 0
           }
         },
         "required": [
@@ -5159,9 +9180,33 @@
         "type": "string",
         "enum": ["system", "light", "dark"]
       },
+      "TimeZoneInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "utcOffsetMinutes": {
+            "type": "integer"
+          }
+        },
+        "required": ["id", "utcOffsetMinutes"],
+        "additionalProperties": false
+      },
       "ToolId": {
         "type": "string",
-        "enum": ["web.fetch", "text.summarize", "email.send", "memory.save", "assistant.answer"]
+        "enum": [
+          "web.fetch",
+          "text.summarize",
+          "email.send",
+          "memory.save",
+          "assistant.answer",
+          "document.analyze",
+          "text.translate",
+          "schedule.create",
+          "conversation.recall",
+          "assistant.clarify"
+        ]
       },
       "UntrustedSource": {
         "type": "object",
@@ -5287,8 +9332,156 @@
                     "type": "boolean"
                   }
                 }
+              },
+              "retention": {
+                "type": "object",
+                "properties": {
+                  "memoryDays": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "enum": [30, 90, 365]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "taskHistoryDays": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "enum": [90, 365]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
               }
             }
+          }
+        }
+      },
+      "UpdateScheduleRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "request": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "recurrence": {
+            "type": "object",
+            "properties": {
+              "frequency": {
+                "type": "string",
+                "enum": ["daily", "weekly", "monthly"]
+              },
+              "interval": {
+                "default": 1,
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 12
+              },
+              "byWeekday": {
+                "minItems": 1,
+                "maxItems": 7,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["MO", "TU", "WE", "TH", "FR", "SA", "SU"]
+                }
+              },
+              "byMonthDay": {
+                "minItems": 1,
+                "maxItems": 31,
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": -1,
+                  "maximum": 31
+                }
+              },
+              "time": {
+                "type": "string",
+                "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$"
+              },
+              "timeZone": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "until": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000
+              }
+            },
+            "required": ["frequency", "time", "timeZone"]
+          }
+        }
+      },
+      "UpdateSkillRequest": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": ["enabled"]
+      },
+      "UpdateWebhookRequest": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 2048,
+            "format": "uri"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "eventTypes": {
+            "minItems": 1,
+            "maxItems": 9,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "task.created",
+                "task.completed",
+                "task.failed",
+                "task.cancelled",
+                "task.expired",
+                "approval.requested",
+                "approval.decided",
+                "schedule.triggered",
+                "schedule.failed"
+              ]
+            }
+          },
+          "enabled": {
+            "type": "boolean"
           }
         }
       },
@@ -5394,7 +9587,15 @@
           "messageId",
           "answerLength",
           "memoryStored",
-          "memoryMissing"
+          "memoryMissing",
+          "documentRead",
+          "translationLength",
+          "translationLanguage",
+          "numbersPreserved",
+          "scheduleStored",
+          "nextRunComputed",
+          "resultRecalled",
+          "questionAsked"
         ]
       },
       "VoiceSession": {
@@ -5455,6 +9656,589 @@
           }
         },
         "required": ["locale", "engine"]
+      },
+      "WebhookApprovalData": {
+        "type": "object",
+        "properties": {
+          "approvalId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "taskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "stepId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolId": {
+            "$ref": "#/components/schemas/ToolId"
+          },
+          "riskLevel": {
+            "$ref": "#/components/schemas/RiskLevel"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ApprovalStatus"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "decidedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "approvalId",
+          "taskId",
+          "stepId",
+          "toolId",
+          "riskLevel",
+          "status",
+          "expiresAt",
+          "decidedAt"
+        ],
+        "additionalProperties": false
+      },
+      "WebhookDelivery": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "endpointId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "eventType": {
+            "$ref": "#/components/schemas/WebhookDeliveryEventType"
+          },
+          "webhookId": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WebhookDeliveryStatus"
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "maxAttempts": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "nextAttemptAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastAttemptAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "responseStatus": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "failureReason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WebhookFailureReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "durationMs": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "endpointId",
+          "eventType",
+          "webhookId",
+          "status",
+          "attempts",
+          "maxAttempts",
+          "nextAttemptAt",
+          "lastAttemptAt",
+          "responseStatus",
+          "failureReason",
+          "durationMs",
+          "createdAt",
+          "completedAt"
+        ],
+        "additionalProperties": false
+      },
+      "WebhookDeliveryEventType": {
+        "type": "string",
+        "enum": [
+          "task.created",
+          "task.completed",
+          "task.failed",
+          "task.cancelled",
+          "task.expired",
+          "approval.requested",
+          "approval.decided",
+          "schedule.triggered",
+          "schedule.failed",
+          "webhook.test"
+        ]
+      },
+      "WebhookDeliveryStatus": {
+        "type": "string",
+        "enum": ["pending", "succeeded", "failed"]
+      },
+      "WebhookDisabledReason": {
+        "type": "string",
+        "enum": ["user", "failures"]
+      },
+      "WebhookEndpoint": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "url": {
+            "type": "string"
+          },
+          "description": {
+            "type": ["string", "null"]
+          },
+          "eventTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WebhookEventType"
+            }
+          },
+          "status": {
+            "$ref": "#/components/schemas/WebhookEndpointStatus"
+          },
+          "disabledReason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WebhookDisabledReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "secretHint": {
+            "type": "string"
+          },
+          "consecutiveFailures": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lastDeliveryAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastSuccessAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastFailureAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "description",
+          "eventTypes",
+          "status",
+          "disabledReason",
+          "secretHint",
+          "consecutiveFailures",
+          "lastDeliveryAt",
+          "lastSuccessAt",
+          "lastFailureAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "WebhookEndpointStatus": {
+        "type": "string",
+        "enum": ["active", "disabled"]
+      },
+      "WebhookEndpointWithSecret": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "$ref": "#/components/schemas/WebhookEndpoint"
+          },
+          "secret": {
+            "type": "string"
+          }
+        },
+        "required": ["endpoint", "secret"],
+        "additionalProperties": false
+      },
+      "WebhookEventType": {
+        "type": "string",
+        "enum": [
+          "task.created",
+          "task.completed",
+          "task.failed",
+          "task.cancelled",
+          "task.expired",
+          "approval.requested",
+          "approval.decided",
+          "schedule.triggered",
+          "schedule.failed"
+        ]
+      },
+      "WebhookFailureReason": {
+        "type": "string",
+        "enum": [
+          "HTTP_ERROR",
+          "TIMEOUT",
+          "CONNECT_FAILED",
+          "TLS_CERTIFICATE",
+          "HOST_NOT_FOUND",
+          "PRIVATE_ADDRESS",
+          "REDIRECT",
+          "ENDPOINT_DISABLED",
+          "ENDPOINT_DELETED",
+          "INTERNAL"
+        ]
+      },
+      "WebhookPayload": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "task.created",
+                  "task.completed",
+                  "task.failed",
+                  "task.cancelled",
+                  "task.expired"
+                ]
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "data": {
+                "$ref": "#/components/schemas/WebhookTaskData"
+              }
+            },
+            "required": ["type", "timestamp", "data"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["approval.requested", "approval.decided"]
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "data": {
+                "$ref": "#/components/schemas/WebhookApprovalData"
+              }
+            },
+            "required": ["type", "timestamp", "data"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["schedule.triggered", "schedule.failed"]
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "data": {
+                "$ref": "#/components/schemas/WebhookScheduleData"
+              }
+            },
+            "required": ["type", "timestamp", "data"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "webhook.test"
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "endpointId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "test": {
+                    "type": "boolean",
+                    "const": true
+                  }
+                },
+                "required": ["endpointId", "test"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["type", "timestamp", "data"],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "WebhookScheduleData": {
+        "type": "object",
+        "properties": {
+          "scheduleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "occurrenceAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "taskId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/ScheduleStatus"
+          },
+          "consecutiveFailures": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScheduleRunReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "scheduleId",
+          "occurrenceAt",
+          "taskId",
+          "status",
+          "consecutiveFailures",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "WebhookTaskData": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scheduleId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/TaskStatus"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "riskLevel": {
+            "$ref": "#/components/schemas/RiskLevel"
+          },
+          "source": {
+            "$ref": "#/components/schemas/TaskSource"
+          },
+          "toolIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolId"
+            }
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "$ref": "#/components/schemas/ErrorCode"
+                  },
+                  "reason": {
+                    "type": ["string", "null"]
+                  },
+                  "retryable": {
+                    "type": "boolean"
+                  }
+                },
+                "required": ["code", "reason", "retryable"],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "taskId",
+          "conversationId",
+          "scheduleId",
+          "status",
+          "outcome",
+          "riskLevel",
+          "source",
+          "toolIds",
+          "error",
+          "createdAt",
+          "completedAt"
+        ],
+        "additionalProperties": false
+      },
+      "Weekday": {
+        "type": "string",
+        "enum": ["MO", "TU", "WE", "TH", "FR", "SA", "SU"]
       }
     }
   }

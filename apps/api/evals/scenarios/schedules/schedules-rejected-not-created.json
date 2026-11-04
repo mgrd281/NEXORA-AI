@@ -1,0 +1,22 @@
+{
+  "id": "schedules-rejected-not-created",
+  "version": 1,
+  "suite": "schedules",
+  "title": "A rejected schedule proposal creates nothing",
+  "modes": ["pipeline"],
+  "requires": ["tool:schedule.create"],
+  "given": {
+    "request": "Every Monday at 9 summarize {{site}}/article",
+    "pages": {
+      "{{site}}/article": "article.html"
+    },
+    "approve": "reject"
+  },
+  "expect": {
+    "result": "plan",
+    "pipeline": {
+      "status": "CANCELLED",
+      "schedulesCreated": 0
+    }
+  }
+}

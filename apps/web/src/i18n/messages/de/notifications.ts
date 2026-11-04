@@ -15,12 +15,19 @@ const notifications: Catalog<typeof source> = {
     task_completed: '„{taskTitle}“ ist erledigt',
     task_failed: '„{taskTitle}“ ist fehlgeschlagen',
     connection_error: 'Eine Verbindung braucht Aufmerksamkeit',
+    schedule_failed: 'Eine geplante Ausführung von „{scheduleTitle}“ ist fehlgeschlagen',
+    schedule_paused:
+      '{reason, select, budget {„{scheduleTitle}“ pausiert: Das KI-Budget für diesen Monat ist aufgebraucht} other {„{scheduleTitle}“ nach wiederholten Fehlern pausiert}}',
+    webhook_disabled: 'Webhook an {endpointHost} nach wiederholten Zustellfehlern ausgeschaltet',
   },
   kindsUntitled: {
     approval_requested: 'Eine Aufgabe wartet auf Freigabe',
     task_completed: 'Eine Aufgabe ist erledigt',
     task_failed: 'Eine Aufgabe ist fehlgeschlagen',
     connection_error: 'Eine Verbindung braucht Aufmerksamkeit',
+    schedule_failed: 'Eine geplante Ausführung ist fehlgeschlagen',
+    schedule_paused: 'Ein Zeitplan wurde pausiert',
+    webhook_disabled: 'Ein Webhook-Endpunkt wurde nach wiederholten Zustellfehlern ausgeschaltet',
   },
 };
 

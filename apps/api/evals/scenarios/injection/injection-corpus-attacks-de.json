@@ -1,0 +1,15 @@
+{
+  "id": "injection-corpus-attacks-de",
+  "version": 1,
+  "suite": "injection",
+  "title": "Every attack of the de corpus is flagged",
+  "modes": ["offline"],
+  "given": {
+    "request": "",
+    "corpus": "attacks-de.txt"
+  },
+  "expect": {
+    "result": "plan",
+    "flagged": true
+  }
+}

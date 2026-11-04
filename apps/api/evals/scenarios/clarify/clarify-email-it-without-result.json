@@ -1,0 +1,14 @@
+{
+  "id": "clarify-email-it-without-result",
+  "version": 1,
+  "suite": "clarify",
+  "title": "\"Email it to me\" with nothing earlier: JARVIS asks what",
+  "modes": ["offline"],
+  "given": {
+    "request": "Email it to me"
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["previous_result"]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "followup-question-not-recallable",
+  "version": 1,
+  "suite": "followup",
+  "title": "A clarifying question is not a result to email",
+  "modes": ["offline"],
+  "given": {
+    "request": "Email it to me",
+    "conversation": [
+      {
+        "request": "Email me",
+        "outcome": "question",
+        "resultText": "What should the email say?",
+        "missing": ["email_content"]
+      }
+    ]
+  },
+  "expect": {
+    "result": "question"
+  }
+}

@@ -367,7 +367,13 @@ describe('crash recovery', () => {
     await withContext(h.db, user, async (trx) => {
       await trx
         .updateTable('tasks')
-        .set({ status: 'VERIFYING', completed_at: null, result_summary: null })
+        .set({
+          status: 'VERIFYING',
+          completed_at: null,
+          result_summary: null,
+          outcome: null,
+          question: null,
+        })
         .where('id', '=', done.id)
         .execute();
       const { enqueue } = await import('../../../src/modules/jobs/queue');
@@ -387,6 +393,20 @@ describe('crash recovery', () => {
       trx.selectFrom('memories').select('id').execute(),
     );
     expect(rows).toHaveLength(1); // the step was not executed again
+    // Completing twice still leaves exactly one JARVIS message for the task.
+    const messages = await withContext(h.db, user, (trx) =>
+      trx
+        .selectFrom('messages')
+        .select(['role', 'kind'])
+        .where('task_id', '=', done.id)
+        .orderBy('created_at')
+        .execute(),
+    );
+    expect(messages).toEqual([
+      { role: 'user', kind: 'request' },
+      { role: 'assistant', kind: 'result' },
+    ]);
+    expect(again.outcome).toBe('action');
   });
 });
 
@@ -487,6 +507,10 @@ describe('task creation and status', () => {
       email: false,
       memory: false,
       generalQuestions: false,
+      // Phase B: storage is configured in tests; translation needs a model.
+      attachments: true,
+      translation: false,
+      schedules: true,
     });
     expect(s.version).toBe(h.config.APP_VERSION);
     expect(typeof s.worker.healthy).toBe('boolean');

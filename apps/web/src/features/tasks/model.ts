@@ -9,6 +9,7 @@ import type {
   Evidence,
   EvidenceCode,
   MemoryKind,
+  MissingInfo,
   StepStatus,
   TaskDetail,
   TaskErrorReason,
@@ -21,6 +22,7 @@ import {
   ErrorCode as ErrorCodeEnum,
   isTerminal,
   MemoryKind as MemoryKindEnum,
+  MissingInfo as MissingInfoEnum,
   TaskErrorReason as TaskErrorReasonEnum,
   TaskStatus as TaskStatusEnum,
 } from '@jarvis/contracts';
@@ -110,6 +112,20 @@ export type EvidenceView =
   | { kind: 'memory_record'; memoryId: string; memoryKind: MemoryKind | null }
   /** The model's answer hit the length limit. */
   | { kind: 'truncated' }
+  /** document.analyze read an attached file. */
+  | {
+      kind: 'document';
+      attachmentId: string | null;
+      pages: number | null;
+      chars: number | null;
+      truncated: boolean;
+    }
+  /** schedule.create stored a schedule. */
+  | { kind: 'schedule'; scheduleId: string; nextRunAt: string | null }
+  /** conversation.recall reused an earlier task's result. */
+  | { kind: 'recalled'; taskId: string }
+  /** assistant.clarify asked for missing information. */
+  | { kind: 'question'; missing: MissingInfo[] }
   | { kind: 'record' | 'note'; label: string; value: string };
 
 /** Only http(s) URLs become links (never javascript:, data: …). */
@@ -203,7 +219,34 @@ function evidenceFromCode(code: EvidenceCode, p: EvidenceParams): EvidenceView |
     }
     case 'ANSWER_TRUNCATED':
       return { kind: 'truncated' };
+    case 'DOCUMENT_EXTRACTED':
+      return {
+        kind: 'document',
+        attachmentId: text(p.attachmentId),
+        pages: num(p.pages),
+        chars: num(p.chars),
+        truncated: num(p.truncated) === 1,
+      };
+    case 'SCHEDULE_RECORD': {
+      const scheduleId = text(p.scheduleId);
+      if (!scheduleId) return null;
+      return { kind: 'schedule', scheduleId, nextRunAt: text(p.nextRunAt) };
+    }
+    case 'RECALLED_RESULT': {
+      const taskId = text(p.taskId);
+      return taskId ? { kind: 'recalled', taskId } : null;
+    }
+    case 'QUESTION_ASKED':
+      return { kind: 'question', missing: parseMissing(p.missing) };
   }
+}
+
+/** "email_content,recipient" (QUESTION_ASKED) → the known MissingInfo values, in order. */
+export function parseMissing(raw: unknown): MissingInfo[] {
+  const parts = typeof raw === 'string' ? raw.split(',') : Array.isArray(raw) ? raw : [];
+  return parts
+    .map((part) => MissingInfoEnum.safeParse(typeof part === 'string' ? part.trim() : part))
+    .flatMap((r) => (r.success ? [r.data] : []));
 }
 
 /**

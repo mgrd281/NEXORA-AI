@@ -10,6 +10,11 @@ enum MeridianIcon {
     static let send = "arrow.up"
     static let approve = "checkmark"
     static let reject = "xmark"
+    static let conversations = "bubble.left.and.bubble.right"
+    static let schedules = "calendar.badge.clock"
+    static let skills = "puzzlepiece.extension"
+    static let attachment = "paperclip"
+    static let question = "questionmark.bubble"
 
     static func status(_ status: TaskStatus) -> String {
         switch status {

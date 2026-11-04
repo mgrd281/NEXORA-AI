@@ -1,0 +1,27 @@
+{
+  "id": "spec-05-resume-interrupted",
+  "version": 1,
+  "suite": "spec",
+  "title": "Spec 5 — the worker dies mid-task: the task resumes and completes once",
+  "modes": ["pipeline"],
+  "given": {
+    "request": "Summarize {{site}}/article and email it to me",
+    "pages": {
+      "{{site}}/article": "article.html"
+    },
+    "approve": "all",
+    "faults": {
+      "crashAfterTool": "web.fetch"
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "pipeline": {
+      "status": "COMPLETED",
+      "sideEffectsExactly": 1,
+      "executions": {
+        "email.send": 1
+      }
+    }
+  }
+}

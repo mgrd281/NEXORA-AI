@@ -5,12 +5,29 @@
  * runtime. Read endpoints are exercised against rows seeded through RLS.
  */
 import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from 'fastify';
-import { canCancel, canRetry, type AssistantStatus, type TaskStatus } from '@jarvis/contracts';
+import { mkdtemp, rm } from 'node:fs/promises';
+import pg from 'pg';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { sql } from 'kysely';
+import {
+  ACTIVE_STATUSES,
+  canCancel,
+  canRetry,
+  SkillId,
+  type AssistantStatus,
+  type CreateTaskRequest,
+  type Skill,
+  type TaskStatus,
+} from '@jarvis/contracts';
 import type { Config } from '../../../src/config';
-import { withContext, type Db, type DbContext } from '../../../src/db/pool';
+import { withContext, type Db, type DbContext, type Trx } from '../../../src/db/pool';
 import { buildApp } from '../../../src/http/app';
 import { AppError, notFound } from '../../../src/lib/errors';
+import { resolvePreferences } from '../../../src/modules/account/me';
 import { appendEvent } from '../../../src/modules/events/events';
+import { createLocalStorage } from '../../../src/modules/storage/local';
+import type { ObjectStorage } from '../../../src/modules/storage/types';
 import {
   approvalQuery,
   taskSummaryQuery,
@@ -20,6 +37,7 @@ import {
 } from '../../../src/modules/tasks/mappers';
 import { registerRoutes } from '../../../src/routes';
 import type { AgentServices, AppDeps } from '../../../src/services';
+import { TEST_OWNER_URL } from '../env';
 import { createTestUser, testConfig, testDb, testSecrets, type TestUser } from '../helpers';
 
 export const WEB_ORIGIN = 'http://localhost:3000';
@@ -46,10 +64,141 @@ async function loadSummary(db: Db, ctx: DbContext, taskId: string) {
   });
 }
 
+/**
+ * Links a request's attachments the way the runtime's intake does
+ * (services.ts TaskService.create / followUp): visible, unexpired if
+ * unattached, not in another conversation; moved into this conversation.
+ */
+async function linkAttachments(
+  trx: Trx,
+  ctx: DbContext,
+  conversationId: string,
+  taskId: string,
+  ids: readonly string[] | undefined,
+): Promise<void> {
+  for (const [position, id] of (ids ?? []).entries()) {
+    const a = await trx
+      .selectFrom('attachments')
+      .select(['id', 'conversation_id', 'expires_at'])
+      .where('id', '=', id)
+      .forUpdate()
+      .executeTakeFirst();
+    const fail = (reason: string) =>
+      new AppError('VALIDATION_FAILED', 'Attachment cannot be used', { reason, attachmentId: id });
+    if (!a) throw fail('ATTACHMENT_NOT_FOUND');
+    if (a.conversation_id === null) {
+      if (a.expires_at && a.expires_at.getTime() <= Date.now()) throw fail('ATTACHMENT_EXPIRED');
+      await trx
+        .updateTable('attachments')
+        .set({ conversation_id: conversationId, expires_at: null })
+        .where('id', '=', id)
+        .execute();
+    } else if (a.conversation_id !== conversationId) {
+      throw fail('ATTACHMENT_IN_OTHER_CONVERSATION');
+    }
+    await trx
+      .insertInto('task_attachments')
+      .values({
+        task_id: taskId,
+        attachment_id: id,
+        tenant_id: ctx.tenantId,
+        user_id: ctx.userId,
+        position,
+      })
+      .execute();
+  }
+}
+
+async function insertTask(
+  trx: Trx,
+  ctx: DbContext,
+  conversationId: string,
+  input: CreateTaskRequest,
+  idempotencyKey: string | undefined,
+): Promise<string> {
+  const task = await trx
+    .insertInto('tasks')
+    .values({
+      tenant_id: ctx.tenantId,
+      user_id: ctx.userId,
+      conversation_id: conversationId,
+      title: input.request.slice(0, 80),
+      request: input.request,
+      source: input.source,
+      language: input.language ?? null,
+      idempotency_key: idempotencyKey ?? null,
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  await trx
+    .insertInto('messages')
+    .values({
+      tenant_id: ctx.tenantId,
+      user_id: ctx.userId,
+      conversation_id: conversationId,
+      task_id: task.id,
+      role: 'user',
+      content: input.request,
+    })
+    .execute();
+  await linkAttachments(trx, ctx, conversationId, task.id, input.attachmentIds);
+  await appendEvent(trx, ctx, {
+    taskId: task.id,
+    type: 'task.created',
+    data: { status: 'QUEUED' },
+  });
+  return task.id;
+}
+
+const PLANNED_SKILLS = new Set<string>([
+  'calendar-management',
+  'appointment-booking',
+  'phone-calling',
+  'shopping-assistant',
+  'device-automation',
+]);
+
+/** A registry-shaped skill list with per-user state from preferences (stand-in for the runtime's). */
+function fakeSkill(id: Skill['id'], disabled: readonly string[], memoryEnabled: boolean): Skill {
+  const planned = PLANNED_SKILLS.has(id);
+  const core = id === 'workflow-planning';
+  const enabled = id === 'personal-memory' ? memoryEnabled : !disabled.includes(id);
+  return {
+    id,
+    version: '1.0.0',
+    status: planned ? 'planned' : 'implemented',
+    enabled: planned ? false : enabled,
+    canToggle: !planned && !core,
+    available: !planned && enabled,
+    unavailableReason: planned
+      ? 'PLANNED'
+      : !enabled
+        ? id === 'personal-memory'
+          ? 'MEMORY_DISABLED'
+          : 'DISABLED_BY_USER'
+        : null,
+    tools: id === 'web-research' ? ['web.fetch', 'text.summarize'] : [],
+    plannedTools: [],
+    permissions: [],
+    maxRisk: 'LOW',
+    requiredConnections: [],
+    modelUse: 'none',
+    maxCostPerRunMicroUsd: null,
+    docsPath: `docs/skills/${id}.md`,
+  };
+}
+
 /** Minimal stand-in for the agent runtime with the same observable contract. */
 export function createFakeAgent(db: Db) {
   const calls = {
     create: [] as { ctx: DbContext; input: unknown; opts: { idempotencyKey?: string } }[],
+    followUp: [] as {
+      ctx: DbContext;
+      conversationId: string;
+      input: unknown;
+      opts: { idempotencyKey?: string };
+    }[],
+    setSkill: [] as { id: string; enabled: boolean }[],
     cancel: [] as string[],
     retry: [] as { taskId: string; acknowledgeUnknownOutcome: boolean }[],
     decide: [] as { approvalId: string; decision: string; channel: string }[],
@@ -74,37 +223,46 @@ export function createFakeAgent(db: Db) {
             .values({ tenant_id: ctx.tenantId, user_id: ctx.userId, title: input.request })
             .returning('id')
             .executeTakeFirstOrThrow();
-          const task = await trx
-            .insertInto('tasks')
-            .values({
-              tenant_id: ctx.tenantId,
-              user_id: ctx.userId,
-              conversation_id: conv.id,
-              title: input.request.slice(0, 80),
-              request: input.request,
-              source: input.source,
-              language: input.language ?? null,
-              idempotency_key: opts.idempotencyKey ?? null,
-            })
-            .returning('id')
-            .executeTakeFirstOrThrow();
+          return insertTask(trx, ctx, conv.id, input, opts.idempotencyKey);
+        });
+        return loadSummary(db, ctx, id);
+      },
+      async followUp(ctx, conversationId, input, opts) {
+        calls.followUp.push({ ctx, conversationId, input, opts });
+        const id = await withContext(db, ctx, async (trx) => {
+          if (opts.idempotencyKey) {
+            const existing = await trx
+              .selectFrom('tasks')
+              .select('id')
+              .where('idempotency_key', '=', opts.idempotencyKey)
+              .executeTakeFirst();
+            if (existing) return existing.id;
+          }
+          const conv = await trx
+            .selectFrom('conversations')
+            .select('id')
+            .where('id', '=', conversationId)
+            .forUpdate()
+            .executeTakeFirst();
+          if (!conv) throw notFound('Conversation');
+          const active = await trx
+            .selectFrom('tasks')
+            .select('id')
+            .where('conversation_id', '=', conversationId)
+            .where('status', 'in', [...ACTIVE_STATUSES])
+            .executeTakeFirst();
+          if (active)
+            throw new AppError('INVALID_STATE', 'A task of this conversation is still running', {
+              reason: 'CONVERSATION_BUSY',
+              taskId: active.id,
+            });
+          const taskId = await insertTask(trx, ctx, conversationId, input, opts.idempotencyKey);
           await trx
-            .insertInto('messages')
-            .values({
-              tenant_id: ctx.tenantId,
-              user_id: ctx.userId,
-              conversation_id: conv.id,
-              task_id: task.id,
-              role: 'user',
-              content: input.request,
-            })
+            .updateTable('conversations')
+            .set({ updated_at: sql<Date>`now()` })
+            .where('id', '=', conversationId)
             .execute();
-          await appendEvent(trx, ctx, {
-            taskId: task.id,
-            type: 'task.created',
-            data: { status: 'QUEUED' },
-          });
-          return task.id;
+          return taskId;
         });
         return loadSummary(db, ctx, id);
       },
@@ -176,6 +334,47 @@ export function createFakeAgent(db: Db) {
         return state.status;
       },
     },
+    skills: {
+      async list(ctx) {
+        const prefs = await withContext(db, ctx, (trx) =>
+          trx
+            .selectFrom('users')
+            .select('preferences')
+            .where('id', '=', ctx.userId)
+            .executeTakeFirstOrThrow(),
+        );
+        const p = resolvePreferences(prefs.preferences);
+        return SkillId.options.map((id) => fakeSkill(id, p.skills.disabled, p.memory.enabled));
+      },
+      async setEnabled(ctx, id, enabled) {
+        calls.setSkill.push({ id, enabled });
+        if (PLANNED_SKILLS.has(id))
+          throw new AppError('INVALID_STATE', 'Planned skill', { reason: 'SKILL_PLANNED' });
+        if (id === 'workflow-planning')
+          throw new AppError('INVALID_STATE', 'Core skill', { reason: 'SKILL_NOT_TOGGLEABLE' });
+        await withContext(db, ctx, async (trx) => {
+          const row = await trx
+            .selectFrom('users')
+            .select('preferences')
+            .where('id', '=', ctx.userId)
+            .forUpdate()
+            .executeTakeFirstOrThrow();
+          const p = resolvePreferences(row.preferences);
+          if (id === 'personal-memory') p.memory.enabled = enabled;
+          else
+            p.skills.disabled = enabled
+              ? p.skills.disabled.filter((d) => d !== id)
+              : [...new Set([...p.skills.disabled, id])];
+          await trx
+            .updateTable('users')
+            .set({ preferences: JSON.stringify(p) })
+            .where('id', '=', ctx.userId)
+            .execute();
+        });
+        const all = await agent.skills.list(ctx);
+        return all.find((sk) => sk.id === id)!;
+      },
+    },
   };
   return {
     agent,
@@ -191,6 +390,10 @@ export interface Harness {
   db: Db;
   config: Config;
   fake: ReturnType<typeof createFakeAgent>;
+  /** The attachment storage (a local driver in a temporary directory unless overridden). */
+  storage: ObjectStorage | null;
+  /** That temporary directory (null when storage was overridden). */
+  storageDir: string | null;
   close(): Promise<void>;
 }
 
@@ -200,17 +403,23 @@ export async function createHarness(
     listen?: AppDeps['listen'];
     /** Replaces the production route registrar (e.g. to add probe routes or stream options). */
     routes?: (app: FastifyInstance, deps: AppDeps) => Promise<void> | void;
+    /** Attachment storage; default: a local driver in a fresh temporary directory. null = not configured. */
+    storage?: ObjectStorage | null;
   } = {},
 ): Promise<Harness> {
   const config = testConfig(opts.env);
   const db = testDb();
   const fake = createFakeAgent(db);
+  const storageDir =
+    opts.storage === undefined ? await mkdtemp(path.join(tmpdir(), 'jarvis-storage-')) : null;
+  const storage = storageDir ? createLocalStorage(storageDir) : (opts.storage ?? null);
   const app = await buildApp(
     {
       config,
       db,
       secrets: testSecrets(config),
       agent: fake.agent,
+      storage,
       listen: opts.listen ?? (async () => async () => {}),
     },
     opts.routes ?? registerRoutes,
@@ -221,9 +430,12 @@ export async function createHarness(
     db,
     config,
     fake,
+    storage,
+    storageDir,
     async close() {
       await app.close();
       await db.destroy();
+      if (storageDir) await rm(storageDir, { recursive: true, force: true });
     },
   };
 }
@@ -443,4 +655,18 @@ export async function seedNotification(
 /** Distinct, strictly decreasing timestamps (newest first) for deterministic ordering. */
 export function timeline(count: number, stepMs = 60_000, from = Date.now()): Date[] {
   return Array.from({ length: count }, (_, i) => new Date(from - i * stepMs));
+}
+
+/** A query as the owner role (tables the app role cannot read: audit_events, storage_deletions). */
+export async function ownerQuery<T extends Record<string, unknown>>(
+  text: string,
+  params: unknown[] = [],
+): Promise<T[]> {
+  const client = new pg.Client({ connectionString: TEST_OWNER_URL });
+  await client.connect();
+  try {
+    return (await client.query<T>(text, params)).rows;
+  } finally {
+    await client.end();
+  }
 }

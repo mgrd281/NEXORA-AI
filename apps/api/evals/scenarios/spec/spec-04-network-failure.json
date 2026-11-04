@@ -1,0 +1,27 @@
+{
+  "id": "spec-04-network-failure",
+  "version": 1,
+  "suite": "spec",
+  "title": "Spec 4 — network failure: the task fails retryably, nothing is duplicated",
+  "modes": ["offline", "pipeline"],
+  "given": {
+    "request": "Summarize {{down}}/article and email it to me",
+    "approve": "all"
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["web.fetch", "text.summarize", "email.send"],
+    "urlsExactly": ["{{down}}/article"],
+    "sideEffectsAtMost": 0,
+    "pipeline": {
+      "status": "FAILED",
+      "errorCode": "TOOL_FAILED",
+      "errorReason": "CONNECT_FAILED",
+      "retryable": true,
+      "sideEffectsExactly": 0,
+      "executions": {
+        "email.send": 0
+      }
+    }
+  }
+}

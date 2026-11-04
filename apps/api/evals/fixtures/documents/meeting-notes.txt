@@ -1,0 +1,5 @@
+Project kickoff, 3 November.
+The team agreed to ship the first milestone by the end of January.
+Anna owns the data migration and Ben owns the new reporting screens.
+Risks: the vendor contract is not signed yet, and two engineers are on leave in December.
+Next meeting: Thursday at 10:00 in room 4.

@@ -1,0 +1,20 @@
+{
+  "id": "policy-clarify-is-harmless",
+  "version": 1,
+  "suite": "policy",
+  "title": "Asking a question is always allowed and has no side effect",
+  "modes": ["offline"],
+  "given": {
+    "request": "Email me"
+  },
+  "expect": {
+    "result": "question",
+    "policy": [
+      {
+        "step": 0,
+        "decision": "allow",
+        "reasonsInclude": ["RISK_LOW"]
+      }
+    ]
+  }
+}

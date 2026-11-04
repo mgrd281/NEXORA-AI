@@ -20,6 +20,13 @@ struct AssistantStatus: Decodable, Sendable, Equatable {
         let email: Bool
         let memory: Bool
         let generalQuestions: Bool
+        // Phase B. Always sent by the current API; nil from older servers (unknown).
+        /// File uploads work (storage configured and the document-analysis skill on).
+        var attachments: Bool? = nil
+        /// Translation can run now (needs a model).
+        var translation: Bool? = nil
+        /// Schedules can be created (task-scheduling skill on).
+        var schedules: Bool? = nil
     }
 
     let planner: Planner

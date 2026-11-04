@@ -1,6 +1,7 @@
 # JARVIS continuous integration.
 #
-# Jobs: quality (tokens, OpenAPI, typecheck, lint, unit tests, format), integration (API against
+# Jobs: quality (tokens, OpenAPI, typecheck, lint, unit tests, format), evals (deterministic agent
+# evaluations: offline, scripted model, worker pipeline), integration (API against
 # PostgreSQL 16 with RLS), build (API bundle + web), e2e (Playwright against the built app),
 # images (build and run the Docker images), security (gitleaks + blocking production audit).
 #
@@ -99,6 +100,71 @@ jobs:
         run: bash scripts/db-setup.sh
       - name: Integration tests (jarvis_test)
         run: pnpm --filter @jarvis/api test:integration
+
+  evals:
+    name: Evals (offline)
+    # Deterministic agent evaluations (docs/evals.md): the offline rules planner, the model
+    # planner with scripted model output (no API key in CI), and the full worker pipeline on
+    # PostgreSQL. Fails on any failed scenario or a regression against the committed baseline.
+    needs: quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # Never call a real model from CI: model-mode scenarios play their scripted output.
+      ANTHROPIC_API_KEY: ''
+      EVAL_DATABASE_URL: postgresql://jarvis_app:jarvis_app_dev@localhost:5432/jarvis_test_evals
+      EVAL_DATABASE_OWNER_URL: postgresql://jarvis_owner:jarvis_owner_dev@localhost:5432/jarvis_test_evals
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck and lint the eval framework
+        run: |
+          pnpm --filter @jarvis/api exec tsc -p evals/tsconfig.json
+          pnpm --filter @jarvis/api exec eslint evals
+      - name: Offline and scripted-model evals
+        run: pnpm --filter @jarvis/api eval --mode offline,model
+      - name: PostgreSQL client
+        run: command -v psql || { sudo apt-get update -q && sudo apt-get install -yq postgresql-client; }
+      - name: Create roles and the eval database
+        env:
+          JARVIS_DATABASES: jarvis_test_evals
+        run: bash scripts/db-setup.sh
+      - name: Pipeline evals (worker + PostgreSQL)
+        run: pnpm --filter @jarvis/api eval --mode pipeline
+      - name: Job summary
+        if: ${{ !cancelled() }}
+        run: |
+          for f in apps/api/evals/reports/eval-*.md; do
+            [ -f "$f" ] && { cat "$f"; echo; } >> "$GITHUB_STEP_SUMMARY"
+          done
+      - name: Upload eval reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-reports
+          path: apps/api/evals/reports/
+          if-no-files-found: ignore
+          retention-days: 14
 
   build:
     name: Build

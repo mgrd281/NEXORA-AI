@@ -1,0 +1,77 @@
+const skills = {
+  description:
+    'What JARVIS can do, and which of it you allow. Turning a skill off stops JARVIS from planning or running its actions. Skills never grant permissions: the safety policy still checks every step, and anything risky still asks you first.',
+  loading: 'Loading skills…',
+  loadError: 'Couldn’t load the skills.',
+  listLabel: 'Skills',
+  plannedTitle: 'Coming later',
+  plannedDescription: 'Described in the product plan but not built yet. They can’t run.',
+  status: {
+    on: 'On',
+    off: 'Off',
+    needsConnection: 'Needs a connection',
+    unavailable: 'Not available',
+    planned: 'Planned',
+    core: 'Always on',
+  },
+  reasons: {
+    PLANNED: 'Not built yet.',
+    DISABLED_BY_USER: 'Turned off. JARVIS won’t plan or run its actions.',
+    CONNECTION_REQUIRED: 'Needs {connections}.',
+    MODEL_REQUIRED: 'Needs an AI model, and none is available right now.',
+    MEMORY_DISABLED: 'Memory is turned off.',
+    STORAGE_NOT_CONFIGURED: 'File storage isn’t set up on this server.',
+  },
+  connections: {
+    web: 'web access',
+    smtp: 'an email connection',
+  },
+  connect: 'Open Connections',
+  risk: {
+    LOW: 'Only reads or prepares things for you, so it runs without asking.',
+    MEDIUM: 'Acts on your behalf, so JARVIS asks you first.',
+    HIGH: 'Can have real consequences, so JARVIS always asks you first.',
+    CRITICAL: 'Would have serious consequences, which JARVIS never does.',
+  },
+  model: {
+    required: 'Needs an AI model.',
+    optional: 'Uses an AI model when one is available.',
+    none: 'Works without an AI model.',
+  },
+  core: 'Part of how JARVIS plans and asks questions, so it can’t be turned off.',
+  memoryNote: 'The same switch as “Use memory” on the Memory page.',
+  turnedOn: '{name} turned on.',
+  turnedOff: '{name} turned off.',
+  names: {
+    'web-research': 'Web research',
+    'email-management': 'Email',
+    'calendar-management': 'Calendar',
+    'appointment-booking': 'Appointment booking',
+    'phone-calling': 'Phone calls',
+    'shopping-assistant': 'Shopping',
+    'document-analysis': 'Documents',
+    'task-scheduling': 'Scheduling',
+    'personal-memory': 'Memory',
+    'device-automation': 'Device automation',
+    translation: 'Translation',
+    'workflow-planning': 'Planning and questions',
+  },
+  descriptions: {
+    'web-research': 'Reads public web pages you link to and summarizes them.',
+    'email-management':
+      'Writes emails and sends them from your connected mailbox, each one after you approve it.',
+    'calendar-management': 'Reads your calendar and suggests or makes changes to it.',
+    'appointment-booking': 'Books appointments with businesses for you.',
+    'phone-calling': 'Makes phone calls for you and says that it is an AI.',
+    'shopping-assistant': 'Compares products and prepares purchases for you to confirm.',
+    'document-analysis': 'Reads files you attach (PDF, Word, text, CSV) and summarizes them.',
+    'task-scheduling': 'Runs requests for you every day, week or month.',
+    'personal-memory': 'Remembers facts and preferences you share and uses them when planning.',
+    'device-automation': 'Controls apps and devices for you.',
+    translation: 'Translates text, results and documents into other languages.',
+    'workflow-planning':
+      'Plans each request, answers questions, asks when something is missing and reuses earlier results in a conversation.',
+  },
+};
+
+export default skills;

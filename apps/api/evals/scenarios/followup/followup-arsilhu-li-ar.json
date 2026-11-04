@@ -1,0 +1,22 @@
+{
+  "id": "followup-arsilhu-li-ar",
+  "version": 1,
+  "suite": "followup",
+  "title": "\"أرسله لي\" بعد ملخص",
+  "modes": ["offline"],
+  "given": {
+    "request": "أرسله لي",
+    "conversation": [
+      {
+        "request": "لخص {{site}}/maqal",
+        "outcome": "answer",
+        "resultText": "افتتحت البلدية مكتبة عامة جديدة."
+      }
+    ]
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["conversation.recall", "email.send"],
+    "recipientsExactly": ["{{me}}"]
+  }
+}

@@ -16,6 +16,7 @@ const settings: Catalog<typeof source> = {
     notifications: 'الإشعارات',
     security: 'الأمان',
     privacy: 'الخصوصية والبيانات',
+    skills: 'المهارات',
   },
   save: {
     saving: 'جارٍ الحفظ…',
@@ -32,6 +33,7 @@ const settings: Catalog<typeof source> = {
     paidOff: 'النماذج المدفوعة متوقفة',
     memoryOn: 'الذاكرة مفعّلة',
     memoryOff: 'الذاكرة متوقفة',
+    skillsOn: '{on} من {total} مفعّلة',
   },
   profile: {
     displayName: 'الاسم المعروض',
@@ -46,6 +48,8 @@ const settings: Catalog<typeof source> = {
     timeZone: 'المنطقة الزمنية',
     timeZoneHint: 'تُستخدم للتواريخ والأوقات ولتحديد موعد إعادة ضبط ميزانيتك الشهرية.',
     useDevice: 'استخدام المنطقة الزمنية لهذا الجهاز ({zone})',
+    timeZoneLoading: 'جارٍ تحميل المناطق الزمنية التي يقبلها هذا الخادم…',
+    timeZoneFailed: 'تعذّر على JARVIS تحميل قائمة المناطق الزمنية.',
   },
   appearance: {
     theme: 'السمة',
@@ -89,6 +93,9 @@ const settings: Catalog<typeof source> = {
       email: 'إرسال البريد الإلكتروني',
       memory: 'استخدام الذاكرة',
       generalQuestions: 'الإجابة عن الأسئلة المفتوحة',
+      attachments: 'قراءة الملفات المرفقة',
+      translation: 'ترجمة النصوص',
+      schedules: 'تنفيذ الطلبات وفق جدول',
     },
     capabilityOn: 'متاح',
     capabilityOff: 'غير متاح',
@@ -97,6 +104,9 @@ const settings: Catalog<typeof source> = {
       email: 'ربط البريد الإلكتروني',
       memory: 'تشغيل الذاكرة',
       generalQuestions: 'يتطلب نموذج ذكاء اصطناعي',
+      attachments: 'يتطلب تخزين ملفات على هذا الخادم وتفعيل مهارة المستندات',
+      translation: 'يتطلب نموذج ذكاء اصطناعي',
+      schedules: 'فعّل مهارة الجدولة',
     },
     statusFailed: 'تعذّر على JARVIS تحميل حالة المساعد.',
     externalModels: 'السماح بنماذج الذكاء الاصطناعي الخارجية',
@@ -168,6 +178,20 @@ const settings: Catalog<typeof source> = {
     memoryTitle: 'الذاكرة',
     memoryDescription: 'شغّل الذاكرة أو أوقفها، وراجع ما يتذكّره JARVIS.',
     memoryLink: 'إدارة الذاكرة',
+    retentionTitle: 'الحذف التلقائي',
+    retentionDescription:
+      'يمكن لـJARVIS حذف البيانات القديمة نيابةً عنك. يتحقق من ذلك مرة يوميًا، ولا يمكن استعادة البيانات المحذوفة.',
+    memoryRetention: 'الاحتفاظ بالذكريات',
+    memoryRetentionHint: 'تُحذف الذكريات التي لم تتغير طوال هذه المدة.',
+    taskRetention: 'الاحتفاظ بسجل المهام',
+    taskRetentionHint:
+      'تُحذف المهام المنتهية الأقدم من ذلك مع محادثاتها ونتائجها وموافقاتها والملفات المرفقة بها.',
+    retention: {
+      forever: 'حتى أحذفها بنفسي',
+      days30: '30 يومًا',
+      days90: '90 يومًا',
+      days365: 'سنة واحدة',
+    },
     exportTitle: 'تصدير بياناتك',
     exportDescription:
       'نزّل كل ما يحفظه JARVIS عنك في ملف JSON واحد: الملف الشخصي والإعدادات والمهام والموافقات والذكريات والإشعارات والاتصالات. لا تُضمَّن كلمات المرور أو المفاتيح أبدًا.',

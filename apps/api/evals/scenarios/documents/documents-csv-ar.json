@@ -1,0 +1,22 @@
+{
+  "id": "documents-csv-ar",
+  "version": 1,
+  "suite": "documents",
+  "title": "لخص ملف CSV",
+  "modes": ["offline"],
+  "requires": ["tool:document.analyze"],
+  "given": {
+    "request": "لخص الملف",
+    "attachments": [
+      {
+        "filename": "budget.csv",
+        "mediaType": "text/csv",
+        "fixture": "budget.csv"
+      }
+    ]
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["document.analyze"]
+  }
+}

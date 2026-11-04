@@ -1,0 +1,14 @@
+{
+  "id": "schedules-translation-inner-unsupported",
+  "version": 1,
+  "suite": "schedules",
+  "title": "A schedule of something the offline planner cannot do is refused honestly",
+  "modes": ["offline"],
+  "given": {
+    "request": "Every day at 9 translate the news into German"
+  },
+  "expect": {
+    "result": "unsupported",
+    "errorReason": "OFFLINE_UNSUPPORTED"
+  }
+}

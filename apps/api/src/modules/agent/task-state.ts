@@ -2,6 +2,10 @@
  * The only code that changes tasks.status. Every transition is checked
  * against the shared state machine (assertTransition), bumps the optimistic
  * version, and writes `task.status_changed` in the same transaction.
+ *
+ * Phase B: a transition to a terminal status is the one place that emits the
+ * task.completed / failed / cancelled / expired webhook and records a
+ * scheduled run's result (failures count towards pausing the schedule).
  */
 import {
   assertTransition,
@@ -16,7 +20,9 @@ import type { TaskRow, TaskUpdate } from '../../db/types';
 import { AppError, notFound } from '../../lib/errors';
 import { appendEvent } from '../events/events';
 import { createNotification } from '../notifications/create';
+import { recordScheduleRunResult } from '../schedules/service';
 import type { ModelUsage } from './models/adapter';
+import { emitScheduleWebhook, emitTaskWebhook, terminalWebhookType } from './webhook-events';
 
 /** Locks the task row for this transaction; null when it is not visible (RLS) or gone. */
 export async function tryLockTask(trx: Trx, taskId: string): Promise<TaskRow | null> {
@@ -76,7 +82,72 @@ export async function transitionTask(
     type: 'task.status_changed',
     data: { from: current.status, to },
   });
+  const webhook = terminalWebhookType(to);
+  if (webhook) {
+    await emitTaskWebhook(trx, ctx, webhook, updated);
+    if (updated.schedule_id) await recordRunResult(trx, ctx, updated);
+  }
   return updated;
+}
+
+/**
+ * A scheduled run's task reached a terminal status: COMPLETED resets the
+ * schedule's failure count; FAILED / EXPIRED count as a failed run, and the
+ * run that reaches SCHEDULE_LIMITS.failuresBeforePause pauses the schedule
+ * (schedule_paused notification, schedule.failed webhook). A cancellation by
+ * the user is neither.
+ */
+async function recordRunResult(trx: Trx, ctx: DbContext, task: TaskRow): Promise<void> {
+  if (!task.schedule_id || task.status === 'CANCELLED') return;
+  const result = task.status === 'COMPLETED' ? 'succeeded' : 'failed';
+  const recorded = await recordScheduleRunResult(trx, ctx, task.schedule_id, result);
+  if (!recorded?.paused) return;
+  const schedule = recorded.schedule;
+  await createNotification(trx, ctx, 'schedule_paused', task.id, {
+    scheduleTitle: schedule.title,
+    reason: 'failures',
+  });
+  const run = await trx
+    .selectFrom('schedule_runs')
+    .select('occurrence_at')
+    .where('task_id', '=', task.id)
+    .executeTakeFirst();
+  await emitScheduleWebhook(trx, ctx, 'schedule.failed', schedule, {
+    occurrenceAt: run ? new Date(run.occurrence_at) : (task.created_at as Date),
+    taskId: task.id,
+    reason: null,
+  });
+}
+
+/**
+ * The failure notification of a task: schedule_failed for a scheduled run
+ * (it names the schedule), task_failed otherwise. One notification either way.
+ */
+export async function notifyTaskFailed(
+  trx: Trx,
+  ctx: DbContext,
+  task: TaskRow,
+  errorCode: string,
+): Promise<void> {
+  if (task.schedule_id) {
+    const schedule = await trx
+      .selectFrom('scheduled_tasks')
+      .select('title')
+      .where('id', '=', task.schedule_id)
+      .executeTakeFirst();
+    if (schedule) {
+      await createNotification(trx, ctx, 'schedule_failed', task.id, {
+        scheduleTitle: schedule.title,
+        taskTitle: task.title,
+        errorCode,
+      });
+      return;
+    }
+  }
+  await createNotification(trx, ctx, 'task_failed', task.id, {
+    taskTitle: task.title,
+    errorCode,
+  });
 }
 
 /** Writes non-status task fields (keeps the version bump so readers see the change). */
@@ -146,10 +217,7 @@ export async function failTask(
   const updated = await transitionTask(trx, ctx, task, 'FAILED', {
     error: taskErrorJson(error),
   });
-  await createNotification(trx, ctx, 'task_failed', task.id, {
-    taskTitle: updated.title,
-    errorCode: error.code,
-  });
+  await notifyTaskFailed(trx, ctx, updated, error.code);
   return updated;
 }
 

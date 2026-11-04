@@ -1,0 +1,158 @@
+/* ------------------------------------------------------------- staged files (composer) */
+
+.tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  min-width: 0;
+}
+
+.chip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  inline-size: min(100%, 17.5rem);
+  min-block-size: var(--control-lg);
+  padding-block: var(--space-2);
+  padding-inline: var(--space-3) var(--space-1);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+
+.chipError {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+.chipIcon {
+  flex: none;
+  display: flex;
+  color: var(--color-text-secondary);
+}
+
+.chipError .chipIcon {
+  color: var(--color-danger);
+}
+
+.chipText {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* The name truncates at the end of its own direction, aligned to the chip's start. */
+.chipName {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: match-parent;
+  text-align: -webkit-match-parent;
+  unicode-bidi: isolate;
+  font: var(--text-callout);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.chipMeta {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+}
+
+.chipErrorText {
+  color: var(--color-danger);
+}
+
+.chipButton {
+  flex: none;
+}
+
+.progress {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  block-size: 2px;
+  background: var(--color-border);
+}
+
+.progressBar {
+  display: block;
+  block-size: 100%;
+  background: var(--color-ink);
+  transition: inline-size var(--duration-fast) var(--ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progressBar {
+    transition: none;
+  }
+}
+
+.trayNote {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-danger);
+}
+
+/* ------------------------------------------------------------- attached files (tasks) */
+
+.list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  min-width: 0;
+}
+
+.list > li {
+  display: flex;
+  min-width: 0;
+  max-inline-size: 100%;
+}
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  max-inline-size: 22rem;
+  min-block-size: var(--control-lg);
+  padding-block: var(--space-2);
+  padding-inline: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+.file:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-hover);
+  text-decoration: none;
+  color: var(--color-text-primary);
+}
+
+.fileCompact {
+  min-block-size: var(--control-md);
+  padding-block: var(--space-1);
+}
+
+.downloadIcon {
+  flex: none;
+  display: flex;
+  color: var(--color-text-tertiary);
+}
+
+.file:hover .downloadIcon {
+  color: var(--color-text-primary);
+}

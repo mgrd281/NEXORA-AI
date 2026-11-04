@@ -9,6 +9,11 @@ const PREFERENCE_FOR: Record<NotificationKind, keyof Preferences['notifications'
   task_failed: 'taskFailed',
   // Broken connections always notify: the user must act for JARVIS to keep working.
   connection_error: null,
+  // Phase B: a failed scheduled run is a failed task; a schedule or webhook that
+  // stopped by itself always notifies (nothing runs until the user acts).
+  schedule_failed: 'taskFailed',
+  schedule_paused: null,
+  webhook_disabled: null,
 };
 
 /**

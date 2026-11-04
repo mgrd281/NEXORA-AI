@@ -1,0 +1,21 @@
+{
+  "id": "schedules-friday-pm",
+  "version": 1,
+  "suite": "schedules",
+  "title": "Every Friday at 5pm (12-hour clock)",
+  "modes": ["offline"],
+  "requires": ["tool:schedule.create"],
+  "given": {
+    "request": "Every Friday at 5pm email me: weekly review"
+  },
+  "expect": {
+    "result": "plan",
+    "schedule": {
+      "recurrence": {
+        "frequency": "weekly",
+        "byWeekday": ["FR"],
+        "time": "17:00"
+      }
+    }
+  }
+}

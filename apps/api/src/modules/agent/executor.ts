@@ -23,23 +23,31 @@
  */
 import type { Evidence, Locale, VerificationCheck } from '@jarvis/contracts';
 import { withContext, type DbContext } from '../../db/pool';
-import type { JobRow, StepRow, TaskRow, ToolExecutionRow } from '../../db/types';
+import type { AttachmentRow, JobRow, StepRow, TaskRow, ToolExecutionRow } from '../../db/types';
 import { hashObject } from '../../lib/crypto';
 import { redact, truncate } from '../../lib/redact';
+import { metrics } from '../../observability/metrics';
+import { withSpan } from '../../observability/tracing';
 import { audit } from '../audit/audit';
 import { appendEvent, publishEphemeral } from '../events/events';
 import { createNotification } from '../notifications/create';
 import { requestApproval } from './approval-flow';
+import { insertAssistantMessage, questionOf, taskOutcome } from './completion';
 import { loadAgentContext, type AgentContext } from './context';
+import { loadConversationContext, type PriorTurn } from './conversation-context';
 import { AgentError, asAgentError } from './errors';
 import type { ModelUsage } from './models/adapter';
 import { asLocale, asMessage } from './i18n';
-import { finishCancellation, type JobOutcome } from './plan-job';
-import { denyMessage, denyReason } from './policy';
+import {
+  conversationAttachments,
+  costAttachments,
+  finishCancellation,
+  type JobOutcome,
+} from './plan-job';
 import { deterministicSummary, modelSummary } from './result-summary';
 import { checkLease, withLeaseSignal, type RuntimeDeps } from './runtime';
 import { stepRef } from './events-data';
-import { assessStep, isTainted, untrustedSource } from './step-policy';
+import { assessStep, denyError, isTainted, untrustedSource } from './step-policy';
 import {
   failTask,
   lockTask,
@@ -49,7 +57,7 @@ import {
   taskErrorJson,
   transitionTask,
 } from './task-state';
-import { resolveTemplates } from './templates';
+import { findRefs, resolveTemplates } from './templates';
 import { getTool } from './tools/registry';
 import type { AnyTool, ToolResult, ToolRuntime } from './tools/types';
 
@@ -70,7 +78,22 @@ type Prepared =
       input: Record<string, unknown>;
       agent: AgentContext;
       language: Locale;
+      /** Files of the task's conversation (document.analyze reads only these). */
+      files: AttachmentRow[];
+      /** Earlier turns of the conversation. */
+      conversation: PriorTurn[];
     };
+
+/** The earlier task a conversation.recall step that `step` depends on reads (for approvals). */
+function recalledTaskId(steps: StepRow[], step: StepRow): string | null {
+  for (const ref of findRefs(step.input)) {
+    const dep = steps.find((s) => s.step_key === ref.stepKey);
+    if (dep?.tool_id !== 'conversation.recall') continue;
+    const id = ((dep.resolved_input ?? dep.input) as Record<string, unknown>).taskId;
+    if (typeof id === 'string') return id;
+  }
+  return null;
+}
 
 async function loadSteps(trx: Parameters<typeof lockTask>[0], taskId: string): Promise<StepRow[]> {
   return trx
@@ -176,10 +199,15 @@ async function prepareNext(deps: RuntimeDeps, ctx: DbContext, taskId: string): P
       return { kind: 'stop' };
     }
     const input = parsed.data as Record<string, unknown>;
+    const files = (await conversationAttachments(trx, task)).rows;
+    // Text taken from earlier steps (a reference in the planned input) is content, not the user's words.
+    const fromContent = findRefs(step.input).length > 0;
 
     // Policy on the exact input that would run.
     const a = assessStep(tool, input, agent, deps.config, {
       untrustedContent: isTainted(steps, step),
+      fromContent,
+      attachments: costAttachments(files),
     });
     await trx
       .updateTable('task_steps')
@@ -194,16 +222,16 @@ async function prepareNext(deps: RuntimeDeps, ctx: DbContext, taskId: string): P
       .execute();
 
     if (a.policy.decision === 'deny') {
-      const code = a.policy.denyCode ?? 'POLICY_DENIED';
+      const e = denyError(tool, step.title, a.policy);
       await failStep(
         trx,
         ctx,
         task,
         step,
-        new AgentError(code, denyMessage(code, a.policy.reasons, step.title), {
-          retryable: true,
-          reason: denyReason(code, a.policy.reasons),
-          params: { step: step.title },
+        new AgentError(e.code, e.message, {
+          retryable: e.retryable,
+          reason: e.reason,
+          params: e.params,
         }),
         'BLOCKED',
         a.policy.reasons,
@@ -256,6 +284,9 @@ async function prepareNext(deps: RuntimeDeps, ctx: DbContext, taskId: string): P
           stepTitle: step.title,
           stepTitleMessage: asMessage(step.title_message),
           fromAddress,
+          fromContent,
+          recalledTaskId: recalledTaskId(steps, step),
+          now: new Date(),
         });
         // Say what the suspected injection is about (never the flagged text itself).
         const untrusted = a.policy.reasons.includes('UNTRUSTED_CONTENT')
@@ -275,6 +306,10 @@ async function prepareNext(deps: RuntimeDeps, ctx: DbContext, taskId: string): P
         return { kind: 'awaiting' };
       }
     }
+    const conversation =
+      tool.id === 'conversation.recall'
+        ? await loadConversationContext(trx, task.conversation_id, task.id)
+        : [];
     return {
       kind: 'run',
       task,
@@ -283,6 +318,8 @@ async function prepareNext(deps: RuntimeDeps, ctx: DbContext, taskId: string): P
       input,
       agent,
       language,
+      files,
+      conversation,
     };
   });
 }
@@ -612,6 +649,10 @@ async function runStep(
           type: 'task.answer.delta',
           data: { stepId: step.id, text },
         }),
+      storage: deps.storage,
+      conversationId: p.task.conversation_id,
+      attachments: p.files,
+      conversation: p.conversation,
     };
 
     const started = Date.now();
@@ -622,16 +663,28 @@ async function runStep(
     let result: ToolResult | null = null;
     let error: AgentError | null = null;
     try {
-      result = await Promise.race([
-        tool.execute(input, rt, signal),
-        abortRejection(signal, tool, step.title),
-      ]);
+      result = await withSpan(
+        'tool.execute',
+        {
+          'jarvis.tool_id': tool.id,
+          'jarvis.tool.version': tool.version,
+          'jarvis.tool.side_effect': tool.sideEffect,
+          'jarvis.step.attempt': attempt,
+        },
+        () =>
+          Promise.race([tool.execute(input, rt, signal), abortRejection(signal, tool, step.title)]),
+      );
     } catch (err) {
       error = normalizeToolError(err, tool, step.title);
     } finally {
       clearTimeout(timer);
       if (!ac.signal.aborted) ac.abort(); // release the abort listener
     }
+    metrics.toolExecution(
+      tool.id,
+      result ? 'succeeded' : error?.code === 'OUTCOME_UNKNOWN' ? 'unknown' : 'failed',
+      Date.now() - started,
+    );
     // Lease lost: whatever happened is for the worker that owns the job now to find
     // (a 'started' execution: re-run if safe, OUTCOME_UNKNOWN if external).
     checkLease(deps);
@@ -745,7 +798,10 @@ async function verifyAndComplete(deps: RuntimeDeps, ctx: DbContext, taskId: stri
   // model-written and page text is only ever in the request's language.
   let summaryMessage = deterministic.message;
   const usage: ModelUsage[] = [];
-  const answerOnly = verified.steps.some((s) => s.tool_id === 'assistant.answer');
+  const question = questionOf(verified.steps);
+  const outcome = taskOutcome(verified.steps);
+  // An answer or a question is its own result line: no model rewrite.
+  const answerOnly = verified.steps.some((s) => s.tool_id === 'assistant.answer') || !!question;
   if (deps.adapter && verified.agent.route.mode === 'model' && !answerOnly) {
     try {
       const res = await modelSummary(deps.adapter, deps.config, {
@@ -775,11 +831,20 @@ async function verifyAndComplete(deps: RuntimeDeps, ctx: DbContext, taskId: stri
     const task = await lockTask(trx, taskId);
     if (task.status !== 'VERIFYING') return;
     const evidence = verified.steps.flatMap((s) => (Array.isArray(s.evidence) ? s.evidence : []));
+    // Status, outcome and question in one UPDATE (the CHECKs tie them together).
     const done = await transitionTask(trx, ctx, task, 'COMPLETED', {
       result_summary: summary || null,
       result_summary_message: summary && summaryMessage ? JSON.stringify(summaryMessage) : null,
       evidence: JSON.stringify(evidence),
       error: null,
+      outcome,
+      question: question ? JSON.stringify(question) : null,
+    });
+    await insertAssistantMessage(trx, ctx, done, verified.steps, {
+      outcome,
+      question,
+      summary,
+      summaryMessage,
     });
     await createNotification(trx, ctx, 'task_completed', taskId, { taskTitle: done.title });
   });

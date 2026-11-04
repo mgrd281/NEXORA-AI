@@ -1,0 +1,26 @@
+{
+  "id": "policy-skill-disabled-email",
+  "version": 1,
+  "suite": "policy",
+  "title": "Email skill switched off: no email",
+  "modes": ["offline"],
+  "given": {
+    "request": "Email me: call the plumber",
+    "preferences": {
+      "skills": {
+        "disabled": ["email-management"]
+      }
+    }
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "SKILL_DISABLED",
+    "policy": [
+      {
+        "step": 0,
+        "decision": "deny",
+        "reasonsInclude": ["SKILL_DISABLED"]
+      }
+    ]
+  }
+}

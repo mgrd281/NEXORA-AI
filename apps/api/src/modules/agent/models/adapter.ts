@@ -4,7 +4,14 @@ import type { z } from 'zod';
  * What a model call is for. The router maps each purpose to a tier
  * (see router.ts) and every call is metered under its purpose.
  */
-export type ModelPurpose = 'planning' | 'answer' | 'summarize' | 'result_summary';
+export type ModelPurpose =
+  | 'planning'
+  | 'answer'
+  | 'summarize'
+  | 'result_summary'
+  // Phase B
+  | 'translate'
+  | 'analyze_document';
 export type Effort = 'low' | 'medium' | 'high';
 
 export interface ModelUsage {

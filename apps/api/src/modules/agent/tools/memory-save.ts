@@ -1,9 +1,13 @@
 /**
  * memory.save — store a note in the user's long-term memory.
- * Content must be literal text from the user's request (no {{refs}}): memories
- * are later shown to the planner as the user's own notes, so fetched content
- * must never be able to plant one. Idempotent per task (same content saved by
- * the same task is reused), hence safe to retry.
+ * Content is literal text from the user's request — or (Phase B, "remember
+ * that") exactly one reference to a conversation.recall output, the earlier
+ * result the user points at. Memories are later shown to the planner as the
+ * user's own notes, so content must never be able to plant one: a
+ * referenced text needs the user's approval of the exact text
+ * (MEMORY_FROM_CONTENT) and is denied when it derives from flagged content
+ * (UNTRUSTED_MEMORY) — see policy.ts. Idempotent per task (same content saved
+ * by the same task is reused), hence safe to retry.
  */
 import { MemoryKind } from '@jarvis/contracts';
 import { z } from 'zod';
@@ -11,7 +15,7 @@ import { withContext } from '../../../db/pool';
 import { truncate } from '../../../lib/redact';
 import { AgentError } from '../errors';
 import { msg, render, withoutFinalStop } from '../i18n';
-import { hasTemplate } from '../templates';
+import { findRefs, hasTemplate } from '../templates';
 import { check, evidence, type ToolDefinition } from './types';
 
 export const MemorySaveInput = z.object({
@@ -20,7 +24,9 @@ export const MemorySaveInput = z.object({
     .trim()
     .min(1)
     .max(1000)
-    .describe("The note to remember, in the user's own words from the request. No references."),
+    .describe(
+      'The note to remember, in the user\'s own words from the request. The only allowed reference is {{sN.excerpt}} of a conversation.recall step ("remember that").',
+    ),
   kind: MemoryKind.describe('"preference" for likes/dislikes and habits, otherwise "fact".'),
 });
 export type MemorySaveInput = z.infer<typeof MemorySaveInput>;
@@ -41,10 +47,16 @@ export const memorySaveTool: ToolDefinition<MemorySaveInput> = {
     "Save a short note (a preference or a fact the user stated) to the user's long-term memory so JARVIS can use it later. Only for things the user explicitly asked to remember.",
   inputSchema: MemorySaveInput,
   validatePlanned(input) {
-    return typeof input.content === 'string' && hasTemplate(input.content)
-      ? ['memory.save "content" must be literal text from the request; references are not allowed.']
-      : [];
+    if (typeof input.content !== 'string' || !hasTemplate(input.content)) return [];
+    // Exactly one whole-field reference (to a conversation.recall output: allowedRefTools).
+    const refs = findRefs(input.content);
+    return refs.length === 1 && /^\{\{\s*s\d\.excerpt\s*\}\}$/.test(input.content.trim())
+      ? []
+      : [
+          'memory.save "content" must be literal text from the request, or exactly {{sN.excerpt}} of a conversation.recall step.',
+        ];
   },
+  allowedRefTools: ['conversation.recall'],
   outputFields: ['memoryId', 'content', 'kind'],
   requiredConnection: null,
   permissions: ['memory:write'],
@@ -57,6 +69,20 @@ export const memorySaveTool: ToolDefinition<MemorySaveInput> = {
   estimateCostMicro: () => 0,
   preview: (input) => ({ content: input.content, kind: input.kind }),
   approvalDetails: (input, ctx) => {
+    if (ctx.fromContent) {
+      // MEMORY_FROM_CONTENT: exactly the text that would be kept.
+      const summaryMessage = msg('approval.memory', { text: quotable(input.content) });
+      return {
+        details: {
+          kind: 'memory',
+          content: input.content,
+          memoryKind: input.kind,
+          sourceTaskId: ctx.recalledTaskId ?? null,
+        },
+        summary: render(ctx.language, summaryMessage),
+        summaryMessage,
+      };
+    }
     const summaryMessage = msg('result.memorySaved', { text: quotable(input.content) });
     return {
       details: {

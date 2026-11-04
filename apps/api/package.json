@@ -14,6 +14,7 @@
     "lint": "eslint src test",
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
+    "eval": "tsx --import ./evals/src/interop.mjs evals/run.ts",
     "db:migrate": "tsx --env-file=.env src/db/migrate.ts",
     "cli": "tsx --env-file=.env src/cli.ts",
     "openapi": "tsx scripts/openapi.ts",

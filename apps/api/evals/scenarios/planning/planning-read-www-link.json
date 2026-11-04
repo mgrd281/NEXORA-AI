@@ -1,0 +1,15 @@
+{
+  "id": "planning-read-www-link",
+  "version": 1,
+  "suite": "planning",
+  "title": "A link without a scheme is fetched over https",
+  "modes": ["offline"],
+  "given": {
+    "request": "Read www.example.org/news/today"
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["web.fetch", "text.summarize"],
+    "urlsExactly": ["https://www.example.org/news/today"]
+  }
+}

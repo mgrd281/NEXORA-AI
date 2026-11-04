@@ -5,6 +5,7 @@ import { ErrorBanner } from '@/components/ui/Banner';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useI18n } from '@/i18n/I18nProvider';
 import { useMe } from '@/lib/api/hooks';
+import { DeveloperSection } from '@/features/webhooks/DeveloperSection';
 import { useConnections } from './api';
 import { EmailCard } from './EmailCard';
 import { WebAccessCard } from './WebAccessCard';
@@ -52,6 +53,7 @@ export function ConnectionsScreen() {
           <EmailCard connection={smtp} me={me.data} />
         </div>
       )}
+      <DeveloperSection />
     </Page>
   );
 }

@@ -1,0 +1,22 @@
+{
+  "id": "documents-arabic-text",
+  "version": 1,
+  "suite": "documents",
+  "title": "لخص المستند العربي المرفق",
+  "modes": ["offline"],
+  "requires": ["tool:document.analyze"],
+  "given": {
+    "request": "لخص المستند",
+    "attachments": [
+      {
+        "filename": "taqrir.txt",
+        "mediaType": "text/plain",
+        "fixture": "taqrir-ar.txt"
+      }
+    ]
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["document.analyze"]
+  }
+}

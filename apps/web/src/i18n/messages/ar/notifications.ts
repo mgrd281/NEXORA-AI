@@ -16,12 +16,19 @@ const notifications: Catalog<typeof source> = {
     task_completed: 'اكتملت مهمة «{taskTitle}»',
     task_failed: 'فشلت مهمة «{taskTitle}»',
     connection_error: 'أحد الاتصالات يحتاج إلى انتباهك',
+    schedule_failed: 'فشل تنفيذ مجدول لـ«{scheduleTitle}»',
+    schedule_paused:
+      '{reason, select, budget {أُوقف «{scheduleTitle}» مؤقتًا لأن ميزانية الذكاء الاصطناعي لهذا الشهر نفدت} other {أُوقف «{scheduleTitle}» مؤقتًا بعد إخفاقات متكررة}}',
+    webhook_disabled: 'أُوقف الويب هوك إلى {endpointHost} بعد إخفاقات متكررة في التسليم',
   },
   kindsUntitled: {
     approval_requested: 'مهمة بحاجة إلى موافقتك',
     task_completed: 'اكتملت إحدى المهام',
     task_failed: 'فشلت إحدى المهام',
     connection_error: 'أحد الاتصالات يحتاج إلى انتباهك',
+    schedule_failed: 'فشل تنفيذ مجدول',
+    schedule_paused: 'أُوقف جدول مؤقتًا',
+    webhook_disabled: 'أُوقفت نقطة نهاية ويب هوك بعد إخفاقات متكررة في التسليم',
   },
 };
 

@@ -13,6 +13,7 @@ const settings = {
     notifications: 'Notifications',
     security: 'Security',
     privacy: 'Privacy & data',
+    skills: 'Skills',
   },
   save: {
     saving: 'Saving…',
@@ -29,6 +30,7 @@ const settings = {
     paidOff: 'Paid models off',
     memoryOn: 'Memory on',
     memoryOff: 'Memory off',
+    skillsOn: '{on} of {total} on',
   },
   profile: {
     displayName: 'Display name',
@@ -43,6 +45,8 @@ const settings = {
     timeZone: 'Time zone',
     timeZoneHint: 'Used for dates and times, and for when your monthly budget resets.',
     useDevice: 'Use this device’s time zone ({zone})',
+    timeZoneLoading: 'Loading the time zones this server accepts…',
+    timeZoneFailed: 'JARVIS couldn’t load the list of time zones.',
   },
   appearance: {
     theme: 'Theme',
@@ -85,6 +89,9 @@ const settings = {
       email: 'Send email',
       memory: 'Use memory',
       generalQuestions: 'Answer open questions',
+      attachments: 'Read attached files',
+      translation: 'Translate text',
+      schedules: 'Run requests on a schedule',
     },
     capabilityOn: 'Available',
     capabilityOff: 'Not available',
@@ -93,6 +100,9 @@ const settings = {
       email: 'Connect email',
       memory: 'Turn on memory',
       generalQuestions: 'Needs an AI model',
+      attachments: 'Needs file storage on this server, and the document skill turned on',
+      translation: 'Needs an AI model',
+      schedules: 'Turn on the scheduling skill',
     },
     statusFailed: 'JARVIS couldn’t load the assistant status.',
     externalModels: 'Allow external AI models',
@@ -163,6 +173,20 @@ const settings = {
     memoryTitle: 'Memory',
     memoryDescription: 'Turn memory on or off and review what JARVIS remembers.',
     memoryLink: 'Manage memory',
+    retentionTitle: 'Automatic deletion',
+    retentionDescription:
+      'JARVIS can delete old data for you. It checks once a day, and deleted data can’t be recovered.',
+    memoryRetention: 'Keep memories',
+    memoryRetentionHint: 'Memories that haven’t changed for this long are deleted.',
+    taskRetention: 'Keep task history',
+    taskRetentionHint:
+      'Finished tasks older than this are deleted, with their conversations, results, approvals and attached files.',
+    retention: {
+      forever: 'Until I delete them',
+      days30: '30 days',
+      days90: '90 days',
+      days365: '1 year',
+    },
     exportTitle: 'Export your data',
     exportDescription:
       'Download everything JARVIS stores about you as one JSON file: profile, settings, tasks, approvals, memories, notifications and connections. Passwords and keys are never included.',

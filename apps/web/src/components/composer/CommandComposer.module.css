@@ -12,8 +12,9 @@
 }
 
 .box {
+  position: relative;
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-2);
   padding-inline-start: var(--space-4);
@@ -32,6 +33,67 @@
 .box:focus-within {
   border-color: var(--color-focus-ring);
   box-shadow: 0 0 0 1px var(--color-focus-ring);
+}
+
+.row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* Staged files sit above the text, inside the field's border (they are part of the request). */
+.files {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block-start: var(--space-2);
+  padding-inline-end: var(--space-2);
+}
+
+/* Dragging files over the field: one calm target over the whole box. */
+.box[data-dragging] {
+  border-color: var(--color-focus-ring);
+  border-style: dashed;
+}
+
+.drop {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border-radius: inherit;
+  background: var(--color-surface);
+  text-align: center;
+  pointer-events: none;
+}
+
+.dropTitle {
+  font: var(--text-body-strong);
+  color: var(--color-text-primary);
+}
+
+.dropHint {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+}
+
+.notice {
+  padding-inline: var(--space-4);
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+}
+
+/* Why a follow-up can't be sent yet: above the field, quiet. */
+.blocked {
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
 }
 
 .input {

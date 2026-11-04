@@ -1,0 +1,25 @@
+{
+  "id": "documents-docx-de",
+  "version": 1,
+  "suite": "documents",
+  "title": "Fasse ein Word-Dokument zusammen",
+  "modes": ["offline", "pipeline"],
+  "requires": ["tool:document.analyze", "storage"],
+  "given": {
+    "request": "Fasse das Dokument zusammen",
+    "attachments": [
+      {
+        "filename": "mietvertrag.docx",
+        "mediaType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "fixture": "mietvertrag-de.docx.json"
+      }
+    ]
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["document.analyze"],
+    "pipeline": {
+      "status": "COMPLETED"
+    }
+  }
+}

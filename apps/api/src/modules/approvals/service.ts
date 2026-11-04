@@ -7,6 +7,9 @@
  * Lock order: the task row, then the approval row — the order cancel, the
  * executor and the approval.expire job use too. The opposite order deadlocks
  * with a concurrent cancel (Postgres aborts one transaction with 40P01).
+ *
+ * Phase B: a decision emits the approval.decided webhook (ids and status only)
+ * in the same transaction.
  */
 import type { Approval, ApprovalDecisionRequest, Platform } from '@jarvis/contracts';
 import { withContext, type DbContext } from '../../db/pool';
@@ -17,6 +20,7 @@ import { expireApproval } from '../agent/approval-flow';
 import { asLocale, asMessage, msg, render } from '../agent/i18n';
 import type { AgentDeps } from '../agent/index';
 import { cancelOpenSteps, lockTask, transitionTask } from '../agent/task-state';
+import { emitApprovalWebhook } from '../agent/webhook-events';
 import { audit } from '../audit/audit';
 import { appendEvent } from '../events/events';
 import { enqueue } from '../jobs/queue';
@@ -65,7 +69,7 @@ export function createApprovalService(deps: AgentDeps): ApprovalService {
       const note = input.note?.trim() ? input.note.trim() : null;
 
       if (input.decision === 'approve') {
-        await trx
+        const approved = await trx
           .updateTable('approvals')
           .set({
             status: 'APPROVED',
@@ -74,7 +78,9 @@ export function createApprovalService(deps: AgentDeps): ApprovalService {
             decision_channel: channel,
           })
           .where('id', '=', approval.id)
-          .execute();
+          .returningAll()
+          .executeTakeFirstOrThrow();
+        await emitApprovalWebhook(trx, ctx, 'approval.decided', approved);
         await trx
           .updateTable('task_steps')
           .set({ status: 'PENDING' })
@@ -95,7 +101,7 @@ export function createApprovalService(deps: AgentDeps): ApprovalService {
           dedupeKey: `exec:${task.id}`,
         });
       } else {
-        await trx
+        const rejected = await trx
           .updateTable('approvals')
           .set({
             status: 'REJECTED',
@@ -104,7 +110,9 @@ export function createApprovalService(deps: AgentDeps): ApprovalService {
             decision_channel: channel,
           })
           .where('id', '=', approval.id)
-          .execute();
+          .returningAll()
+          .executeTakeFirstOrThrow();
+        await emitApprovalWebhook(trx, ctx, 'approval.decided', rejected);
         await trx
           .updateTable('task_steps')
           .set({ status: 'CANCELLED', completed_at: decidedAt })

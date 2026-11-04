@@ -1,0 +1,27 @@
+{
+  "id": "documents-two-files",
+  "version": 1,
+  "suite": "documents",
+  "title": "Two attached files are both read",
+  "modes": ["offline"],
+  "requires": ["tool:document.analyze"],
+  "given": {
+    "request": "Summarize these files",
+    "attachments": [
+      {
+        "filename": "meeting-notes.txt",
+        "mediaType": "text/plain",
+        "fixture": "meeting-notes.txt"
+      },
+      {
+        "filename": "budget.csv",
+        "mediaType": "text/csv",
+        "fixture": "budget.csv"
+      }
+    ]
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["document.analyze", "document.analyze"]
+  }
+}

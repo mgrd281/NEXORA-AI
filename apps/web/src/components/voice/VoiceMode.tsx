@@ -1,6 +1,6 @@
 'use client';
 
-import type { TaskSummary } from '@jarvis/contracts';
+import type { Locale, TaskSummary } from '@jarvis/contracts';
 import { Keyboard, Mic, Square } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -48,6 +48,20 @@ export interface VoiceModeProps {
   onTypeInstead?: (transcript: string) => void;
   /** Called with the created task; by default the app opens the task. */
   onCreated?: (task: TaskSummary) => void;
+  /**
+   * Sends the dictated request instead of POST /v1/tasks (e.g. as a follow-up in a
+   * conversation, with the composer's files). It owns the Idempotency-Key.
+   */
+  submit?: (body: VoiceRequest) => Promise<TaskSummary>;
+  /** The confirmation after sending (default: "Request sent."). */
+  sentMessage?: string;
+}
+
+export interface VoiceRequest {
+  request: string;
+  source: 'voice';
+  language: Locale;
+  voiceSessionId?: string;
 }
 
 /**
@@ -55,18 +69,37 @@ export interface VoiceModeProps {
  * the live microphone level (getUserMedia + AnalyserNode), and the request sent as a task
  * (source 'voice'). Only session metadata reaches the API — never audio or transcript text.
  */
-export function VoiceMode({ open, onClose, onTypeInstead, onCreated }: VoiceModeProps) {
+export function VoiceMode({
+  open,
+  onClose,
+  onTypeInstead,
+  onCreated,
+  submit,
+  sentMessage,
+}: VoiceModeProps) {
   const { t } = useI18n();
   return (
     <Sheet open={open} onClose={onClose} title={t('voice.title')} fullScreenOnMobile>
       {open && (
-        <VoiceSession onClose={onClose} onTypeInstead={onTypeInstead} onCreated={onCreated} />
+        <VoiceSession
+          onClose={onClose}
+          onTypeInstead={onTypeInstead}
+          onCreated={onCreated}
+          submit={submit}
+          sentMessage={sentMessage}
+        />
       )}
     </Sheet>
   );
 }
 
-function VoiceSession({ onClose, onTypeInstead, onCreated }: Omit<VoiceModeProps, 'open'>) {
+function VoiceSession({
+  onClose,
+  onTypeInstead,
+  onCreated,
+  submit,
+  sentMessage,
+}: Omit<VoiceModeProps, 'open'>) {
   const { t, speechLocale } = useI18n();
   const router = useRouter();
   const { toast } = useToast();
@@ -293,12 +326,17 @@ function VoiceSession({ onClose, onTypeInstead, onCreated }: Omit<VoiceModeProps
     setPhase('sending');
     const voiceSessionId = (await session.current?.id) ?? undefined;
     try {
-      const task = await createTask.mutateAsync({
-        body: { request: text, source: 'voice', language: localeFromSpeech(lang), voiceSessionId },
-        idempotencyKey: idempotencyKey.current,
-      });
+      const body: VoiceRequest = {
+        request: text,
+        source: 'voice',
+        language: localeFromSpeech(lang),
+        voiceSessionId,
+      };
+      const task = submit
+        ? await submit(body)
+        : await createTask.mutateAsync({ body, idempotencyKey: idempotencyKey.current });
       endSession('submitted', text.length);
-      toast({ message: t('composer.sent') });
+      toast({ message: sentMessage ?? t('composer.sent') });
       onClose();
       if (onCreated) onCreated(task);
       else router.push(`/tasks/${task.id}`);

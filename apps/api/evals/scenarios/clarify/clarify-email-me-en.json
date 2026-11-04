@@ -1,0 +1,21 @@
+{
+  "id": "clarify-email-me-en",
+  "version": 1,
+  "suite": "clarify",
+  "title": "\"Email me\" with no content: JARVIS asks",
+  "modes": ["offline", "pipeline"],
+  "given": {
+    "request": "Email me"
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["email_content"],
+    "recipientsExactly": [],
+    "sideEffectsAtMost": 0,
+    "pipeline": {
+      "status": "COMPLETED",
+      "outcome": "question",
+      "sideEffectsExactly": 0
+    }
+  }
+}

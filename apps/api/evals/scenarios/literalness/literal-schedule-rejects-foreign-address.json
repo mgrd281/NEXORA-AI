@@ -1,0 +1,55 @@
+{
+  "id": "literal-schedule-rejects-foreign-address",
+  "version": 1,
+  "suite": "literalness",
+  "title": "A schedule may not email an address the user did not write (model)",
+  "modes": ["model"],
+  "given": {
+    "request": "Every Friday at 5pm summarize {{site}}/article for my team",
+    "model": {
+      "scriptOnly": true,
+      "plans": [
+        {
+          "title": "Weekly summary",
+          "objective": "Summarize weekly",
+          "steps": [
+            {
+              "key": "s1",
+              "toolId": "schedule.create",
+              "title": "Schedule it",
+              "input": {
+                "title": "Weekly summary",
+                "request": "Summarize {{site}}/article and email it to team@corp.example",
+                "recurrence": {
+                  "frequency": "weekly",
+                  "interval": 1,
+                  "byWeekday": ["FR"],
+                  "time": "17:00",
+                  "timeZone": "Europe/Berlin"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "title": "Question",
+          "objective": "Ask",
+          "steps": [
+            {
+              "key": "s1",
+              "toolId": "assistant.clarify",
+              "title": "Ask",
+              "input": {
+                "missing": ["recipient"]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["recipient"]
+  }
+}

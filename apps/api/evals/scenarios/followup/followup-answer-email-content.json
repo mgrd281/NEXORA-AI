@@ -1,0 +1,29 @@
+{
+  "id": "followup-answer-email-content",
+  "version": 1,
+  "suite": "followup",
+  "title": "Answering \"what should the email say?\" sends that text to me",
+  "modes": ["offline", "pipeline"],
+  "requires": ["service:followUp"],
+  "given": {
+    "request": "Pick up the dry cleaning before six",
+    "conversation": [
+      {
+        "request": "Email me",
+        "outcome": "question",
+        "resultText": "What should the email say?",
+        "missing": ["email_content"]
+      }
+    ],
+    "approve": "all"
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["email.send"],
+    "recipientsExactly": ["{{me}}"],
+    "pipeline": {
+      "status": "COMPLETED",
+      "sideEffectsExactly": 1
+    }
+  }
+}

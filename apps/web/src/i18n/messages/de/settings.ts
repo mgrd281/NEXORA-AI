@@ -16,6 +16,7 @@ const settings: Catalog<typeof source> = {
     notifications: 'Mitteilungen',
     security: 'Sicherheit',
     privacy: 'Datenschutz und Daten',
+    skills: 'Fähigkeiten',
   },
   save: {
     saving: 'Wird gespeichert …',
@@ -31,6 +32,7 @@ const settings: Catalog<typeof source> = {
     paidOff: 'Bezahlte Modelle aus',
     memoryOn: 'Gedächtnis an',
     memoryOff: 'Gedächtnis aus',
+    skillsOn: '{on} von {total} an',
   },
   profile: {
     displayName: 'Anzeigename',
@@ -46,6 +48,8 @@ const settings: Catalog<typeof source> = {
     timeZoneHint:
       'Für Datums- und Zeitangaben und dafür, wann dein Monatsbudget zurückgesetzt wird.',
     useDevice: 'Zeitzone dieses Geräts verwenden ({zone})',
+    timeZoneLoading: 'Zeitzonen, die dieser Server kennt, werden geladen …',
+    timeZoneFailed: 'JARVIS konnte die Liste der Zeitzonen nicht laden.',
   },
   appearance: {
     theme: 'Farbschema',
@@ -89,6 +93,9 @@ const settings: Catalog<typeof source> = {
       email: 'E-Mails senden',
       memory: 'Gedächtnis nutzen',
       generalQuestions: 'Offene Fragen beantworten',
+      attachments: 'Angehängte Dateien lesen',
+      translation: 'Texte übersetzen',
+      schedules: 'Anfragen nach Zeitplan ausführen',
     },
     capabilityOn: 'Verfügbar',
     capabilityOff: 'Nicht verfügbar',
@@ -97,6 +104,9 @@ const settings: Catalog<typeof source> = {
       email: 'E-Mail verbinden',
       memory: 'Gedächtnis einschalten',
       generalQuestions: 'Braucht ein KI-Modell',
+      attachments: 'Braucht Dateispeicher auf diesem Server und die eingeschaltete Dokument-Fähigkeit',
+      translation: 'Braucht ein KI-Modell',
+      schedules: 'Zeitplan-Fähigkeit einschalten',
     },
     statusFailed: 'JARVIS konnte den Status des Assistenten nicht laden.',
     externalModels: 'Externe KI-Modelle erlauben',
@@ -170,6 +180,20 @@ const settings: Catalog<typeof source> = {
     memoryTitle: 'Gedächtnis',
     memoryDescription: 'Schalte das Gedächtnis ein oder aus und sieh, was sich JARVIS merkt.',
     memoryLink: 'Gedächtnis verwalten',
+    retentionTitle: 'Automatisch löschen',
+    retentionDescription:
+      'JARVIS kann alte Daten für dich löschen. Das wird einmal täglich geprüft; gelöschte Daten lassen sich nicht wiederherstellen.',
+    memoryRetention: 'Erinnerungen behalten',
+    memoryRetentionHint: 'Erinnerungen, die so lange nicht geändert wurden, werden gelöscht.',
+    taskRetention: 'Aufgabenverlauf behalten',
+    taskRetentionHint:
+      'Abgeschlossene Aufgaben, die älter sind, werden gelöscht – mit ihren Gesprächen, Ergebnissen, Freigaben und angehängten Dateien.',
+    retention: {
+      forever: 'Bis ich sie lösche',
+      days30: '30 Tage',
+      days90: '90 Tage',
+      days365: '1 Jahr',
+    },
     exportTitle: 'Deine Daten exportieren',
     exportDescription:
       'Lade alles, was JARVIS über dich speichert, als eine JSON-Datei herunter: Profil, Einstellungen, Aufgaben, Freigaben, Erinnerungen, Mitteilungen und Verbindungen. Passwörter und Schlüssel sind nie enthalten.',

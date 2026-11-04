@@ -74,3 +74,67 @@
   letter-spacing: var(--tracking-caption);
   color: var(--color-text-tertiary);
 }
+
+/* ------------------------------------------------------------- views (tasks · conversations · scheduled) */
+
+.views {
+  margin-block-start: calc(var(--space-2) * -1);
+  border-block-end: 1px solid var(--color-border);
+  min-width: 0;
+}
+
+@media (min-width: 900px) {
+  .views {
+    margin-block-start: calc(var(--space-4) * -1);
+  }
+}
+
+.viewList {
+  display: flex;
+  gap: var(--space-6);
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.viewList::-webkit-scrollbar {
+  display: none;
+}
+
+.viewLink {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--control-md);
+  padding-block: var(--space-2);
+  color: var(--color-text-secondary);
+  font: var(--text-callout);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.viewLink:hover {
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+.viewLink[aria-current='page'] {
+  color: var(--color-text-primary);
+}
+
+.viewLink[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: -1px;
+  block-size: 2px;
+  border-radius: var(--radius-full);
+  background: var(--color-ink);
+}
+
+.viewLink:focus-visible {
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}

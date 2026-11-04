@@ -1,0 +1,14 @@
+{
+  "id": "planning-offline-translate-unsupported",
+  "version": 1,
+  "suite": "planning",
+  "title": "Translation offline is refused honestly (no offline translator)",
+  "modes": ["offline"],
+  "given": {
+    "request": "Translate \"good morning\" into Arabic"
+  },
+  "expect": {
+    "result": "unsupported",
+    "errorReason": "OFFLINE_UNSUPPORTED"
+  }
+}

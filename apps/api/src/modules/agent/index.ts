@@ -8,13 +8,17 @@ import type { Db } from '../../db/pool';
 import type { SecretBox } from '../../lib/crypto';
 import type { AgentServices } from '../../services';
 import { createApprovalService } from '../approvals/service';
+import type { ObjectStorage } from '../storage/types';
 import { createTaskService } from '../tasks/service';
+import { createSkillService } from './skills/service';
 import { createStatusService } from './status';
 
 export interface AgentDeps {
   config: Config;
   db: Db;
   secrets: SecretBox;
+  /** Phase B: attachment storage (createStorage(config); null when STORAGE_DRIVER is 'none'). */
+  storage: ObjectStorage | null;
 }
 
 export function createAgentServices(deps: AgentDeps): AgentServices {
@@ -22,5 +26,6 @@ export function createAgentServices(deps: AgentDeps): AgentServices {
     tasks: createTaskService(deps),
     approvals: createApprovalService(deps),
     status: createStatusService(deps),
+    skills: createSkillService(deps),
   };
 }

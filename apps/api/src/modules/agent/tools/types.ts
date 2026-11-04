@@ -14,8 +14,10 @@ import type {
 import type { z } from 'zod';
 import type { Config } from '../../../config';
 import type { Db, DbContext } from '../../../db/pool';
-import type { ConnectionRow } from '../../../db/types';
+import type { AttachmentRow, ConnectionRow } from '../../../db/types';
 import type { SecretBox } from '../../../lib/crypto';
+import type { ObjectStorage } from '../../storage/types';
+import type { PriorTurn } from '../conversation-context';
 import { msg, render } from '../i18n';
 import type { ModelAdapter, ModelUsage } from '../models/adapter';
 
@@ -47,6 +49,14 @@ export interface ToolRuntime {
   model: ModelAdapter | null;
   /** Streams answer text to clients (ephemeral; not persisted). */
   publishDelta(text: string): Promise<void>;
+  /** Phase B: attachment storage (null when STORAGE_DRIVER is 'none'). */
+  storage: ObjectStorage | null;
+  /** Phase B: the conversation this task belongs to. */
+  conversationId: string;
+  /** Phase B: files of this task's conversation (RLS-visible rows, as of the step). */
+  attachments: readonly AttachmentRow[];
+  /** Phase B: earlier turns of the conversation (bounded; results are untrusted data). */
+  conversation: readonly PriorTurn[];
 }
 
 export interface ToolResult {
@@ -90,6 +100,8 @@ export interface RiskContext {
 export interface CostContext {
   modelAvailable: boolean;
   config: Pick<Config, 'MODEL_FAST' | 'MODEL_BALANCED' | 'MODEL_DEEP'>;
+  /** Phase B: files of the task's conversation (document.analyze sizes its estimate by them). */
+  attachments?: readonly { id: string; sizeBytes: number; textChars: number | null }[];
 }
 
 export interface ApprovalContext {
@@ -99,6 +111,12 @@ export interface ApprovalContext {
   stepTitleMessage: ServerMessage | null;
   /** Sender shown for email approvals (from the SMTP connection). */
   fromAddress: string | null;
+  /** Phase B: the input takes text from earlier steps' outputs (content, not the user's words). */
+  fromContent?: boolean;
+  /** Phase B: the earlier task a conversation.recall step this one depends on reads. */
+  recalledTaskId?: string | null;
+  /** Phase B: when the approval is requested (schedule previews). */
+  now?: Date;
 }
 
 export interface ToolDefinition<I> {
@@ -113,6 +131,23 @@ export interface ToolDefinition<I> {
   inputSchema: z.ZodType<I>;
   /** Extra planning-time checks on the *planned* input (e.g. no references in recipients). */
   validatePlanned?(input: I): string[];
+  /**
+   * Phase B: references in this tool's input may only point at steps of these
+   * tools (memory.save: only conversation.recall, so a memory is either the
+   * user's own words or an earlier result the user approves verbatim).
+   */
+  allowedRefTools?: readonly ToolId[];
+  /**
+   * Phase B: ids from the deterministic planning context this input names
+   * (conversation.recall: an earlier task; document.analyze: an attachment).
+   * validatePlan requires each to be a literal id from that context.
+   */
+  contextIds?(input: I): { kind: 'task' | 'attachment'; id: unknown }[];
+  /**
+   * Phase B: text that becomes a future request (schedule.create): every email
+   * address and link inside must be written in one of the user's requests.
+   */
+  literalTexts?(input: I): string[];
   /** Output fields later steps may reference. */
   outputFields: readonly string[];
   requiredConnection: ConnectionProvider | null;

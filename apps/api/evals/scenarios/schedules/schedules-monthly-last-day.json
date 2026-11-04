@@ -1,0 +1,21 @@
+{
+  "id": "schedules-monthly-last-day",
+  "version": 1,
+  "suite": "schedules",
+  "title": "Every month on the last day at 18:00",
+  "modes": ["offline"],
+  "requires": ["tool:schedule.create"],
+  "given": {
+    "request": "Every month on the last day at 18:00 email me: send the invoices"
+  },
+  "expect": {
+    "result": "plan",
+    "schedule": {
+      "recurrence": {
+        "frequency": "monthly",
+        "byMonthDay": [-1],
+        "time": "18:00"
+      }
+    }
+  }
+}

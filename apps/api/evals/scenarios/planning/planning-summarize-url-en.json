@@ -1,0 +1,37 @@
+{
+  "id": "planning-summarize-url-en",
+  "version": 1,
+  "suite": "planning",
+  "title": "Summarize a link (English)",
+  "modes": ["offline", "pipeline"],
+  "given": {
+    "request": "Summarize {{site}}/article",
+    "pages": {
+      "{{site}}/article": "article.html"
+    }
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["web.fetch", "text.summarize"],
+    "urlsExactly": ["{{site}}/article"],
+    "recipientsExactly": [],
+    "flagged": false,
+    "policy": [
+      {
+        "step": 0,
+        "decision": "allow",
+        "reasonsInclude": ["RISK_LOW"]
+      },
+      {
+        "step": 1,
+        "decision": "allow"
+      }
+    ],
+    "sideEffectsAtMost": 0,
+    "pipeline": {
+      "status": "COMPLETED",
+      "outcome": "answer",
+      "sideEffectsExactly": 0
+    }
+  }
+}

@@ -4,7 +4,8 @@
   from the contract route table by `pnpm openapi` (`pnpm --filter @jarvis/api openapi --check` fails if
   it is stale). Do not edit it by
   hand.
-- **Source of truth:** `packages/contracts/src/routes.ts` (35 routes) and `schemas.ts`. The server
+- **Source of truth:** `packages/contracts/src/routes.ts` (61 routes: the 35 below plus the 26
+  Phase B routes listed in [Phase B §6](phase-b.md#6-contract-reference)) and `schemas.ts`. The server
   registers every route through `defineRoute` and refuses to boot if one is missing; requests are
   validated with the route's Zod schemas, and responses are validated against the response schema
   (a violation is a `500 INTERNAL` outside production and is logged in production).

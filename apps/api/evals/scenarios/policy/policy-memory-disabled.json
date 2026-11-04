@@ -1,0 +1,33 @@
+{
+  "id": "policy-memory-disabled",
+  "version": 1,
+  "suite": "policy",
+  "title": "Memory switched off: nothing is saved",
+  "modes": ["offline", "pipeline"],
+  "given": {
+    "request": "Remember that my gym is closed on Sundays",
+    "preferences": {
+      "memory": {
+        "enabled": false
+      }
+    }
+  },
+  "expect": {
+    "result": "deny",
+    "errorReason": "MEMORY_DISABLED",
+    "policy": [
+      {
+        "step": 0,
+        "decision": "deny",
+        "reasonsInclude": ["MEMORY_DISABLED"]
+      }
+    ],
+    "pipeline": {
+      "status": "FAILED",
+      "errorCode": "POLICY_DENIED",
+      "executions": {
+        "memory.save": 0
+      }
+    }
+  }
+}

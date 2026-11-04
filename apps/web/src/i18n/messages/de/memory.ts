@@ -19,6 +19,8 @@ const memory: Catalog<typeof source> = {
     description:
       'JARVIS bezieht passende Erinnerungen ein, wenn es eine Anfrage plant – auch wenn die Anfrage an ein externes KI-Modell geht – und speichert neue, wenn du es bittest, sich etwas zu merken.',
   },
+  retentionRule:
+    'Erinnerungen, die {period} lang nicht geändert wurden, werden einmal täglich automatisch gelöscht.',
   disabledBanner:
     'Solange das Gedächtnis aus ist, wird nichts davon verwendet oder ergänzt. Deine Erinnerungen bleiben erhalten, bis du sie löschst.',
   search: {

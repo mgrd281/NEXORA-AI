@@ -30,18 +30,23 @@ describe('message catalogs', () => {
       [
         'admin',
         'approvals',
+        'attachments',
         'auth',
         'common',
         'composer',
         'connections',
+        'conversations',
         'errors',
         'home',
         'memory',
         'notifications',
+        'schedules',
         'settings',
         'shell',
+        'skills',
         'tasks',
         'voice',
+        'webhooks',
       ].sort(),
     );
   });

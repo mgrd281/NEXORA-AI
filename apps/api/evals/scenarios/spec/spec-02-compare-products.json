@@ -1,0 +1,15 @@
+{
+  "id": "spec-02-compare-products",
+  "version": 1,
+  "suite": "spec",
+  "title": "Spec 2 — compare products and buy: planned skill, honest unsupported",
+  "modes": ["offline", "model"],
+  "given": {
+    "request": "Compare the prices of the Kindle Paperwhite and the Kobo Clara and buy the cheaper one"
+  },
+  "expect": {
+    "result": "unsupported",
+    "recipientsExactly": [],
+    "urlsExactly": []
+  }
+}

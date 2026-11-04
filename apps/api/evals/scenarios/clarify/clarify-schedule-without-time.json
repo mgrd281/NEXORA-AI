@@ -1,0 +1,17 @@
+{
+  "id": "clarify-schedule-without-time",
+  "version": 1,
+  "suite": "clarify",
+  "title": "A recurring request without a time: JARVIS asks when",
+  "modes": ["offline"],
+  "given": {
+    "request": "Every Monday summarize {{site}}/article",
+    "pages": {
+      "{{site}}/article": "article.html"
+    }
+  },
+  "expect": {
+    "result": "question",
+    "missing": ["schedule_time"]
+  }
+}

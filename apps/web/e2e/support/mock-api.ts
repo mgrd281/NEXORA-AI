@@ -17,22 +17,45 @@ import type { BrowserContext, Page, Request, Route } from '@playwright/test';
 import {
   AdminOverview,
   Approval,
+  ATTACHMENT_EXTENSIONS,
+  Attachment,
   AssistantStatus,
   Connection,
+  ConversationMessage,
   EVENTS_PATH,
   HomeSnapshot,
+  isTerminal,
   Me,
   Memory,
   Notification,
   routes,
+  Schedule,
+  ScheduleRun,
+  SCHEDULE_LIMITS,
   SessionInfo,
+  Skill,
   TaskDetail,
   TaskSummary,
+  TimeZoneInfo,
   UsageSummary,
+  WEBHOOK_LIMITS,
+  WebhookDelivery,
+  WebhookEndpoint,
+  type AttachmentMediaType,
+  type Recurrence,
   type RouteName,
 } from '@jarvis/contracts';
 import { z } from 'zod';
 import { buildFixtures, type FixtureOptions, type Fixtures } from './fixtures';
+import {
+  conversationList,
+  conversationOf,
+  derivedId,
+  nextOccurrences,
+  rruleFor,
+  skillsFor,
+  tasksOf,
+} from './phase-b';
 
 export interface MockRequest {
   name: RouteName;
@@ -45,6 +68,8 @@ export interface MockRequest {
 export interface MockResponse {
   status?: number;
   body?: unknown;
+  /** A file response (download routes) instead of JSON. */
+  raw?: { body: Buffer | string; contentType: string; headers?: Record<string, string> };
   /** Delay before responding (ms), e.g. to capture loading states. */
   delayMs?: number;
 }
@@ -82,12 +107,38 @@ const FixtureSchema = z.object({
   sessions: z.array(SessionInfo),
   adminOverview: AdminOverview,
   home: HomeSnapshot,
+  attachments: z.array(Attachment),
+  messages: z.array(ConversationMessage),
+  skills: z.array(Skill),
+  schedules: z.array(Schedule),
+  scheduleRuns: z.record(z.string(), z.array(ScheduleRun)),
+  webhooks: z.array(WebhookEndpoint),
+  webhookDeliveries: z.record(z.string(), z.array(WebhookDelivery)),
+  timeZones: z.array(TimeZoneInfo),
 });
+
+/**
+ * Every task belongs to a conversation, and a detail's conversation is its summary's. A summary
+ * without one (older fixtures) is a conversation of its own, as every new request is.
+ */
+function normalizeConversations(f: Fixtures): Fixtures {
+  const tasks = f.tasks.map((t) => {
+    const conversationId = t.conversationId ?? derivedId(t.id, 9);
+    return { ...t, conversationId };
+  });
+  const taskDetails = { ...f.taskDetails };
+  for (const t of tasks) {
+    const d = taskDetails[t.id];
+    if (d && d.conversationId !== t.conversationId)
+      taskDetails[t.id] = { ...d, conversationId: t.conversationId };
+  }
+  return { ...f, tasks, taskDetails };
+}
 
 /** Builds fixtures and validates them against the contracts (throws on drift). */
 export function loadFixtures(options: MockApiOptions = {}): Fixtures {
   const base = buildFixtures(options);
-  const fixtures = options.fixtures ? options.fixtures(base) : base;
+  const fixtures = normalizeConversations(options.fixtures ? options.fixtures(base) : base);
   const parsed = FixtureSchema.safeParse(fixtures);
   if (!parsed.success) {
     throw new Error(`Mock fixtures do not match the contracts:\n${z.prettifyError(parsed.error)}`);
@@ -125,6 +176,117 @@ const notFound = (what: string): MockResponse => ({
 
 function page<T>(items: T[]) {
   return { items, nextCursor: null };
+}
+
+const apiError = (
+  status: number,
+  code: string,
+  message: string,
+  details?: Record<string, unknown>,
+): MockResponse => ({
+  status,
+  body: { error: { code, message, requestId: 'mock', ...(details ? { details } : {}) } },
+});
+
+/** POST /v1/tasks and follow-ups: a queued task in `conversationId` with its files linked. */
+function newTask(req: MockRequest, s: Fixtures, conversationId: string): MockResponse {
+  const body = req.body as {
+    request: string;
+    source: 'text' | 'voice';
+    attachmentIds?: string[];
+  };
+  const nowIso = new Date().toISOString();
+  const files = (body.attachmentIds ?? []).map((id) => s.attachments.find((a) => a.id === id));
+  if (files.some((a) => !a)) {
+    return apiError(400, 'VALIDATION_FAILED', 'Attachment not found', {
+      reason: 'ATTACHMENT_NOT_FOUND',
+    });
+  }
+  const attached = (files as Fixtures['attachments']).map((a) => ({
+    ...a,
+    conversationId,
+    expiresAt: null,
+  }));
+  s.attachments = s.attachments.map((a) => attached.find((x) => x.id === a.id) ?? a);
+  const id = crypto.randomUUID();
+  const task: Fixtures['tasks'][number] = {
+    id,
+    title: body.request.slice(0, 80),
+    titleMessage: null,
+    request: body.request,
+    status: 'QUEUED',
+    riskLevel: 'LOW',
+    source: body.source,
+    progress: { completed: 0, total: 0 },
+    pendingApprovalId: null,
+    pendingApproval: null,
+    resultSummary: null,
+    resultSummaryMessage: null,
+    error: null,
+    createdAt: nowIso,
+    updatedAt: nowIso,
+    completedAt: null,
+    conversationId,
+    outcome: null,
+    question: null,
+    scheduleId: null,
+    attachmentCount: attached.length,
+  };
+  s.tasks = [task, ...s.tasks];
+  s.taskDetails[task.id] = {
+    ...task,
+    conversationId,
+    objective: null,
+    objectiveMessage: null,
+    planner: null,
+    answer: null,
+    steps: [],
+    approvals: [],
+    events: [],
+    cost: { estimatedMicroUsd: 0, actualMicroUsd: 0 },
+    evidence: [],
+    canCancel: true,
+    canRetry: false,
+    startedAt: null,
+    attachments: attached,
+  };
+  return { status: 202, body: task };
+}
+
+/** The file part of a multipart body: its name and size (the mock never stores bytes). */
+function multipartFile(req: MockRequest): { name: string; size: number } | null {
+  const buf = req.request.postDataBuffer();
+  if (!buf) return null;
+  const head = buf.subarray(0, Math.min(buf.length, 2048)).toString('utf8');
+  const name = /filename="([^"]*)"/.exec(head)?.[1];
+  if (name === undefined) return null;
+  const start = buf.indexOf('\r\n\r\n');
+  const boundary = head.slice(0, head.indexOf('\r\n'));
+  const end = buf.lastIndexOf(`\r\n${boundary}`);
+  return { name, size: start >= 0 && end > start ? end - start - 4 : 0 };
+}
+
+function mediaTypeOf(name: string): AttachmentMediaType | null {
+  const ext = name.slice(name.lastIndexOf('.')).toLowerCase();
+  for (const [type, exts] of Object.entries(ATTACHMENT_EXTENSIONS)) {
+    if (exts.includes(ext)) return type as AttachmentMediaType;
+  }
+  return null;
+}
+
+function scheduleDetail(s: Fixtures, schedule: Schedule) {
+  return {
+    ...schedule,
+    upcoming:
+      schedule.status === 'active'
+        ? nextOccurrences(schedule.recurrence, Date.now(), SCHEDULE_LIMITS.upcomingShown)
+        : [],
+    runs: (s.scheduleRuns[schedule.id] ?? []).slice(0, SCHEDULE_LIMITS.runsShown),
+  };
+}
+
+function normalizeRecurrence(r: Recurrence): Recurrence {
+  return { ...r, interval: r.interval ?? 1 };
 }
 
 const DEFAULTS: Partial<Record<RouteName, MockHandler>> = {
@@ -179,42 +341,7 @@ const DEFAULTS: Partial<Record<RouteName, MockHandler>> = {
     const detail = s.taskDetails[req.params.id ?? ''];
     return detail ? { body: detail } : notFound('Task');
   },
-  createTask: (req, s) => {
-    const body = req.body as { request: string; source: 'text' | 'voice' };
-    const nowIso = new Date().toISOString();
-    const task: Fixtures['tasks'][number] = {
-      id: crypto.randomUUID(),
-      title: body.request.slice(0, 80),
-      request: body.request,
-      status: 'QUEUED',
-      riskLevel: 'LOW',
-      source: body.source,
-      progress: { completed: 0, total: 0 },
-      pendingApprovalId: null,
-      resultSummary: null,
-      error: null,
-      createdAt: nowIso,
-      updatedAt: nowIso,
-      completedAt: null,
-    };
-    s.tasks = [task, ...s.tasks];
-    s.taskDetails[task.id] = {
-      ...task,
-      objective: null,
-      conversationId: crypto.randomUUID(),
-      planner: null,
-      answer: null,
-      steps: [],
-      approvals: [],
-      events: [],
-      cost: { estimatedMicroUsd: 0, actualMicroUsd: 0 },
-      evidence: [],
-      canCancel: true,
-      canRetry: false,
-      startedAt: null,
-    };
-    return { status: 202, body: task };
-  },
+  createTask: (req, s) => newTask(req, s, crypto.randomUUID()),
   listApprovals: (_r, s) => ({
     body: { items: s.approvals.filter((a) => a.status === 'PENDING') },
   }),
@@ -278,7 +405,367 @@ const DEFAULTS: Partial<Record<RouteName, MockHandler>> = {
     ]),
   }),
   adminAudit: () => ({ body: page([]) }),
+
+  // ---- Phase B: conversations
+  listConversations: (req, s) => ({
+    body: page(conversationList(s, req.query.get('q') ?? '')),
+  }),
+  getConversation: (req, s) => {
+    const detail = conversationOf(s, req.params.id ?? '');
+    return detail ? { body: detail } : notFound('Conversation');
+  },
+  followUp: (req, s) => {
+    const id = req.params.id ?? '';
+    const tasks = tasksOf(s, id);
+    if (tasks.length === 0) return notFound('Conversation');
+    const active = tasks.find((t) => !isTerminal(t.status));
+    if (active) {
+      return apiError(409, 'INVALID_STATE', 'A task of this conversation is still active', {
+        reason: 'CONVERSATION_BUSY',
+        taskId: active.id,
+      });
+    }
+    return newTask(req, s, id);
+  },
+  deleteConversation: (req, s) => {
+    const id = req.params.id ?? '';
+    const tasks = tasksOf(s, id);
+    if (tasks.length === 0) return notFound('Conversation');
+    const active = tasks.find((t) => !isTerminal(t.status));
+    if (active) {
+      return apiError(409, 'INVALID_STATE', 'A task of this conversation is still active', {
+        reason: 'CONVERSATION_ACTIVE_TASK',
+        taskId: active.id,
+      });
+    }
+    const ids = new Set(tasks.map((t) => t.id));
+    s.tasks = s.tasks.filter((t) => !ids.has(t.id));
+    for (const taskId of ids) delete s.taskDetails[taskId];
+    s.attachments = s.attachments.filter((a) => a.conversationId !== id);
+    s.schedules = s.schedules.map((sc) =>
+      sc.conversationId === id ? { ...sc, conversationId: null } : sc,
+    );
+    return { status: 204 };
+  },
+
+  // ---- attachments
+  uploadAttachment: (req, s) => {
+    if (s.assistantStatus.capabilities.attachments === false) {
+      return apiError(503, 'SERVICE_UNAVAILABLE', 'Storage is not configured', {
+        reason: 'STORAGE_NOT_CONFIGURED',
+      });
+    }
+    const file = multipartFile(req);
+    if (!file) return apiError(400, 'VALIDATION_FAILED', 'No file', { reason: 'FILE_EMPTY' });
+    const mediaType = mediaTypeOf(file.name);
+    if (!mediaType) {
+      return apiError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Unsupported file type', {
+        reason: 'UNSUPPORTED_FILE_TYPE',
+      });
+    }
+    const id = crypto.randomUUID();
+    const nowIso = new Date().toISOString();
+    const attachment: Fixtures['attachments'][number] = {
+      id,
+      filename: file.name,
+      mediaType,
+      sizeBytes: Math.max(1, file.size),
+      sha256: '0'.repeat(64),
+      conversationId: null,
+      pageCount: null,
+      textChars: null,
+      downloadPath: `/v1/attachments/${id}/content`,
+      expiresAt: new Date(Date.now() + 24 * 3600_000).toISOString(),
+      createdAt: nowIso,
+    };
+    s.attachments = [...s.attachments, attachment];
+    return { status: 201, body: attachment, delayMs: 150 };
+  },
+  getAttachment: (req, s) => {
+    const a = s.attachments.find((x) => x.id === req.params.id);
+    return a ? { body: a } : notFound('Attachment');
+  },
+  downloadAttachment: (req, s) => {
+    const a = s.attachments.find((x) => x.id === req.params.id);
+    if (!a) return notFound('Attachment');
+    return {
+      raw: {
+        body: `Mock content of ${a.filename}\n`,
+        contentType: a.mediaType.startsWith('text/')
+          ? `${a.mediaType}; charset=utf-8`
+          : a.mediaType,
+        headers: {
+          'content-disposition': `attachment; filename="${a.filename.replace(/[^\x20-\x7e]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(a.filename)}`,
+          'x-content-type-options': 'nosniff',
+        },
+      },
+    };
+  },
+  deleteAttachment: (req, s) => {
+    const before = s.attachments.length;
+    s.attachments = s.attachments.filter((a) => a.id !== req.params.id);
+    return s.attachments.length < before ? { status: 204 } : notFound('Attachment');
+  },
+
+  // ---- skills
+  listSkills: (_r, s) => ({ body: { items: s.skills } }),
+  updateSkill: (req, s) => {
+    const skill = s.skills.find((k) => k.id === req.params.id);
+    if (!skill) return notFound('Skill');
+    if (skill.status === 'planned') {
+      return apiError(409, 'INVALID_STATE', 'Planned skill', { reason: 'SKILL_PLANNED' });
+    }
+    if (!skill.canToggle) {
+      return apiError(409, 'INVALID_STATE', 'Core skill', { reason: 'SKILL_NOT_TOGGLEABLE' });
+    }
+    const enabled = (req.body as { enabled: boolean }).enabled;
+    const prefs = s.me.preferences;
+    if (skill.id === 'personal-memory') {
+      s.me = { ...s.me, preferences: { ...prefs, memory: { enabled } } };
+    } else {
+      const disabled = new Set(prefs.skills.disabled);
+      if (enabled) disabled.delete(skill.id);
+      else disabled.add(skill.id);
+      s.me = { ...s.me, preferences: { ...prefs, skills: { disabled: [...disabled] } } };
+    }
+    s.skills = skillsFor(s);
+    return { body: s.skills.find((k) => k.id === skill.id) };
+  },
+
+  // ---- schedules
+  listSchedules: (_r, s) => ({ body: { items: s.schedules } }),
+  previewSchedule: (req) => {
+    const body = req.body as { recurrence: Recurrence; count: number };
+    const r = normalizeRecurrence(body.recurrence);
+    return {
+      body: {
+        rrule: rruleFor(r, Date.now()),
+        occurrences: nextOccurrences(r, Date.now(), body.count),
+        timeZone: r.timeZone,
+      },
+    };
+  },
+  createSchedule: (req, s) => {
+    const body = req.body as {
+      title: string;
+      request: string;
+      recurrence: Recurrence;
+      language?: 'en' | 'de' | 'ar';
+    };
+    const open = s.schedules.filter((x) => x.status !== 'completed').length;
+    if (open >= SCHEDULE_LIMITS.maxPerUser) {
+      return apiError(409, 'CONFLICT', 'Too many schedules', {
+        reason: 'SCHEDULE_LIMIT_REACHED',
+        max: SCHEDULE_LIMITS.maxPerUser,
+      });
+    }
+    const r = normalizeRecurrence(body.recurrence);
+    const next = nextOccurrences(r, Date.now(), 1)[0] ?? null;
+    if (!next) {
+      return apiError(422, 'VALIDATION_FAILED', 'No occurrences', {
+        reason: 'RECURRENCE_HAS_NO_OCCURRENCES',
+      });
+    }
+    const nowIso = new Date().toISOString();
+    const schedule: Schedule = {
+      id: crypto.randomUUID(),
+      title: body.title,
+      request: body.request,
+      language: body.language ?? s.me.locale,
+      recurrence: r,
+      rrule: rruleFor(r, Date.now()),
+      status: 'active',
+      pausedReason: null,
+      nextRunAt: next,
+      lastRunAt: null,
+      lastTaskId: null,
+      conversationId: null,
+      runCount: 0,
+      consecutiveFailures: 0,
+      createdBy: 'user',
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+    s.schedules = [schedule, ...s.schedules];
+    return { status: 201, body: schedule };
+  },
+  getSchedule: (req, s) => {
+    const schedule = s.schedules.find((x) => x.id === req.params.id);
+    return schedule ? { body: scheduleDetail(s, schedule) } : notFound('Schedule');
+  },
+  updateSchedule: (req, s) => {
+    const schedule = s.schedules.find((x) => x.id === req.params.id);
+    if (!schedule) return notFound('Schedule');
+    const body = req.body as { title?: string; request?: string; recurrence?: Recurrence };
+    const recurrence = body.recurrence ? normalizeRecurrence(body.recurrence) : schedule.recurrence;
+    const next: Schedule = {
+      ...schedule,
+      ...(body.title ? { title: body.title } : {}),
+      ...(body.request ? { request: body.request } : {}),
+      recurrence,
+      rrule: rruleFor(recurrence, Date.now()),
+      nextRunAt:
+        schedule.status === 'active'
+          ? (nextOccurrences(recurrence, Date.now(), 1)[0] ?? null)
+          : null,
+      updatedAt: new Date().toISOString(),
+    };
+    s.schedules = s.schedules.map((x) => (x.id === next.id ? next : x));
+    return { body: next };
+  },
+  deleteSchedule: (req, s) => {
+    const before = s.schedules.length;
+    s.schedules = s.schedules.filter((x) => x.id !== req.params.id);
+    return s.schedules.length < before ? { status: 204 } : notFound('Schedule');
+  },
+  pauseSchedule: (req, s) => {
+    const schedule = s.schedules.find((x) => x.id === req.params.id);
+    if (!schedule) return notFound('Schedule');
+    const next: Schedule = {
+      ...schedule,
+      status: 'paused',
+      pausedReason: 'user',
+      nextRunAt: null,
+      updatedAt: new Date().toISOString(),
+    };
+    s.schedules = s.schedules.map((x) => (x.id === next.id ? next : x));
+    return { body: next };
+  },
+  resumeSchedule: (req, s) => {
+    const schedule = s.schedules.find((x) => x.id === req.params.id);
+    if (!schedule) return notFound('Schedule');
+    const next: Schedule = {
+      ...schedule,
+      status: 'active',
+      pausedReason: null,
+      consecutiveFailures: 0,
+      nextRunAt: nextOccurrences(schedule.recurrence, Date.now(), 1)[0] ?? null,
+      updatedAt: new Date().toISOString(),
+    };
+    s.schedules = s.schedules.map((x) => (x.id === next.id ? next : x));
+    return { body: next };
+  },
+
+  // ---- webhooks
+  listWebhooks: (_r, s) => ({ body: { items: s.webhooks } }),
+  createWebhook: (req, s) => {
+    const body = req.body as { url: string; description?: string; eventTypes: string[] };
+    if (s.webhooks.length >= WEBHOOK_LIMITS.maxEndpointsPerUser) {
+      return apiError(409, 'CONFLICT', 'Too many endpoints', {
+        reason: 'WEBHOOK_LIMIT_REACHED',
+        max: WEBHOOK_LIMITS.maxEndpointsPerUser,
+      });
+    }
+    const url = new URL(body.url);
+    if (url.protocol !== 'https:') {
+      return apiError(422, 'FETCH_BLOCKED', 'https only', { reason: 'WEBHOOK_URL_INSECURE' });
+    }
+    if (
+      /^(localhost|127\.|10\.|192\.168\.)/.test(url.hostname) ||
+      url.hostname.endsWith('.internal')
+    ) {
+      return apiError(422, 'FETCH_BLOCKED', 'Private address', {
+        reason: 'WEBHOOK_URL_BLOCKED',
+        host: url.host,
+      });
+    }
+    const nowIso = new Date().toISOString();
+    const secret = `whsec_${Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64')}`;
+    const endpoint: Fixtures['webhooks'][number] = {
+      id: crypto.randomUUID(),
+      url: body.url,
+      description: body.description ?? null,
+      eventTypes: body.eventTypes as Fixtures['webhooks'][number]['eventTypes'],
+      status: 'active',
+      disabledReason: null,
+      secretHint: `whsec_…${secret.slice(-4)}`,
+      consecutiveFailures: 0,
+      lastDeliveryAt: null,
+      lastSuccessAt: null,
+      lastFailureAt: null,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+    s.webhooks = [...s.webhooks, endpoint];
+    s.webhookDeliveries[endpoint.id] = [];
+    return { status: 201, body: { endpoint, secret } };
+  },
+  updateWebhook: (req, s) => {
+    const endpoint = s.webhooks.find((e) => e.id === req.params.id);
+    if (!endpoint) return notFound('Webhook endpoint');
+    const body = req.body as { enabled?: boolean; url?: string; description?: string | null };
+    const next: Fixtures['webhooks'][number] = {
+      ...endpoint,
+      ...(body.url ? { url: body.url } : {}),
+      ...(body.description !== undefined ? { description: body.description } : {}),
+      ...(body.enabled === false ? { status: 'disabled', disabledReason: 'user' } : {}),
+      ...(body.enabled === true
+        ? { status: 'active', disabledReason: null, consecutiveFailures: 0 }
+        : {}),
+      updatedAt: new Date().toISOString(),
+    };
+    s.webhooks = s.webhooks.map((e) => (e.id === next.id ? next : e));
+    return { body: next };
+  },
+  deleteWebhook: (req, s) => {
+    const before = s.webhooks.length;
+    s.webhooks = s.webhooks.filter((e) => e.id !== req.params.id);
+    delete s.webhookDeliveries[req.params.id ?? ''];
+    return s.webhooks.length < before ? { status: 204 } : notFound('Webhook endpoint');
+  },
+  rotateWebhookSecret: (req, s) => {
+    const endpoint = s.webhooks.find((e) => e.id === req.params.id);
+    if (!endpoint) return notFound('Webhook endpoint');
+    const secret = `whsec_${Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64')}`;
+    const next = {
+      ...endpoint,
+      secretHint: `whsec_…${secret.slice(-4)}`,
+      updatedAt: new Date().toISOString(),
+    };
+    s.webhooks = s.webhooks.map((e) => (e.id === next.id ? next : e));
+    return { body: { endpoint: next, secret } };
+  },
+  testWebhook: (req, s) => {
+    const endpoint = s.webhooks.find((e) => e.id === req.params.id);
+    if (!endpoint) return notFound('Webhook endpoint');
+    if (endpoint.status !== 'active') {
+      return apiError(409, 'INVALID_STATE', 'Endpoint disabled', { reason: 'WEBHOOK_DISABLED' });
+    }
+    const id = crypto.randomUUID();
+    const nowIso = new Date().toISOString();
+    const delivery: Fixtures['webhookDeliveries'][string][number] = {
+      id,
+      endpointId: endpoint.id,
+      eventType: 'webhook.test',
+      webhookId: `msg_${id}`,
+      status: 'succeeded',
+      attempts: 1,
+      maxAttempts: WEBHOOK_LIMITS.maxAttempts,
+      nextAttemptAt: null,
+      lastAttemptAt: nowIso,
+      responseStatus: 204,
+      failureReason: null,
+      durationMs: 162,
+      createdAt: nowIso,
+      completedAt: nowIso,
+    };
+    s.webhookDeliveries[endpoint.id] = [delivery, ...(s.webhookDeliveries[endpoint.id] ?? [])];
+    s.webhooks = s.webhooks.map((e) =>
+      e.id === endpoint.id ? { ...e, lastDeliveryAt: nowIso, lastSuccessAt: nowIso } : e,
+    );
+    return { status: 202, body: delivery };
+  },
+  listWebhookDeliveries: (req, s) => {
+    const items = s.webhookDeliveries[req.params.id ?? ''];
+    return items ? { body: page(items) } : notFound('Webhook endpoint');
+  },
+
+  // ---- meta
+  listTimeZones: (_r, s) => ({ body: { items: s.timeZones } }),
 };
+
+/** The default handlers, e.g. to wrap one in an override (delay, failure). */
+export const DEFAULT_HANDLERS: Readonly<Partial<Record<RouteName, MockHandler>>> = DEFAULTS;
 
 /** The password the mock accepts for the fixture owner (layla.haddad@example.com). */
 export const MOCK_PASSWORD = 'correct horse battery staple';
@@ -337,6 +824,14 @@ export async function mockApi(target: Page, options: MockApiOptions = {}): Promi
     const status =
       res.status ?? (routes[match.name] as { successStatus?: number }).successStatus ?? 200;
     if (status === 204) return route.fulfill({ status: 204 });
+    if (res.raw) {
+      return route.fulfill({
+        status,
+        body: res.raw.body,
+        contentType: res.raw.contentType,
+        headers: { 'x-request-id': 'mock', ...res.raw.headers },
+      });
+    }
     if (status < 300 && def.response) {
       const checked = def.response.safeParse(res.body);
       if (!checked.success) {

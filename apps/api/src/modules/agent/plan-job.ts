@@ -5,22 +5,25 @@
  * On retry (the task already has steps) the model is skipped and only the
  * policies of unfinished steps are re-checked.
  */
-import type { Locale, PlannerInfo, RiskLevel } from '@jarvis/contracts';
-import { withContext, type DbContext } from '../../db/pool';
-import type { JobRow, StepRow } from '../../db/types';
+import type { AttachmentMediaType, Locale, PlannerInfo, RiskLevel } from '@jarvis/contracts';
+import { withContext, type DbContext, type Trx } from '../../db/pool';
+import type { AttachmentRow, JobRow, StepRow, TaskRow } from '../../db/types';
 import { audit } from '../audit/audit';
 import { appendEvent } from '../events/events';
 import { enqueue } from '../jobs/queue';
+import { initialTitle } from '../tasks/service';
 import { loadAgentContext, relevantMemories, type AgentContext } from './context';
+import { loadConversationContext, type PriorTurn } from './conversation-context';
 import { AgentError } from './errors';
 import { asLocale, msg, render } from './i18n';
+import type { PlanningAttachment } from './models/offline';
 import { costMicro } from './models/pricing';
 import { selectModel } from './models/router';
 import { planTask, type PlanOutcome } from './planner';
-import { denyMessage, denyReason } from './policy';
+import type { Plan } from './plan';
 import { checkLease, type RuntimeDeps } from './runtime';
 import { stepRef } from './events-data';
-import { assessStep, maxRisk } from './step-policy';
+import { assessStep, denyError, maxRisk } from './step-policy';
 import {
   cancelOpenSteps,
   closePendingApprovals,
@@ -37,6 +40,94 @@ import { availableTools, getTool } from './tools/registry';
 export type JobOutcome = 'done' | 'awaiting_approval';
 
 const FINISHED_STEP = new Set(['SUCCEEDED', 'SKIPPED']);
+
+/**
+ * Files of a task's conversation (RLS), the ones its own request named first
+ * (in their order), then earlier ones, newest first.
+ */
+export async function conversationAttachments(
+  trx: Trx,
+  task: Pick<TaskRow, 'id' | 'conversation_id'>,
+): Promise<{ rows: AttachmentRow[]; planning: PlanningAttachment[] }> {
+  const [rows, links] = await Promise.all([
+    trx
+      .selectFrom('attachments')
+      .selectAll()
+      .where('conversation_id', '=', task.conversation_id)
+      .orderBy('created_at', 'desc')
+      .execute(),
+    trx
+      .selectFrom('task_attachments')
+      .select(['attachment_id', 'position'])
+      .where('task_id', '=', task.id)
+      .execute(),
+  ]);
+  const position = new Map(links.map((l) => [l.attachment_id, l.position]));
+  const ordered = [
+    ...rows
+      .filter((r) => position.has(r.id))
+      .sort((a, b) => position.get(a.id)! - position.get(b.id)!),
+    ...rows.filter((r) => !position.has(r.id)),
+  ];
+  return {
+    rows: ordered,
+    planning: ordered.map((r) => ({
+      id: r.id,
+      filename: r.filename,
+      mediaType: r.media_type as AttachmentMediaType,
+      sizeBytes: r.size_bytes,
+      pageCount: r.page_count,
+      attachedToRequest: position.has(r.id),
+    })),
+  };
+}
+
+/** The cost-estimate view of the conversation's files (document.analyze sizes by them). */
+export const costAttachments = (rows: readonly AttachmentRow[]) =>
+  rows.map((r) => ({ id: r.id, sizeBytes: r.size_bytes, textChars: r.text_chars }));
+
+/**
+ * After the first task of a conversation is planned, the conversation takes
+ * the plan's title (only while it still has the placeholder from intake).
+ */
+async function titleConversation(
+  trx: Trx,
+  ctx: DbContext,
+  task: TaskRow,
+  plan: Plan,
+): Promise<void> {
+  const conversation = await trx
+    .selectFrom('conversations')
+    .select(['id', 'title', 'title_message'])
+    .where('id', '=', task.conversation_id)
+    .forUpdate()
+    .executeTakeFirst();
+  if (!conversation || conversation.title_message) return;
+  if (conversation.title !== initialTitle(task.request)) return;
+  const earlier = await trx
+    .selectFrom('tasks')
+    .select('id')
+    .where('conversation_id', '=', task.conversation_id)
+    .where('id', '<>', task.id)
+    .where('created_at', '<=', task.created_at)
+    .limit(1)
+    .executeTakeFirst();
+  if (earlier) return;
+  await trx
+    .updateTable('conversations')
+    .set({
+      title: plan.title,
+      title_message: plan.titleMessage ? JSON.stringify(plan.titleMessage) : null,
+      updated_at: new Date(),
+    })
+    .where('id', '=', conversation.id)
+    .execute();
+  await appendEvent(trx, ctx, {
+    taskId: task.id,
+    type: 'conversation.changed',
+    data: { conversationId: conversation.id, change: 'title' },
+  });
+}
 
 /** result_summary + result_summary_message of a cancelled task. */
 export function cancelledResult(language: string | null) {
@@ -99,7 +190,21 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
       steps.length === 0 && agent.route.mode === 'model' && agent.preferences.memory.enabled
         ? await relevantMemories(trx, planning.request, 10)
         : [];
-    return { task: planning, agent, hasSteps: steps.length > 0, language, memories };
+    let conversation: PriorTurn[] = [];
+    let attachments: PlanningAttachment[] = [];
+    if (steps.length === 0) {
+      conversation = await loadConversationContext(trx, planning.conversation_id, planning.id);
+      attachments = (await conversationAttachments(trx, planning)).planning;
+    }
+    return {
+      task: planning,
+      agent,
+      hasSteps: steps.length > 0,
+      language,
+      memories,
+      conversation,
+      attachments,
+    };
   });
   if (!start) return 'done';
 
@@ -111,6 +216,9 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
       activeConnections: new Set(a.connections.keys()),
       memoryEnabled: a.preferences.memory.enabled,
       modelAvailable: a.route.mode === 'model',
+      disabledSkills: a.preferences.skills?.disabled ?? [],
+      hasAttachments: deps.storage !== null && start.attachments.length > 0,
+      hasRecallable: start.conversation.some((t) => t.recallable),
     });
     outcome = await planTask(
       { config: deps.config, adapter: deps.adapter, route: a.route, signal: deps.signal },
@@ -125,6 +233,8 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
         },
         tools,
         memories: start.memories,
+        conversation: start.conversation,
+        attachments: start.attachments,
       },
     ).catch((err: unknown): PlanOutcome => ({
       ok: false,
@@ -184,6 +294,7 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
         objective_message: plan.objectiveMessage ? JSON.stringify(plan.objectiveMessage) : null,
         planner: JSON.stringify(outcome.planner satisfies PlannerInfo),
       });
+      await titleConversation(trx, ctx, task, plan);
     }
 
     const steps: StepRow[] = await trx
@@ -194,6 +305,7 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
       .execute();
     const agent: AgentContext = await loadAgentContext(trx, deps.config, ctx.userId);
     const language: Locale = asLocale(task.language, agent.account.locale);
+    const files = costAttachments((await conversationAttachments(trx, task)).rows);
 
     // Already spent on this task (planning included) plus what the remaining steps should cost.
     let estimate = task.actual_cost_micro;
@@ -214,7 +326,7 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
         });
         return 'done';
       }
-      const a = assessStep(tool, step.input, agent, deps.config);
+      const a = assessStep(tool, step.input, agent, deps.config, { attachments: files });
       estimate += a.estimateMicro;
       risks.push(a.risk);
       await trx
@@ -228,14 +340,7 @@ export async function handlePlanJob(deps: RuntimeDeps, job: JobRow): Promise<Job
         .where('id', '=', step.id)
         .execute();
       if (a.policy.decision === 'deny') {
-        const code = a.policy.denyCode ?? 'POLICY_DENIED';
-        const error = {
-          code,
-          message: denyMessage(code, a.policy.reasons, step.title),
-          retryable: true,
-          reason: denyReason(code, a.policy.reasons),
-          params: { step: step.title },
-        };
+        const error = denyError(tool, step.title, a.policy);
         await trx
           .updateTable('task_steps')
           .set({ status: 'BLOCKED', error: taskErrorJson(error), completed_at: new Date() })

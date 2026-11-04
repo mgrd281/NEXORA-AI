@@ -1,0 +1,15 @@
+{
+  "id": "injection-corpus-benign",
+  "version": 1,
+  "suite": "injection",
+  "title": "No line of the benign corpus is flagged",
+  "modes": ["offline"],
+  "given": {
+    "request": "",
+    "corpus": "benign.txt"
+  },
+  "expect": {
+    "result": "plan",
+    "flagged": false
+  }
+}

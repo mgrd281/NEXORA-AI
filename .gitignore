@@ -17,3 +17,9 @@ apps/web/next-env.d.ts
 apps/ios/*.xcodeproj/xcuserdata/
 apps/ios/build/
 DerivedData/
+# Local attachment storage (STORAGE_DRIVER=local)
+.data/
+# Eval reports: only the committed baseline is tracked
+apps/api/evals/reports/*
+!apps/api/evals/reports/baseline.json
+!apps/api/evals/reports/baseline.md

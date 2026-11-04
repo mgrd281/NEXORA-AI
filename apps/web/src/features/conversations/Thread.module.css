@@ -1,0 +1,282 @@
+/* ------------------------------------------------------------- sections */
+
+.sectionTitle {
+  font: var(--text-title3);
+  letter-spacing: var(--tracking-title3);
+  color: var(--color-text-primary);
+}
+
+.earlier,
+.continuation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.showEarlier {
+  align-self: flex-start;
+  margin-inline-start: calc(var(--space-3) * -1);
+}
+
+/* ------------------------------------------------------------- turns */
+
+.turns {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  min-width: 0;
+}
+
+.turn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-block: var(--space-4);
+  min-width: 0;
+}
+
+.turn + .turn {
+  border-block-start: 1px solid var(--color-border);
+}
+
+.turn:first-child {
+  padding-block-start: var(--space-1);
+}
+
+.message {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+  min-width: 0;
+}
+
+.avatar {
+  display: flex;
+  margin-block-start: 1px;
+}
+
+.messageBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-block-size: 24px;
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+}
+
+.who > span:first-child {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* What the user wrote: a quiet bubble on the sunken surface, in the text's own direction. */
+.bubble {
+  align-self: flex-start;
+  max-inline-size: min(100%, 60ch);
+  padding-block: var(--space-2);
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-lg);
+  border-start-start-radius: var(--radius-xs);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  font: var(--text-body);
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.fileCount {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font: var(--text-caption);
+  color: var(--color-text-secondary);
+}
+
+.taskLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+}
+
+.taskLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  max-inline-size: 100%;
+  min-block-size: 28px;
+  font: var(--text-callout);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+.taskLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.taskTitle {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  unicode-bidi: isolate;
+}
+
+.taskLinkIcon {
+  flex: none;
+  color: var(--color-text-tertiary);
+}
+
+/* What JARVIS said when the task completed. Long answers are clamped (the task has them all). */
+.reply {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.replyText {
+  min-width: 0;
+  font: var(--text-body);
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
+  overflow: hidden;
+}
+
+/* A question: same voice, a soft accent edge (a question is neither a result nor a failure). */
+.replyQuestion {
+  padding-block: var(--space-2);
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-soft);
+}
+
+.replyIcon {
+  flex: none;
+  margin-block-start: 3px;
+  color: var(--color-accent-on-soft);
+}
+
+.replyError {
+  font: var(--text-callout);
+  color: var(--color-danger);
+}
+
+/* ------------------------------------------------------------- question panel */
+
+.question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-inline-start: 3px solid var(--color-accent);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  min-width: 0;
+}
+
+@media (min-width: 640px) {
+  .question {
+    padding: var(--space-6);
+  }
+}
+
+.questionHead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.questionIcon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--control-md);
+  block-size: var(--control-md);
+  border-radius: var(--radius-full);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-on-soft);
+}
+
+.questionText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.questionTitle {
+  font: var(--text-label);
+  color: var(--color-text-secondary);
+}
+
+.questionBody {
+  font: var(--text-title3);
+  letter-spacing: var(--tracking-title3);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.questionMissing {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  color: var(--color-text-secondary);
+}
+
+.questionNote {
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+}
+
+.answer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ------------------------------------------------------------- follow-up */
+
+.followUp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.followUpHint {
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+  max-inline-size: 64ch;
+}
+
+.delete {
+  align-self: flex-start;
+}
+
+.dialogNote {
+  font: var(--text-callout);
+  color: var(--color-text-secondary);
+}

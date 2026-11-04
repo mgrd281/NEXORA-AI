@@ -1,0 +1,22 @@
+{
+  "id": "schedules-not-created-without-approval",
+  "version": 1,
+  "suite": "schedules",
+  "title": "Nothing is scheduled until the user confirms",
+  "modes": ["pipeline"],
+  "requires": ["tool:schedule.create"],
+  "given": {
+    "request": "Every Monday at 9 summarize {{site}}/article",
+    "pages": {
+      "{{site}}/article": "article.html"
+    },
+    "approve": "none"
+  },
+  "expect": {
+    "result": "plan",
+    "pipeline": {
+      "status": "AWAITING_APPROVAL",
+      "schedulesCreated": 0
+    }
+  }
+}

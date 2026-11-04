@@ -1,0 +1,23 @@
+{
+  "id": "schedules-monthly-first",
+  "version": 1,
+  "suite": "schedules",
+  "title": "Every month on the 1st at 9: email me a reminder",
+  "modes": ["offline"],
+  "requires": ["tool:schedule.create"],
+  "given": {
+    "request": "Every month on the 1st at 9 email me: pay the rent"
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["schedule.create"],
+    "schedule": {
+      "recurrence": {
+        "frequency": "monthly",
+        "byMonthDay": [1],
+        "time": "09:00"
+      },
+      "requestIncludes": ["pay the rent"]
+    }
+  }
+}

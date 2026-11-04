@@ -74,6 +74,15 @@ const common = {
     emailSend: 'Send email',
     memorySave: 'Save to memory',
     assistantAnswer: 'Answer',
+    documentAnalyze: 'Analyze a document',
+    textTranslate: 'Translate',
+    scheduleCreate: 'Create a schedule',
+    conversationRecall: 'Use an earlier result',
+    assistantClarify: 'Ask you a question',
+  },
+  /** A completed task that ended with a clarifying question (TaskOutcome 'question'). */
+  outcome: {
+    question: 'Needs your answer',
   },
   source: {
     text: 'Typed',

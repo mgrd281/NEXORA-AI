@@ -1,16 +1,22 @@
 'use client';
 
 import type { TaskSummary } from '@jarvis/contracts';
-import { TriangleAlert } from 'lucide-react';
+import { Paperclip, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { StatusPill } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Icon } from '@/components/ui/Icon';
 import { RelativeTime } from '@/components/ui/RelativeTime';
 import { useI18n } from '@/i18n/I18nProvider';
-import { errorLine, serverText, type ServerTextI18n } from '@/i18n/server-message';
+import {
+  errorLine,
+  renderServerMessage,
+  serverText,
+  type ServerTextI18n,
+} from '@/i18n/server-message';
 import { useNow } from '@/lib/hooks/useNow';
 import { cx } from '@/lib/cx';
-import { TaskStatusPill } from './TaskStatusPill';
+import { TaskStatusPill, taskStateLabel } from './TaskStatusPill';
 import styles from './TaskRow.module.css';
 
 /**
@@ -24,9 +30,14 @@ export function taskLine(
   task: Pick<
     TaskSummary,
     'status' | 'resultSummary' | 'resultSummaryMessage' | 'error' | 'request'
-  >,
+  > &
+    Partial<Pick<TaskSummary, 'outcome' | 'question'>>,
 ): string {
   if (task.status === 'FAILED' && task.error) return errorLine(i18n, task.error);
+  // A clarifying question: what JARVIS asks, in the viewer's language when the server wrote it.
+  if (task.status === 'COMPLETED' && task.outcome === 'question' && task.question) {
+    return renderServerMessage(i18n, task.question.message) ?? task.question.text;
+  }
   if (task.resultSummary !== null || task.resultSummaryMessage)
     return serverText(i18n, task.resultSummaryMessage, task.resultSummary ?? task.request);
   return task.request;
@@ -60,7 +71,7 @@ export function TaskRow({
   const { t, f } = i18n;
   const now = useNow();
   const title = taskTitle(i18n, task);
-  const status = t(`common.taskStatus.${task.status}`);
+  const status = taskStateLabel(t, task);
   const updated = now === 0 ? f.dateTime(task.updatedAt) : f.relative(task.updatedAt, now);
   const showProgress = task.status === 'RUNNING' && task.progress.total > 0;
   const approvalId = task.pendingApprovalId;
@@ -83,7 +94,18 @@ export function TaskRow({
         </span>
       </div>
       <div className={styles.meta}>
-        <TaskStatusPill status={task.status} />
+        <TaskStatusPill status={task.status} outcome={task.outcome} />
+        {(task.attachmentCount ?? 0) > 0 && (
+          <span className={styles.files}>
+            <Icon icon={Paperclip} size={16} />
+            <span className="visually-hidden">
+              {t('attachments.count', { count: task.attachmentCount ?? 0 })}
+            </span>
+            <span aria-hidden="true" className="tabular">
+              {f.number(task.attachmentCount ?? 0)}
+            </span>
+          </span>
+        )}
         {/* The waiting decision acts on content flagged as instructions aimed at AI. */}
         {task.pendingApproval?.untrustedSource && (
           <StatusPill tone="warning" icon={TriangleAlert} label={t('approvals.untrusted.chip')} />

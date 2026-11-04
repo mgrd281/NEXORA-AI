@@ -1,0 +1,27 @@
+{
+  "id": "planning-email-note-en",
+  "version": 1,
+  "suite": "planning",
+  "title": "Email me a note",
+  "modes": ["offline", "pipeline"],
+  "given": {
+    "request": "Email me: buy milk and eggs on the way home",
+    "approve": "all"
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["email.send"],
+    "recipientsExactly": ["{{me}}"],
+    "policy": [
+      {
+        "step": 0,
+        "decision": "require_approval",
+        "reasonsInclude": ["RISK_MEDIUM", "RECIPIENT_SELF"]
+      }
+    ],
+    "pipeline": {
+      "status": "COMPLETED",
+      "sideEffectsExactly": 1
+    }
+  }
+}

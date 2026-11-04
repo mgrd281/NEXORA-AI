@@ -1,0 +1,22 @@
+{
+  "id": "documents-markdown-what-is-in",
+  "version": 1,
+  "suite": "documents",
+  "title": "\"What's in this file?\" reads the attached file",
+  "modes": ["offline"],
+  "requires": ["tool:document.analyze"],
+  "given": {
+    "request": "What's in this file?",
+    "attachments": [
+      {
+        "filename": "handbook.md",
+        "mediaType": "text/markdown",
+        "fixture": "handbook.md"
+      }
+    ]
+  },
+  "expect": {
+    "result": "plan",
+    "toolSequence": ["document.analyze"]
+  }
+}
