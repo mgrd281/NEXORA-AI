@@ -3,8 +3,16 @@ import SwiftUI
 /// Appointments JARVIS booked or tried to book, newest first (read-only records).
 struct BookingsView: View {
     @Environment(AppModel.self) private var app
-    @State private var model = PagedListModel<Booking>(eventType: .bookingChanged) { api, cursor in
-        try await api.bookings(cursor: cursor)
+    @State private var model: PagedListModel<Booking>
+
+    /// Built in `init` (not as a property default): the model is main-actor isolated and its
+    /// fetch closure calls the `APIClient` actor, which a default value cannot combine.
+    init() {
+        _model = State(
+            initialValue: PagedListModel<Booking>(eventType: .bookingChanged) { api, cursor in
+                try await api.bookings(cursor: cursor)
+            }
+        )
     }
 
     var body: some View {

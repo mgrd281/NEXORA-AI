@@ -4,8 +4,16 @@ import SwiftUI
 /// happened, with the merchant's confirmation as evidence.
 struct OrdersView: View {
     @Environment(AppModel.self) private var app
-    @State private var model = PagedListModel<Order>(eventType: .orderChanged) { api, cursor in
-        try await api.orders(cursor: cursor)
+    @State private var model: PagedListModel<Order>
+
+    /// Built in `init` (not as a property default): the model is main-actor isolated and its
+    /// fetch closure calls the `APIClient` actor, which a default value cannot combine.
+    init() {
+        _model = State(
+            initialValue: PagedListModel<Order>(eventType: .orderChanged) { api, cursor in
+                try await api.orders(cursor: cursor)
+            }
+        )
     }
 
     var body: some View {
