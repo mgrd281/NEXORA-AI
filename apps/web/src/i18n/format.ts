@@ -31,9 +31,11 @@ export interface Formatters {
   /** Integer micro-dollars → localized USD. Sub-cent amounts keep two significant digits. */
   currency(microUsd: number): string;
   /**
-   * A duration in milliseconds: "107 ms", "2 s", "1 min 5 s". `prose` (default) reads as
-   * words where a locale's abbreviations are unnatural (Arabic: "107 ملّي ثانية"); `compact`
-   * is for tables and chips: Arabic then uses the international symbols in an LTR-isolated run.
+   * A duration in milliseconds. `prose` (default) uses the locale's own units ("1 Min. 5 Sek.")
+   * and reads as words where a locale's abbreviations are unnatural (Arabic: "107 ملّي ثانية").
+   * `compact` is for tables and chips (latencies): the international symbols in every locale,
+   * one decimal below 10 s — "412 ms", "1,9 s", "18 s", "1 min 5 s", "1 h 5 min" — numbers in
+   * the locale's notation; in Arabic the run is LTR-isolated.
    */
   duration(ms: number, style?: 'prose' | 'compact'): string;
   list(items: readonly string[], type?: Intl.ListFormatType): string;
@@ -43,6 +45,7 @@ export function createFormatters(locale: Locale, timeZone?: string): Formatters 
   const tag = INTL_LOCALE[locale];
   const tz = timeZone && isValidTimeZone(timeZone) ? timeZone : undefined;
   const numberFmt = new Intl.NumberFormat(tag);
+  const decimalFmt = new Intl.NumberFormat(tag, { maximumFractionDigits: 1 });
   const percentFmt = new Intl.NumberFormat(tag, { style: 'percent', maximumFractionDigits: 0 });
   const dateFmt = new Intl.DateTimeFormat(tag, { dateStyle: 'medium', timeZone: tz });
   const timeFmt = new Intl.DateTimeFormat(tag, { timeStyle: 'short', timeZone: tz });
@@ -73,11 +76,11 @@ export function createFormatters(locale: Locale, timeZone?: string): Formatters 
     return fmt.format(items);
   };
   const durationFmts = new Map<string, Intl.NumberFormat>();
-  const unitFmt = (unit: DurationUnit, display: 'short' | 'long', tagFor = tag) => {
-    const key = `${unit}:${display}:${tagFor}`;
+  const unitFmt = (unit: DurationUnit, display: 'short' | 'long') => {
+    const key = `${unit}:${display}`;
     let fmt = durationFmts.get(key);
     if (!fmt) {
-      fmt = new Intl.NumberFormat(tagFor, { style: 'unit', unit, unitDisplay: display });
+      fmt = new Intl.NumberFormat(tag, { style: 'unit', unit, unitDisplay: display });
       durationFmts.set(key, fmt);
     }
     return fmt;
@@ -109,13 +112,15 @@ export function createFormatters(locale: Locale, timeZone?: string): Formatters 
       return money.format(usd);
     },
     duration(ms, style = 'prose') {
+      if (style === 'compact') {
+        const text = compactDuration(ms, (n, decimal) =>
+          (decimal ? decimalFmt : numberFmt).format(n),
+        );
+        return locale === 'ar' ? `\u2066${text}\u2069` : text;
+      }
       // Arabic short units ("ملي ث", "ث") read as abbreviations nobody writes: words joined
-      // with "و" in prose, the international symbols (LTR-isolated) in compact places.
+      // with "و" in prose.
       if (locale === 'ar') {
-        if (style === 'compact') {
-          const parts = durationParts(ms, (u, n) => unitFmt(u, 'short', 'en-US').format(n));
-          return `\u2066${parts.join(' ')}\u2069`;
-        }
         const parts = durationParts(ms, (u, n) => unitFmt(u, 'long').format(n));
         return list(parts).replace(/ملي(?=\s*ثانية)/g, 'ملّي');
       }
@@ -126,6 +131,23 @@ export function createFormatters(locale: Locale, timeZone?: string): Formatters 
 }
 
 type DurationUnit = 'millisecond' | 'second' | 'minute' | 'hour';
+
+const SYMBOL: Record<DurationUnit, string> = {
+  millisecond: 'ms',
+  second: 's',
+  minute: 'min',
+  hour: 'h',
+};
+
+/** 412 → "412 ms", 1_890 → "1.9 s", 18_400 → "18 s", 65_000 → "1 min 5 s" (no-break spaces). */
+function compactDuration(ms: number, num: (n: number, decimal?: boolean) => string): string {
+  const value = Math.max(0, ms);
+  const sym = (u: DurationUnit, n: string) => `${n}\u00a0${SYMBOL[u]}`;
+  if (value < 999.5) return sym('millisecond', num(Math.round(value)));
+  // One decimal while it still says something (1.9 s, not 2 s); 9.96 s rounds up to 10 s.
+  if (value < 9_950) return sym('second', num(Math.round(value / 100) / 10, true));
+  return durationParts(value, (u, n) => sym(u, num(n))).join(' ');
+}
 
 /** 950 → ["950 ms"], 2_400 → ["2 s"], 65_000 → ["1 min", "5 s"], 3_900_000 → ["1 h", "5 min"]. */
 function durationParts(ms: number, unit: (u: DurationUnit, n: number) => string): string[] {

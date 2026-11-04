@@ -444,7 +444,7 @@ function MobileTopBar({
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLButtonElement>(null);
   const section = sectionFor(pathname);
-  const headingScrolledAway = useMainHeadingScrolledAway(pathname);
+  const { away: headingScrolledAway, scoped } = useMainHeading(pathname);
   return (
     <header className={styles.topbar}>
       {/* The lockup (ring before wordmark) never mirrors; only its place in the bar does. */}
@@ -464,12 +464,15 @@ function MobileTopBar({
           >
             {t('common.appName')}
           </span>
+          {/* A page in a language of its own (the admin page) names itself in that language,
+              as its h1 does; every other page shows its section in the shell's language. */}
           <span
             className={styles.topTitle}
             data-visible={headingScrolledAway || undefined}
-            dir={dir}
+            lang={scoped?.lang}
+            dir={scoped?.dir ?? dir}
           >
-            {t(section.label)}
+            {scoped?.text ?? t(section.label)}
           </span>
         </span>
       </div>
@@ -527,16 +530,44 @@ function MobileTopBar({
   );
 }
 
-/** True once the main content's h1 has scrolled under the mobile top bar. */
-function useMainHeadingScrolledAway(pathname: string): boolean {
+interface ScopedHeading {
+  text: string;
+  lang: string;
+  dir: 'ltr' | 'rtl';
+}
+
+/**
+ * Whether the main content's h1 has scrolled under the mobile top bar, and — when that h1 sits in
+ * a locale island (`data-locale-scope`, e.g. the admin page) — its text and language.
+ */
+function useMainHeading(pathname: string): { away: boolean; scoped: ScopedHeading | null } {
   const [away, setAway] = useState(false);
+  const [scoped, setScoped] = useState<ScopedHeading | null>(null);
   useEffect(() => {
     const main = document.getElementById('main');
     if (!main || typeof IntersectionObserver === 'undefined') return;
     let observed: Element | null = null;
     let io: IntersectionObserver | null = null;
+    const readScope = (heading: Element | null) => {
+      const island = heading?.closest<HTMLElement>('[data-locale-scope]');
+      const next: ScopedHeading | null =
+        heading && island?.lang
+          ? {
+              text: heading.textContent ?? '',
+              lang: island.lang,
+              dir: island.dir === 'rtl' ? 'rtl' : 'ltr',
+            }
+          : null;
+      setScoped((prev) =>
+        prev?.text === next?.text && prev?.lang === next?.lang && prev?.dir === next?.dir
+          ? prev
+          : next,
+      );
+    };
     const attach = () => {
       const heading = main.querySelector('h1');
+      // The island's language can change in place (the admin language switch).
+      readScope(heading);
       if (heading === observed) return;
       io?.disconnect();
       observed = heading;
@@ -550,7 +581,13 @@ function useMainHeadingScrolledAway(pathname: string): boolean {
       io.observe(heading);
     };
     const mo = new MutationObserver(attach);
-    mo.observe(main, { childList: true, subtree: true });
+    mo.observe(main, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['lang', 'dir'],
+    });
     const frame = requestAnimationFrame(attach);
     return () => {
       cancelAnimationFrame(frame);
@@ -558,7 +595,7 @@ function useMainHeadingScrolledAway(pathname: string): boolean {
       io?.disconnect();
     };
   }, [pathname]);
-  return away;
+  return { away, scoped };
 }
 
 function TabBar({ pathname, pendingApprovals }: { pathname: string; pendingApprovals: number }) {

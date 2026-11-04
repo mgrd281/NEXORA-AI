@@ -1,3 +1,15 @@
+/* The admin language island (lang/dir of its own): body text re-based on its type metrics. */
+.scope {
+  font: var(--text-body);
+  min-width: 0;
+}
+
+/* "Deutsch" / "العربية" in the language switch: each name in its own script's metrics. */
+.languageName {
+  font: var(--text-label);
+  font-weight: inherit;
+}
+
 .headerActions {
   display: flex;
   flex-wrap: wrap;
@@ -124,6 +136,20 @@
   font: var(--text-caption);
   letter-spacing: var(--tracking-caption);
   color: var(--color-text-secondary);
+}
+
+/* A warning in a tile caption ("Im Rückstand: …") wraps; it is never cut off with an ellipsis. */
+.tileCaption .captionBadge {
+  align-items: flex-start;
+  block-size: auto;
+  min-block-size: 22px;
+  padding-block: 3px;
+  border-radius: var(--radius-md);
+  white-space: normal;
+}
+
+.tileCaption .captionBadge > :last-child {
+  overflow: visible;
 }
 
 .dot {
@@ -268,12 +294,13 @@
   }
 }
 
-/* Long names wrap on wide screens instead of pushing columns out of view. */
+/* Long names wrap between words instead of pushing columns out of view; a single long word
+   ("Steuerberatungsgesellschaft") widens its column (the table scrolls) rather than breaking. */
 .table .wrap {
   white-space: normal;
   min-inline-size: calc(var(--space-16) * 2.5);
   max-inline-size: calc(var(--space-16) * 4);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .table .wrapEmail {
@@ -312,10 +339,6 @@
 
 .muted {
   color: var(--color-text-tertiary);
-}
-
-.monoPrimary {
-  color: var(--color-text-primary);
 }
 
 .table .end {

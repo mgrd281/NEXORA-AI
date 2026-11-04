@@ -35,6 +35,7 @@ import { isApiError } from '@/lib/api/client';
 import { useMe } from '@/lib/api/hooks';
 import { qk } from '@/lib/api/query-keys';
 import { cx } from '@/lib/cx';
+import { AdminLanguageSwitch } from './AdminLocale';
 import { useAdminAudit, useAdminOverview, useAdminUsers } from './api';
 import {
   auditEventKey,
@@ -57,14 +58,14 @@ export function AdminScreen() {
   const isAdmin = me.data?.roles.includes('platform_admin') ?? false;
   if (me.isPending) {
     return (
-      <Page title={t('admin.title')} width="wide">
+      <Page title={t('admin.title')} width="wide" actions={<AdminLanguageSwitch />}>
         <OverviewSkeleton />
       </Page>
     );
   }
   if (me.isError) {
     return (
-      <Page title={t('admin.title')} width="wide">
+      <Page title={t('admin.title')} width="wide" actions={<AdminLanguageSwitch />}>
         <ErrorBanner error={me.error} onRetry={() => void me.refetch()} retrying={me.isFetching} />
       </Page>
     );
@@ -76,7 +77,7 @@ export function AdminScreen() {
 function Forbidden() {
   const { t } = useI18n();
   return (
-    <Page title={t('admin.title')}>
+    <Page title={t('admin.title')} actions={<AdminLanguageSwitch />}>
       <Card padding="none">
         <EmptyState
           icon={ShieldX}
@@ -115,6 +116,7 @@ function AdminDashboard() {
               />
             </span>
           )}
+          <AdminLanguageSwitch />
           <Button
             size="sm"
             icon={RefreshCw}
@@ -318,7 +320,7 @@ function QueueTile({ health }: { health: AdminOverview['health'] }) {
       }
       caption={
         behind && duration ? (
-          <Badge tone="warning" icon={TriangleAlert}>
+          <Badge tone="warning" icon={TriangleAlert} className={styles.captionBadge}>
             {t('admin.health.queueSlow', { duration })}
           </Badge>
         ) : ready === 0 ? (
@@ -352,7 +354,8 @@ function TasksByStatus({ byStatus }: { byStatus: Record<string, number> }) {
                   {r.known ? (
                     <TaskStatusPill status={r.status as TaskStatus} />
                   ) : (
-                    <Badge>{r.status}</Badge>
+                    // A status of a newer server: named generically, its code in the tooltip.
+                    <Badge title={r.status}>{t('admin.tasks.unknownStatus')}</Badge>
                   )}
                 </span>
                 <span className={styles.bar} aria-hidden="true">
@@ -410,10 +413,14 @@ function ToolReliability({ rows }: { rows: AdminOverview['toolReliability'] }) {
               return (
                 <tr key={r.toolId}>
                   <th scope="row">
-                    <span className={styles.cellStack}>
-                      <span>{key ? t(key) : r.toolId}</span>
-                      {key && <span className={cx(styles.mono, 'ltr')}>{r.toolId}</span>}
-                    </span>
+                    {key ? (
+                      <span title={r.toolId}>{t(key)}</span>
+                    ) : (
+                      <span className={styles.cellStack}>
+                        <span>{t('admin.tools.unknownTool')}</span>
+                        <span className={cx(styles.mono, 'ltr')}>{r.toolId}</span>
+                      </span>
+                    )}
                   </th>
                   <td className={styles.num}>{f.number(r.executions)}</td>
                   <td className={styles.num}>
@@ -693,7 +700,7 @@ function AuditSection() {
               {rows.map((row) => (
                 <tr key={row.key}>
                   <th scope="row">
-                    <AuditEventText row={row} withKey />
+                    <AuditEventText row={row} />
                   </th>
                   <td>
                     <AuditActor event={row.event} emails={emails} />
@@ -736,29 +743,26 @@ function AuditSection() {
   );
 }
 
-/** "Signed in" (with the raw action key as a caption), or "Viewed admin pages 12 times". */
-function AuditEventText({
-  row,
-  withKey = false,
-}: {
-  row: AuditRow<AuditEvent>;
-  withKey?: boolean;
-}) {
+/**
+ * "Angemeldet" / "تسجيل الدخول" (the raw action key only in the tooltip), or "Administration
+ * 12 Mal aufgerufen". An action of a newer server reads "Other event" with its key beside it.
+ */
+function AuditEventText({ row }: { row: AuditRow<AuditEvent> }) {
   const { t } = useI18n();
   if (row.kind === 'adminViews') {
     return <span>{t('admin.audit.adminViews', { count: row.count })}</span>;
   }
   const action = row.event.action;
   const key = auditEventKey(action);
-  if (!key) return <span className={cx(styles.mono, styles.monoPrimary, 'ltr')}>{action}</span>;
-  return withKey ? (
-    <span className={styles.cellStack}>
-      <span>{t(key)}</span>
-      <span className={cx(styles.mono, 'ltr')}>{action}</span>
-    </span>
-  ) : (
-    <span title={action}>{t(key)}</span>
-  );
+  if (!key) {
+    return (
+      <span className={styles.cellStack}>
+        <span>{t('admin.audit.unknownEvent')}</span>
+        <span className={cx(styles.mono, 'ltr')}>{action}</span>
+      </span>
+    );
+  }
+  return <span title={action}>{t(key)}</span>;
 }
 
 /**
@@ -820,7 +824,11 @@ function AuditTarget({ event, emails }: { event: AuditEvent; emails: Map<string,
   const email = event.targetType === 'user' && id ? emails.get(id) : undefined;
   return (
     <span className={styles.target} title={id ?? undefined}>
-      <span>{key ? t(key) : event.targetType}</span>
+      {key ? (
+        <span>{t(key)}</span>
+      ) : (
+        <span title={event.targetType}>{t('admin.audit.unknownTarget')}</span>
+      )}
       {email ? (
         <span className="ltr">{email}</span>
       ) : id ? (

@@ -21,6 +21,7 @@ NEXT_DIST_DIR=.next-foundation pnpm --filter @jarvis/web build
 | `components/presence`                               | Presence ring + `presenceFromTask` / `deriveAssistantPresence`                        |
 | `components/{composer,approvals,voice,tasks,shell}` | Shared feature components                                                             |
 | `i18n`                                              | Catalogs (`messages/{en,de,ar}/<namespace>.ts`), `t()`, formatters                    |
+| `features/admin`                                    | Admin page; its German/Arabic language scope (`locale.ts`, `AdminLocale.tsx`)         |
 | `lib/api`                                           | Typed client (`api.call`), `ApiError`, query keys (`qk`), shared hooks                |
 | `lib/events`                                        | `EventStreamProvider`, `useStreamEvent`, `useAnswerStream`, invalidation map          |
 | `proxy.ts`                                          | Per-request nonce CSP                                                                 |
@@ -39,6 +40,44 @@ NEXT_DIST_DIR=.next-foundation pnpm --filter @jarvis/web build
   truncating line takes `dir="auto"` itself (see TaskRow) so the ellipsis follows the text.
   `t()` wraps every interpolated string in FSI…PDI; URLs, emails, hashes go in `.ltr` spans.
 - Icons only via `<Icon icon={…} />` (lucide), `mirror` for directional ones.
+
+## Admin language (German / Arabic only)
+
+`/admin` speaks **German or Arabic, never English**, whatever the profile's language: German unless
+the administrator picked Arabic in the page's header switch (“Deutsch | العربية”, each name in its
+own language and `lang`). The choice is the `jarvis_admin_locale` cookie of this browser
+(`ar` → Arabic, anything else or none → German; `features/admin/locale.ts`), read on the server by
+`getAdminI18n()` (`features/admin/server.ts`) for the page and its `<title>`, so the first paint is
+already right; switching writes the cookie and refreshes the server components. It never touches
+the profile (`PATCH /v1/me`) or `jarvis_locale`.
+
+- **One catalog, one scope.** The page renders inside `<AdminScope>` (`features/admin/AdminLocale`):
+  an `I18nScope` (nested provider: own locale and formatters, the account's time zone from the app
+  provider) around an element with the admin `lang`/`dir`, marked `data-locale-scope`. Only the
+  `admin`, `common` and `errors` namespaces of that locale travel to the browser
+  (`ADMIN_NAMESPACES`); a key outside them renders as the key, never in another language. English
+  admin keys stay in `messages/en/admin.ts` as the catalog's source (types, identical-keys test) and
+  are never shown on `/admin`.
+- **Everything in the scope follows the admin language:** copy, numbers, dates, relative times,
+  durations (`f.duration(ms, 'compact')`: “412 ms”, “1,9 s” — the international symbols in every
+  locale), percentages, money, RTL mirroring. Server values are always named: roles, account
+  states, actors, task states, every tool (`TOOL_LABEL`) and every audit action and object type the
+  API records (`test/admin-locale.test.ts` scans `apps/api/src`); raw keys and tool ids appear only
+  in tooltips, or beside “Anderes Ereignis / حدث آخر” for a value of a newer server.
+- **Mixed directions.** The shell (sidebar, top bar, tab bar, shell banners) keeps the profile's
+  language and direction; the admin content is a self-contained island in its own (an English
+  shell around an Arabic RTL page, an Arabic shell around a German LTR page). The page's own header
+  — h1, description, “Stand” / switch / refresh — always belongs to the island. Decision: the phone
+  top bar's title, which stands in for the h1 once it scrolls away, names a `data-locale-scope` page
+  in that page's language (“Administration” / “لوحة الإدارة”, with its `lang`/`dir`) instead of the
+  shell's section name — otherwise an English profile would see “Admin” over an Arabic page and an
+  Arabic one “الإدارة” over a German page. Sidebar and tab-bar entries stay in the shell's language
+  (they are navigation, like every other destination).
+
+Tests: `test/admin-locale.test.ts` (resolution, scoped catalog, namespaces used, server values,
+no Latin words in the Arabic admin copy), `e2e/visual/admin.spec.ts` (de + ar × light + dark on
+desktop and phone, the switch incl. server-rendered first paint and title, four mixed shell/admin
+cases, no English copy or raw values for an English profile, values of a newer server, axe).
 
 ## Phase B screens (docs/architecture/phase-b.md)
 

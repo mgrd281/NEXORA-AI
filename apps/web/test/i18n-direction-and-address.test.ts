@@ -94,7 +94,23 @@ describe('durations', () => {
   it('reads as words in Arabic prose and as LTR symbols in compact places', () => {
     const ar = createFormatters('ar');
     expect(ar.duration(107)).toBe('107 ملّي ثانية');
-    expect(stripIsolates(ar.duration(107, 'compact'))).toBe('107 ms');
+    expect(stripIsolates(ar.duration(107, 'compact'))).toBe('107\u00a0ms');
     expect(createFormatters('en').duration(65_000)).toBe('1 min 5 sec');
+  });
+
+  it('uses the international symbols in compact places, one decimal below 10 s', () => {
+    const de = createFormatters('de');
+    const ar = createFormatters('ar');
+    const nb = (s: string) => s.replace(/ /g, '\u00a0');
+    expect(de.duration(412, 'compact')).toBe(nb('412 ms'));
+    expect(de.duration(1_890, 'compact')).toBe(nb('1,9 s'));
+    expect(de.duration(999.7, 'compact')).toBe(nb('1 s'));
+    expect(de.duration(9_960, 'compact')).toBe(nb('10 s'));
+    expect(de.duration(65_000, 'compact')).toBe(`${nb('1 min')} ${nb('5 s')}`);
+    expect(de.duration(3_900_000, 'compact')).toBe(`${nb('1 h')} ${nb('5 min')}`);
+    // Arabic: Western digits, the same symbols, one LTR-isolated run; never "sec".
+    expect(ar.duration(1_890, 'compact')).toBe(`\u2066${nb('1.9 s')}\u2069`);
+    expect(stripIsolates(ar.duration(3_105, 'compact'))).toBe(nb('3.1 s'));
+    expect(ar.duration(65_000, 'compact')).not.toMatch(/sec|min\b.*sec/);
   });
 });

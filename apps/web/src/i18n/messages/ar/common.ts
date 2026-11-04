@@ -81,7 +81,7 @@ const common: Catalog<typeof source> = {
     textTranslate: 'ترجمة',
     scheduleCreate: 'إنشاء جدول',
     conversationRecall: 'استخدام نتيجة سابقة',
-    assistantClarify: 'طرح سؤال عليك',
+    assistantClarify: 'طرح سؤال توضيحي',
     emailSearch: 'البحث في البريد',
     emailReadThread: 'قراءة سلسلة رسائل',
     emailDraftReply: 'صياغة مسودة رد',

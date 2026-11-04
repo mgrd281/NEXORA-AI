@@ -1,6 +1,7 @@
-import { TaskStatus } from '@jarvis/contracts';
+import { TaskStatus, type ToolId } from '@jarvis/contracts';
 import type { MessageKey } from '@/i18n/catalog';
 import adminSource from '@/i18n/messages/en/admin';
+import { TOOL_LABEL } from '@/i18n/server-message';
 
 /** Share of executions that succeeded, or null when a tool has not run. */
 export function successRate(succeeded: number, executions: number): number | null {
@@ -13,17 +14,9 @@ export function shortId(id: string): string {
   return id.length > 8 ? id.slice(0, 8) : id;
 }
 
-const TOOL_KEYS: Record<string, MessageKey> = {
-  'web.fetch': 'common.tools.webFetch',
-  'text.summarize': 'common.tools.textSummarize',
-  'email.send': 'common.tools.emailSend',
-  'memory.save': 'common.tools.memorySave',
-  'assistant.answer': 'common.tools.assistantAnswer',
-};
-
-/** The localized name of a tool, or null for a tool this client does not know. */
+/** The localized name of a tool (every tool of the contracts), or null for an unknown one. */
 export function toolLabelKey(toolId: string): MessageKey | null {
-  return TOOL_KEYS[toolId] ?? null;
+  return Object.hasOwn(TOOL_LABEL, toolId) ? TOOL_LABEL[toolId as ToolId] : null;
 }
 
 export interface StatusCount {
@@ -60,7 +53,8 @@ const AUDIT_TARGETS: Record<string, string> = adminSource.audit.targets;
 
 /**
  * The localized sentence for an audit action ('auth.login' → 'admin.audit.events.auth.login'),
- * or null for an action this client has no wording for (it is then shown as its raw key).
+ * or null for an action this client has no wording for (a newer server: it is then shown as
+ * "Other event" with its key).
  */
 export function auditEventKey(action: string): MessageKey | null {
   const dot = action.indexOf('.');
