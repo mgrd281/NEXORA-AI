@@ -74,7 +74,10 @@ const planningInput = (request: string): PlanningInput => ({
   request,
   language: 'en',
   account: { displayName: 'Owner', email: OWN, locale: 'en', timeZone: 'Europe/Berlin' },
-  tools: listTools(),
+  // A catalog small enough for the strict per-tool schema (large ones use the lean schema).
+  tools: listTools().filter((t) =>
+    ['web.fetch', 'text.summarize', 'email.send', 'assistant.clarify'].includes(t.id),
+  ),
   memories: ['I prefer short summaries'],
   now: new Date('2026-11-03T10:00:00Z'),
 });
@@ -219,6 +222,28 @@ describe('Anthropic adapter + model planner', () => {
     });
     expect(calls[0]!.model).toBe('claude-sonnet-5-5');
     expect(calls[0]!.output_config).toMatchObject({ effort: 'medium' });
+  });
+
+  it('plans with the lean schema (input as JSON text) for the full tool catalog', async () => {
+    const lean = {
+      ...validPlan,
+      steps: validPlan.steps.map((st) => ({ ...st, input: JSON.stringify(st.input) })),
+    };
+    const { client, calls } = fakeClient([message(JSON.stringify(lean))]);
+    const out = await planTask(
+      { config, adapter: createAnthropicAdapter({ client }), route },
+      {
+        ...planningInput('Summarize https://example.com/a and email it to me'),
+        tools: listTools(),
+      },
+    );
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.plan.steps[0]!.input).toEqual({ url: 'https://example.com/a' });
+    const schema = JSON.stringify(
+      (calls[0]!.output_config as { format: { schema: unknown } }).format.schema,
+    );
+    expect(schema).not.toContain('anyOf');
   });
 
   it('treats a truncated plan (max_tokens) as invalid and repairs', async () => {

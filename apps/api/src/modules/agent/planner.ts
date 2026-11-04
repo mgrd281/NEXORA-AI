@@ -178,6 +178,92 @@ export function planOutputSchema(tools: AnyTool[]) {
   });
 }
 
+/**
+ * Anthropic compiles structured-output schemas into a grammar and caps them: at most 24
+ * optional parameters and 16 union-typed (anyOf / nullable) parameters in total, and an
+ * internal grammar size ("Schema is too complex for compilation"). A catalog with many
+ * tools (Gmail, calendar, web, memory …) exceeds that, so the strict per-tool schema is
+ * used only while it fits.
+ */
+export const STRICT_SCHEMA_LIMITS = { optional: 24, unions: 16 } as const;
+
+export function strictSchemaStats(schema: z.ZodType): { optional: number; unions: number } {
+  let optional = 0;
+  let unions = 0;
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) return node.forEach(walk);
+    if (!node || typeof node !== 'object') return;
+    const n = node as Record<string, unknown>;
+    if (n.properties && typeof n.properties === 'object') {
+      const required = new Set(Array.isArray(n.required) ? (n.required as string[]) : []);
+      for (const [key, child] of Object.entries(n.properties as Record<string, unknown>)) {
+        if (!required.has(key)) optional++;
+        if (child && typeof child === 'object') {
+          const c = child as Record<string, unknown>;
+          if (Array.isArray(c.anyOf) || Array.isArray(c.oneOf) || Array.isArray(c.type)) unions++;
+        }
+      }
+    }
+    for (const v of Object.values(n)) walk(v);
+  };
+  walk(z.toJSONSchema(schema, { io: 'input', unrepresentable: 'any' }));
+  return { optional, unions };
+}
+
+export function fitsStrictLimits(schema: z.ZodType): boolean {
+  const s = strictSchemaStats(schema);
+  // Margin: the nested step union itself and the compiled grammar size are not counted above.
+  return (
+    s.optional <= STRICT_SCHEMA_LIMITS.optional - 4 && s.unions <= STRICT_SCHEMA_LIMITS.unions - 4
+  );
+}
+
+/**
+ * Lean plan schema for large tool catalogs: each step carries its input as JSON text, which
+ * is parsed and then validated against the tool's own input schema by validatePlan (the same
+ * validation the strict schema is followed by), so no safety check is weakened.
+ */
+export function planOutputSchemaLean(tools: AnyTool[]) {
+  const ids = tools.map((t) => t.id) as [string, ...string[]];
+  return z.object({
+    title: z.string().describe('Plan title, at most 80 characters, in the request language'),
+    objective: z.string().describe('One sentence: what the plan achieves'),
+    steps: z
+      .array(
+        z.object({
+          key: z.string().describe('s1, s2, … in order'),
+          toolId: z.enum(ids),
+          title: z.string().describe('Short step title in the request language'),
+          input: z
+            .string()
+            .describe(
+              "The tool's input as one JSON object serialized to text, exactly per its input schema",
+            ),
+        }),
+      )
+      .min(1)
+      .max(MAX_STEPS),
+  });
+}
+
+/** Lean steps → plan candidate (inputs parsed). Unparseable input becomes a repair issue. */
+export function expandLeanPlan(
+  value: z.infer<ReturnType<typeof planOutputSchemaLean>>,
+): { ok: true; plan: unknown } | { ok: false; issues: string[] } {
+  const issues: string[] = [];
+  const steps = value.steps.map((step) => {
+    // An adapter (or test double) that already returns the object is accepted as is.
+    if (typeof step.input !== 'string') return step;
+    try {
+      return { ...step, input: JSON.parse(step.input) as unknown };
+    } catch {
+      issues.push(`steps.${step.key}.input: not valid JSON`);
+      return { ...step, input: {} };
+    }
+  });
+  return issues.length ? { ok: false, issues } : { ok: true, plan: { ...value, steps } };
+}
+
 /* ------------------------------------------------------------------ */
 /* Planning                                                            */
 /* ------------------------------------------------------------------ */
@@ -286,7 +372,9 @@ export async function planTask(
     };
   }
   const system = buildSystemPrompt(input.tools);
-  const schema = planOutputSchema(input.tools);
+  const strict = planOutputSchema(input.tools);
+  const lean = !fitsStrictLimits(strict);
+  const schema: z.ZodType = lean ? planOutputSchemaLean(input.tools) : strict;
   const userMessage = buildUserMessage(input);
   const usage: ModelUsage[] = [];
 
@@ -332,11 +420,23 @@ export async function planTask(
       return { ok: false, error: e, planner, usage: [...usage, ...e.usage] };
     }
     usage.push(result.usage);
-    if (result.ok) {
-      const checked = validatePlan(result.value, validationCtx);
+    let candidate: unknown = result.ok ? result.value : undefined;
+    let expandIssues: string[] | null = null;
+    if (result.ok && lean) {
+      const expanded = expandLeanPlan(
+        result.value as z.infer<ReturnType<typeof planOutputSchemaLean>>,
+      );
+      if (expanded.ok) candidate = expanded.plan;
+      else expandIssues = expanded.issues;
+    }
+    if (result.ok && expandIssues) {
+      issues = expandIssues;
+      previous = JSON.stringify(result.value);
+    } else if (result.ok) {
+      const checked = validatePlan(candidate, validationCtx);
       if (checked.ok) return { ok: true, plan: checked.plan, planner, usage };
       issues = checked.issues;
-      previous = JSON.stringify(result.value);
+      previous = JSON.stringify(candidate);
     } else {
       issues = result.issues;
       previous = result.raw;

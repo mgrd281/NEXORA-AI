@@ -168,3 +168,30 @@ describe('text.translate checks', () => {
     ]);
   });
 });
+
+describe('large tool catalogs use the lean plan schema', () => {
+  it('the full catalog exceeds the strict-schema limits; a small one fits', async () => {
+    const { fitsStrictLimits, planOutputSchema, planOutputSchemaLean } =
+      await import('../../../src/modules/agent/planner');
+    const all = listTools();
+    expect(fitsStrictLimits(planOutputSchema(all))).toBe(false);
+    expect(fitsStrictLimits(planOutputSchema(all.slice(0, 3)))).toBe(true);
+    // The lean schema has no per-tool unions or optional fields at all.
+    expect(fitsStrictLimits(planOutputSchemaLean(all))).toBe(true);
+  });
+
+  it('parses step input JSON text, and reports unparseable input', async () => {
+    const { expandLeanPlan } = await import('../../../src/modules/agent/planner');
+    const base = { title: 't', objective: 'o' };
+    const ok = expandLeanPlan({
+      ...base,
+      steps: [{ key: 's1', toolId: 'web.fetch', title: 'x', input: '{"url":"https://a.b"}' }],
+    });
+    expect(ok).toMatchObject({ ok: true });
+    const bad = expandLeanPlan({
+      ...base,
+      steps: [{ key: 's1', toolId: 'web.fetch', title: 'x', input: '{oops' }],
+    });
+    expect(bad).toEqual({ ok: false, issues: ['steps.s1.input: not valid JSON'] });
+  });
+});

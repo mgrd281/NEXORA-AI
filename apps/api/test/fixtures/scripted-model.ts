@@ -54,7 +54,19 @@ export class ScriptedModel implements ModelAdapter {
     this.record(req as ObjectRequest<unknown>);
     if (!this.script.object) throw new Error(`no scripted object response for ${req.purpose}`);
     const value = await this.script.object(req as ObjectRequest<unknown>);
-    const parsed = req.schema.safeParse(value);
+    let parsed = req.schema.safeParse(value);
+    // Large tool catalogs plan with the lean schema (step input as JSON text): scripted
+    // plans are written as objects, so serialize their inputs the way the model would.
+    if (!parsed.success && req.purpose === 'planning') {
+      const v = value as { steps?: { input?: unknown }[] } | null;
+      if (v && Array.isArray(v.steps))
+        parsed = req.schema.safeParse({
+          ...v,
+          steps: v.steps.map((st) =>
+            typeof st.input === 'string' ? st : { ...st, input: JSON.stringify(st.input) },
+          ),
+        });
+    }
     const u = usage(req.purpose, req.model, 2_000, 600);
     return parsed.success
       ? { ok: true, value: parsed.data, usage: u }
